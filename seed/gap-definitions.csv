@@ -1,0 +1,4 @@
+rubric_version,dimension_code,gap_code,gap_name,severity,trigger_json,description
+DRS-1.0,FIN,CUST_CONC,Customer Concentration Risk,critical,"{""type"":""question_below"",""question_code"":""FIN-02"",""threshold"":40}",EXAMPLE: Revenue overly dependent on one customer; buyers discount heavily or walk.
+DRS-1.0,FIN,FIN_QUALITY,Financial Statement Quality,high,"{""type"":""question_below"",""question_code"":""FIN-01"",""threshold"":75}",EXAMPLE: Books not review/audit grade; diligence will stall and erode trust.
+DRS-1.0,OWN,OWNER_DEP,Owner Dependence,critical,"{""type"":""dimension_below"",""threshold"":60}",EXAMPLE: Business value walks out the door with the owner.
