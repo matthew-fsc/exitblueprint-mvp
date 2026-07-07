@@ -4,9 +4,10 @@ Exit readiness platform for lower middle market business owners, distributed thr
 
 ## Non-negotiable architecture rules
 
-1. **Deterministic scoring.** The DRS score is produced by rule-based, versioned code. No LLM ever computes, adjusts, or influences a score. Every score must be reproducible and explainable from stored answers plus rubric version.
+1. **Deterministic scoring.** The DRS is produced by rule-based, versioned code: questions capture inputs, sub_scores compute and band derived metrics, dimensions weight sub-scores, DRS weights the six business dimensions. No LLM ever computes, adjusts, or influences a score. The executable reference implementation is seed/fixtures/reference_scorer.py; the engine is correct when it reproduces the fixture outputs exactly.
 2. **AI is narrative-only.** Claude API is used to write reports, briefs, and summaries FROM structured data. It never writes TO scoring tables. AI output is always labeled as draft narrative.
-3. **Rubric lives in data, not code.** Dimensions, questions, weights, and thresholds are rows in the database (seeded from /seed). The scoring engine reads them. Changing the methodology means inserting a new rubric_version, never editing engine logic per-dimension.
+3. **Rubric lives in data, not code.** Dimensions, questions, sub-scores, weights, bands, and thresholds are rows in the database (seeded from /seed, which is canonical methodology, not placeholder). Changing the methodology means inserting a new rubric_version, never editing engine logic per-dimension.
+3a. **Two score groups, never mixed.** business_readiness dimensions roll into the DRS; owner_readiness dimensions roll into the separate Owner Readiness Index (ORI). See docs/07-drs-methodology.md.
 4. **Engagement is the unit, not the deal.** Companies are assessed repeatedly. assessments are immutable snapshots tied to a rubric_version. Never update a completed assessment; create a new one. Score history and deltas are first-class.
 5. **Multi-tenant from day one.** Every domain table carries firm_id. Supabase row-level security enforces firm isolation on all tables. No cross-firm reads, ever, except a future anonymized benchmarking layer (out of scope until explicitly requested).
 6. **Versioning.** rubric_version on assessments, prompt_version on AI-generated documents, playbook_version on generated task sets.

@@ -17,7 +17,7 @@ Accept: migrations clean; RLS test passes.
 Accept: seed runs twice with identical end state; counts match CSVs.
 
 **S4. Scoring engine + tests.**
-"Implement scoreAssessment and explainAssessment per docs/03-scoring-engine-spec.md as a server function with unit tests against /seed/fixtures. Include determinism and immutability tests."
+"Implement scoreAssessment and explainAssessment per docs/03-scoring-engine-spec.md as a server function. Port the logic from seed/fixtures/reference_scorer.py; unit tests must reproduce the three fixture expected outputs exactly, plus determinism, immutability, and band-boundary tests from docs/03."
 Accept: all fixture scores match hand-computed values exactly.
 
 ## Phase 2 - Intake and report (MVP)
