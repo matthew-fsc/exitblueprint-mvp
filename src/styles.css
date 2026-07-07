@@ -568,3 +568,154 @@ button:disabled {
   font-size: 0.95rem;
   margin-right: 0.4rem;
 }
+
+/* --- engagement + intake ------------------------------------------------ */
+
+.section-heading {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.6rem;
+}
+
+.assessment-list {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.assessment-card {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.8rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.assessment-seq {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.assessment-score {
+  flex: 1;
+}
+
+.stepper {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.step {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #eef0f3;
+  color: var(--text-secondary);
+}
+
+.step-current {
+  background: #1a2233;
+  color: #fff;
+}
+
+.step-done {
+  background: #e3f2e8;
+  color: #1e6b3a;
+}
+
+.intake-dimension {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.intake-dimension h3 {
+  margin: 0;
+}
+
+.dimension-group {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 1rem;
+}
+
+.question {
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.question-prompt {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.question-help {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.context-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #eef0f3;
+  color: #5b6575;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.scale-row {
+  gap: 1.2rem;
+}
+
+.rank-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.3rem;
+  max-width: 24rem;
+}
+
+.rank-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.88rem;
+}
+
+.rank-buttons {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.intake-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+}

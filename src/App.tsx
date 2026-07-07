@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { isDevStack } from './lib/supabase';
 import LoginPage from './pages/LoginPage';
 import ClientsPage from './pages/ClientsPage';
+import EngagementPage from './pages/EngagementPage';
+import IntakePage from './pages/IntakePage';
 import HealthPage from './pages/HealthPage';
 import VerifyPage from './pages/VerifyPage';
 import type { ReactNode } from 'react';
@@ -63,6 +65,26 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <ClientsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <EngagementPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/assessment/:assessmentId/intake"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <IntakePage />
                 </Shell>
               </RequireAdvisor>
             }
