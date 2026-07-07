@@ -9,4 +9,8 @@ export default defineConfig(() => ({
     // real Supabase URL is configured. Production builds never include it.
     ...(process.env.VITE_SUPABASE_URL ? [] : [supabaseDevServer()]),
   ],
+  // GitHub Codespaces serves the dev server through *.app.github.dev.
+  ...(process.env.CODESPACES
+    ? { server: { host: true, allowedHosts: ['.app.github.dev'] } }
+    : {}),
 }));
