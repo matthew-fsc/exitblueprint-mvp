@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #1a2233;
+  background: #f6f7f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+}
+
+.page-header .subtitle {
+  margin: 0.25rem 0 0;
+  color: #5b6575;
+}
+
+.check-list {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.check {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.check-state {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #eef0f3;
+  color: #5b6575;
+}
+
+.check-ok .check-state {
+  background: #e3f2e8;
+  color: #1e6b3a;
+}
+
+.check-warn .check-state {
+  background: #fdf1dc;
+  color: #8a5a00;
+}
+
+.check-fail .check-state {
+  background: #fbe3e4;
+  color: #a32731;
+}
+
+.check-name {
+  font-weight: 600;
+}
+
+.check-detail {
+  color: #5b6575;
+  font-size: 0.9rem;
+}
