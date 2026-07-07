@@ -31,5 +31,7 @@ jobs:
       - run: npm ci
       - name: Apply migrations to a fresh database
         run: npm run db:migrate
+      - name: RLS firm-isolation test
+        run: npm run test:rls
       - name: Build app
         run: npm run build
