@@ -6,6 +6,7 @@ import ClientsPage from './pages/ClientsPage';
 import EngagementPage from './pages/EngagementPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
+import ReportPage from './pages/ReportPage';
 import HealthPage from './pages/HealthPage';
 import VerifyPage from './pages/VerifyPage';
 import type { ReactNode } from 'react';
@@ -96,6 +97,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <ResultsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/assessment/:assessmentId/report"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <ReportPage />
                 </Shell>
               </RequireAdvisor>
             }

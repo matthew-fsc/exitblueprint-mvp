@@ -89,6 +89,7 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 
 **generated_documents**
 - firm_id, engagement_id, assessment_id, doc_type (owner_report|advisor_brief|engagement_summary), content_md, prompt_version, model, created_at
+- finalized_at timestamptz null — AI output is a labeled draft until the advisor edits and finalizes (S8)
 
 ## Outcome capture (schema only in v1 — no UI, no API)
 

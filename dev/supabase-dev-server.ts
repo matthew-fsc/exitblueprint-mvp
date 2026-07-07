@@ -15,6 +15,7 @@ import type { ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 import { explainAssessment, scoreAssessment } from '../server/scoring';
+import { generateDocument } from '../server/narrative';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -278,6 +279,9 @@ export function supabaseDevServer(): Plugin {
       }
       if (name === 'explain-assessment') {
         return json(res, 200, await explainAssessment(service, assessmentId));
+      }
+      if (name === 'generate-document') {
+        return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
       }
       return json(res, 404, { message: `unknown function '${name}'` });
     } catch (err) {

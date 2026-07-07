@@ -839,3 +839,78 @@ button:disabled {
 .gap-name {
   font-weight: 600;
 }
+
+/* --- report -------------------------------------------------------------- */
+
+.report-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.report-editor {
+  width: 100%;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.report-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.report-body {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 10px;
+  padding: 2rem 2.5rem;
+  max-width: 46rem;
+  line-height: 1.6;
+  margin-top: 1rem;
+}
+
+.report-body h1 {
+  font-size: 1.4rem;
+}
+
+.report-body h2 {
+  font-size: 1.05rem;
+  margin-top: 1.4rem;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print,
+  .shell-header,
+  .view-nav {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  :root {
+    background: #fff;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .report-body {
+    border: none;
+    padding: 0;
+    max-width: none;
+  }
+}
