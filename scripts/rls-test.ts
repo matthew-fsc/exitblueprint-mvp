@@ -104,6 +104,23 @@ async function main() {
        values ($1, $2, $3, 'in_progress', 1)`,
       [ids.firm_b, engagementB, rubric],
     );
+    await db.query(
+      `insert into engagement_outcomes (firm_id, engagement_id, process_status)
+       values ($1, $2, 'preparing'), ($3, $4, 'in_market')`,
+      [ids.firm_a, engagementA, ids.firm_b, engagementB],
+    );
+    const eventA = (
+      await db.query(
+        `insert into outcome_events (firm_id, engagement_id, event_type, notes)
+         values ($1, $2, 'ioi_received', 'firm A event') returning id`,
+        [ids.firm_a, engagementA],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into outcome_events (firm_id, engagement_id, event_type, notes)
+       values ($1, $2, 'loi_received', 'firm B event')`,
+      [ids.firm_b, engagementB],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -129,6 +146,40 @@ async function main() {
     check('cannot insert a company into firm B', writeBlocked);
     const rubricRead = await db.query('select count(*)::int c from rubric_versions');
     check('can read methodology tables', rubricRead.rows[0].c >= 1);
+    const outcomesA = await db.query('select engagement_id from engagement_outcomes');
+    check('sees only own firm engagement_outcomes',
+      outcomesA.rows.length === 1 && outcomesA.rows[0].engagement_id === engagementA);
+    const eventsA = await db.query('select notes from outcome_events');
+    check('sees only own firm outcome_events',
+      eventsA.rows.length === 1 && eventsA.rows[0].notes === 'firm A event');
+    await db.query(
+      `insert into outcome_events (firm_id, engagement_id, event_type, notes)
+       values ($1, $2, 'qoe_started', 'appended by advisor A')`,
+      [ids.firm_a, engagementA],
+    );
+    check('can append outcome_events for own firm', true);
+    let eventUpdateBlocked = false;
+    try {
+      await db.query('savepoint oe');
+      const upd = await db.query(`update outcome_events set notes = 'tampered' where id = $1`, [eventA]);
+      eventUpdateBlocked = upd.rowCount === 0;
+      await db.query('release savepoint oe');
+    } catch {
+      eventUpdateBlocked = true;
+      await db.query('rollback to savepoint oe');
+    }
+    check('cannot update outcome_events (append-only)', eventUpdateBlocked);
+    let eventDeleteBlocked = false;
+    try {
+      await db.query('savepoint oe2');
+      const del = await db.query(`delete from outcome_events where id = $1`, [eventA]);
+      eventDeleteBlocked = del.rowCount === 0;
+      await db.query('release savepoint oe2');
+    } catch {
+      eventDeleteBlocked = true;
+      await db.query('rollback to savepoint oe2');
+    }
+    check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
 
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');

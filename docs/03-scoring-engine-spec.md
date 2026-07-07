@@ -55,6 +55,24 @@ numeric_or_unknown answered "unknown" scores the sub-score's declared unknown va
 - Immutability test: rescoring a completed assessment fails.
 - Band boundary tests: recurring exactly 60 -> 75 pts; owner hours exactly 10 -> 75 pts; top-1 exactly 30 -> 20 pts band check per bands_lt convention (30 is not < 30, falls to next band).
 
+## Deltas and rubric versioning
+
+`compareAssessments(prior_id, current_id)` computes the delta between two
+completed assessments: overall DRS/ORI, per-dimension, per-sub-score, and gap
+status changes (opened/resolved).
+
+- **Same rubric_version only.** If the two assessments are on different
+  rubric_versions the function returns
+  `{ comparable: false, reason: "rubric_version_mismatch", prior_version, current_version }`
+  — never a number. Consumers (dashboards, briefs) must render this state
+  distinctly ("new rubric"), not as blank or zero.
+- All delta and history reads use the active_assessments view; superseded
+  assessments never appear in longitudinal queries.
+- Future option (explicitly out of scope now): rescoring a historical
+  snapshot's stored answers under a newer rubric version for analytical
+  comparison. That produces a derived analytical score stored as new data and
+  never mutates the original snapshot.
+
 ## Explainability
 
 `explainAssessment(assessment_id)` returns per-sub-score: inputs used, computed intermediates (hhi_est, cagr_pct, down_years, ratios), band applied, points, weight, contribution; per-dimension math; DRS composition; and each fired gap trigger. The advisor UI "why is this score X" view and the narrative service consume this.
