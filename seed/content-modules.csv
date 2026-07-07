@@ -1,0 +1,45 @@
+code,title,dimension_code,body
+CM-BUYERQ-CONC,Buyer Question Prep: Customer Concentration,REV,"BUYER QUESTION: What happens to your revenue if this client does not renew or transitions their business?
+
+RESPONSE FRAMEWORK: Address contract term remaining, relationship longevity (tenure), specific retention initiatives underway, and the alternative customer pipeline that offsets concentration risk.
+
+DOCUMENTATION NEEDED: Signed contract with remaining term. Evidence of relationship longevity. Customer diversification pipeline metrics."
+CM-BUYERQ-OWNER,Buyer Question Prep: Owner Dependence,OPS,"BUYER QUESTION: Can this business operate without you at current performance levels?
+
+RESPONSE FRAMEWORK: Describe the existing management team's functional coverage, in-progress SOP documentation, transition plan timeline, and any period of parallel operation before close.
+
+DOCUMENTATION NEEDED: Org chart. SOP documentation index. Management team bios. Transition plan."
+CM-BUYERQ-RECURRING,Buyer Question Prep: Forward Revenue Visibility,REV,"BUYER QUESTION: What is the visibility into your forward revenue beyond the current backlog?
+
+RESPONSE FRAMEWORK: Articulate pipeline conversion rate, average sales cycle, contract renewal rate for project-based clients who re-engage, and any subscription/retainer conversion initiatives.
+
+DOCUMENTATION NEEDED: Pipeline data. Historical win rate. Customer re-engagement history."
+CM-BUYERQ-ADDBACKS,Buyer Question Prep: Addback Substantiation,FIN,"BUYER QUESTION: Can you substantiate the addbacks included in your EBITDA recast?
+
+RESPONSE FRAMEWORK: Have documentation ready for every addback: invoices, receipts, W2s, third-party comp benchmarks, and a narrative explanation for each item. Do not let this be a diligence surprise.
+
+DOCUMENTATION NEEDED: Itemized addback schedule. Supporting documentation per line item. Third-party comp benchmark for owner compensation."
+CM-BUYERQ-SOPS,Buyer Question Prep: Process Documentation,OPS,"BUYER QUESTION: How are your core operational processes managed and documented?
+
+RESPONSE FRAMEWORK: Describe the current state of documentation, active documentation projects, and which processes have already been successfully delegated to team members.
+
+DOCUMENTATION NEEDED: SOP library (even partial). Evidence of successful delegation in prior periods."
+CM-BUYERQ-NONCOMPETE,Buyer Question Prep: Key Employee Retention,MGT,"BUYER QUESTION: What retains your key employees post-close?
+
+RESPONSE FRAMEWORK: Describe current compensation relative to market, any equity or retention programs, and relationship-based retention factors. Acknowledge gaps and present a timeline for non-compete execution.
+
+DOCUMENTATION NEEDED: Employment agreements. Comp benchmarking. Any retention bonus plans."
+CM-BUYERQ-REVDECLINE,Buyer Question Prep: Revenue Decline Narrative,REV,"BUYER QUESTION: Walk us through the revenue decline in [year]. What caused it and what changed?
+
+RESPONSE FRAMEWORK: Prepare a specific narrative: external factors (macro, client-specific), internal response, and evidence the root cause is resolved. Do not generalize. Buyers hear generalization as evasion.
+
+DOCUMENTATION NEEDED: Year-over-year revenue by customer. Evidence of corrective action. Current period data showing recovery."
+CM-BUYERQ-CONTRACTS,Buyer Question Prep: Informal Recurring Revenue,REV,"BUYER QUESTION: Your recurring revenue appears to be informal. What governs these relationships?
+
+RESPONSE FRAMEWORK: Acknowledge, and describe the upgrade plan: in-progress contracting effort, letter of intent or renewal discussions underway, and historical evidence that these relationships are sticky despite informal structure.
+
+DOCUMENTATION NEEDED: Any written communication confirming ongoing relationship. Timeline for formal contract execution."
+CM-EDU-DRS-101,Understanding Your Diligence Readiness Score,GOL,"Explains the six DRS categories, what buyers look for in each, the tier system (Institutional Grade 85+, Sale Ready 70-84, Needs Work 55-69, High Risk 40-54, Not Saleable Yet below 40), and how the score maps to buyer behavior and valuation multiples."
+CM-EDU-EBITDA-RECAST,EBITDA Recast: The Number Buyers Actually Pay For,FIN,"Explains reported vs defensible EBITDA, the addback schedule, challenge likelihood ratings (LOW/MEDIUM/HIGH/NOT DEFENSIBLE), and why documentation converts aggressive addbacks into bankable value."
+CM-EDU-VALUE-GAP,The Value Gap: What Your Business Is Worth vs What It Could Be,VAL,"Explains current EV vs target EV, how each resolved risk expands the multiple, and the cost of inaction: what the business loses in value per year of delay."
+CM-EDU-EXIT-TIMELINE,Sequencing Your Exit: Why Timing Follows Readiness,GOL,"Explains the three-phase roadmap (0-6mo risk elimination, 6-18mo structural improvement, 18-36mo value optimization), DRS milestones (Diligence Ready at 70, Competitive Process Ready at 85), and why going to market early costs real dollars."

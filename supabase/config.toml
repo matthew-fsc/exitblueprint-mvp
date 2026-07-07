@@ -1,0 +1,13 @@
+# Supabase CLI project config. Run `supabase start` for the full local stack.
+project_id = "exitblueprint-mvp"
+
+[db]
+port = 54322
+major_version = 15
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[studio]
+port = 54323

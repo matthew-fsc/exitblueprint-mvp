@@ -1,4 +1,25 @@
-rubric_version,dimension_code,gap_code,gap_name,severity,trigger_json,description
-DRS-1.0,FIN,CUST_CONC,Customer Concentration Risk,critical,"{""type"":""question_below"",""question_code"":""FIN-02"",""threshold"":40}",EXAMPLE: Revenue overly dependent on one customer; buyers discount heavily or walk.
-DRS-1.0,FIN,FIN_QUALITY,Financial Statement Quality,high,"{""type"":""question_below"",""question_code"":""FIN-01"",""threshold"":75}",EXAMPLE: Books not review/audit grade; diligence will stall and erode trust.
-DRS-1.0,OWN,OWNER_DEP,Owner Dependence,critical,"{""type"":""dimension_below"",""threshold"":60}",EXAMPLE: Business value walks out the door with the owner.
+code,name,severity,trigger_json,dimension_code
+CUST_CONC,Customer Concentration,critical,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP1"", ""threshold"": 70}",CUS
+CUST_BASE_CONC,Top-5 Customer Concentration,high,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP5"", ""threshold"": 70}",CUS
+RECURRING_LOW,Weak Recurring Revenue Base,high,"{""type"": ""sub_score_below"", ""code"": ""REV-RECUR"", ""threshold"": 70}",REV
+CONTRACT_GAP,Undocumented Recurring Revenue,high,"{""type"": ""sub_score_below"", ""code"": ""REV-DURABILITY"", ""threshold"": 70}",REV
+REV_VOLATILITY,Revenue Inconsistency,med,"{""type"": ""sub_score_below"", ""code"": ""REV-GROWTH"", ""threshold"": 50}",REV
+CHURN_HIGH,Customer Retention Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""REV-NRR"", ""threshold"": 70}",REV
+RECON_GAP,Reconciliation Discipline Gap,high,"{""type"": ""sub_score_below"", ""code"": ""FIN-RECON"", ""threshold"": 70}",FIN
+ADDBACK_RISK,Addback Defensibility Risk,critical,"{""type"": ""sub_score_below"", ""code"": ""FIN-ADDBACK"", ""threshold"": 70}",FIN
+CASH_BASIS,GAAP Proximity Gap,med,"{""type"": ""sub_score_below"", ""code"": ""FIN-GAAP"", ""threshold"": 70}",FIN
+STMT_INCOMPLETE,Incomplete Financial Statements,med,"{""type"": ""sub_score_below"", ""code"": ""FIN-STATEMENTS"", ""threshold"": 70}",FIN
+OWNER_DEP,Owner Dependence,critical,"{""type"": ""sub_score_below"", ""code"": ""OPS-HOURS"", ""threshold"": 50}",OPS
+SOP_GAP,Undocumented Core Processes,high,"{""type"": ""sub_score_below"", ""code"": ""OPS-SOP"", ""threshold"": 70}",OPS
+MGMT_DEPTH,Insufficient Management Depth,high,"{""type"": ""sub_score_below"", ""code"": ""OPS-DEPTH"", ""threshold"": 70}",OPS
+AUTOMATION_LOW,Manual Operations Dependency,low,"{""type"": ""sub_score_below"", ""code"": ""OPS-AUTO"", ""threshold"": 70}",OPS
+MGMT_LAYER_GAP,No Functional Management Layer,high,"{""type"": ""sub_score_below"", ""code"": ""MGT-LAYERS"", ""threshold"": 65}",MGT
+NONCOMPETE_GAP,Key Person Non-Compete Gap,high,"{""type"": ""sub_score_below"", ""code"": ""MGT-NC"", ""threshold"": 70}",MGT
+COMP_RISK,Compensation Flight Risk,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-COMP"", ""threshold"": 70}",MGT
+TURNOVER_HIGH,Retention History Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-RETENTION"", ""threshold"": 70}",MGT
+PIPELINE_BLIND,No Pipeline Discipline,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-PIPE"", ""threshold"": 70}",GRW
+POSITIONING_WEAK,Undifferentiated Market Position,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-POS"", ""threshold"": 45}",GRW
+CUSTOM_HEAVY,Custom-Work Revenue Dependency,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-REPEAT"", ""threshold"": 65}",GRW
+VALUE_GAP,Personal Value Gap,critical,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""PFN-OUTSIDE"", ""values"": [""partially"", ""no""]}, {""type"": ""answer_lte"", ""question_code"": ""VAL-CONF"", ""value"": 2}]}",PFN
+TIMELINE_MISMATCH,Exit Timeline vs Readiness Mismatch,high,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""GOL-TIMELINE"", ""values"": [""under_12mo""]}, {""type"": ""composite_below"", ""score_group"": ""business_readiness"", ""threshold"": 70}]}",GOL
+STALE_VALUATION,No Current Valuation,low,"{""type"": ""answer_in"", ""question_code"": ""VAL-LASTVAL"", ""values"": [""over_3yr"", ""never""]}",VAL

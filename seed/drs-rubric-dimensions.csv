@@ -1,0 +1,10 @@
+code,name,score_group,drs_weight,sort_order
+REV,Revenue Quality,business_readiness,0.25,1
+FIN,Financial Integrity,business_readiness,0.2,2
+OPS,Operational Independence,business_readiness,0.2,3
+CUS,Customer Risk,business_readiness,0.15,4
+MGT,Management and Team,business_readiness,0.1,5
+GRW,Growth Drivers,business_readiness,0.1,6
+GOL,Exit Goals and Timing,owner_readiness,0.0,7
+PFN,Personal Financial Readiness,owner_readiness,0.0,8
+VAL,Value Confidence,owner_readiness,0.0,9
