@@ -129,6 +129,9 @@ export default function EngagementPage() {
                 <span className="muted">
                   {a.completed_at ? new Date(a.completed_at).toLocaleDateString() : ''}
                 </span>
+                <Link className="button-link" to={`/assessment/${a.id}/results`}>
+                  Results →
+                </Link>
               </>
             ) : (
               <>

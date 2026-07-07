@@ -67,7 +67,7 @@ export default function IntakePage() {
           .single();
         if (aErr) throw new Error(aErr.message);
         if (assessment.status === 'completed') {
-          navigate(`/engagement/${assessment.engagement_id}`, { replace: true });
+          navigate(`/assessment/${assessmentId}/results`, { replace: true });
           return;
         }
         setEngagementId(assessment.engagement_id);
@@ -178,7 +178,7 @@ export default function IntakePage() {
         body: { assessment_id: assessmentId },
       });
       if (error) throw new Error(error.message);
-      navigate(`/engagement/${engagementId}`);
+      navigate(`/assessment/${assessmentId}/results`);
     } catch (err) {
       setError((err as Error).message);
     } finally {

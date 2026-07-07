@@ -719,3 +719,123 @@ button:disabled {
   justify-content: space-between;
   margin-top: 1.25rem;
 }
+
+/* --- results ------------------------------------------------------------ */
+
+.score-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.score-tile {
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.hero-tile-value {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.tile-note {
+  font-size: 0.76rem;
+}
+
+.composite-pair {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 1.05rem;
+}
+
+.composite-pair strong {
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dimension-table {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dim-details {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+}
+
+.dim-details summary {
+  display: grid;
+  grid-template-columns: 210px 1fr 3.2em auto;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.88rem;
+}
+
+.dim-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.dim-why {
+  color: var(--series-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.explain-drawer {
+  border-top: 1px solid #eef0f3;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.explain-math {
+  margin: 0 0 0.5rem;
+}
+
+.owner-group {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.owner-group h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.owner-group .dim-row {
+  margin-bottom: 0.35rem;
+}
+
+.dim-fill-owner {
+  background: #4a3aa7;
+}
+
+.gap-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.gap-detail-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.gap-name {
+  font-weight: 600;
+}
