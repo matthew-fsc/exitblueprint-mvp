@@ -35,5 +35,7 @@ jobs:
         run: npm run test:rls
       - name: Seed (twice — proves idempotency)
         run: npm run db:seed && npm run db:seed
+      - name: Scoring engine tests (fixtures must match exactly)
+        run: npm test
       - name: Build app
         run: npm run build

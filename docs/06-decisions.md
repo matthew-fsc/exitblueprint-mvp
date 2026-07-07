@@ -13,3 +13,7 @@ Append-only. One line per decision: date, decision, reason. Claude Code adds ent
 - 2026-07-06 | HHI estimated from top-5 shares in v1 | Exact HHI requires Blueprint I data ingestion; proxy documented in seed README.
 - 2026-07-06 | Unknown NRR scores 25 with a not-tracked flag | Not measuring is worse than measuring badly, but not zero; Matthew to ratify.
 - 2026-07-06 | EBITDA recast, EV, value-gap dollars deferred to post-v1 | Methodology documented in docs/07; v1 ships scoring, gaps, roadmap, narrative.
+- 2026-07-07 | Restricted dev/CI runs migrations on plain Postgres via db/supabase-shim.sql (auth schema, roles, auth.uid()) | Docker/supabase CLI unavailable in the build container; migrations stay Supabase-canonical, shim skipped on real Supabase.
+- 2026-07-07 | Engine rounding replicates Python round-half-even on the exact binary double (pyRound) | Reference scorer used Python round; fixture 3 ORI (40.25 -> 40.2) is irreproducible with JS default rounding.
+- 2026-07-07 | ORI sub-scores persist to sub_score_results like business sub-scores; fixture sub_scores maps cover business dims only | Explain trace and owner-readiness reporting need the stored parts; matches reference which tracks ORI separately.
+- 2026-07-07 | Not-tracked flag text derived from sub-score code suffix (REV-NRR -> "NRR not tracked") | Matches reference fixture output; revisit if flags need per-sub-score copy.
