@@ -35,6 +35,8 @@ jobs:
         run: npm run test:rls
       - name: Seed (twice — proves idempotency)
         run: npm run db:seed && npm run db:seed
+      - name: Demo tenant seed (twice — proves idempotency, validates vs reference scorer)
+        run: npm run seed:demo && npm run seed:demo
       - name: Scoring engine tests (fixtures must match exactly)
         run: npm test
       - name: Build app

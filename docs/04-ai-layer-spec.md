@@ -18,7 +18,7 @@ One edge function `generateDocument(assessment_id, doc_type)`. API key is a func
 
 ### advisor_brief
 - Audience: the advisor before a client meeting.
-- Inputs: same as above plus score deltas vs prior assessment, stalled tasks, gap status changes.
+- Inputs: same as above plus score deltas vs prior assessment, stalled tasks, gap status changes. Deltas come precomputed from compareAssessments (docs/03) when comparable; when the prior assessment is on a different rubric_version the payload carries the incomparable marker and the brief says so instead of citing a delta.
 - Structure: one-paragraph state of the engagement; what improved / what regressed with the specific driver from the explain trace; talking points (3-5); risks to the timeline; suggested next actions.
 - Length 300-500 words.
 
@@ -29,4 +29,4 @@ One edge function `generateDocument(assessment_id, doc_type)`. API key is a func
 
 - Prompts live in /prompts as versioned files (owner_report.v1.md etc.). prompt_version stored on every generated document.
 - A golden-set check: 3 fixture assessments have reference reports reviewed by Matthew. Any prompt change gets regenerated against fixtures and eyeballed before version bump.
-- If Claude output references a number not present in the input payload, the service rejects and regenerates once, then fails loudly. Implement as a simple post-generation check: every numeral in output must appear in input (whitelist years and list numbering).
+- Numeral post-check: v1 prompts must instruct the model to use only supplied numbers and to NEVER perform arithmetic — no computed deltas, percentages, sums, or rounding of its own. The post-generation check stays strict: every numeral in the output must appear in the input payload (whitelist: years, list numbering, and numbers present in the payload). Any derived figure the document needs (score deltas, gap counts, percentages) is computed server-side and included in the input payload — owner_report and advisor_brief payloads include precomputed deltas from compareAssessments when comparable. On a violation the service rejects and regenerates once, then fails loudly.

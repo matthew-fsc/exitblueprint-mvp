@@ -65,6 +65,12 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 **assessments**
 - firm_id, engagement_id, rubric_version_id, status (in_progress|completed), completed_at, sequence_number int (1 = baseline)
 - drs_score numeric null, drs_tier text null, ori_score numeric null
+- record_status (active|superseded) default active, superseded_by_assessment_id (fk assessments) null, supersede_reason text null
+  (named record_status because status already tracks the intake lifecycle)
+
+**active_assessments** (view, security_invoker)
+- assessments where record_status = 'active'. ALL longitudinal reads — score
+  history, deltas, dashboards — go through this view, never the raw table.
 
 **answers**
 - assessment_id, question_id, value jsonb, answered_by (fk profiles)
@@ -84,9 +90,26 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 **generated_documents**
 - firm_id, engagement_id, assessment_id, doc_type (owner_report|advisor_brief|engagement_summary), content_md, prompt_version, model, created_at
 
+## Outcome capture (schema only in v1 — no UI, no API)
+
+Outcome data is the training substrate for future rubric calibration: it ties
+readiness scores to what actually happened in market. It is only ever recorded
+from advisor-reported facts and must never be backfilled speculatively.
+
+**engagement_outcomes** — one row per engagement, created lazily; everything nullable
+- firm_id, engagement_id (fk, unique), updated_at
+- process_status (not_in_market|preparing|in_market|under_loi|closed|withdrawn|broken)
+- outcome_recorded_at
+
+**outcome_events** — append-only event log per engagement
+- firm_id, engagement_id, event_type (loi_received|loi_expired|ioi_received|qoe_started|qoe_findings_recorded|retrade|price_change|deal_closed|deal_broken|withdrawn_from_market)
+- event_date, recorded_by (fk profiles), numeric_value numeric null (e.g. multiple achieved, retrade %, QoE findings count), detail jsonb null, notes
+- Append-only for non-admin roles (no UPDATE/DELETE policy or grant). A
+  correction is a new correcting event, mirroring assessment immutability.
+
 ## Rules
 
-1. A completed assessment is immutable. Corrections = new assessment (sequence_number increments).
+1. A completed assessment is immutable. Corrections = supersede: create a new assessment with corrected answers (sequence_number increments), score it, mark the old row record_status = superseded with superseded_by_assessment_id + supersede_reason (server function supersedeAssessment). The old row's content is never touched; superseded rows are excluded from score history, deltas, and every longitudinal query via the active_assessments view.
 2. DRS = weighted sum of business_readiness dimension scores only. ORI = weighted sum of ORI sub-scores. Never mix the two groups.
 3. Gaps close only when a later assessment no longer triggers them (set resolved_by_assessment_id) or an advisor manually resolves with a note.
 4. Score deltas are computed, not stored: compare assessments by sequence_number within an engagement.

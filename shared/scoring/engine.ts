@@ -17,7 +17,7 @@ import type {
 // 61.04999…). The reference scorer used Python round, so fixture outputs are
 // only reproducible with the same convention. Exact via BigInt: the double is
 // decomposed as m * 2^e and rounded as an exact rational.
-function pyRound(x: number, ndigits: number): number {
+export function pyRound(x: number, ndigits: number): number {
   if (!Number.isFinite(x)) return x;
   const negative = x < 0;
   const abs = Math.abs(x);

@@ -24,15 +24,16 @@ Accept: all fixture scores match hand-computed values exactly.
 
 **S5. Auth + advisor shell.**
 "Supabase auth with email login; profiles with roles; minimal advisor layout: client list for their firm, create company, create engagement."
-Accept: two advisor accounts in different firms see only their own data.
+S5 builds login and the advisor shell only; firm/user provisioning stays CLI (scripts/admin.ts, see docs/08-operations.md) until explicitly promoted to UI.
+Accept: two advisor accounts in different firms see only their own data. No admin panel or provisioning UI is scaffolded.
 
 **S6. Assessment intake flow.**
 "Build the intake: start assessment on an engagement (locks to active rubric_version), one dimension per step, all answer types from the schema, save-and-resume, completeness validation, submit triggers scoring."
 Accept: full walkthrough on fixture answers reproduces fixture scores in the UI.
 
 **S7. Score views.**
-"Assessment results page: overall score with band, dimension breakdown, flagged gaps with severity, and an explain drawer per dimension using explainAssessment."
-Accept: advisor can answer "why is this a 61" from the UI alone.
+"Assessment results page: overall score with band, dimension breakdown, flagged gaps with severity, and an explain drawer per dimension using explainAssessment. The two score groups display distinctly — business DRS rollup and ORI rollup — plus the combined composite, never a flattened single list of dimensions; dimensions group under the correct rollup. All score views read active assessments only (active_assessments view)."
+Accept: advisor can answer "why is this a 61" from the UI alone, AND can see business score, owner score, and composite as three separate figures and answer "the business is ready but the owner isn't" (or vice versa) from the UI alone.
 
 **S8. Narrative service + owner report.**
 "Implement generateDocument per docs/04-ai-layer-spec.md with owner_report.v1 prompt, the numeral post-check, and storage in generated_documents. Add report view with edit-before-finalize and clean print/PDF styling."
@@ -47,7 +48,7 @@ MVP checkpoint: run a real (or pilot) client end to end. Stop and gather advisor
 Accept: closing a gap's tasks and re-assessing shows gap resolution flow working.
 
 **S10. Advisor dashboard.**
-"Portfolio view: engagements with current score, delta vs prior assessment, open gap count, stalled tasks (no status change in 14 days), next re-assessment due."
+"Portfolio view: engagements with current score, delta vs prior assessment, open gap count, stalled tasks (no status change in 14 days), next re-assessment due. Reads active assessments only (active_assessments view). Deltas come from compareAssessments; when the prior assessment is on a different rubric_version, the delta column shows the incomparable state distinctly (e.g. 'new rubric'), never blank or zero."
 
 **S11. Advisor brief generation.**
 "Add advisor_brief.v1 per docs/04, generated on demand from the dashboard, including deltas and stalled tasks."

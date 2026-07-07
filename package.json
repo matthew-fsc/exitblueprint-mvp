@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "admin": "tsx scripts/admin.ts",
     "test": "vitest run",
     "test:rls": "tsx scripts/rls-test.ts"
   },
