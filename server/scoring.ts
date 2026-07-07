@@ -38,32 +38,31 @@ async function loadAssessment(db: pg.ClientBase, assessmentId: string): Promise<
 }
 
 async function loadRubric(db: pg.ClientBase, rubricVersionId: string): Promise<Rubric> {
-  const [dims, questions, subScores, gapDefs] = await Promise.all([
-    db.query(
-      `select code, name, score_group, drs_weight, sort_order
-       from dimensions where rubric_version_id = $1`,
-      [rubricVersionId],
-    ),
-    db.query(
-      `select q.code, d.code as dimension_code, q.prompt, q.answer_type, q.options, q.scored, q.sort_order
-       from questions q join dimensions d on d.id = q.dimension_id
-       where d.rubric_version_id = $1`,
-      [rubricVersionId],
-    ),
-    db.query(
-      `select s.code, d.code as dimension_code, s.name, s.weight, s.formula_type,
-              s.input_question_codes, s.logic
-       from sub_scores s join dimensions d on d.id = s.dimension_id
-       where d.rubric_version_id = $1`,
-      [rubricVersionId],
-    ),
-    db.query(
-      `select g.code, g.name, g.severity, d.code as dimension_code, g.trigger
-       from gap_definitions g join dimensions d on d.id = g.dimension_id
-       where g.rubric_version_id = $1`,
-      [rubricVersionId],
-    ),
-  ]);
+  // sequential on purpose: a single pg client must not run concurrent queries
+  const dims = await db.query(
+    `select code, name, score_group, drs_weight, sort_order
+     from dimensions where rubric_version_id = $1`,
+    [rubricVersionId],
+  );
+  const questions = await db.query(
+    `select q.code, d.code as dimension_code, q.prompt, q.answer_type, q.options, q.scored, q.sort_order
+     from questions q join dimensions d on d.id = q.dimension_id
+     where d.rubric_version_id = $1`,
+    [rubricVersionId],
+  );
+  const subScores = await db.query(
+    `select s.code, d.code as dimension_code, s.name, s.weight, s.formula_type,
+            s.input_question_codes, s.logic
+     from sub_scores s join dimensions d on d.id = s.dimension_id
+     where d.rubric_version_id = $1`,
+    [rubricVersionId],
+  );
+  const gapDefs = await db.query(
+    `select g.code, g.name, g.severity, d.code as dimension_code, g.trigger
+     from gap_definitions g join dimensions d on d.id = g.dimension_id
+     where g.rubric_version_id = $1`,
+    [rubricVersionId],
+  );
   return {
     dimensions: dims.rows.map((r) => ({
       code: r.code,

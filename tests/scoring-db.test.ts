@@ -114,10 +114,12 @@ describe.skipIf(!url)('scoreAssessment against the database', () => {
 
     const openGaps = await db.query(
       `select gd.code from gaps g join gap_definitions gd on gd.id = g.gap_definition_id
-       where g.engagement_id = $1 and g.status = 'open' order by gd.code`,
+       where g.engagement_id = $1 and g.status = 'open'`,
       [engagementId],
     );
-    expect(openGaps.rows.map((r) => r.code)).toEqual(fixture.expected.gaps);
+    // sort in JS: db collation (e.g. en_US.utf8) orders '_' differently than
+    // the byte-order sort the reference scorer and fixtures use
+    expect(openGaps.rows.map((r) => r.code).sort()).toEqual(fixture.expected.gaps);
 
     // immutability: a completed assessment cannot be rescored
     await expect(scoreAssessment(db, assessmentId)).rejects.toThrow(/immutable/);
