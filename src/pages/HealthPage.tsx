@@ -53,20 +53,14 @@ export default function HealthPage() {
   ];
 
   return (
-    <main className="page">
-      <header className="page-header">
-        <h1>Exit Blueprint</h1>
-        <p className="subtitle">Health</p>
-      </header>
-      <ul className="check-list">
-        {checks.map((c) => (
-          <li key={c.name} className={`check check-${c.state}`}>
-            <span className="check-state">{c.state}</span>
-            <span className="check-name">{c.name}</span>
-            <span className="check-detail">{c.detail}</span>
-          </li>
-        ))}
-      </ul>
-    </main>
+    <ul className="check-list">
+      {checks.map((c) => (
+        <li key={c.name} className={`check check-${c.state}`}>
+          <span className="check-state">{c.state}</span>
+          <span className="check-name">{c.name}</span>
+          <span className="check-detail">{c.detail}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

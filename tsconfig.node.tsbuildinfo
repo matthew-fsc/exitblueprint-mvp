@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./scripts/migrate.ts"],"version":"5.9.3"}
+{"root":["./vite.config.ts","./scripts/migrate.ts","./scripts/rls-test.ts","./scripts/seed.ts","./server/scoring.ts","./shared/rubric-seed.ts","./shared/scoring/engine.ts","./shared/scoring/types.ts","./tests/engine.test.ts","./tests/helpers.ts","./tests/scoring-db.test.ts"],"version":"5.9.3"}

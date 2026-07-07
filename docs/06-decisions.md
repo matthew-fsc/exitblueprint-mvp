@@ -17,3 +17,4 @@ Append-only. One line per decision: date, decision, reason. Claude Code adds ent
 - 2026-07-07 | Engine rounding replicates Python round-half-even on the exact binary double (pyRound) | Reference scorer used Python round; fixture 3 ORI (40.25 -> 40.2) is irreproducible with JS default rounding.
 - 2026-07-07 | ORI sub-scores persist to sub_score_results like business sub-scores; fixture sub_scores maps cover business dims only | Explain trace and owner-readiness reporting need the stored parts; matches reference which tracks ORI separately.
 - 2026-07-07 | Not-tracked flag text derived from sub-score code suffix (REV-NRR -> "NRR not tracked") | Matches reference fixture output; revisit if flags need per-sub-score copy.
+- 2026-07-07 | Dev-only "Phase 1 verification" page runs the pure engine in-browser on bundled seed rubric + fixtures | Visual acceptance evidence for Phase 1; production scoring still reads rubric from db; page carries a DEV label.
