@@ -361,3 +361,210 @@ body {
 
 .cell-pass { color: var(--status-good); font-weight: 600; }
 .cell-fail { color: var(--status-critical); font-weight: 700; }
+
+/* --- shell + auth ------------------------------------------------------ */
+
+.shell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.shell-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.88rem;
+}
+
+.shell-nav a {
+  color: var(--series-1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.shell-user {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dev-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #fdf1dc;
+  color: #8a5a00;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.linkish {
+  background: none;
+  border: none;
+  color: var(--series-1);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 0;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.login-card {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.login-subtitle {
+  margin: -0.6rem 0 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  border: 1px solid #cfd5dd;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  background: #fff;
+  color: var(--text-primary);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--series-1);
+  outline-offset: 1px;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #1a2233;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form-error {
+  color: var(--status-critical);
+  font-size: 0.85rem;
+}
+
+.login-devnote {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--status-warning);
+  padding-left: 0.6rem;
+  margin: 0;
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+/* --- clients ------------------------------------------------------------ */
+
+.page-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.page-title-row h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+}
+
+.client-list {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.client-card {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.client-name {
+  font-weight: 600;
+  display: block;
+}
+
+.client-meta {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.button-link {
+  color: var(--series-1);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.inline-form {
+  background: var(--surface-1);
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  margin-right: 0.4rem;
+}
