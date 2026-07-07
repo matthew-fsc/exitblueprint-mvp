@@ -1,8 +1,30 @@
 # Exit Blueprint
 
+[![Open demo in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/matthew-fsc/exitblueprint-mvp?quickstart=1)
+
 Exit readiness platform for lower middle market business owners, distributed
 through M&A advisors. See `docs/00-product-brief.md` and `CLAUDE.md` for the
 product and architecture ground rules.
+
+## Instant demo
+
+**One click (in the browser):** press the Codespaces badge above. GitHub boots
+a dev container that installs everything, seeds the demo tenant, and starts
+the app; a browser tab opens on the forwarded port when it's ready (first boot
+takes a couple of minutes; later boots are fast).
+
+**One command (on your machine, needs Node 22 + PostgreSQL):**
+
+```sh
+npm run dev:demo
+```
+
+Either way, sign in with **demo@blueprintdemo.test** / **demo** — the demo
+firm has Cascade Facility Services mid-journey with two scored assessments
+(59.9 Needs Work → 72.3 Sale Ready), so the intake, results, explain drawer,
+and owner report views all have real data. This dev stack runs the built-in
+Supabase emulator with real RLS; it accepts the fixed password 'demo' and is
+for demos and development only.
 
 ## Stack
 

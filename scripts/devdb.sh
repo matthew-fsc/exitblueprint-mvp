@@ -24,12 +24,15 @@ if [ "$(id -u)" = "0" ]; then
   PGDATA=/home/pg/.exitblueprint-pgdata
 fi
 
-if [ ! -d "$PGDATA" ]; then
-  run initdb -D "$PGDATA" -U postgres --auth=trust >/dev/null
-fi
-
-if ! run pg_ctl -D "$PGDATA" status >/dev/null 2>&1; then
-  run pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" -o "'-p $PGPORT -k /tmp'" start >/dev/null
+# Reuse an already-listening server on the port (idempotent re-runs, or a
+# cluster started some other way); otherwise init/start our own.
+if ! "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PGPORT" -q 2>/dev/null; then
+  if [ ! -d "$PGDATA" ]; then
+    run initdb -D "$PGDATA" -U postgres --auth=trust >/dev/null
+  fi
+  if ! run pg_ctl -D "$PGDATA" status >/dev/null 2>&1; then
+    run pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" -o "'-p $PGPORT -k /tmp'" start >/dev/null
+  fi
 fi
 
 psql -h 127.0.0.1 -p "$PGPORT" -U postgres -tc \
