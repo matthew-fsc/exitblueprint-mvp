@@ -2,7 +2,7 @@
   "name": "Exit Blueprint demo",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
   "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql && npm ci",
-  "postStartCommand": "bash scripts/dev-demo.sh --background",
+  "postStartCommand": "bash scripts/dev-demo.sh --background 2>&1 | tee /tmp/dev-demo.log",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {

@@ -9,8 +9,15 @@ export default defineConfig(() => ({
     // real Supabase URL is configured. Production builds never include it.
     ...(process.env.VITE_SUPABASE_URL ? [] : [supabaseDevServer()]),
   ],
-  // GitHub Codespaces serves the dev server through *.app.github.dev.
+  // GitHub Codespaces serves the dev server through *.app.github.dev over
+  // TLS on 443 — the HMR websocket must connect back through that port.
   ...(process.env.CODESPACES
-    ? { server: { host: true, allowedHosts: ['.app.github.dev'] } }
+    ? {
+        server: {
+          host: true,
+          allowedHosts: ['.app.github.dev'],
+          hmr: { clientPort: 443 },
+        },
+      }
     : {}),
 }));
