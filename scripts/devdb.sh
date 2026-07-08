@@ -13,8 +13,10 @@ DBNAME="exit_blueprint"
 run() {
   if [ "$(id -u)" = "0" ]; then
     # Postgres refuses to run as root; delegate to an unprivileged user.
+    # printf %q re-quotes every argument safely for the su shell, so args
+    # with spaces (like pg_ctl -o "-p PORT -k /tmp") survive intact.
     id pg >/dev/null 2>&1 || useradd -m -s /bin/bash pg
-    su pg -c "PGDATA=/home/pg/.exitblueprint-pgdata $PGBIN/$1 ${*:2}"
+    su pg -s /bin/bash -c "$(printf '%q ' "$PGBIN/$1" "${@:2}")"
   else
     "$PGBIN/$1" "${@:2}"
   fi
@@ -31,7 +33,7 @@ if ! "$PGBIN/pg_isready" -h 127.0.0.1 -p "$PGPORT" -q 2>/dev/null; then
     run initdb -D "$PGDATA" -U postgres --auth=trust >/dev/null
   fi
   if ! run pg_ctl -D "$PGDATA" status >/dev/null 2>&1; then
-    run pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" -o "'-p $PGPORT -k /tmp'" start >/dev/null
+    run pg_ctl -D "$PGDATA" -l "$PGDATA/server.log" -o "-p $PGPORT -k /tmp" start >/dev/null
   fi
 fi
 

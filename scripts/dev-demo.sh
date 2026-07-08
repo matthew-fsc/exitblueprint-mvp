@@ -23,8 +23,10 @@ npm run --silent db:migrate
 npm run --silent db:seed | tail -1
 npm run --silent seed:demo | tail -1
 # Demo advisor for the demo firm (created by seed:demo). Idempotent.
+# (No truncating pipe here: closing the CLI's stdout early causes an EPIPE
+# that would abort the boot under pipefail.)
 npm run --silent admin -- create-advisor --firm "Blueprint Demo Advisors" \
-  --email demo@blueprintdemo.test --name "Demo Advisor" | head -1
+  --email demo@blueprintdemo.test --name "Demo Advisor"
 
 echo
 echo "=============================================================="
@@ -34,8 +36,9 @@ echo "=============================================================="
 echo
 
 if [ "${1:-}" = "--background" ]; then
-  nohup npx vite --host > /tmp/exitblueprint-vite.log 2>&1 &
-  echo "Vite dev server starting in the background on port 5173"
+  VITE_LOG="${TMPDIR:-/tmp}/exitblueprint-vite-$(id -u).log"
+  nohup npx vite --host > "$VITE_LOG" 2>&1 &
+  echo "Vite dev server starting in the background on port 5173 (log: $VITE_LOG)"
 else
   exec npx vite --host
 fi
