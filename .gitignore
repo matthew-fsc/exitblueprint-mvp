@@ -5,3 +5,4 @@ dist/
 *.local
 .localdb/
 supabase/.temp/
+*.tsbuildinfo

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { invokeFunction, supabase } from '../lib/supabase';
 
 interface GeneratedDocument {
   id: string;
@@ -11,6 +11,56 @@ interface GeneratedDocument {
   model: string;
   created_at: string;
   finalized_at: string | null;
+}
+
+// Minimal inline renderer for the report markdown: bold, italics, headings,
+// and bullets — no external markdown dependency.
+function inline(text: string): (string | ReactElement)[] {
+  const parts: (string | ReactElement)[] = [];
+  const re = /(\*\*[^*]+\*\*|_[^_]+_)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const token = m[0];
+    if (token.startsWith('**')) parts.push(<strong key={k++}>{token.slice(2, -2)}</strong>);
+    else parts.push(<em key={k++}>{token.slice(1, -1)}</em>);
+    last = m.index + token.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function renderMarkdown(md: string): ReactElement[] {
+  const out: ReactElement[] = [];
+  const lines = md.split('\n');
+  let bullets: string[] = [];
+  const flush = (key: number) => {
+    if (bullets.length === 0) return;
+    out.push(
+      <ul key={`ul-${key}`}>
+        {bullets.map((b, j) => (
+          <li key={j}>{inline(b)}</li>
+        ))}
+      </ul>,
+    );
+    bullets = [];
+  };
+  lines.forEach((line, i) => {
+    if (line.startsWith('- ')) {
+      bullets.push(line.slice(2));
+      return;
+    }
+    flush(i);
+    if (line.startsWith('### ')) out.push(<h3 key={i}>{inline(line.slice(4))}</h3>);
+    else if (line.startsWith('## ')) out.push(<h2 key={i}>{inline(line.slice(3))}</h2>);
+    else if (line.startsWith('# ')) out.push(<h1 key={i}>{inline(line.slice(2))}</h1>);
+    else if (line.trim() === '') out.push(<div key={i} className="report-gap" />);
+    else out.push(<p key={i}>{inline(line)}</p>);
+  });
+  flush(lines.length);
+  return out;
 }
 
 export default function ReportPage() {
@@ -42,11 +92,15 @@ export default function ReportPage() {
   const generate = async () => {
     setBusy(true);
     setError(null);
-    const { error } = await supabase.functions.invoke('generate-document', {
-      body: { assessment_id: assessmentId, doc_type: 'owner_report' },
-    });
-    if (error) setError(error.message);
-    await load();
+    try {
+      await invokeFunction('generate-document', {
+        assessment_id: assessmentId,
+        doc_type: 'owner_report',
+      });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
     setBusy(false);
   };
 
@@ -76,6 +130,8 @@ export default function ReportPage() {
 
   if (loading) return <p className="muted">Loading report…</p>;
 
+  const ruleBased = (doc?.model ?? '').startsWith('rule-based');
+
   return (
     <div className="report">
       <div className="page-title-row no-print">
@@ -91,8 +147,10 @@ export default function ReportPage() {
       {!doc ? (
         <div className="no-print">
           <p className="muted">
-            No report yet. Generation runs server-side from the assessment's structured scores and
-            gaps; the model writes narrative only and never computes a number.
+            No report yet. The report is built server-side from this assessment’s scores and flagged
+            gaps — every figure traces back to an answer, and no number is invented. If an AI writing
+            service is configured it drafts the prose from those same numbers; otherwise a plain-language
+            version is composed directly from the data.
           </p>
           <button onClick={generate} disabled={busy}>
             {busy ? 'Generating…' : 'Generate owner report'}
@@ -104,11 +162,13 @@ export default function ReportPage() {
             <span className={`status-chip status-${doc.finalized_at ? 'good' : 'warning'}`}>
               {doc.finalized_at
                 ? `Finalized ${new Date(doc.finalized_at).toLocaleDateString()}`
-                : 'AI-generated draft — review and edit before finalizing'}
+                : ruleBased
+                  ? 'Draft built from your assessment data — review and edit before finalizing'
+                  : 'AI-drafted from your assessment data — review and edit before finalizing'}
             </span>
             <span className="muted">
-              {doc.prompt_version} · {doc.model} · generated{' '}
-              {new Date(doc.created_at).toLocaleString()}
+              {ruleBased ? 'Composed from your scores and flagged gaps' : `Drafted by ${doc.model}`} ·
+              generated {new Date(doc.created_at).toLocaleString()}
             </span>
           </div>
 
@@ -142,13 +202,7 @@ export default function ReportPage() {
 
           {/* print view (and read view once finalized) */}
           <article className={`report-body ${doc.finalized_at ? '' : 'print-only'}`}>
-            {(doc.finalized_at ? doc.content_md : draft).split('\n').map((line, i) => {
-              if (line.startsWith('# ')) return <h1 key={i}>{line.slice(2)}</h1>;
-              if (line.startsWith('## ')) return <h2 key={i}>{line.slice(3)}</h2>;
-              if (line.startsWith('### ')) return <h3 key={i}>{line.slice(4)}</h3>;
-              if (line.trim() === '') return <br key={i} />;
-              return <p key={i}>{line}</p>;
-            })}
+            {renderMarkdown(doc.finalized_at ? doc.content_md : draft)}
           </article>
         </>
       )}

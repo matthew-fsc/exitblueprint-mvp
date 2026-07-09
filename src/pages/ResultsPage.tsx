@@ -1,22 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-
-// Shape returned by the explain-assessment server function (docs/03).
-interface SubScoreExplain {
-  code: string;
-  name: string;
-  dimensionCode: string;
-  formulaType: string;
-  inputs: Record<string, unknown>;
-  computed: Record<string, unknown>;
-  points: number;
-  weight: number;
-  contribution: number;
-}
+import { invokeFunction, supabase } from '../lib/supabase';
+import {
+  gapReason,
+  interpretSubScore,
+  type SubScoreExplainLike,
+} from '../../shared/scoring/interpret';
 
 interface Explain {
-  subScores: SubScoreExplain[];
+  subScores: SubScoreExplainLike[];
   dimensions: { code: string; name: string; score: number; drsWeight: number; contributionToDrs: number }[];
   drsScore: number;
   drsTier: string;
@@ -49,29 +41,13 @@ const tierStatus: Record<string, string> = {
   'Not Saleable (Yet)': 'critical',
 };
 
-function triggerText(trigger: unknown): string {
-  const t = trigger as Record<string, unknown>;
-  switch (t?.type) {
-    case 'sub_score_below':
-      return `sub-score ${t.code} below ${t.threshold}`;
-    case 'answer_in':
-      return `${t.question_code} is ${(t.values as string[]).join(' or ')}`;
-    case 'answer_lte':
-      return `${t.question_code} ≤ ${t.value}`;
-    case 'composite_below':
-      return `DRS below ${t.threshold}`;
-    case 'all':
-      return (t.conditions as unknown[]).map(triggerText).join(' AND ');
-    default:
-      return JSON.stringify(t);
-  }
-}
-
-function formatValue(v: unknown): string {
-  if (v === null || v === undefined) return '—';
-  if (Array.isArray(v)) return v.join(', ');
-  return String(v);
-}
+const TIERS = [
+  { label: 'Institutional Grade', floor: 85 },
+  { label: 'Sale Ready', floor: 70 },
+  { label: 'Needs Work', floor: 55 },
+  { label: 'High Risk', floor: 40 },
+  { label: 'Not Saleable (Yet)', floor: 0 },
+];
 
 export default function ResultsPage() {
   const { assessmentId } = useParams();
@@ -85,7 +61,6 @@ export default function ResultsPage() {
   useEffect(() => {
     (async () => {
       try {
-        // Longitudinal read path: active assessments only (docs/02).
         const { data: a, error: aErr } = await supabase
           .from('active_assessments')
           .select('*')
@@ -118,20 +93,23 @@ export default function ResultsPage() {
           .eq('rubric_version_id', a.rubric_version_id)
           .eq('score_group', 'owner_readiness');
         setOwnerDimNames(new Map((dims ?? []).map((d: { code: string; name: string }) => [d.code, d.name])));
-        const { data: ex, error: exErr } = await supabase.functions.invoke('explain-assessment', {
-          body: { assessment_id: assessmentId },
-        });
-        if (exErr) throw new Error(exErr.message);
-        setExplain(ex as Explain);
+        const ex = await invokeFunction<Explain>('explain-assessment', { assessment_id: assessmentId });
+        setExplain(ex);
       } catch (err) {
         setError((err as Error).message);
       }
     })();
   }, [assessmentId]);
 
+  const subScoreNames = useMemo(
+    () => new Map((explain?.subScores ?? []).map((s) => [s.code, s.name])),
+    [explain],
+  );
+
   if (error) return <p className="form-error">{error}</p>;
   if (!assessment || !explain) return <p className="muted">Loading results…</p>;
 
+  const divergent = Math.abs(explain.drsScore - explain.oriScore) >= 15;
   const ownerSubs = explain.subScores.filter((s) => ownerDimNames.has(s.dimensionCode));
   const ownerGroups = [...ownerDimNames.keys()]
     .map((code) => ({
@@ -161,139 +139,158 @@ export default function ResultsPage() {
         </span>
       </div>
 
-      {/* Two score groups, shown distinctly; never blended (CLAUDE.md rule 3a). */}
+      {/* Score summary */}
       <section className="score-tiles">
         <div className="tile score-tile">
-          <span className="tile-label">Business readiness · DRS</span>
+          <span className="tile-label">Business readiness</span>
           <span className="tile-value hero-tile-value">{explain.drsScore}</span>
           <span className={`status-chip status-${tierStatus[explain.drsTier] ?? 'neutral'}`}>
-            ● {explain.drsTier}
+            {explain.drsTier}
           </span>
+          <span className="muted tile-note">Diligence Readiness Score, out of 100</span>
         </div>
         <div className="tile score-tile">
-          <span className="tile-label">Owner readiness · ORI</span>
+          <span className="tile-label">Owner readiness</span>
           <span className="tile-value hero-tile-value">{explain.oriScore}</span>
-          <span className="muted tile-note">personal & goal readiness, scored separately</span>
-        </div>
-        <div className="tile score-tile">
-          <span className="tile-label">Overall readiness</span>
-          <span className="composite-pair">
-            <span>
-              Business <strong>{explain.drsScore}</strong>
-            </span>
-            <span>
-              Owner <strong>{explain.oriScore}</strong>
-            </span>
-          </span>
           <span className="muted tile-note">
-            {Math.abs(explain.drsScore - explain.oriScore) >= 15
-              ? 'Divergence flag: business and owner readiness are far apart — that gap is itself the diagnostic.'
-              : 'Business and owner readiness are broadly aligned.'}
-            {' '}Score groups are never blended into one number (methodology rule).
+            The owner’s personal and financial readiness, scored on its own — never blended into the
+            business score.
+          </span>
+        </div>
+        <div className={`tile score-tile ${divergent ? 'tile-flag' : ''}`}>
+          <span className="tile-label">Reading the two together</span>
+          <span className="tile-narrative">
+            {divergent
+              ? 'The business and the owner are at different stages of readiness. That gap is a finding in itself: the plan should move both forward, not just one.'
+              : 'The business and the owner are broadly aligned in readiness.'}
           </span>
         </div>
       </section>
 
-      <h3 className="section-heading">Business dimensions (roll up to DRS)</h3>
-      <div className="dimension-table">
+      {/* How the score works — plain overview */}
+      <details className="how-it-works">
+        <summary>How this score is built</summary>
+        <div className="how-body">
+          <p>
+            Six areas of the business are each scored out of 100 from your assessment answers. Those
+            six roll up — weighted by how much buyers care about each — into the single{' '}
+            <strong>Business readiness</strong> score above. The owner’s personal readiness is scored
+            separately and never mixed in.
+          </p>
+          <p className="muted">
+            Every number below traces straight back to an answer you gave. Nothing is estimated, and
+            no AI is involved in the scoring — the same answers always produce the same score.
+          </p>
+          <div className="tier-ladder">
+            {TIERS.map((t) => (
+              <div
+                key={t.label}
+                className={`tier-rung ${t.label === explain.drsTier ? 'tier-rung-current' : ''}`}
+              >
+                <span className="tier-floor">{t.floor}+</span>
+                <span className="tier-name">{t.label}</span>
+                {t.label === explain.drsTier && <span className="tier-you">you are here</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </details>
+
+      <h3 className="section-heading">The six business areas</h3>
+      <p className="section-sub muted">
+        Open any area to see, in plain terms, what it measures and what your answers showed.
+      </p>
+      <div className="dimension-list">
         {explain.dimensions.map((d) => {
-          const subs = explain.subScores.filter((s) => s.dimensionCode === d.code);
+          const readings = explain.subScores
+            .filter((s) => s.dimensionCode === d.code)
+            .map(interpretSubScore)
+            .sort((a, b) => a.points - b.points); // weakest first — that's where the work is
+          const dimStatus =
+            d.score >= 75 ? 'good' : d.score >= 55 ? 'ok' : d.score >= 40 ? 'warning' : 'critical';
           return (
-            <details key={d.code} className="dim-details">
+            <details key={d.code} className="dim-card">
               <summary>
-                <span className="dim-name">{d.name}</span>
-                <span className="dim-track">
-                  <span className="dim-fill" style={{ width: `${d.score}%` }} />
+                <span className="dim-head">
+                  <span className="dim-name">{d.name}</span>
+                  <span className="dim-track">
+                    <span className={`dim-fill dim-fill-${dimStatus}`} style={{ width: `${d.score}%` }} />
+                  </span>
+                  <span className="dim-value">{d.score}</span>
                 </span>
-                <span className="dim-value">{d.score}</span>
-                <span className="dim-why">why?</span>
+                <span className="dim-expand">details</span>
               </summary>
-              <div className="explain-drawer">
-                <p className="muted explain-math">
-                  Dimension score {d.score} × DRS weight {d.drsWeight} → contributes{' '}
-                  {d.contributionToDrs} of the {explain.drsScore} DRS.
+              <div className="dim-body">
+                <p className="dim-contrib muted">
+                  This area is worth {Math.round(d.drsWeight * 100)}% of the business score, so it adds{' '}
+                  {d.contributionToDrs} of the {explain.drsScore} points overall.
                 </p>
-                <div className="comparison-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Sub-score</th>
-                        <th>Inputs</th>
-                        <th>Computed</th>
-                        <th>Points</th>
-                        <th>Weight</th>
-                        <th>Contribution</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {subs.map((s) => (
-                        <tr key={s.code}>
-                          <td>
-                            {s.name}
-                            <span className="muted"> ({s.formulaType})</span>
-                          </td>
-                          <td>
-                            {Object.entries(s.inputs).map(([k, v]) => (
-                              <div key={k}>
-                                {k}: {formatValue(v)}
-                              </div>
-                            ))}
-                          </td>
-                          <td>
-                            {Object.entries(s.computed).map(([k, v]) => (
-                              <div key={k}>
-                                {k}: {formatValue(v)}
-                              </div>
-                            ))}
-                          </td>
-                          <td>{s.points}</td>
-                          <td>{s.weight}</td>
-                          <td>{s.contribution}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ul className="factor-list">
+                  {readings.map((r) => (
+                    <li key={r.code} className="factor">
+                      <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
+                      <span className="factor-text">
+                        <strong>{r.name}</strong> — {r.measures}.
+                        <span className="factor-reading"> {r.reading}</span>
+                        <span className="factor-benchmark muted"> Target: {r.benchmark}.</span>
+                      </span>
+                      <span className="factor-score">{r.points}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </details>
           );
         })}
       </div>
 
-      <h3 className="section-heading">Owner readiness (rolls up to ORI)</h3>
-      <div className="dimension-table">
+      <h3 className="section-heading">The owner’s side</h3>
+      <p className="section-sub muted">
+        Scored separately from the business. A ready business and an unready owner is a common — and
+        important — mismatch.
+      </p>
+      <div className="dimension-list">
         {ownerGroups.map((g) => (
-          <div key={g.code} className="owner-group">
+          <div key={g.code} className="owner-card">
             <h4>{g.name}</h4>
-            {g.subs.map((s) => (
-              <div key={s.code} className="dim-row">
-                <span className="dim-name">{s.name}</span>
-                <span className="dim-track">
-                  <span className="dim-fill dim-fill-owner" style={{ width: `${s.points}%` }} />
-                </span>
-                <span className="dim-value">{s.points}</span>
-              </div>
-            ))}
+            <ul className="factor-list">
+              {g.subs.map(interpretSubScore).map((r) => (
+                <li key={r.code} className="factor">
+                  <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
+                  <span className="factor-text">
+                    <strong>{r.name}</strong>
+                    <span className="factor-reading"> {r.reading}</span>
+                  </span>
+                  <span className="factor-score">{r.points}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </div>
 
-      <h3 className="section-heading">Flagged gaps ({explain.firedGaps.length})</h3>
-      {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged</p>}
+      <h3 className="section-heading">
+        What buyers would flag{' '}
+        <span className="count-pill">{explain.firedGaps.length}</span>
+      </h3>
+      {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged — a clean assessment.</p>}
       <ul className="gap-detail-list">
         {explain.firedGaps.map((g) => (
           <li key={g.code}>
-            <span className={`gap-chip gap-${severityStatus[g.severity] ?? 'neutral'}`}>
-              {g.severity}
+            <span className={`gap-chip gap-${severityStatus[g.severity] ?? 'neutral'}`}>{g.severity}</span>
+            <span className="gap-text">
+              <strong>{g.name}</strong>
+              <span className="muted"> {gapReason(g.trigger, subScoreNames)}</span>
             </span>
-            <span className="gap-name">{g.name}</span>
-            <span className="muted">fired because {triggerText(g.trigger)}</span>
           </li>
         ))}
         {explain.flags.map((f) => (
           <li key={f}>
-            <span className="gap-chip gap-neutral">flag</span>
-            <span className="gap-name">{f}</span>
+            <span className="gap-chip gap-neutral">note</span>
+            <span className="gap-text">
+              <strong>{f}</strong>
+              <span className="muted"> Scored conservatively until it is measured.</span>
+            </span>
           </li>
         ))}
       </ul>

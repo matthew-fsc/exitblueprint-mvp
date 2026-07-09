@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isDevStack, supabase } from '../lib/supabase';
+import { ThemeToggle } from '../lib/theme';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,6 +25,9 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
+      <div className="login-topline">
+        <ThemeToggle />
+      </div>
       <form className="login-card" onSubmit={submit}>
         <h1>Exit Blueprint</h1>
         <p className="login-subtitle">Advisor workspace</p>
