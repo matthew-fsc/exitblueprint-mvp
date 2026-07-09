@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
+import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack } from './lib/supabase';
 import LoginPage from './pages/LoginPage';
 import ClientsPage from './pages/ClientsPage';
@@ -46,6 +47,7 @@ function Shell({ children }: { children: ReactNode }) {
           <button className="linkish" onClick={signOut}>
             Sign out
           </button>
+          <ThemeToggle />
         </nav>
       </header>
       {children}
@@ -55,9 +57,10 @@ function Shell({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/health" element={<main className="page"><HealthPage /></main>} />
           <Route path="/dev/verify" element={<main className="page"><VerifyPage /></main>} />
@@ -111,9 +114,10 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
