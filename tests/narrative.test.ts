@@ -4,10 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import {
   buildOwnerReportPayload,
+  composeOwnerReport,
   generateDocument,
   numeralPostCheck,
 } from '../server/narrative';
-import { scoreAssessment } from '../server/scoring';
+import { explainAssessment, scoreAssessment } from '../server/scoring';
+import { interpretSubScore, qualityBand } from '../shared/scoring/interpret';
 import type { Answers } from '../shared/scoring/types';
 import { loadFixture } from './helpers';
 
@@ -159,5 +161,53 @@ describe.skipIf(!url)('generateDocument', () => {
 
   it('rejects doc types that are not implemented yet', async () => {
     await expect(generateDocument(db, assessmentId, 'advisor_brief')).rejects.toThrow(/S11/);
+  });
+
+  it('generates a rule-based report with NO API key and no injected generator', async () => {
+    delete process.env.ANTHROPIC_API_KEY; // ensure the deterministic path
+    const doc = await generateDocument(db, assessmentId, 'owner_report');
+    expect(doc.model).toMatch(/^rule-based/);
+    // premise intact: score, tier, and the fixture's flagged gaps are all present
+    const fixture = loadFixture('company-3-harborview-staffing');
+    expect(doc.content_md).toContain('Narrative Test Co');
+    expect(doc.content_md).toContain(String(fixture.expected.drs));
+    expect(doc.content_md).toContain(fixture.expected.tier);
+    expect(doc.content_md).toContain('## What to fix first');
+    // reads like prose, not code — no formula names or field keys leak in
+    expect(doc.content_md).not.toMatch(/sub_score_below|formulaType|hhi_est/);
+  });
+
+  it('composeOwnerReport is deterministic (same inputs → same report)', async () => {
+    const payload = await buildOwnerReportPayload(db, assessmentId);
+    const explain = await explainAssessment(db, assessmentId);
+    expect(composeOwnerReport(payload, explain)).toBe(composeOwnerReport(payload, explain));
+  });
+});
+
+describe('interpret layer (pure, plain-language)', () => {
+  it('bands points into readable labels', () => {
+    expect(qualityBand(90).label).toBe('Strong');
+    expect(qualityBand(60).label).toBe('Adequate');
+    expect(qualityBand(30).label).toBe('Needs work');
+    expect(qualityBand(10).label).toBe('At risk');
+  });
+
+  it('renders a recurring-revenue sub-score as a plain sentence, no code', () => {
+    const r = interpretSubScore({
+      code: 'REV-RECUR',
+      name: 'Recurring Revenue Percentage',
+      dimensionCode: 'REV',
+      formulaType: 'band_gte',
+      inputs: { 'REV-RECUR-PCT': 45 },
+      computed: { value: 45 },
+      points: 50,
+      weight: 0.3,
+      contribution: 15,
+    });
+    expect(r.reading).toBe('45% of revenue is contractually recurring.');
+    expect(r.band.label).toBe('Adequate');
+    expect(r.measures).toMatch(/renews on its own/);
+    expect(r.benchmark).toMatch(/80%/);
+    expect(JSON.stringify(r)).not.toMatch(/band_gte/);
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { loadRubric, type QuestionRow, type RubricData } from '../lib/rubric';
-import { supabase } from '../lib/supabase';
+import { invokeFunction, supabase } from '../lib/supabase';
 
 // Draft values live as strings/arrays for editing; toAnswerValue() converts to
 // the jsonb answer representation the engine consumes (docs/02 answers.value).
@@ -174,10 +174,7 @@ export default function IntakePage() {
       if (missing.length > 0) {
         throw new Error(`Unanswered scored questions: ${missing.join(', ')}`);
       }
-      const { error } = await supabase.functions.invoke('score-assessment', {
-        body: { assessment_id: assessmentId },
-      });
-      if (error) throw new Error(error.message);
+      await invokeFunction('score-assessment', { assessment_id: assessmentId });
       navigate(`/assessment/${assessmentId}/results`);
     } catch (err) {
       setError((err as Error).message);
