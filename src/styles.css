@@ -1779,3 +1779,306 @@ textarea:focus {
 .intake-dimension {
   padding: 1.5rem;
 }
+
+/* ===================== Scenario Workbench ===================== */
+.workbench .wb-links {
+  font-size: 0.9rem;
+}
+.wb-explainer {
+  background: var(--brand-tint);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1.1rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  max-width: 70ch;
+  margin: 0.75rem 0 1.5rem;
+}
+.wb-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .wb-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* editable answers column */
+.wb-dim {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.1rem;
+}
+.wb-dim-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.wb-dim-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.wb-dim-code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-tint);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.wb-dim-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* sticky scoreboard */
+.wb-board {
+  position: sticky;
+  top: 1rem;
+}
+.wb-board-inner {
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.wb-incomplete {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--status-warning);
+  background: var(--chip-warn-bg);
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
+}
+.wb-score {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.wb-score-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.wb-score-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.wb-score-value-sm {
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+.wb-score-hero {
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+.wb-score-hero .status-chip {
+  align-self: flex-start;
+}
+.wb-tier-change {
+  font-size: 0.78rem;
+}
+.wb-board-heading {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.wb-dims {
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+}
+.wb-dimrow {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+}
+.wb-dimrow-name {
+  text-align: left;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  padding: 0;
+}
+.wb-dimrow-track {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.wb-dimrow-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.wb-dimrow-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-self: end;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.wb-gaps {
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+}
+.wb-gap-deltas {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.wb-gap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.wb-gap-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+}
+.wb-gap-name {
+  color: var(--text-secondary);
+}
+.wb-gap-new .wb-gap-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.wb-actions {
+  display: flex;
+  gap: 0.6rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.1rem;
+}
+.wb-actions button {
+  flex: 1;
+}
+.wb-save-note {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+/* delta chips */
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.4rem;
+  border-radius: 20px;
+  letter-spacing: 0.01em;
+}
+.delta-up {
+  color: var(--chip-good-fg);
+  background: var(--chip-good-bg);
+}
+.delta-down {
+  color: var(--chip-critical-fg);
+  background: var(--chip-critical-bg);
+}
+.delta-flat {
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+/* ===================== Engagement trajectory ===================== */
+.trajectory {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.3rem 1.3rem;
+  margin: 1rem 0 1.5rem;
+}
+.trajectory-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.trajectory-head .section-heading {
+  margin: 0;
+}
+.trajectory-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.4rem;
+  height: 130px;
+  padding-top: 0.75rem;
+  overflow-x: auto;
+}
+.trajectory-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 2.5rem;
+}
+.trajectory-bar-wrap {
+  display: flex;
+  align-items: flex-end;
+  height: 90px;
+  width: 1.6rem;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.trajectory-bar {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 3px;
+}
+.trajectory-val {
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.trajectory-seq {
+  font-size: 0.72rem;
+}

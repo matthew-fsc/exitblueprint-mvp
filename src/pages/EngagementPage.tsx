@@ -114,6 +114,8 @@ export default function EngagementPage() {
       </div>
       {error && <p className="form-error">{error}</p>}
 
+      <Trajectory assessments={assessments} />
+
       <h3 className="section-heading">Assessments</h3>
       {assessments.length === 0 && <p className="muted">No assessments yet.</p>}
       <ul className="assessment-list">
@@ -131,6 +133,9 @@ export default function EngagementPage() {
                 </span>
                 <Link className="button-link" to={`/assessment/${a.id}/results`}>
                   Results →
+                </Link>
+                <Link className="button-link" to={`/assessment/${a.id}/workbench`}>
+                  What-if →
                 </Link>
               </>
             ) : (
@@ -150,5 +155,44 @@ export default function EngagementPage() {
         </button>
       )}
     </div>
+  );
+}
+
+// DRS over time across the engagement's completed assessments — the longitudinal
+// story an advisor wants at a glance.
+function Trajectory({ assessments }: { assessments: AssessmentRow[] }) {
+  const scored = assessments
+    .filter((a) => a.status === 'completed' && a.drs_score != null)
+    .map((a) => ({ seq: a.sequence_number, drs: Number(a.drs_score), tier: a.drs_tier }));
+  if (scored.length === 0) return null;
+
+  const first = scored[0].drs;
+  const last = scored[scored.length - 1].drs;
+  const delta = Math.round((last - first) * 10) / 10;
+  const status = (v: number) =>
+    v >= 70 ? 'good' : v >= 55 ? 'ok' : v >= 40 ? 'warning' : 'critical';
+
+  return (
+    <section className="trajectory">
+      <div className="trajectory-head">
+        <h3 className="section-heading">Business readiness over time</h3>
+        {scored.length > 1 && (
+          <span className={`delta ${delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : 'delta-flat'}`}>
+            {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : 'no change'} since baseline
+          </span>
+        )}
+      </div>
+      <div className="trajectory-track">
+        {scored.map((s) => (
+          <div key={s.seq} className="trajectory-point" title={`#${s.seq}: ${s.drs} · ${s.tier ?? ''}`}>
+            <span className="trajectory-bar-wrap">
+              <span className={`trajectory-bar dim-fill-${status(s.drs)}`} style={{ height: `${s.drs}%` }} />
+            </span>
+            <span className="trajectory-val">{s.drs}</span>
+            <span className="trajectory-seq muted">#{s.seq}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

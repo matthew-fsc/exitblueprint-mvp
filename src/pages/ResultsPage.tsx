@@ -129,6 +129,10 @@ export default function ResultsPage() {
           {versionLabel}
           {assessment.completed_at ? ` · ${new Date(assessment.completed_at).toLocaleDateString()}` : ''}
           {' · '}
+          <Link className="button-link" to={`/assessment/${assessment.id}/workbench`}>
+            what-if workbench →
+          </Link>
+          {' · '}
           <Link className="button-link" to={`/assessment/${assessment.id}/report`}>
             owner report →
           </Link>
