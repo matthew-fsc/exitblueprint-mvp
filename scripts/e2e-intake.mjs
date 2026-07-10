@@ -73,18 +73,22 @@ for (let step = 0; step < dimensionCodes.length; step++) {
     const q = page.locator(`[data-qcode="${code}"]`);
     const value = answers[code];
     if (value === undefined) continue; // context question with no fixture answer
-    if (type === 'numeric' || type === 'scale_1_5' || type === 'numeric_or_unknown') {
-      if (value === 'unknown') {
-        await q.getByRole('checkbox').check();
-      } else if (type === 'scale_1_5') {
-        await q.getByRole('radio').nth(Number(value) - 1).check();
-      } else {
-        await q.locator('input[type=number]').fill(String(value));
-      }
+    if (type === 'numeric_or_unknown' && value === 'unknown') {
+      await q.locator('.toggle-pill').click();
+    } else if (type === 'numeric' || type === 'numeric_or_unknown') {
+      await q.locator('input[type=number]').first().fill(String(value));
+    } else if (type === 'scale_1_5') {
+      await q.locator('.scale-seg').nth(Number(value) - 1).click();
     } else if (type === 'numeric_list') {
-      await q.locator('input[type=text]').fill(value.join(', '));
+      for (let i = 0; i < value.length; i++) {
+        await q.locator('.list-row input[type=number]').nth(i).fill(String(value[i]));
+      }
     } else if (type === 'select') {
-      await q.locator('select').selectOption(value);
+      if (await q.locator('select.pretty-select').count()) {
+        await q.locator('select.pretty-select').selectOption(value);
+      } else {
+        await q.locator(`.option-card[data-value="${value}"]`).click();
+      }
     } else if (type === 'text') {
       await q.locator('textarea').fill(String(value));
     } // rank: leave default order (context-only)
@@ -97,18 +101,18 @@ for (let step = 0; step < dimensionCodes.length; step++) {
   await page.getByRole('button', { name: 'Save & continue →' }).click();
 }
 
-// after submit we land on the engagement page — verify the exact scores
-await page.waitForURL(/\/engagement\//, { timeout: 20000 });
-await page.waitForSelector('.assessment-score');
-const scoreText = await page.locator('.assessment-card').last().innerText();
+// after submit we land on the results page — verify the exact scores
+await page.waitForURL(/\/assessment\/.*\/results/, { timeout: 20000 });
+await page.waitForSelector('.score-tiles');
+const scoreText = await page.locator('.score-tiles').innerText();
 const wanted = [
-  `DRS ${fixture.expected.drs}`,
+  String(fixture.expected.drs),
   fixture.expected.tier,
-  `ORI ${fixture.expected.owner_readiness_index}`,
+  String(fixture.expected.owner_readiness_index),
 ];
 for (const piece of wanted) {
   if (!scoreText.includes(piece)) {
-    await fail(`expected '${piece}' in assessment card, saw: ${scoreText.replace(/\n/g, ' | ')}`);
+    await fail(`expected '${piece}' on results page, saw: ${scoreText.replace(/\n/g, ' | ')}`);
   }
 }
 console.log(`E2E PASS: intake walkthrough reproduced ${fixtureName}:`);
