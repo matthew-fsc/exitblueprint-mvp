@@ -7,6 +7,7 @@ import ClientsPage from './pages/ClientsPage';
 import EngagementPage from './pages/EngagementPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
+import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
 import HealthPage from './pages/HealthPage';
 import VerifyPage from './pages/VerifyPage';
@@ -100,6 +101,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <ResultsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/assessment/:assessmentId/workbench"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <WorkbenchPage />
                 </Shell>
               </RequireAdvisor>
             }
