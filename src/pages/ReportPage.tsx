@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
+import { qk, useLatestReport } from '../lib/queries';
+import { useBrand } from '../lib/branding';
+import { FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { fmtDate } from '../lib/format';
 
-interface GeneratedDocument {
-  id: string;
-  assessment_id: string;
-  engagement_id: string;
-  content_md: string;
-  prompt_version: string;
-  model: string;
-  created_at: string;
-  finalized_at: string | null;
-}
-
-// Minimal inline renderer for the report markdown: bold, italics, headings,
-// and bullets — no external markdown dependency.
+// Minimal inline renderer for the report markdown.
 function inline(text: string): (string | ReactElement)[] {
   const parts: (string | ReactElement)[] = [];
   const re = /(\*\*[^*]+\*\*|_[^_]+_)/g;
@@ -65,39 +58,28 @@ function renderMarkdown(md: string): ReactElement[] {
 
 export default function ReportPage() {
   const { assessmentId } = useParams();
-  const [doc, setDoc] = useState<GeneratedDocument | null>(null);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { brand, branding } = useBrand();
+  const reportQ = useLatestReport(assessmentId);
+  const doc = reportQ.data ?? null;
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('generated_documents')
-      .select('*')
-      .eq('assessment_id', assessmentId!)
-      .eq('doc_type', 'owner_report')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    const latest = (data?.[0] as GeneratedDocument) ?? null;
-    setDoc(latest);
-    setDraft(latest?.content_md ?? '');
-    setLoading(false);
-  }, [assessmentId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    setDraft(doc?.content_md ?? '');
+  }, [doc]);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: qk.latestReport(assessmentId ?? '') });
 
   const generate = async () => {
     setBusy(true);
     setError(null);
     try {
-      await invokeFunction('generate-document', {
-        assessment_id: assessmentId,
-        doc_type: 'owner_report',
-      });
-      await load();
+      await invokeFunction('generate-document', { assessment_id: assessmentId, doc_type: 'owner_report' });
+      refresh();
+      toast.show('Report generated', 'good');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -105,43 +87,45 @@ export default function ReportPage() {
   };
 
   const saveDraft = async () => {
+    if (!doc) return;
     setBusy(true);
     setError(null);
-    const { error } = await supabase
-      .from('generated_documents')
-      .update({ content_md: draft })
-      .eq('id', doc!.id);
+    const { error } = await supabase.from('generated_documents').update({ content_md: draft }).eq('id', doc.id);
     if (error) setError(error.message);
-    await load();
+    else toast.show('Draft saved', 'good');
+    refresh();
     setBusy(false);
   };
 
   const finalize = async () => {
+    if (!doc) return;
     setBusy(true);
     setError(null);
     const { error } = await supabase
       .from('generated_documents')
       .update({ content_md: draft, finalized_at: new Date().toISOString() })
-      .eq('id', doc!.id);
+      .eq('id', doc.id);
     if (error) setError(error.message);
-    await load();
+    else toast.show('Report finalized', 'good');
+    refresh();
     setBusy(false);
   };
 
-  if (loading) return <p className="muted">Loading report…</p>;
+  if (reportQ.isLoading) return <SkeletonLines lines={6} />;
 
   const ruleBased = (doc?.model ?? '').startsWith('rule-based');
 
   return (
     <div className="report">
-      <div className="page-title-row no-print">
-        <h2>Owner report</h2>
-        <span className="muted">
+      <PageHeader
+        title="Owner report"
+        crumbs={[{ label: 'Clients', to: '/' }, { label: 'Owner report' }]}
+        actions={
           <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
             ← results
           </Link>
-        </span>
-      </div>
+        }
+      />
       {error && <p className="form-error no-print">{error}</p>}
 
       {!doc ? (
@@ -149,8 +133,8 @@ export default function ReportPage() {
           <p className="muted">
             No report yet. The report is built server-side from this assessment’s scores and flagged
             gaps — every figure traces back to an answer, and no number is invented. If an AI writing
-            service is configured it drafts the prose from those same numbers; otherwise a plain-language
-            version is composed directly from the data.
+            service is configured it drafts the prose from those same numbers; otherwise a
+            plain-language version is composed directly from the data.
           </p>
           <button onClick={generate} disabled={busy}>
             {busy ? 'Generating…' : 'Generate owner report'}
@@ -161,7 +145,7 @@ export default function ReportPage() {
           <div className="report-meta no-print">
             <span className={`status-chip status-${doc.finalized_at ? 'good' : 'warning'}`}>
               {doc.finalized_at
-                ? `Finalized ${new Date(doc.finalized_at).toLocaleDateString()}`
+                ? `Finalized ${fmtDate(doc.finalized_at)}`
                 : ruleBased
                   ? 'Draft built from your assessment data — review and edit before finalizing'
                   : 'AI-drafted from your assessment data — review and edit before finalizing'}
@@ -200,9 +184,17 @@ export default function ReportPage() {
             </div>
           )}
 
-          {/* print view (and read view once finalized) */}
+          {/* print view (and read view once finalized) — firm-branded */}
           <article className={`report-body ${doc.finalized_at ? '' : 'print-only'}`}>
+            <div className="report-brandbar">
+              <FirmMark brand={brand} />
+              {branding?.report_from_line && <span className="muted">{branding.report_from_line}</span>}
+            </div>
             {renderMarkdown(doc.finalized_at ? doc.content_md : draft)}
+            {branding?.footer_disclosure_md && (
+              <p className="report-disclosure">{branding.footer_disclosure_md}</p>
+            )}
+            <p className="powered-by report-poweredby">Powered by Exit Blueprint</p>
           </article>
         </>
       )}

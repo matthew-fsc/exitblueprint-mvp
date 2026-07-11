@@ -121,6 +121,11 @@ async function main() {
        values ($1, $2, 'loi_received', 'firm B event')`,
       [ids.firm_b, engagementB],
     );
+    await db.query(
+      `insert into firm_branding (firm_id, display_name, accent_color)
+       values ($1, 'Firm B Wealth', '#123456')`,
+      [ids.firm_b],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -181,6 +186,34 @@ async function main() {
     }
     check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
 
+    // firm_branding: advisor A writes+reads own firm, never sees firm B
+    await db.query(
+      `insert into firm_branding (firm_id, display_name, accent_color)
+       values ($1, 'Firm A Advisory', '#1f7a52')`,
+      [ids.firm_a],
+    );
+    check('can create own firm branding', true);
+    const brandingA = await db.query('select display_name from firm_branding');
+    check(
+      'sees only own firm branding',
+      brandingA.rows.length === 1 && brandingA.rows[0].display_name === 'Firm A Advisory',
+      `saw ${JSON.stringify(brandingA.rows)}`,
+    );
+    let brandBWriteBlocked = false;
+    try {
+      await db.query('savepoint bb');
+      const upd = await db.query(
+        `update firm_branding set display_name = 'hijacked' where firm_id = $1`,
+        [ids.firm_b],
+      );
+      brandBWriteBlocked = upd.rowCount === 0;
+      await db.query('release savepoint bb');
+    } catch {
+      brandBWriteBlocked = true;
+      await db.query('rollback to savepoint bb');
+    }
+    check('cannot modify firm B branding', brandBWriteBlocked);
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -208,6 +241,26 @@ async function main() {
       await db.query('rollback to savepoint w2');
     }
     check('cannot write (read-only role)', ownerWriteBlocked);
+    const ownerBranding = await db.query('select display_name from firm_branding');
+    check(
+      'owner reads only their firm branding',
+      ownerBranding.rows.length === 1 && ownerBranding.rows[0].display_name === 'Firm A Advisory',
+      `saw ${JSON.stringify(ownerBranding.rows)}`,
+    );
+    let ownerBrandWriteBlocked = false;
+    try {
+      await db.query('savepoint ob');
+      const upd = await db.query(
+        `update firm_branding set display_name = 'owner-edit' where firm_id = $1`,
+        [ids.firm_a],
+      );
+      ownerBrandWriteBlocked = upd.rowCount === 0;
+      await db.query('release savepoint ob');
+    } catch {
+      ownerBrandWriteBlocked = true;
+      await db.query('rollback to savepoint ob');
+    }
+    check('owner cannot write branding', ownerBrandWriteBlocked);
 
     // --- Unauthenticated: nothing ------------------------------------------
     console.log('unauthenticated:');
