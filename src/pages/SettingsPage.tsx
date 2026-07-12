@@ -93,7 +93,7 @@ export default function SettingsPage() {
       <PageHeader
         title="Firm branding"
         subtitle="Your firm is the face on every client-facing report and portal. Exit Blueprint stays in the background."
-        crumbs={[{ label: 'Clients', to: '/' }, { label: 'Settings' }]}
+        crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Settings' }]}
       />
 
       {error && <p className="form-error">{error}</p>}

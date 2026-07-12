@@ -105,7 +105,7 @@ export default function ResultsPage() {
           </>
         }
         crumbs={[
-          { label: 'Clients', to: '/' },
+          { label: 'Portfolio', to: '/' },
           { label: companyName, to: `/engagement/${assessment.engagement_id}` },
           { label: `Assessment #${assessment.sequence_number}` },
         ]}

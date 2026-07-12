@@ -6,8 +6,10 @@ import { isDevStack } from './lib/supabase';
 import { FirmMark, ToastProvider } from './components/ui';
 import { BrandingProvider, useBrand } from './lib/branding';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import EngagementPage from './pages/EngagementPage';
+import DeltaReportPage from './pages/DeltaReportPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
@@ -51,7 +53,8 @@ function ShellHeader() {
         <p className="subtitle">Exit readiness workspace</p>
       </div>
       <nav className="shell-nav">
-        <Link to="/">Clients</Link>
+        <Link to="/">Portfolio</Link>
+        <Link to="/clients">Clients</Link>
         <Link to="/settings">Settings</Link>
         <span className="shell-user">
           {profile?.email}
@@ -94,6 +97,16 @@ export default function App() {
             element={
               <RequireAdvisor>
                 <Shell>
+                  <DashboardPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/clients"
+            element={
+              <RequireAdvisor>
+                <Shell>
                   <ClientsPage />
                 </Shell>
               </RequireAdvisor>
@@ -105,6 +118,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <EngagementPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/delta"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <DeltaReportPage />
                 </Shell>
               </RequireAdvisor>
             }

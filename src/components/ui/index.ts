@@ -9,6 +9,7 @@ export { FirmMark, type FirmBrand } from './FirmMark';
 export { PageHeader, type Crumb } from './PageHeader';
 export { ScoreDial } from './ScoreDial';
 export { Skeleton, SkeletonLines } from './Skeleton';
+export { Sparkline } from './Sparkline';
 export { StatBlock, StatRow } from './StatBlock';
 export { TierBadge } from './TierBadge';
 export { Timeline, type TimelineItem } from './Timeline';

@@ -119,7 +119,7 @@ export default function ReportPage() {
     <div className="report">
       <PageHeader
         title="Owner report"
-        crumbs={[{ label: 'Clients', to: '/' }, { label: 'Owner report' }]}
+        crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Owner report' }]}
         actions={
           <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
             ← results

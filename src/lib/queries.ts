@@ -21,9 +21,17 @@ export const qk = {
   rubricVersion: (id: string) => ['rubricVersion', id] as const,
   explain: (assessmentId: string) => ['explain', assessmentId] as const,
   latestReport: (assessmentId: string) => ['report', 'latest', assessmentId] as const,
+  latestDoc: (assessmentId: string, docType: string) => ['doc', 'latest', assessmentId, docType] as const,
   rubric: (rubricVersionId: string) => ['rubric', rubricVersionId] as const,
   engineRubric: (rubricVersionId: string) => ['engineRubric', rubricVersionId] as const,
   answers: (assessmentId: string) => ['answers', assessmentId] as const,
+  portfolio: () => ['portfolio'] as const,
+  engagementGaps: (engagementId: string) => ['engagementGaps', engagementId] as const,
+  engagementDocuments: (engagementId: string) => ['engagementDocuments', engagementId] as const,
+  engagementOutcome: (engagementId: string) => ['engagementOutcome', engagementId] as const,
+  compare: (priorId: string, currentId: string) => ['compare', priorId, currentId] as const,
+  milestones: (engagementId: string) => ['milestones', engagementId] as const,
+  engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -242,6 +250,219 @@ export function useAnswers(assessmentId: string | undefined): UseQueryResult<Ans
       unwrap<AnswerRowRaw[]>(
         await supabase.from('answers').select('*').eq('assessment_id', assessmentId!),
       ),
+  });
+}
+
+// ---- portfolio (F2) --------------------------------------------------------
+export interface PortfolioRow {
+  engagementId: string;
+  companyName: string;
+  industry: string | null;
+  status: string;
+  latestDrs: number | null;
+  latestTier: string | null;
+  latestOri: number | null;
+  latestAt: string | null;
+  priorDrs: number | null;
+  delta: number | null;
+  points: { seq: number; drs: number; tier: string | null }[];
+  openGaps: number;
+  assessmentCount: number;
+}
+
+export function usePortfolio(): UseQueryResult<PortfolioRow[]> {
+  return useQuery({
+    queryKey: qk.portfolio(),
+    queryFn: async () => {
+      const [engagements, companies, assessments, gaps] = await Promise.all([
+        supabase.from('engagements').select('*'),
+        supabase.from('companies').select('*'),
+        supabase.from('active_assessments').select('*').eq('status', 'completed').order('sequence_number'),
+        supabase.from('gaps').select('engagement_id,status').in('status', ['open', 'in_remediation']),
+      ]);
+      for (const r of [engagements, companies, assessments, gaps]) {
+        if (r.error) throw new Error(r.error.message);
+      }
+      const companyById = new Map((companies.data ?? []).map((c: CompanyRow) => [c.id, c]));
+      const byEngagement = new Map<string, AssessmentRow[]>();
+      for (const a of (assessments.data ?? []) as AssessmentRow[]) {
+        const list = byEngagement.get(a.engagement_id) ?? [];
+        list.push(a);
+        byEngagement.set(a.engagement_id, list);
+      }
+      const openByEngagement = new Map<string, number>();
+      for (const g of (gaps.data ?? []) as { engagement_id: string }[]) {
+        openByEngagement.set(g.engagement_id, (openByEngagement.get(g.engagement_id) ?? 0) + 1);
+      }
+
+      return ((engagements.data ?? []) as EngagementRow[]).map((e) => {
+        const list = (byEngagement.get(e.id) ?? []).sort((a, b) => a.sequence_number - b.sequence_number);
+        const latest = list[list.length - 1] ?? null;
+        const prior = list.length > 1 ? list[list.length - 2] : null;
+        const company = companyById.get(e.company_id);
+        const latestDrs = latest?.drs_score != null ? Number(latest.drs_score) : null;
+        const priorDrs = prior?.drs_score != null ? Number(prior.drs_score) : null;
+        return {
+          engagementId: e.id,
+          companyName: company?.name ?? '—',
+          industry: company?.industry ?? null,
+          status: e.status,
+          latestDrs,
+          latestTier: latest?.drs_tier ?? null,
+          latestOri: latest?.ori_score != null ? Number(latest.ori_score) : null,
+          latestAt: latest?.completed_at ?? null,
+          priorDrs,
+          delta: latestDrs != null && priorDrs != null ? Math.round((latestDrs - priorDrs) * 10) / 10 : null,
+          points: list
+            .filter((a) => a.drs_score != null)
+            .map((a) => ({ seq: a.sequence_number, drs: Number(a.drs_score), tier: a.drs_tier })),
+          openGaps: openByEngagement.get(e.id) ?? 0,
+          assessmentCount: list.length,
+        } satisfies PortfolioRow;
+      });
+    },
+  });
+}
+
+// ---- engagement command view (F3) -----------------------------------------
+export interface EngagementGap {
+  id: string;
+  code: string;
+  name: string;
+  severity: 'low' | 'med' | 'high' | 'critical';
+  status: string;
+  playbookName: string | null;
+  playbookSummary: string | null;
+}
+
+export function useEngagementGaps(
+  engagementId: string | undefined,
+  rubricVersionId: string | undefined,
+): UseQueryResult<EngagementGap[]> {
+  return useQuery({
+    queryKey: qk.engagementGaps(engagementId ?? ''),
+    enabled: !!engagementId && !!rubricVersionId,
+    queryFn: async () => {
+      const [gaps, defs, maps, playbooks] = await Promise.all([
+        supabase
+          .from('gaps')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .in('status', ['open', 'in_remediation']),
+        supabase.from('gap_definitions').select('*').eq('rubric_version_id', rubricVersionId!),
+        supabase.from('gap_playbook_map').select('*'),
+        supabase.from('playbooks').select('*'),
+      ]);
+      for (const r of [gaps, defs, maps, playbooks]) if (r.error) throw new Error(r.error.message);
+      const defById = new Map((defs.data ?? []).map((d: { id: string; code: string; name: string; severity: string }) => [d.id, d]));
+      const pbById = new Map((playbooks.data ?? []).map((p: { id: string; name: string; summary: string }) => [p.id, p]));
+      const pbByGapDef = new Map<string, { name: string; summary: string }>();
+      for (const m of (maps.data ?? []) as { gap_definition_id: string; playbook_id: string }[]) {
+        const pb = pbById.get(m.playbook_id);
+        if (pb && !pbByGapDef.has(m.gap_definition_id)) pbByGapDef.set(m.gap_definition_id, pb);
+      }
+      const severityRank: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
+      return ((gaps.data ?? []) as { id: string; gap_definition_id: string; status: string }[])
+        .map((g) => {
+          const def = defById.get(g.gap_definition_id);
+          const pb = def ? pbByGapDef.get(g.gap_definition_id) : null;
+          return {
+            id: g.id,
+            code: def?.code ?? '',
+            name: def?.name ?? 'Unknown gap',
+            severity: (def?.severity ?? 'med') as EngagementGap['severity'],
+            status: g.status,
+            playbookName: pb?.name ?? null,
+            playbookSummary: pb?.summary ?? null,
+          };
+        })
+        .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
+    },
+  });
+}
+
+export function useEngagementDocuments(
+  engagementId: string | undefined,
+): UseQueryResult<(GeneratedDocumentRow & { doc_type: string; assessment_id: string })[]> {
+  return useQuery({
+    queryKey: qk.engagementDocuments(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () =>
+      unwrap(
+        await supabase
+          .from('generated_documents')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .order('created_at', { ascending: false }),
+      ),
+  });
+}
+
+export function useEngagementOutcome(
+  engagementId: string | undefined,
+): UseQueryResult<{ process_status: string | null } | null> {
+  return useQuery({
+    queryKey: qk.engagementOutcome(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_outcomes')
+        .select('*')
+        .eq('engagement_id', engagementId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as { process_status: string | null }) ?? null;
+    },
+  });
+}
+
+export type CompareResult =
+  | { comparable: false; reason: string; prior_version: string; current_version: string }
+  | {
+      comparable: true;
+      prior: { assessmentId: string; drsScore: number; drsTier: string; oriScore: number };
+      current: { assessmentId: string; drsScore: number; drsTier: string; oriScore: number };
+      drsDelta: number;
+      oriDelta: number;
+      dimensions: { code: string; prior: number; current: number; delta: number }[];
+      subScores: { code: string; prior: number; current: number; delta: number }[];
+      gapsOpened: string[];
+      gapsResolved: string[];
+    };
+
+export function useCompare(
+  priorId: string | undefined,
+  currentId: string | undefined,
+): UseQueryResult<CompareResult> {
+  return useQuery({
+    queryKey: qk.compare(priorId ?? '', currentId ?? ''),
+    enabled: !!priorId && !!currentId && priorId !== currentId,
+    queryFn: () =>
+      invokeFunction<CompareResult>('compare-assessments', {
+        prior_assessment_id: priorId,
+        current_assessment_id: currentId,
+      }),
+  });
+}
+
+export function useLatestDocument(
+  assessmentId: string | undefined,
+  docType: string,
+): UseQueryResult<GeneratedDocumentRow | null> {
+  return useQuery({
+    queryKey: qk.latestDoc(assessmentId ?? '', docType),
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('generated_documents')
+        .select('*')
+        .eq('assessment_id', assessmentId!)
+        .eq('doc_type', docType)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return ((data?.[0] as GeneratedDocumentRow) ?? null) || null;
+    },
   });
 }
 

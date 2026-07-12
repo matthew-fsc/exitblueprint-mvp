@@ -205,7 +205,7 @@ a {
 
 /* ---- layout ---- */
 .page {
-  max-width: 1000px;
+  max-width: 1140px;
   margin: 0 auto;
   padding: 1.75rem 1.5rem 4rem;
 }
@@ -2451,3 +2451,119 @@ textarea:focus {
   line-height: 1.5;
 }
 .report-poweredby { margin-top: 0.5rem; }
+
+/* ---- portfolio dashboard (F2) ---- */
+.filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1.25rem 0 0.9rem;
+}
+.filter-control { display: flex; flex-direction: column; gap: 0.3rem; }
+.filter-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.filter-control select { min-width: 12rem; }
+.filter-count { margin-left: auto; font-size: 0.85rem; align-self: center; }
+.stale-flag {
+  color: var(--status-serious);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- engagement command view (F3) ---- */
+.eng-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.eng-snapshot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.eng-snapshot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.5rem;
+  align-items: center;
+}
+.eng-snapshot-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+@media (max-width: 520px) {
+  .eng-snapshot { grid-template-columns: 1fr; }
+}
+.eng-gap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.eng-gap-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+.eng-gap-text { font-size: 0.88rem; line-height: 1.45; }
+.eng-gap-text strong { color: var(--text-primary); }
+
+.compare-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+.compare-controls select { min-width: 15rem; }
+.compare-arrow { color: var(--text-muted); font-weight: 700; padding: 0 0.2rem; }
+.compare-headline {
+  display: flex;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.compare-scoreline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 1.5rem;
+  margin-top: 0.25rem;
+}
+.compare-gap-summary { display: flex; gap: 0.8rem; margin-top: 0.9rem; }
+.compare-incomparable {
+  background: var(--chip-warn-bg);
+  color: var(--chip-warn-fg);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ---- delta report preview (F4) ---- */
+.delta-preview { max-width: 52rem; }
+.delta-headline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+  flex-wrap: wrap;
+}
+.delta-prior { font-size: 1.8rem; font-weight: 700; color: var(--text-muted); }
+.delta-current { font-size: 2.8rem; font-weight: 800; color: var(--brand); line-height: 1; }
+.delta-narrative { line-height: 1.6; }
+.delta-narrative h2 { font-size: 1.05rem; margin-top: 1.25rem; }
+.delta-narrative li { margin-bottom: 0.25rem; }

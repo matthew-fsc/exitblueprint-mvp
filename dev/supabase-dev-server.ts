@@ -14,8 +14,9 @@ import type { Connect, Plugin } from 'vite';
 import type { ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
-import { explainAssessment, scoreAssessment } from '../server/scoring';
-import { generateDocument } from '../server/narrative';
+import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
+import { buildDeltaReportPayload, generateDocument } from '../server/narrative';
+import { renderDeltaReportHtml, renderReportPdf, type ReportBranding } from '../server/pdf';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -263,10 +264,14 @@ export function supabaseDevServer(): Plugin {
     const body = JSON.parse((await readBody(req)) || '{}');
     const assessmentId = body.assessment_id;
 
-    // Authorize through RLS first: the caller must be able to see the assessment.
+    // Authorize through RLS first: the caller must be able to see every
+    // assessment the call references (compare references two).
+    const ids = [assessmentId, body.prior_assessment_id, body.current_assessment_id].filter(
+      (v): v is string => typeof v === 'string',
+    );
     const visible = await asUser(claims, async (c) => {
-      const r = await c.query(`select id from assessments where id = $1`, [assessmentId]);
-      return r.rowCount === 1;
+      const r = await c.query(`select id from assessments where id = any($1)`, [ids]);
+      return ids.length > 0 && r.rowCount === ids.length;
     });
     if (!visible) return json(res, 404, { message: 'assessment not found' });
 
@@ -280,8 +285,41 @@ export function supabaseDevServer(): Plugin {
       if (name === 'explain-assessment') {
         return json(res, 200, await explainAssessment(service, assessmentId));
       }
+      if (name === 'compare-assessments') {
+        return json(
+          res,
+          200,
+          await compareAssessments(service, body.prior_assessment_id, body.current_assessment_id),
+        );
+      }
       if (name === 'generate-document') {
         return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
+      }
+      if (name === 'render-delta-pdf') {
+        const payload = await buildDeltaReportPayload(service, assessmentId);
+        const doc = (
+          await service.query(
+            `select gd.content_md, e.firm_id
+             from generated_documents gd join engagements e on e.id = gd.engagement_id
+             where gd.assessment_id = $1 and gd.doc_type = 'delta_report'
+             order by gd.created_at desc limit 1`,
+            [assessmentId],
+          )
+        ).rows[0];
+        if (!doc) return json(res, 404, { message: 'no delta report generated for this assessment yet' });
+        const branding = (
+          await service.query(
+            `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
+             from firm_branding where firm_id = $1`,
+            [doc.firm_id],
+          )
+        ).rows[0] as ReportBranding | undefined;
+        const html = renderDeltaReportHtml(payload, doc.content_md, branding ?? null);
+        const pdf = await renderReportPdf(html);
+        res.statusCode = 200;
+        res.setHeader('content-type', 'application/pdf');
+        res.setHeader('content-disposition', 'attachment; filename="delta-report.pdf"');
+        return res.end(pdf);
       }
       return json(res, 404, { message: `unknown function '${name}'` });
     } catch (err) {
