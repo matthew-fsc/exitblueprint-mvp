@@ -136,6 +136,11 @@ export default function EngagementPage() {
         actions={
           <>
             {completed.length > 0 && (
+              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
+                Roadmap →
+              </Link>
+            )}
+            {completed.length > 0 && (
               <Link className="button-link" to={`/engagement/${engagementId}/delta`}>
                 Delta report →
               </Link>
@@ -251,9 +256,18 @@ export default function EngagementPage() {
       {/* tasks (populated in F5) + documents */}
       <div className="eng-grid">
         <div>
-          <h3 className="section-heading">Roadmap tasks</h3>
-          <EmptyState icon="◷" title="No tasks yet">
-            Remediation tasks generate from flagged gaps once the roadmap is built.
+          <h3 className="section-heading">Roadmap</h3>
+          <EmptyState
+            icon="◷"
+            title="Remediation roadmap"
+            action={
+              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
+                Open roadmap →
+              </Link>
+            }
+          >
+            Turn the open gaps — most critical first — into a sequenced task plan with a Gantt
+            timeline, alongside the owner’s personal milestones.
           </EmptyState>
         </div>
         <div>

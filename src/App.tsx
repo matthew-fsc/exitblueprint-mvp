@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import EngagementPage from './pages/EngagementPage';
 import DeltaReportPage from './pages/DeltaReportPage';
+import RoadmapPage from './pages/RoadmapPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
@@ -144,6 +145,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <EngagementPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/roadmap"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <RoadmapPage />
                 </Shell>
               </RequireAdvisor>
             }

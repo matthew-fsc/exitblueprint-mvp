@@ -31,6 +31,9 @@ const severityStatus: Record<string, string> = {
   low: 'neutral',
 };
 
+// Gaps are shown most critical first.
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
+
 const TIERS = [
   { label: 'Institutional Grade', floor: 85 },
   { label: 'Sale Ready', floor: 70 },
@@ -276,7 +279,9 @@ export default function ResultsPage() {
       </h3>
       {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged — a clean assessment.</p>}
       <ul className="gap-detail-list">
-        {explain.firedGaps.map((g) => (
+        {[...explain.firedGaps]
+          .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+          .map((g) => (
           <li key={g.code}>
             <span className={`gap-chip gap-${severityStatus[g.severity] ?? 'neutral'}`}>{g.severity}</span>
             <span className="gap-text">
