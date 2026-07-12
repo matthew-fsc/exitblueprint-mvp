@@ -2567,3 +2567,130 @@ textarea:focus {
 .delta-narrative { line-height: 1.6; }
 .delta-narrative h2 { font-size: 1.05rem; margin-top: 1.25rem; }
 .delta-narrative li { margin-bottom: 0.25rem; }
+
+/* ============================================================
+   Institutional app bar (UI polish) — full-bleed, sticky
+   ============================================================ */
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(18, 40, 30, 0.02), 0 2px 8px rgba(18, 40, 30, 0.03);
+}
+.app-bar-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  height: 60px;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.app-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  min-width: 0;
+}
+.app-bar-left .firm-mark-name {
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 15rem;
+}
+.app-bar-divider {
+  width: 1px;
+  height: 26px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.app-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background-color 0.14s ease, color 0.14s ease;
+  white-space: nowrap;
+}
+.app-nav-link:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.app-nav-link.active {
+  color: var(--accent-strong);
+  background: var(--brand-tint);
+}
+.app-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.app-bar .dev-badge {
+  font-size: 0.62rem;
+  padding: 0.12rem 0.45rem;
+}
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.user-email {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+.user-signout:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--status-critical);
+  border-color: var(--border);
+}
+@media (max-width: 760px) {
+  .user-email { display: none; }
+  .app-bar-left .app-bar-divider { display: none; }
+  .app-nav-link { padding: 0 0.6rem; }
+}
