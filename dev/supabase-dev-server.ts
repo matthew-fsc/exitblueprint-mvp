@@ -15,8 +15,13 @@ import type { ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
-import { buildDeltaReportPayload, generateDocument } from '../server/narrative';
-import { renderDeltaReportHtml, renderReportPdf, type ReportBranding } from '../server/pdf';
+import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from '../server/narrative';
+import {
+  renderDeltaReportHtml,
+  renderOwnerReportHtml,
+  renderReportPdf,
+  type ReportBranding,
+} from '../server/pdf';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -315,10 +320,54 @@ export function supabaseDevServer(): Plugin {
           )
         ).rows[0] as ReportBranding | undefined;
         const html = renderDeltaReportHtml(payload, doc.content_md, branding ?? null);
-        const pdf = await renderReportPdf(html);
+        const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
         res.statusCode = 200;
         res.setHeader('content-type', 'application/pdf');
         res.setHeader('content-disposition', 'attachment; filename="delta-report.pdf"');
+        return res.end(pdf);
+      }
+      if (name === 'render-owner-pdf') {
+        const explain = await explainAssessment(service, assessmentId);
+        const payload = await buildOwnerReportPayload(service, assessmentId);
+        const doc = (
+          await service.query(
+            `select gd.content_md, e.firm_id, a.completed_at
+             from generated_documents gd
+             join engagements e on e.id = gd.engagement_id
+             join assessments a on a.id = gd.assessment_id
+             where gd.assessment_id = $1 and gd.doc_type = 'owner_report'
+             order by gd.created_at desc limit 1`,
+            [assessmentId],
+          )
+        ).rows[0];
+        if (!doc) return json(res, 404, { message: 'no owner report generated for this assessment yet' });
+        const branding = (
+          await service.query(
+            `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
+             from firm_branding where firm_id = $1`,
+            [doc.firm_id],
+          )
+        ).rows[0] as ReportBranding | undefined;
+        const html = renderOwnerReportHtml(
+          {
+            companyName: payload.company.name,
+            industry: payload.company.industry,
+            targetWindow: payload.engagement_target_window,
+            date: doc.completed_at,
+            drs: explain.drsScore,
+            tier: explain.drsTier,
+            ori: explain.oriScore,
+            dimensions: explain.dimensions.map((d) => ({ name: d.name, score: d.score })),
+            topGaps: payload.top_gaps,
+            flags: explain.flags,
+          },
+          doc.content_md,
+          branding ?? null,
+        );
+        const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
+        res.statusCode = 200;
+        res.setHeader('content-type', 'application/pdf');
+        res.setHeader('content-disposition', 'attachment; filename="exit-readiness-report.pdf"');
         return res.end(pdf);
       }
       return json(res, 404, { message: `unknown function '${name}'` });

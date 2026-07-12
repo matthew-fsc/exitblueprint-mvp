@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { invokeFunction, supabase } from '../lib/supabase';
+import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
 import { qk, useLatestReport } from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
@@ -111,6 +111,25 @@ export default function ReportPage() {
     setBusy(false);
   };
 
+  const downloadPdf = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const blob = await invokeFunctionBlob('render-owner-pdf', { assessment_id: assessmentId });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'exit-readiness-report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setBusy(false);
+  };
+
   if (reportQ.isLoading) return <SkeletonLines lines={6} />;
 
   const ruleBased = (doc?.model ?? '').startsWith('rule-based');
@@ -180,7 +199,9 @@ export default function ReportPage() {
             </>
           ) : (
             <div className="report-actions no-print">
-              <button onClick={() => window.print()}>Print / save as PDF</button>
+              <button onClick={downloadPdf} disabled={busy}>
+                {busy ? 'Preparing…' : 'Download branded PDF'}
+              </button>
             </div>
           )}
 

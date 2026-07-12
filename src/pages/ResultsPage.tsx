@@ -19,6 +19,7 @@ import {
 } from '../components/ui';
 import { fmtDate, fmtScore } from '../lib/format';
 import {
+  consensus,
   gapReason,
   interpretSubScore,
 } from '../../shared/scoring/interpret';
@@ -126,6 +127,22 @@ export default function ResultsPage() {
           </>
         }
       />
+
+      {/* Consensus — the synthesized bottom line */}
+      <div className="consensus-callout">
+        <span className="consensus-label">Bottom line</span>
+        <p>
+          {
+            consensus({
+              drsScore: explain.drsScore,
+              drsTier: explain.drsTier,
+              oriScore: explain.oriScore,
+              dimensions: explain.dimensions.map((d) => ({ code: d.code, name: d.name, score: d.score })),
+              firedGaps: explain.firedGaps,
+            }).bottomLine
+          }
+        </p>
+      </div>
 
       {/* Score summary */}
       <section className="score-tiles">

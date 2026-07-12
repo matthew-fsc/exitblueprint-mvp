@@ -244,7 +244,9 @@ const META: Record<string, Meta> = {
   'ORI-DEPEND': {
     measures: 'how much the owner’s future depends on hitting one specific price',
     benchmark: 'lifestyle not dependent on a single sale price',
-    reading: (s) => `The owner rates lifestyle dependence on the sale price as ${scaleWords[(num(s.computed.value) ?? 1) - 1] ?? '—'}.`,
+    // PFN-DEPEND is 1 = fully dependent … 5 = not dependent, so the dependence
+    // level runs OPPOSITE to the raw value: value 1 = "very high" dependence.
+    reading: (s) => `The owner’s lifestyle dependence on the sale price is ${scaleWords[5 - (num(s.computed.value) ?? 5)] ?? '—'}.`,
   },
   'ORI-OUTSIDE': {
     measures: 'whether the owner has assets outside the business to retire on',
@@ -335,6 +337,74 @@ export function gapReason(
     default:
       return 'A measured threshold in the methodology was crossed.';
   }
+}
+
+// --- Consensus synthesis ------------------------------------------------------
+// A deterministic "bottom line" built only from the explain trace: the tier
+// verdict, the two strongest and two weakest business dimensions, the gap
+// pressure, and the business/owner divergence. No new numbers, no LLM — the
+// same defensibility rule as everything else in this file. Shared by the
+// results page, the owner report, and the PDF so they never disagree.
+export interface ConsensusInput {
+  drsScore: number;
+  drsTier: string;
+  oriScore: number;
+  dimensions: { code: string; name: string; score: number }[];
+  firedGaps: { severity: string }[];
+}
+
+export interface Consensus {
+  headline: string; // one-sentence verdict
+  strengths: { name: string; score: number }[]; // up to 2, highest
+  risks: { name: string; score: number }[]; // up to 2, lowest
+  criticalCount: number;
+  highCount: number;
+  divergent: boolean;
+  bottomLine: string; // a short synthesized paragraph
+}
+
+export function consensus(input: ConsensusInput): Consensus {
+  const ranked = [...input.dimensions].sort((a, b) => b.score - a.score);
+  const strengths = ranked.slice(0, 2).map((d) => ({ name: d.name, score: d.score }));
+  const risks = ranked
+    .slice(-2)
+    .reverse()
+    .map((d) => ({ name: d.name, score: d.score }));
+  const criticalCount = input.firedGaps.filter((g) => g.severity === 'critical').length;
+  const highCount = input.firedGaps.filter((g) => g.severity === 'high').length;
+  const divergent = Math.abs(input.drsScore - input.oriScore) >= 15;
+
+  const headline = `At a Diligence Readiness Score of ${input.drsScore}, ${input.drsTier === 'Not Saleable (Yet)' ? 'the business is not ready to go to market' : `the business is in the ${input.drsTier} tier`} — ${tierMeaning(input.drsTier)}.`;
+
+  const strengthPhrase =
+    strengths.length && strengths[0].score >= 55
+      ? ` Its strongest ground is ${strengths.map((d) => d.name).join(' and ')}.`
+      : ' No dimension yet stands out as a clear strength.';
+
+  const riskPhrase = risks.length
+    ? ` The work to sequence first is ${risks.map((d) => d.name).join(' and ')}.`
+    : '';
+
+  const gapPhrase =
+    criticalCount > 0
+      ? ` ${criticalCount} critical gap${criticalCount > 1 ? 's' : ''} would stall diligence and must lead the plan.`
+      : highCount > 0
+        ? ` ${highCount} high-priority gap${highCount > 1 ? 's' : ''} would weigh on price if left unaddressed.`
+        : ' No critical gaps are open — the focus shifts to holding the score and preparing materials.';
+
+  const dividePhrase = divergent
+    ? ` Business and owner readiness are far apart (${input.drsScore} vs ${input.oriScore}), so the plan has to move both.`
+    : '';
+
+  return {
+    headline,
+    strengths,
+    risks,
+    criticalCount,
+    highCount,
+    divergent,
+    bottomLine: `${headline}${strengthPhrase}${riskPhrase}${gapPhrase}${dividePhrase}`,
+  };
 }
 
 export function tierMeaning(tier: string): string {
