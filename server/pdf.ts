@@ -3,7 +3,10 @@
 // scaffold — a full-bleed branded cover, a score-ring hero, dimension bar
 // tables, and a running footer with page numbers — so the output reads as a
 // designed report, not a browser print-out. Chromium is driven headless via
-// Playwright; the executable comes from EB_CHROMIUM_PATH when set.
+// Playwright; the executable is resolved from EB_CHROMIUM_PATH, then the
+// managed browser cache, then common system locations (see resolveChromium).
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type { DeltaReportPayload } from './narrative';
 import type { ExplainResult } from '../shared/scoring/engine';
 import { consensus, tierMeaning } from '../shared/scoring/interpret';
@@ -404,13 +407,62 @@ export function renderOwnerReportHtml(
 
 // ---- renderer ---------------------------------------------------------------
 
+// Find a usable Chromium without requiring the caller to set an env var. Order:
+// explicit EB_CHROMIUM_PATH, then the managed browser cache (the run/web
+// environments preinstall Chromium under PLAYWRIGHT_BROWSERS_PATH), then common
+// system installs. Returns undefined to let Playwright try its own default.
+export function resolveChromium(): string | undefined {
+  const envPath = process.env.EB_CHROMIUM_PATH;
+  if (envPath && existsSync(envPath)) return envPath;
+
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const entries = readdirSync(base);
+    // Prefer a full Chromium build (chrome-linux/chrome), newest first.
+    for (const d of entries.filter((e) => e.startsWith('chromium-')).sort().reverse()) {
+      const p = join(base, d, 'chrome-linux', 'chrome');
+      if (existsSync(p)) return p;
+    }
+    // Fall back to a headless-shell build (layout varies by version).
+    for (const d of entries.filter((e) => e.startsWith('chromium_headless_shell')).sort().reverse()) {
+      for (const rel of [
+        ['chrome-linux', 'headless_shell'],
+        ['chrome-headless-shell-linux64', 'chrome-headless-shell'],
+      ]) {
+        const p = join(base, d, ...rel);
+        if (existsSync(p)) return p;
+      }
+    }
+  } catch {
+    /* base dir absent — fall through to system paths */
+  }
+
+  for (const p of [
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+  ]) {
+    if (existsSync(p)) return p;
+  }
+  return undefined;
+}
+
 export async function renderReportPdf(
   html: string,
   opts: { footerLeft?: string } = {},
 ): Promise<Buffer> {
   const { chromium } = await import('@playwright/test');
-  const executablePath = process.env.EB_CHROMIUM_PATH || undefined;
-  const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  const executablePath = resolveChromium();
+  let browser;
+  try {
+    browser = await chromium.launch(executablePath ? { executablePath } : {});
+  } catch (err) {
+    throw new Error(
+      `PDF rendering is unavailable: could not launch Chromium (${(err as Error).message.split('\n')[0]}). ` +
+        `Set EB_CHROMIUM_PATH to a Chromium/Chrome binary if one is installed.`,
+    );
+  }
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle' });
