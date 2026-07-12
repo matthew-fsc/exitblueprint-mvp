@@ -3047,3 +3047,31 @@ textarea:focus {
 }
 .advisory-form textarea { resize: vertical; }
 .advisory-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+
+/* ---- Header action links render as buttons, not bare text -------------- */
+/* Any link placed in a PageHeader's actions area looks like a secondary
+   button so it sits consistently beside real <button> actions. In-card and
+   in-table .button-link stay as text links. */
+.ui-pageheader-actions .button-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--brand);
+  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.06);
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.ui-pageheader-actions .button-link:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* ---- Roadmap start-date control ---------------------------------------- */
+.roadmap-controls { display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+.roadmap-startdate { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.72rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.roadmap-startdate input { padding: 0.42rem 0.6rem; font-weight: 400; text-transform: none; letter-spacing: 0; }

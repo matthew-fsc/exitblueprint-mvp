@@ -311,7 +311,11 @@ export function supabaseDevServer(): Plugin {
         return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
       }
       if (name === 'generate-roadmap') {
-        return json(res, 200, await instantiateTasksForGaps(service, body.engagement_id));
+        return json(
+          res,
+          200,
+          await instantiateTasksForGaps(service, body.engagement_id, body.anchor_date ?? null),
+        );
       }
       if (name === 'advisory-items') {
         return json(res, 200, await fireAdvisoryItems(service, body.engagement_id));
