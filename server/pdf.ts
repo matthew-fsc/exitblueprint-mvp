@@ -1,9 +1,12 @@
-// Server-side HTML -> PDF for client-facing artifacts (F4). The branded delta
-// report is rendered here, not with the browser's window.print(), so the output
-// is deterministic and controlled. Chromium is driven headless via Playwright;
-// the executable is resolved from EB_CHROMIUM_PATH when set (the managed
-// environment preinstalls one), otherwise Playwright's own default.
+// Server-side HTML -> PDF for client-facing artifacts. Both the owner report
+// and the delta report are rendered here on one institutional document
+// scaffold — a full-bleed branded cover, a score-ring hero, dimension bar
+// tables, and a running footer with page numbers — so the output reads as a
+// designed report, not a browser print-out. Chromium is driven headless via
+// Playwright; the executable comes from EB_CHROMIUM_PATH when set.
 import type { DeltaReportPayload } from './narrative';
+import type { ExplainResult } from '../shared/scoring/engine';
+import { consensus, tierMeaning } from '../shared/scoring/interpret';
 
 export interface ReportBranding {
   display_name: string | null;
@@ -13,8 +16,7 @@ export interface ReportBranding {
   footer_disclosure_md: string | null;
 }
 
-// Fixed tier colors (light), mirrored from src/lib/tokens.ts. PDFs are always
-// light, so only the light values are needed here.
+// Fixed tier colors (light) mirrored from src/lib/tokens.ts. PDFs are always light.
 const TIER_COLOR: Record<string, string> = {
   'Institutional Grade': '#0e8f9e',
   'Sale Ready': '#2f9e44',
@@ -23,11 +25,19 @@ const TIER_COLOR: Record<string, string> = {
   'Not Saleable (Yet)': '#c0362c',
 };
 
+const INK = '#14251d';
+const BRAND = '#16352a';
+const MUTED = '#6b756c';
+const HAIR = '#dde3dd';
+const TRACK = '#e8ece8';
+
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-// Minimal, safe markdown -> HTML for the narrative prose (headings, bold, lists,
-// paragraphs). Matches the frontend renderer's supported subset.
+const fmtDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+// Minimal, safe markdown -> HTML for the narrative prose.
 function mdToHtml(md: string): string {
   const out: string[] = [];
   let inList = false;
@@ -52,7 +62,7 @@ function mdToHtml(md: string): string {
     closeList();
     if (line.startsWith('### ')) out.push(`<h3>${inline(line.slice(4))}</h3>`);
     else if (line.startsWith('## ')) out.push(`<h2>${inline(line.slice(3))}</h2>`);
-    else if (line.startsWith('# ')) out.push(`<h1>${inline(line.slice(2))}</h1>`);
+    else if (line.startsWith('# ')) continue; // title shown in the cover
     else if (line.trim() === '') out.push('');
     else out.push(`<p>${inline(line)}</p>`);
   }
@@ -60,17 +70,170 @@ function mdToHtml(md: string): string {
   return out.join('\n');
 }
 
-function deltaCell(delta: number | null): string {
-  if (delta == null) return '<td class="num">—</td>';
-  const up = delta >= 0;
-  const arrow = up ? '▲' : '▼';
-  const sign = up ? '+' : '−';
-  const body = Math.abs(delta).toFixed(2).replace(/\.?0+$/, '');
-  return `<td class="num ${up ? 'up' : 'down'}">${arrow} ${sign}${body}</td>`;
+function dimBandColor(score: number): string {
+  return score >= 75 ? '#2f9e44' : score >= 55 ? '#1f7a52' : score >= 40 ? '#b07d05' : '#c0362c';
 }
 
-// The branded, print-first HTML for the delta report. Three logical pages via
-// page-break-before on the section wrappers.
+function deltaBadge(delta: number | null): string {
+  if (delta == null) return '<span class="mut">—</span>';
+  const up = delta >= 0;
+  const body = Math.abs(delta).toFixed(2).replace(/\.?0+$/, '');
+  return `<span class="delta ${up ? 'up' : 'down'}">${up ? '▲ +' : '▼ −'}${body}</span>`;
+}
+
+// ---- shared scaffolding -----------------------------------------------------
+
+function logoHtml(branding: ReportBranding | null, firmName: string, accent: string): string {
+  return branding?.logo_url
+    ? `<img class="logo" src="${esc(branding.logo_url)}" alt="${esc(firmName)}" />`
+    : `<span class="logo-fallback" style="background:${accent}">${esc(firmName.charAt(0).toUpperCase())}</span>`;
+}
+
+function coverBand(opts: {
+  firmName: string;
+  accent: string;
+  logo: string;
+  fromLine: string;
+  kicker: string;
+  title: string;
+  meta: string;
+}): string {
+  return `
+  <div class="cover">
+    <div class="cover-top">
+      <div class="brand">${opts.logo}<span class="firm">${esc(opts.firmName)}</span></div>
+      ${opts.fromLine ? `<div class="fromline">${esc(opts.fromLine)}</div>` : ''}
+    </div>
+    <div class="cover-title">
+      <div class="kicker">${esc(opts.kicker)}</div>
+      <h1>${esc(opts.title)}</h1>
+      <div class="meta">${opts.meta}</div>
+    </div>
+  </div>`;
+}
+
+function scoreRing(score: number, tier: string, caption: string): string {
+  const color = TIER_COLOR[tier] || '#1f7a52';
+  const pct = Math.max(0, Math.min(100, score));
+  return `
+    <div class="ring" style="background: conic-gradient(${color} ${pct}%, ${TRACK} 0)">
+      <div class="ring-inner">
+        <span class="ring-num">${Number.isInteger(score) ? score : score.toFixed(1)}</span>
+        <span class="ring-cap">${esc(caption)}</span>
+      </div>
+    </div>`;
+}
+
+function tierChip(tier: string): string {
+  const color = TIER_COLOR[tier] || '#1f7a52';
+  return `<span class="tier-chip" style="color:${color};border-color:${color}"><span class="dot" style="background:${color}"></span>${esc(tier)}</span>`;
+}
+
+function dimTable(
+  dims: { name: string; current: number; prior?: number | null; delta?: number | null }[],
+  showDelta: boolean,
+): string {
+  const rows = dims
+    .map((d) => {
+      const bar = `<span class="bar"><span class="bar-fill" style="width:${Math.max(0, Math.min(100, d.current))}%;background:${dimBandColor(d.current)}"></span></span>`;
+      const deltaCol = showDelta ? `<td class="num">${deltaBadge(d.delta ?? null)}</td>` : '';
+      const priorCol = showDelta ? `<td class="num mut">${d.prior ?? '—'}</td>` : '';
+      return `<tr><td class="dname">${esc(d.name)}</td><td class="barcell">${bar}</td>${priorCol}<td class="num strong">${d.current}</td>${deltaCol}</tr>`;
+    })
+    .join('');
+  const head = showDelta
+    ? `<tr><th>Business area</th><th></th><th class="num">Prior</th><th class="num">Current</th><th class="num">Change</th></tr>`
+    : `<tr><th>Business area</th><th></th><th class="num">Score</th></tr>`;
+  return `<table class="dimtable"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+}
+
+function institutionalCss(accent: string): string {
+  return `
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { margin: 0; }
+    body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: ${INK}; font-size: 11.5px; line-height: 1.55; }
+    .pad { padding: 0 0.72in; }
+    h1 { font-size: 25px; letter-spacing: -0.01em; margin: 0; color: #fff; }
+    h2 { font-size: 14px; color: ${BRAND}; margin: 24px 0 10px; padding-bottom: 5px; border-bottom: 1px solid ${HAIR}; letter-spacing: -0.01em; }
+    h3 { font-size: 12px; color: ${BRAND}; margin: 0 0 5px; }
+    p { margin: 7px 0; }
+    .mut, .mut td { color: ${MUTED}; }
+    .strong { font-weight: 700; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* cover */
+    .cover { background: linear-gradient(180deg, ${BRAND} 0%, #12281f 100%); color: #fff; padding: 0.5in 0.72in 0.42in; }
+    .cover-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,0.16); }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo { height: 30px; max-width: 190px; object-fit: contain; background:#fff; border-radius:4px; padding:2px 4px; }
+    .logo-fallback { width: 30px; height: 30px; border-radius: 6px; color: #fff; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid rgba(255,255,255,0.5); }
+    .firm { font-size: 15px; font-weight: 700; color: #fff; }
+    .fromline { font-size: 10px; color: rgba(255,255,255,0.75); text-align: right; max-width: 250px; }
+    .cover-title { padding-top: 22px; }
+    .kicker { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: ${accent}; font-weight: 700; filter: brightness(1.7); margin-bottom: 7px; }
+    .cover-title .meta { color: rgba(255,255,255,0.8); font-size: 11px; margin-top: 8px; }
+
+    /* hero */
+    .hero { display: flex; align-items: center; gap: 26px; margin: 22px 0 8px; }
+    .ring { width: 128px; height: 128px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ring-inner { width: 100px; height: 100px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-num { font-size: 33px; font-weight: 800; color: ${BRAND}; font-variant-numeric: tabular-nums; line-height: 1; }
+    .ring-cap { font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase; color: ${MUTED}; margin-top: 3px; }
+    .hero-side { flex: 1; }
+    .tier-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 12px; background: #fff; border: 1px solid; }
+    .tier-chip .dot { width: 7px; height: 7px; border-radius: 999px; }
+    .hero-line { font-size: 12.5px; color: ${INK}; margin: 10px 0 0; }
+    .subscores { display: flex; gap: 20px; margin-top: 12px; }
+    .subscore .k { font-size: 8.5px; letter-spacing: 0.07em; text-transform: uppercase; color: ${MUTED}; }
+    .subscore .v { font-size: 18px; font-weight: 800; color: ${BRAND}; font-variant-numeric: tabular-nums; }
+
+    /* movement (delta) */
+    .movement { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 14px; }
+    .movement .prior { color: ${MUTED}; font-size: 28px; }
+    .movement .arrow { color: ${MUTED}; font-size: 24px; }
+    .delta { font-size: 13px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+    .delta.up { color: #1c6b33; background: #e4f3e8; }
+    .delta.down { color: #a5302a; background: #f9e2e0; }
+
+    /* consensus callout */
+    .consensus { background: #f3f7f4; border-left: 3px solid ${accent}; border-radius: 6px; padding: 12px 16px; margin: 16px 0 6px; font-size: 12px; line-height: 1.6; }
+    .consensus .lbl { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${MUTED}; font-weight: 700; display: block; margin-bottom: 4px; }
+
+    /* tables */
+    table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+    th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: ${MUTED}; text-align: left; padding: 6px 10px; border-bottom: 1.5px solid ${HAIR}; }
+    td { padding: 8px 10px; border-bottom: 1px solid ${HAIR}; font-size: 11.5px; }
+    .dimtable .dname { font-weight: 600; width: 34%; }
+    .dimtable .barcell { width: 34%; }
+    .bar { display: block; height: 7px; background: ${TRACK}; border-radius: 999px; overflow: hidden; }
+    .bar-fill { display: block; height: 100%; border-radius: 999px; }
+
+    /* gap lists */
+    .gaps { display: flex; gap: 30px; margin-top: 6px; }
+    .gapcol { flex: 1; }
+    .gapcol ul { margin: 6px 0 0; padding-left: 16px; }
+    .gapcol li { margin-bottom: 4px; }
+    .gap-item { margin-bottom: 9px; }
+    .sev { display: inline-block; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; margin-right: 7px; vertical-align: middle; }
+    .sev.critical { background: #f9e2e0; color: #a5302a; }
+    .sev.high { background: #fbe8da; color: #a04a12; }
+    .sev.med { background: #f7efd6; color: #855e05; }
+    .sev.low { background: #eef1ee; color: #576259; }
+    .gap-item .why { color: ${MUTED}; font-size: 11px; }
+
+    .narrative p { margin: 7px 0; }
+    .narrative ul { margin: 7px 0; padding-left: 18px; }
+    .page-break { page-break-before: always; }
+    .disclosure { margin-top: 22px; padding-top: 10px; border-top: 1px solid ${HAIR}; font-size: 9px; color: ${MUTED}; line-height: 1.5; }
+  `;
+}
+
+function docShell(accent: string, coverAndBody: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${institutionalCss(accent)}</style></head><body>${coverAndBody}</body></html>`;
+}
+
+// ---- delta report -----------------------------------------------------------
+
 export function renderDeltaReportHtml(
   payload: DeltaReportPayload,
   narrativeMd: string,
@@ -79,29 +242,30 @@ export function renderDeltaReportHtml(
   const firmName = branding?.display_name || 'Exit Blueprint';
   const accent = branding?.accent_color || '#1f7a52';
   const tier = payload.current.tier;
-  const tierColor = TIER_COLOR[tier] || accent;
-  const logo = branding?.logo_url
-    ? `<img src="${esc(branding.logo_url)}" alt="${esc(firmName)}" class="logo" />`
-    : `<span class="logo-fallback">${esc(firmName.charAt(0).toUpperCase())}</span>`;
+  const isDelta = payload.mode === 'delta' && payload.prior != null;
 
-  const headline =
-    payload.mode === 'delta' && payload.prior
-      ? `<div class="movement">
-           <span class="prior">${payload.prior.drs}</span>
-           <span class="arrow">→</span>
-           <span class="current" style="color:${tierColor}">${payload.current.drs}</span>
-           <span class="delta ${(payload.drs_delta ?? 0) >= 0 ? 'up' : 'down'}">${(payload.drs_delta ?? 0) >= 0 ? '▲ +' : '▼ −'}${Math.abs(payload.drs_delta ?? 0)}</span>
-         </div>
-         <p class="tierline">Now in the <strong style="color:${tierColor}">${esc(tier)}</strong> tier.</p>`
-      : `<div class="movement"><span class="current" style="color:${tierColor}">${payload.current.drs}</span></div>
-         <p class="tierline"><strong style="color:${tierColor}">${esc(tier)}</strong> tier — baseline.</p>`;
+  const cover = coverBand({
+    firmName,
+    accent,
+    logo: logoHtml(branding, firmName, accent),
+    fromLine: branding?.report_from_line || '',
+    kicker: isDelta ? 'Quarterly progress review' : 'Baseline readiness report',
+    title: payload.company.name,
+    meta: `${esc(payload.company.industry || '')}${payload.current.date ? ` &middot; ${fmtDate(payload.current.date)}` : ''}${payload.engagement_target_window ? ` &middot; target window ${esc(payload.engagement_target_window)}` : ''}`,
+  });
 
-  const dimRows = payload.dimensions
-    .map(
-      (d) =>
-        `<tr><td>${esc(d.name)}</td><td class="num">${d.prior ?? '—'}</td><td class="num">${d.current}</td>${deltaCell(d.delta)}</tr>`,
-    )
-    .join('');
+  const con = consensus({
+    drsScore: payload.current.drs,
+    drsTier: payload.current.tier,
+    oriScore: payload.current.ori,
+    dimensions: payload.dimensions.map((d) => ({ code: d.name, name: d.name, score: d.current })),
+    firedGaps: payload.open_gaps.map(() => ({ severity: 'high' })),
+  });
+
+  const hero = isDelta
+    ? `<div class="movement"><span class="prior">${payload.prior!.drs}</span><span class="arrow">→</span><span style="color:${TIER_COLOR[tier]}">${payload.current.drs}</span>${deltaBadge(payload.drs_delta)}</div>
+       <p class="hero-line">Now in the ${tierChip(tier)} tier — ${esc(tierMeaning(tier))}.</p>`
+    : `<div class="hero">${scoreRing(payload.current.drs, tier, 'DRS / 100')}<div class="hero-side">${tierChip(tier)}<p class="hero-line">${esc(con.headline)}</p></div></div>`;
 
   const gapsResolved = payload.gaps_resolved.length
     ? `<div class="gapcol"><h3>Cleared this period (${payload.gaps_resolved.length})</h3><ul>${payload.gaps_resolved.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>`
@@ -110,77 +274,158 @@ export function renderDeltaReportHtml(
     ? `<div class="gapcol"><h3>Focus next period (${payload.open_gaps.length})</h3><ul>${payload.open_gaps.slice(0, 8).map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>`
     : '';
 
-  const disclosure = branding?.footer_disclosure_md ? esc(branding.footer_disclosure_md) : '';
-  const fromLine = branding?.report_from_line ? esc(branding.report_from_line) : '';
+  const disclosure = branding?.footer_disclosure_md
+    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
+    : '';
 
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: Letter; margin: 0.75in; }
-    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #14251d; margin: 0; font-size: 12px; line-height: 1.5; }
-    .brandbar { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid ${accent}; padding-bottom: 12px; margin-bottom: 18px; }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .logo { height: 34px; max-width: 200px; object-fit: contain; }
-    .logo-fallback { width: 34px; height: 34px; border-radius: 6px; background: ${accent}; color: #fff; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
-    .firm { font-size: 17px; font-weight: 700; color: #16352a; }
-    .fromline { font-size: 11px; color: #566257; text-align: right; max-width: 260px; }
-    h1 { font-size: 22px; margin: 0 0 4px; color: #16352a; }
-    h2 { font-size: 15px; margin: 22px 0 8px; color: #16352a; border-bottom: 1px solid #dde3dd; padding-bottom: 4px; }
-    h3 { font-size: 12.5px; margin: 0 0 6px; color: #16352a; }
-    .meta { color: #566257; font-size: 11px; margin-bottom: 16px; }
-    .movement { font-size: 46px; font-weight: 800; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 14px; margin: 8px 0; }
-    .movement .prior { color: #86928a; font-size: 30px; }
-    .movement .arrow { color: #86928a; font-size: 26px; }
-    .movement .delta { font-size: 16px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
-    .delta.up, td.up { color: #1c6b33; } .delta.up { background: #e4f3e8; }
-    .delta.down, td.down { color: #a5302a; } .delta.down { background: #f9e2e0; }
-    .tierline { font-size: 13px; margin: 0 0 8px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 12px; }
-    th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #dde3dd; }
-    th { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #566257; }
-    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .gaps { display: flex; gap: 28px; }
-    .gapcol { flex: 1; } .gapcol ul { margin: 4px 0 0; padding-left: 16px; } .gapcol li { margin-bottom: 3px; }
-    .page2, .page3 { page-break-before: always; }
-    .narrative p { margin: 6px 0; } .narrative ul { margin: 6px 0; padding-left: 18px; }
-    .footer { position: fixed; bottom: 0.4in; left: 0.75in; right: 0.75in; border-top: 1px solid #dde3dd; padding-top: 6px; font-size: 9px; color: #86928a; display: flex; justify-content: space-between; gap: 16px; }
-  </style></head><body>
-    <div class="brandbar">
-      <div class="brand">${logo}<span class="firm">${esc(firmName)}</span></div>
-      ${fromLine ? `<div class="fromline">${fromLine}</div>` : ''}
-    </div>
-
-    <!-- Page 1: headline -->
-    <h1>${payload.mode === 'delta' ? 'Progress this period' : 'Baseline readiness'} — ${esc(payload.company.name)}</h1>
-    <div class="meta">${esc(payload.company.industry || '')}${payload.current.date ? ` · ${new Date(payload.current.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}${payload.engagement_target_window ? ` · target window ${esc(payload.engagement_target_window)}` : ''}</div>
-    ${headline}
+  const body = `
+  <div class="pad">
+    ${hero}
+    <div class="consensus"><span class="lbl">Bottom line</span>${esc(con.bottomLine)}</div>
     <div class="narrative">${mdToHtml(narrativeMd)}</div>
 
-    <!-- Page 2: dimension delta table + gaps -->
-    <div class="page2">
-      <h2>Where the business moved</h2>
-      <table>
-        <thead><tr><th>Business area</th><th class="num">Prior</th><th class="num">Current</th><th class="num">Change</th></tr></thead>
-        <tbody>${dimRows}</tbody>
-      </table>
-      <h2>Diligence gaps</h2>
-      <div class="gaps">${gapsResolved}${gapsOpen}</div>
-    </div>
+    <div class="page-break"></div>
+    <h2>Where the business ${isDelta ? 'moved' : 'stands'}</h2>
+    ${dimTable(payload.dimensions, isDelta)}
+    ${gapsResolved || gapsOpen ? `<h2>Diligence gaps</h2><div class="gaps">${gapsResolved}${gapsOpen}</div>` : ''}
+    ${disclosure}
+  </div>`;
 
-    <div class="footer">
-      <span>${disclosure}</span>
-      <span>Powered by Exit Blueprint</span>
-    </div>
-  </body></html>`;
+  return docShell(accent, cover + body);
 }
 
-export async function renderReportPdf(html: string): Promise<Buffer> {
+// ---- owner report -----------------------------------------------------------
+
+export interface OwnerReportData {
+  companyName: string;
+  industry: string | null;
+  targetWindow: string | null;
+  date: string | null;
+  drs: number;
+  tier: string;
+  ori: number;
+  dimensions: { name: string; score: number }[];
+  topGaps: { name: string; severity: string; playbook: string | null }[];
+  flags: string[];
+}
+
+export function ownerReportDataFromExplain(
+  explain: ExplainResult,
+  meta: { companyName: string; industry: string | null; targetWindow: string | null; date: string | null },
+  topGaps: { name: string; severity: string; playbook: string | null }[],
+): OwnerReportData {
+  return {
+    ...meta,
+    drs: explain.drsScore,
+    tier: explain.drsTier,
+    ori: explain.oriScore,
+    dimensions: explain.dimensions.map((d) => ({ name: d.name, score: d.score })),
+    topGaps,
+    flags: explain.flags,
+  };
+}
+
+export function renderOwnerReportHtml(
+  data: OwnerReportData,
+  narrativeMd: string,
+  branding: ReportBranding | null,
+): string {
+  const firmName = branding?.display_name || 'Exit Blueprint';
+  const accent = branding?.accent_color || '#1f7a52';
+
+  const cover = coverBand({
+    firmName,
+    accent,
+    logo: logoHtml(branding, firmName, accent),
+    fromLine: branding?.report_from_line || '',
+    kicker: 'Exit readiness report',
+    title: data.companyName,
+    meta: `${esc(data.industry || '')}${data.date ? ` &middot; ${fmtDate(data.date)}` : ''}${data.targetWindow ? ` &middot; target window ${esc(data.targetWindow)}` : ''}`,
+  });
+
+  const con = consensus({
+    drsScore: data.drs,
+    drsTier: data.tier,
+    oriScore: data.ori,
+    dimensions: data.dimensions.map((d) => ({ code: d.name, name: d.name, score: d.score })),
+    firedGaps: data.topGaps.map((g) => ({ severity: g.severity })),
+  });
+
+  const hero = `
+  <div class="hero">
+    ${scoreRing(data.drs, data.tier, 'DRS / 100')}
+    <div class="hero-side">
+      ${tierChip(data.tier)}
+      <p class="hero-line">${esc(con.headline)}</p>
+      <div class="subscores">
+        <div class="subscore"><div class="k">Owner readiness</div><div class="v">${data.ori}</div></div>
+        <div class="subscore"><div class="k">Business readiness</div><div class="v">${data.drs}</div></div>
+      </div>
+    </div>
+  </div>`;
+
+  const gapsHtml = data.topGaps.length
+    ? data.topGaps
+        .map(
+          (g) =>
+            `<div class="gap-item"><span class="sev ${g.severity}">${esc(g.severity)}</span><strong>${esc(g.name)}</strong>${g.playbook ? `<div class="why">${esc(g.playbook)}</div>` : ''}</div>`,
+        )
+        .join('')
+    : '<p class="mut">No gaps were flagged in this assessment.</p>';
+
+  const flagsHtml = data.flags.length
+    ? `<h2>Worth noting</h2><ul>${data.flags.map((f) => `<li>${esc(f)} — scored conservatively until it is measured.</li>`).join('')}</ul>`
+    : '';
+
+  const disclosure = branding?.footer_disclosure_md
+    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
+    : '';
+
+  const body = `
+  <div class="pad">
+    ${hero}
+    <div class="consensus"><span class="lbl">Bottom line</span>${esc(con.bottomLine)}</div>
+
+    <h2>The six business areas</h2>
+    ${dimTable(data.dimensions.map((d) => ({ name: d.name, current: d.score })), false)}
+
+    <div class="page-break"></div>
+    <h2>What buyers would flag first</h2>
+    ${gapsHtml}
+    ${flagsHtml}
+
+    <h2>In the owner’s words</h2>
+    <div class="narrative">${mdToHtml(narrativeMd)}</div>
+    ${disclosure}
+  </div>`;
+
+  return docShell(accent, cover + body);
+}
+
+// ---- renderer ---------------------------------------------------------------
+
+export async function renderReportPdf(
+  html: string,
+  opts: { footerLeft?: string } = {},
+): Promise<Buffer> {
   const { chromium } = await import('@playwright/test');
   const executablePath = process.env.EB_CHROMIUM_PATH || undefined;
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle' });
-    return await page.pdf({ format: 'Letter', printBackground: true });
+    const footer = `<div style="width:100%;font-size:8px;color:#8a968c;padding:0 0.72in;display:flex;justify-content:space-between;">
+      <span>${esc(opts.footerLeft ?? '')}</span>
+      <span>Powered by Exit Blueprint &nbsp;·&nbsp; <span class="pageNumber"></span> / <span class="totalPages"></span></span>
+    </div>`;
+    return await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: footer,
+      margin: { top: '0', bottom: '0.55in', left: '0', right: '0' },
+    });
   } finally {
     await browser.close();
   }

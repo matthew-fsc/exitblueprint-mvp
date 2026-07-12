@@ -2803,3 +2803,28 @@ textarea:focus {
   opacity: 1;
   color: var(--text-secondary);
 }
+
+/* ---- consensus callout (results page) ---- */
+.consensus-callout {
+  background: var(--brand-tint);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin: 0.25rem 0 1.25rem;
+}
+.consensus-callout .consensus-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.consensus-callout p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
