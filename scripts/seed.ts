@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import {
   buildRubric,
+  parseAdvisoryLibrary,
   parseContentModules,
   parseGapContentMap,
   parseGapPlaybookMap,
@@ -45,6 +46,7 @@ async function main() {
   const contentModules = parseContentModules(read('content-modules.csv'));
   const gapPlaybookMap = parseGapPlaybookMap(read('gap-playbook-map.csv'));
   const gapContentMap = parseGapContentMap(read('gap-content-map.csv'));
+  const advisoryItems = parseAdvisoryLibrary(read('advisory-library.csv'));
 
   const problems = validateRubric(rubric, playbooks, contentModules, gapPlaybookMap, gapContentMap);
   if (problems.length > 0) {
@@ -201,6 +203,29 @@ async function main() {
       );
     }
 
+    // Advisory Library: global (firm_id null) system catalog, keyed by code.
+    for (const a of advisoryItems) {
+      await upsert(
+        'advisory_library_items',
+        `insert into advisory_library_items
+           (firm_id, source, item_type, code, title, body, response_framework,
+            data_needed, dimension_code, sub_score_code, severity, buyer_type,
+            score_trigger, sort_order)
+         values (null, 'system', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         on conflict (code) where firm_id is null do update
+           set item_type = excluded.item_type, title = excluded.title, body = excluded.body,
+               response_framework = excluded.response_framework, data_needed = excluded.data_needed,
+               dimension_code = excluded.dimension_code, sub_score_code = excluded.sub_score_code,
+               severity = excluded.severity, buyer_type = excluded.buyer_type,
+               score_trigger = excluded.score_trigger, sort_order = excluded.sort_order
+         returning id, (xmax = 0) as inserted`,
+        [
+          a.itemType, a.code, a.title, a.body, a.responseFramework, a.dataNeeded,
+          a.dimensionCode, a.subScoreCode, a.severity, a.buyerType, a.scoreTrigger, a.sortOrder,
+        ],
+      );
+    }
+
     await db.query('commit');
   } catch (err) {
     await db.query('rollback');
@@ -219,13 +244,18 @@ async function main() {
     content_modules: contentModules.length,
     gap_playbook_map: gapPlaybookMap.length,
     gap_content_map: gapContentMap.length,
+    advisory_library_items: advisoryItems.length,
   };
   let mismatched = false;
   console.log('seed: table                      inserted  updated  total  expected');
+  // Tables that also hold tenant rows: verify only the seeded (system) rows.
+  const countFilter: Record<string, string> = {
+    advisory_library_items: 'where firm_id is null',
+  };
   for (const [table, want] of Object.entries(expected)) {
     const { inserted = 0, updated = 0 } = report[table] ?? {};
     const total = Number(
-      (await db.query(`select count(*)::int as c from ${table}`)).rows[0].c,
+      (await db.query(`select count(*)::int as c from ${table} ${countFilter[table] ?? ''}`)).rows[0].c,
     );
     const ok = total === want;
     if (!ok) mismatched = true;

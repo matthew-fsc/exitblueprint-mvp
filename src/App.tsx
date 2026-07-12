@@ -11,6 +11,8 @@ import ClientsPage from './pages/ClientsPage';
 import EngagementPage from './pages/EngagementPage';
 import DeltaReportPage from './pages/DeltaReportPage';
 import RoadmapPage from './pages/RoadmapPage';
+import BuyerLensPage from './pages/BuyerLensPage';
+import LibraryPage from './pages/LibraryPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
@@ -67,6 +69,9 @@ function AppBar() {
             </NavLink>
             <NavLink to="/clients" className="app-nav-link">
               Clients
+            </NavLink>
+            <NavLink to="/library" className="app-nav-link">
+              Library
             </NavLink>
             <NavLink to="/settings" className="app-nav-link">
               Settings
@@ -160,11 +165,31 @@ export default function App() {
             }
           />
           <Route
+            path="/engagement/:engagementId/buyer-lens"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <BuyerLensPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
             path="/engagement/:engagementId/delta"
             element={
               <RequireAdvisor>
                 <Shell>
                   <DeltaReportPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/library"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <LibraryPage />
                 </Shell>
               </RequireAdvisor>
             }

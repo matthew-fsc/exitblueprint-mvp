@@ -81,6 +81,38 @@ export function parseContentModules(csvText: string): ContentModuleSeed[] {
   }));
 }
 
+export interface AdvisoryItemSeed {
+  code: string;
+  itemType: 'buyer_question' | 'initiative' | 'risk_flag';
+  title: string;
+  body: string;
+  responseFramework: string | null;
+  dataNeeded: string | null;
+  dimensionCode: string | null;
+  subScoreCode: string | null;
+  severity: GapSeverity | null;
+  buyerType: string | null;
+  scoreTrigger: number | null;
+  sortOrder: number;
+}
+
+export function parseAdvisoryLibrary(csvText: string): AdvisoryItemSeed[] {
+  return rows(csvText).map((r) => ({
+    code: r.code,
+    itemType: r.item_type as AdvisoryItemSeed['itemType'],
+    title: r.title,
+    body: r.body,
+    responseFramework: r.response_framework || null,
+    dataNeeded: r.data_needed || null,
+    dimensionCode: r.dimension_code || null,
+    subScoreCode: r.sub_score_code || null,
+    severity: (r.severity as GapSeverity) || null,
+    buyerType: r.buyer_type || null,
+    scoreTrigger: r.score_trigger === '' || r.score_trigger == null ? null : Number(r.score_trigger),
+    sortOrder: r.sort_order ? Number(r.sort_order) : 0,
+  }));
+}
+
 export interface CodeMapSeed {
   fromCode: string;
   toCode: string;

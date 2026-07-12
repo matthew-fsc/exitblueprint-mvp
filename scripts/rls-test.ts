@@ -131,6 +131,11 @@ async function main() {
        values ($1, $2, 'personal', 'Firm B milestone')`,
       [ids.firm_b, engagementB],
     );
+    await db.query(
+      `insert into advisory_library_items (firm_id, source, item_type, title, body, severity, score_trigger)
+       values ($1, 'advisor', 'initiative', 'Firm B private play', 'secret', 'high', 70)`,
+      [ids.firm_b],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -233,6 +238,51 @@ async function main() {
       `saw ${JSON.stringify(milestonesA.rows)}`,
     );
 
+    // advisory_library: advisor A reads global (system) items + own firm items,
+    // never firm B's advisor-authored items; can create own, cannot create for B.
+    await db.query(
+      `insert into advisory_library_items (firm_id, source, item_type, title, body, severity, score_trigger)
+       values ($1, 'advisor', 'buyer_question', 'Firm A private question', 'ours', 'high', 70)`,
+      [ids.firm_a],
+    );
+    check('can create own firm advisory item', true);
+    const libA = await db.query(
+      `select firm_id, title from advisory_library_items order by title`,
+    );
+    const systemVisible = libA.rows.filter((r) => r.firm_id === null).length;
+    const firmVisible = libA.rows.filter((r) => r.firm_id === ids.firm_a).length;
+    const foreignVisible = libA.rows.filter((r) => r.firm_id === ids.firm_b).length;
+    check('reads the global system catalog', systemVisible >= 1, `saw ${systemVisible} system rows`);
+    check('sees own firm advisory items', firmVisible === 1, `saw ${firmVisible} own rows`);
+    check('cannot read firm B advisory items', foreignVisible === 0, `saw ${foreignVisible} firm B rows`);
+    let libBWriteBlocked = false;
+    try {
+      await db.query('savepoint lib');
+      await db.query(
+        `insert into advisory_library_items (firm_id, source, item_type, title, body)
+         values ($1, 'advisor', 'initiative', 'sneak', 'x')`,
+        [ids.firm_b],
+      );
+      await db.query('release savepoint lib');
+    } catch {
+      libBWriteBlocked = true;
+      await db.query('rollback to savepoint lib');
+    }
+    check('cannot create advisory item for firm B', libBWriteBlocked);
+    let sysWriteBlocked = false;
+    try {
+      await db.query('savepoint sys');
+      await db.query(
+        `insert into advisory_library_items (firm_id, source, item_type, title, body)
+         values (null, 'system', 'initiative', 'fake system', 'x')`,
+      );
+      await db.query('release savepoint sys');
+    } catch {
+      sysWriteBlocked = true;
+      await db.query('rollback to savepoint sys');
+    }
+    check('cannot write into the global system catalog', sysWriteBlocked);
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -300,6 +350,13 @@ async function main() {
       await db.query('rollback to savepoint om');
     }
     check('owner cannot write milestones', ownerMilestoneWriteBlocked);
+    // Owner reads the global catalog but no firm-scoped advisor items (advisor-only policy).
+    const ownerLib = await db.query('select firm_id from advisory_library_items');
+    check(
+      'owner reads only the global advisory catalog',
+      ownerLib.rows.length >= 1 && ownerLib.rows.every((r) => r.firm_id === null),
+      `saw ${ownerLib.rows.length} rows, ${ownerLib.rows.filter((r) => r.firm_id !== null).length} firm-scoped`,
+    );
 
     // --- Unauthenticated: nothing ------------------------------------------
     console.log('unauthenticated:');
