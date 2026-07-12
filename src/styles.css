@@ -2828,3 +2828,134 @@ textarea:focus {
   line-height: 1.6;
   color: var(--text-primary);
 }
+
+/* ============================================================
+   Gantt roadmap (F5)
+   ============================================================ */
+.gantt { --gantt-label: 200px; }
+.gantt-scroll { overflow-x: auto; }
+.gantt-inner {
+  position: relative;
+  min-width: 640px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding-bottom: 0.5rem;
+}
+.gantt-axis, .gantt-row {
+  display: grid;
+  grid-template-columns: var(--gantt-label) 1fr;
+  align-items: center;
+}
+.gantt-axis { height: 30px; border-bottom: 1px solid var(--border); position: relative; }
+.gantt-track { position: relative; height: 100%; }
+.gantt-axis .gantt-track { height: 30px; }
+.gantt-tick {
+  position: absolute;
+  top: 8px;
+  transform: translateX(2px);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.gantt-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--surface-3); }
+.gantt-swimlane {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  padding: 0.4rem 0.9rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.gantt-row { min-height: 34px; border-bottom: 1px solid var(--surface-2); }
+.gantt-row:last-child { border-bottom: none; }
+.gantt-rowlabel {
+  padding: 0.3rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.gantt-rowlabel-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gantt-rowlabel-sub { font-size: 0.68rem; color: var(--text-muted); }
+.gantt-bar {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  min-width: 6px;
+}
+.gantt-todo { background: var(--accent); }
+.gantt-doing { background: var(--status-warning); }
+.gantt-done { background: var(--status-good); }
+.gantt-blocked { background: var(--status-critical); }
+.gantt-diamond {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--brand);
+  border: 1px solid var(--surface-1);
+}
+.gantt-diamond.gantt-done { background: var(--status-good); }
+.gantt-today {
+  position: absolute;
+  top: 30px;
+  bottom: 0.5rem;
+  width: 2px;
+  background: var(--status-serious);
+  opacity: 0.75;
+  z-index: 2;
+}
+.gantt-legend {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+.gantt-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.gantt-swatch { width: 1.2rem; height: 0.6rem; border-radius: 999px; }
+.gantt-diamond-legend { width: 0.7rem; height: 0.7rem; transform: rotate(45deg); background: var(--brand); }
+.gantt-today-legend { width: 2px; height: 0.9rem; background: var(--status-serious); }
+
+/* task list on the roadmap */
+.rm-tasklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.rm-task {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+}
+.rm-task-done { opacity: 0.6; }
+.rm-task-done .rm-task-title { text-decoration: line-through; }
+.rm-task-title { font-size: 0.9rem; font-weight: 600; }
+.rm-task-meta { font-size: 0.75rem; color: var(--text-muted); }
+.rm-role {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  background: var(--surface-3); color: var(--text-secondary); padding: 0.1rem 0.45rem; border-radius: 4px;
+}
+.rm-check {
+  width: 1.3rem; height: 1.3rem; border-radius: 999px; border: 1.5px solid var(--border-strong);
+  background: var(--surface-1); padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--on-brand); font-size: 0.8rem; box-shadow: none;
+}
+.rm-check-done { background: var(--status-good); border-color: var(--status-good); }

@@ -126,6 +126,11 @@ async function main() {
        values ($1, 'Firm B Wealth', '#123456')`,
       [ids.firm_b],
     );
+    await db.query(
+      `insert into roadmap_milestones (firm_id, engagement_id, track, title)
+       values ($1, $2, 'personal', 'Firm B milestone')`,
+      [ids.firm_b, engagementB],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -214,6 +219,20 @@ async function main() {
     }
     check('cannot modify firm B branding', brandBWriteBlocked);
 
+    // roadmap_milestones: advisor A writes+reads own firm, never sees firm B
+    await db.query(
+      `insert into roadmap_milestones (firm_id, engagement_id, track, title)
+       values ($1, $2, 'business', 'Firm A milestone')`,
+      [ids.firm_a, engagementA],
+    );
+    check('can create own firm milestone', true);
+    const milestonesA = await db.query('select title from roadmap_milestones');
+    check(
+      'sees only own firm milestones',
+      milestonesA.rows.length === 1 && milestonesA.rows[0].title === 'Firm A milestone',
+      `saw ${JSON.stringify(milestonesA.rows)}`,
+    );
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -261,6 +280,26 @@ async function main() {
       await db.query('rollback to savepoint ob');
     }
     check('owner cannot write branding', ownerBrandWriteBlocked);
+    const ownerMilestones = await db.query('select title from roadmap_milestones');
+    check(
+      'owner reads only their firm milestones',
+      ownerMilestones.rows.length === 1 && ownerMilestones.rows[0].title === 'Firm A milestone',
+      `saw ${JSON.stringify(ownerMilestones.rows)}`,
+    );
+    let ownerMilestoneWriteBlocked = false;
+    try {
+      await db.query('savepoint om');
+      const upd = await db.query(
+        `update roadmap_milestones set title = 'owner-edit' where firm_id = $1`,
+        [ids.firm_a],
+      );
+      ownerMilestoneWriteBlocked = upd.rowCount === 0;
+      await db.query('release savepoint om');
+    } catch {
+      ownerMilestoneWriteBlocked = true;
+      await db.query('rollback to savepoint om');
+    }
+    check('owner cannot write milestones', ownerMilestoneWriteBlocked);
 
     // --- Unauthenticated: nothing ------------------------------------------
     console.log('unauthenticated:');

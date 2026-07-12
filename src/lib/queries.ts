@@ -31,6 +31,7 @@ export const qk = {
   engagementOutcome: (engagementId: string) => ['engagementOutcome', engagementId] as const,
   compare: (priorId: string, currentId: string) => ['compare', priorId, currentId] as const,
   milestones: (engagementId: string) => ['milestones', engagementId] as const,
+  tasks: (engagementId: string) => ['tasks', engagementId] as const,
   engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
 } as const;
 
@@ -462,6 +463,73 @@ export function useLatestDocument(
         .limit(1);
       if (error) throw new Error(error.message);
       return ((data?.[0] as GeneratedDocumentRow) ?? null) || null;
+    },
+  });
+}
+
+// ---- roadmap (F5) ----------------------------------------------------------
+export interface TaskRow {
+  id: string;
+  engagement_id: string;
+  gap_id: string | null;
+  playbook_id: string | null;
+  title: string;
+  description: string | null;
+  owner_role: string;
+  status: 'todo' | 'doing' | 'done' | 'blocked';
+  due_date: string | null;
+  sequence: number | null;
+}
+export interface MilestoneRow {
+  id: string;
+  engagement_id: string;
+  track: 'business' | 'personal';
+  title: string;
+  description: string | null;
+  target_date: string | null;
+  completed_at: string | null;
+  sort_order: number;
+}
+
+export function useTasks(engagementId: string | undefined): UseQueryResult<TaskRow[]> {
+  return useQuery({
+    queryKey: qk.tasks(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () =>
+      unwrap<TaskRow[]>(
+        await supabase
+          .from('tasks')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .order('due_date', { ascending: true }),
+      ),
+  });
+}
+
+export function useMilestones(engagementId: string | undefined): UseQueryResult<MilestoneRow[]> {
+  return useQuery({
+    queryKey: qk.milestones(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () =>
+      unwrap<MilestoneRow[]>(
+        await supabase
+          .from('roadmap_milestones')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .order('target_date', { ascending: true }),
+      ),
+  });
+}
+
+// Playbook id -> name/phase, for grouping roadmap tasks into workstreams.
+export function usePlaybooks(): UseQueryResult<Map<string, { name: string; phase: string | null }>> {
+  return useQuery({
+    queryKey: ['playbooks'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('playbooks').select('id,name,phase');
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((p: { id: string; name: string; phase: string | null }) => [p.id, { name: p.name, phase: p.phase }]));
     },
   });
 }

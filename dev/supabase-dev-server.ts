@@ -16,6 +16,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
 import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from '../server/narrative';
+import { instantiateTasksForGaps } from '../server/roadmap';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -269,16 +270,24 @@ export function supabaseDevServer(): Plugin {
     const body = JSON.parse((await readBody(req)) || '{}');
     const assessmentId = body.assessment_id;
 
-    // Authorize through RLS first: the caller must be able to see every
-    // assessment the call references (compare references two).
-    const ids = [assessmentId, body.prior_assessment_id, body.current_assessment_id].filter(
-      (v): v is string => typeof v === 'string',
-    );
-    const visible = await asUser(claims, async (c) => {
-      const r = await c.query(`select id from assessments where id = any($1)`, [ids]);
-      return ids.length > 0 && r.rowCount === ids.length;
-    });
-    if (!visible) return json(res, 404, { message: 'assessment not found' });
+    // Authorize through RLS first. Engagement-scoped functions check the
+    // engagement; the rest check every assessment id they reference.
+    if (typeof body.engagement_id === 'string') {
+      const visible = await asUser(claims, async (c) => {
+        const r = await c.query(`select id from engagements where id = $1`, [body.engagement_id]);
+        return r.rowCount === 1;
+      });
+      if (!visible) return json(res, 404, { message: 'engagement not found' });
+    } else {
+      const ids = [assessmentId, body.prior_assessment_id, body.current_assessment_id].filter(
+        (v): v is string => typeof v === 'string',
+      );
+      const visible = await asUser(claims, async (c) => {
+        const r = await c.query(`select id from assessments where id = any($1)`, [ids]);
+        return ids.length > 0 && r.rowCount === ids.length;
+      });
+      if (!visible) return json(res, 404, { message: 'assessment not found' });
+    }
 
     // Then run the server function with a service connection (like an edge
     // function with the service role).
@@ -299,6 +308,9 @@ export function supabaseDevServer(): Plugin {
       }
       if (name === 'generate-document') {
         return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
+      }
+      if (name === 'generate-roadmap') {
+        return json(res, 200, await instantiateTasksForGaps(service, body.engagement_id));
       }
       if (name === 'render-delta-pdf') {
         const payload = await buildDeltaReportPayload(service, assessmentId);
