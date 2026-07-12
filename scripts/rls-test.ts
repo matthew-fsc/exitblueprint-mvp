@@ -136,6 +136,11 @@ async function main() {
        values ($1, 'advisor', 'initiative', 'Firm B private play', 'secret', 'high', 70)`,
       [ids.firm_b],
     );
+    // A global/system catalog row (rls-test runs before db:seed, so seed it here).
+    await db.query(
+      `insert into advisory_library_items (firm_id, source, item_type, code, title, body, severity, score_trigger)
+       values (null, 'system', 'buyer_question', 'RLS-SYS-1', 'Global system question', 'shared', 'high', 70)`,
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
