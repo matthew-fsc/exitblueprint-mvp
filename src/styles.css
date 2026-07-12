@@ -2694,3 +2694,112 @@ textarea:focus {
   .app-bar-left .app-bar-divider { display: none; }
   .app-nav-link { padding: 0 0.6rem; }
 }
+
+/* ============================================================
+   UI polish pass — controls, cards, tables, buttons
+   ============================================================ */
+
+/* ---- button hierarchy ---- */
+button {
+  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.08);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+.app-nav-link:focus-visible,
+.linkish:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* secondary / outline action */
+.btn-secondary {
+  background: var(--surface-1);
+  color: var(--brand);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.btn-ghost {
+  box-shadow: none;
+}
+
+/* ---- form controls: institutional selects ---- */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a968c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2.1rem;
+  cursor: pointer;
+}
+input,
+select,
+textarea {
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+input:hover:not(:focus),
+select:hover:not(:focus),
+textarea:hover:not(:focus) {
+  border-color: var(--border-strong);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* ---- stat cards: brand-tinted value + gentle hover ---- */
+.stat-block {
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.stat-block:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.stat-block-value {
+  color: var(--brand);
+}
+
+/* ---- data tables: full-row hover + tighter header ---- */
+.ui-table tbody tr {
+  transition: background-color 0.1s ease;
+}
+.ui-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.ui-table thead th {
+  border-bottom: 1px solid var(--border-strong);
+}
+
+/* ---- filter row: align control heights ---- */
+.filter-control select {
+  height: 2.5rem;
+}
+
+/* ---- empty states: a touch more presence ---- */
+.empty-state {
+  padding: 2.75rem 1.5rem;
+}
+.empty-state-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-size: 1.3rem;
+  opacity: 1;
+  color: var(--text-secondary);
+}
