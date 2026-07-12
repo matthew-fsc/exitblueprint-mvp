@@ -1,4 +1,4 @@
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
@@ -43,28 +43,56 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function ShellHeader() {
+function userInitials(email?: string | null): string {
+  if (!email) return 'U';
+  const local = email.split('@')[0].replace(/[._-]+/g, ' ').trim();
+  const parts = local.split(' ').filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase();
+}
+
+function AppBar() {
   const { firmName, profile, signOut } = useAuth();
   const { brand } = useBrand();
   return (
-    <header className="page-header shell-header">
-      <div>
-        <FirmMark brand={brand} fallbackName={firmName} />
-        <p className="subtitle">Exit readiness workspace</p>
+    <header className="app-bar">
+      <div className="app-bar-inner">
+        <div className="app-bar-left">
+          <FirmMark brand={brand} fallbackName={firmName} />
+          <span className="app-bar-divider" aria-hidden />
+          <nav className="app-nav" aria-label="Primary">
+            <NavLink to="/" end className="app-nav-link">
+              Portfolio
+            </NavLink>
+            <NavLink to="/clients" className="app-nav-link">
+              Clients
+            </NavLink>
+            <NavLink to="/settings" className="app-nav-link">
+              Settings
+            </NavLink>
+          </nav>
+        </div>
+        <div className="app-bar-right">
+          {isDevStack && <span className="dev-badge">Dev</span>}
+          <ThemeToggle />
+          <span className="app-bar-divider" aria-hidden />
+          <div className="user-chip">
+            <span className="user-avatar" aria-hidden>
+              {userInitials(profile?.email)}
+            </span>
+            <span className="user-email" title={profile?.email ?? undefined}>
+              {profile?.email}
+            </span>
+            <button className="user-signout" onClick={signOut} title="Sign out" aria-label="Sign out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
-      <nav className="shell-nav">
-        <Link to="/">Portfolio</Link>
-        <Link to="/clients">Clients</Link>
-        <Link to="/settings">Settings</Link>
-        <span className="shell-user">
-          {profile?.email}
-          {isDevStack && <span className="dev-badge">dev stack</span>}
-        </span>
-        <button className="linkish" onClick={signOut}>
-          Sign out
-        </button>
-        <ThemeToggle />
-      </nav>
     </header>
   );
 }
@@ -72,10 +100,8 @@ function ShellHeader() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <BrandingProvider>
-      <main className="page">
-        <ShellHeader />
-        {children}
-      </main>
+      <AppBar />
+      <main className="page">{children}</main>
     </BrandingProvider>
   );
 }
