@@ -37,6 +37,9 @@ export default function RoadmapPage() {
   const playbooksQ = usePlaybooks();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The plan is laid out forward from this date; defaults to today so the
+  // timeline never opens in the past.
+  const [anchor, setAnchor] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // milestone form
   const [mTitle, setMTitle] = useState('');
@@ -46,7 +49,7 @@ export default function RoadmapPage() {
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];
   const playbooks = playbooksQ.data ?? new Map();
-  const startDate = engagement?.started_at ?? new Date().toISOString();
+  const startDate = anchor;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
@@ -59,10 +62,15 @@ export default function RoadmapPage() {
     try {
       const r = await invokeFunction<{ tasksCreated: number }>('generate-roadmap', {
         engagement_id: engagementId,
+        anchor_date: anchor,
       });
       refresh();
       toast.show(
-        r.tasksCreated > 0 ? `Roadmap built — ${r.tasksCreated} tasks added` : 'Roadmap is up to date',
+        r.tasksCreated > 0
+          ? `Roadmap built — ${r.tasksCreated} tasks added`
+          : tasks.length
+            ? 'Roadmap rescheduled from the new start date'
+            : 'Roadmap is up to date',
         'good',
       );
     } catch (err) {
@@ -168,9 +176,15 @@ export default function RoadmapPage() {
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Roadmap' }]}
         subtitle="Remediation work and milestones on one timeline — business readiness and the owner’s personal plan."
         actions={
-          <button onClick={generate} disabled={busy}>
-            {busy ? 'Working…' : tasks.length ? 'Refresh from gaps' : 'Build roadmap from gaps'}
-          </button>
+          <div className="roadmap-controls">
+            <label className="roadmap-startdate">
+              <span>Start date</span>
+              <input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
+            </label>
+            <button onClick={generate} disabled={busy}>
+              {busy ? 'Working…' : tasks.length ? 'Reschedule from start date' : 'Build roadmap from gaps'}
+            </button>
+          </div>
         }
       />
       {error && <p className="form-error">{error}</p>}

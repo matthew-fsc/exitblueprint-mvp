@@ -2959,3 +2959,119 @@ textarea:focus {
   color: var(--on-brand); font-size: 0.8rem; box-shadow: none;
 }
 .rm-check-done { background: var(--status-good); border-color: var(--status-good); }
+
+/* ---- Advisory Library (buyer lens + catalog) ---------------------------- */
+.stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
+.stack-lg > section { margin: 0; }
+
+.advisory-summary {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 0.75rem 1rem; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.advisory-summary-stat { font-size: 0.95rem; }
+.advisory-summary-stat strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.advisory-summary-sep { width: 1px; height: 1.1rem; background: var(--border-strong); }
+
+.advisory-list { display: flex; flex-direction: column; }
+.advisory-item {
+  padding: 0.9rem 0.5rem 0.9rem 1rem;
+  border-left: 3px solid var(--status-neutral);
+  border-bottom: 1px solid var(--border);
+}
+.advisory-item:last-child { border-bottom: none; }
+.advisory-item.sev-critical { border-left-color: var(--status-critical); }
+.advisory-item.sev-high { border-left-color: var(--status-serious); }
+.advisory-item.sev-med { border-left-color: var(--status-warning); }
+.advisory-item.sev-low { border-left-color: var(--status-neutral); }
+
+.advisory-item-head { display: flex; gap: 0.85rem; align-items: flex-start; }
+.advisory-item-titles { flex: 1; min-width: 0; }
+.advisory-item-title { margin: 0; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.advisory-item-body { margin: 0.25rem 0 0; color: var(--text-2, var(--status-neutral)); font-size: 0.92rem; line-height: 1.45; }
+.advisory-item-score {
+  font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap;
+  flex-shrink: 0; padding-top: 0.15rem;
+}
+
+.sev-chip {
+  flex-shrink: 0; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem; border-radius: 999px; color: #fff; min-width: 3.5rem; text-align: center;
+}
+.sev-chip.sev-critical { background: var(--status-critical); }
+.sev-chip.sev-high { background: var(--status-serious); }
+.sev-chip.sev-med { background: var(--status-warning); }
+.sev-chip.sev-low { background: var(--status-neutral); }
+
+.advisory-tag {
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--status-neutral); border: 1px solid var(--border-strong); border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+.advisory-tag-firm { color: var(--accent-strong); border-color: var(--accent); }
+
+.advisory-item-toggle {
+  margin-top: 0.5rem; background: none; border: none; color: var(--accent);
+  font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0;
+}
+.advisory-item-toggle:hover { text-decoration: underline; }
+.advisory-item-detail {
+  margin-top: 0.6rem; padding: 0.7rem 0.85rem; background: var(--surface-2);
+  border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.6rem;
+}
+.advisory-item-detail p { margin: 0.15rem 0 0; font-size: 0.9rem; line-height: 1.45; }
+.advisory-detail-label {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--status-neutral);
+}
+.advisory-item-actions { margin-top: 0.5rem; }
+.button-danger-link {
+  background: none; border: none; color: var(--status-critical); cursor: pointer;
+  font-size: 0.82rem; font-weight: 600; padding: 0;
+}
+.button-danger-link:hover { text-decoration: underline; }
+
+.advisory-filters { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.advisory-filters select, .advisory-filters input[type="search"] {
+  padding: 0.4rem 0.6rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-1); color: inherit; font-size: 0.9rem;
+}
+.advisory-filters input[type="search"] { flex: 1; min-width: 12rem; }
+.advisory-filters-count { margin-left: auto; font-size: 0.85rem; }
+
+.advisory-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.advisory-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; }
+.advisory-form input, .advisory-form select, .advisory-form textarea {
+  padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-1); color: inherit; font: inherit; font-weight: 400;
+}
+.advisory-form textarea { resize: vertical; }
+.advisory-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+
+/* ---- Header action links render as buttons, not bare text -------------- */
+/* Any link placed in a PageHeader's actions area looks like a secondary
+   button so it sits consistently beside real <button> actions. In-card and
+   in-table .button-link stay as text links. */
+.ui-pageheader-actions .button-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--brand);
+  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.06);
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.ui-pageheader-actions .button-link:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* ---- Roadmap start-date control ---------------------------------------- */
+.roadmap-controls { display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+.roadmap-startdate { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.72rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.roadmap-startdate input { padding: 0.42rem 0.6rem; font-weight: 400; text-transform: none; letter-spacing: 0; }

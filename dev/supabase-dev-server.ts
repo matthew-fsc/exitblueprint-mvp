@@ -17,6 +17,7 @@ import pg from 'pg';
 import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
 import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from '../server/narrative';
 import { instantiateTasksForGaps } from '../server/roadmap';
+import { fireAdvisoryItems } from '../server/advisory';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -310,7 +311,14 @@ export function supabaseDevServer(): Plugin {
         return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
       }
       if (name === 'generate-roadmap') {
-        return json(res, 200, await instantiateTasksForGaps(service, body.engagement_id));
+        return json(
+          res,
+          200,
+          await instantiateTasksForGaps(service, body.engagement_id, body.anchor_date ?? null),
+        );
+      }
+      if (name === 'advisory-items') {
+        return json(res, 200, await fireAdvisoryItems(service, body.engagement_id));
       }
       if (name === 'render-delta-pdf') {
         const payload = await buildDeltaReportPayload(service, assessmentId);

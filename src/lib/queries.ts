@@ -33,6 +33,8 @@ export const qk = {
   milestones: (engagementId: string) => ['milestones', engagementId] as const,
   tasks: (engagementId: string) => ['tasks', engagementId] as const,
   engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
+  advisoryLibrary: () => ['advisoryLibrary'] as const,
+  firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -531,6 +533,74 @@ export function usePlaybooks(): UseQueryResult<Map<string, { name: string; phase
       if (error) throw new Error(error.message);
       return new Map((data ?? []).map((p: { id: string; name: string; phase: string | null }) => [p.id, { name: p.name, phase: p.phase }]));
     },
+  });
+}
+
+// ---- advisory library ------------------------------------------------------
+export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag';
+
+export interface AdvisoryItemRow {
+  id: string;
+  firm_id: string | null;
+  source: 'system' | 'advisor';
+  item_type: AdvisoryItemType;
+  code: string | null;
+  title: string;
+  body: string;
+  response_framework: string | null;
+  data_needed: string | null;
+  dimension_code: string | null;
+  sub_score_code: string | null;
+  severity: string | null;
+  buyer_type: string | null;
+  score_trigger: number | null;
+  active: boolean;
+  sort_order: number;
+}
+
+export interface FiredAdvisoryItem extends AdvisoryItemRow {
+  score_trigger: number;
+  governing_code: string;
+  governing_score: number;
+}
+
+export interface FiredAdvisoryResult {
+  assessment_id: string | null;
+  items: FiredAdvisoryItem[];
+  counts: {
+    buyer_question: number;
+    initiative: number;
+    risk_flag: number;
+    critical: number;
+    high: number;
+  };
+}
+
+// The full catalog visible to this user: global system items + own firm items.
+export function useAdvisoryLibrary(): UseQueryResult<AdvisoryItemRow[]> {
+  return useQuery({
+    queryKey: qk.advisoryLibrary(),
+    staleTime: 60_000,
+    queryFn: async () =>
+      unwrap<AdvisoryItemRow[]>(
+        await supabase
+          .from('advisory_library_items')
+          .select('*')
+          .order('item_type', { ascending: true })
+          .order('sort_order', { ascending: true }),
+      ),
+  });
+}
+
+// The items that fire for an engagement's latest completed assessment.
+export function useFiredAdvisory(
+  engagementId: string | undefined,
+): UseQueryResult<FiredAdvisoryResult> {
+  return useQuery({
+    queryKey: qk.firedAdvisory(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<FiredAdvisoryResult>('advisory-items', { engagement_id: engagementId }),
   });
 }
 

@@ -108,6 +108,21 @@ describe.skipIf(!url)('instantiateTasksForGaps', () => {
     expect(new Date(t.earliest).getTime()).toBeGreaterThanOrEqual(new Date('2026-01-14').getTime());
   });
 
+  it('re-anchors task due dates when given an explicit start date', async () => {
+    const anchor = '2027-03-01';
+    await instantiateTasksForGaps(db, engagementId, anchor);
+    const earliest = (
+      await db.query(
+        `select min(due_date) as d from tasks where engagement_id = $1 and playbook_id is not null`,
+        [engagementId],
+      )
+    ).rows[0].d;
+    // Every offset is >= 0, so the earliest due date is on/after the anchor,
+    // and the whole plan has shifted forward to 2027.
+    expect(new Date(earliest).getTime()).toBeGreaterThanOrEqual(new Date(anchor).getTime());
+    expect(new Date(earliest).getFullYear()).toBe(2027);
+  });
+
   it('processes gaps most-critical first (a critical gap seeds a playbook)', async () => {
     // A critical gap's mapped playbook must have tasks (critical gaps are never
     // skipped by dedup because they are processed first).

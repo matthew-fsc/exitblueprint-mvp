@@ -17,11 +17,17 @@ const SEV_RANK: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 
 export async function instantiateTasksForGaps(
   db: pg.ClientBase,
   engagementId: string,
+  anchorDate?: string | null,
 ): Promise<RoadmapResult> {
   const eng = (
     await db.query(`select id, firm_id, started_at from engagements where id = $1`, [engagementId])
   ).rows[0];
   if (!eng) throw new Error(`engagement ${engagementId} not found`);
+
+  // The plan is laid out forward from an anchor date: due = anchor + each task's
+  // offset. Callers pass the advisor-chosen start date; absent one, fall back to
+  // the engagement start (backward-compatible).
+  const anchor = anchorDate ?? eng.started_at;
 
   const gaps = (
     await db.query(
@@ -80,7 +86,7 @@ export async function instantiateTasksForGaps(
             t.title,
             t.description,
             t.default_owner_role,
-            eng.started_at,
+            anchor,
             t.target_offset_days ?? 0,
             t.sequence,
           ],
@@ -89,6 +95,21 @@ export async function instantiateTasksForGaps(
         created++;
       }
     }
+  }
+
+  // When an explicit start date is given, re-anchor tasks that already existed so
+  // the whole plan shifts to the new date (idempotent: same date → same dates).
+  if (anchorDate) {
+    await db.query(
+      `update tasks t
+         set due_date = ($2::date + ((coalesce(ptt.target_offset_days, 0))::text || ' days')::interval)::date
+       from playbook_task_templates ptt
+       where t.engagement_id = $1
+         and t.playbook_id is not null
+         and t.playbook_id = ptt.playbook_id
+         and t.sequence = ptt.sequence`,
+      [engagementId, anchorDate],
+    );
   }
 
   return { tasksCreated: created };
