@@ -269,10 +269,11 @@ export function composeOwnerReport(
 // --- generateDocument -----------------------------------------------------------
 
 async function generateWithClaude(
-  payload: OwnerReportPayload,
+  payload: unknown,
   generate: GenerateFn,
+  promptVersion: string = PROMPT_VERSION,
 ): Promise<GeneratedText> {
-  const systemPrompt = readFileSync(join(root, 'prompts', `${PROMPT_VERSION}.md`), 'utf8');
+  const systemPrompt = readFileSync(join(root, 'prompts', `${promptVersion}.md`), 'utf8');
   const userContent = `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`;
 
   // One regeneration on a numeral violation, then fail loudly (docs/04).
@@ -302,8 +303,9 @@ export async function generateDocument(
   // deterministic composer — so a report always generates.
   generate?: GenerateFn,
 ) {
+  if (docType === 'delta_report') return generateDeltaReport(db, assessmentId, generate);
   if (docType !== 'owner_report') {
-    throw new Error(`doc_type '${docType}' is not implemented yet (owner_report only until S11)`);
+    throw new Error(`doc_type '${docType}' is not implemented yet (owner_report, delta_report)`);
   }
 
   const payload = await buildOwnerReportPayload(db, assessmentId);
@@ -328,6 +330,232 @@ export async function generateDocument(
      values ($1, $2, $3, 'owner_report', $4, $5, $6)
      returning *`,
     [assessment.firm_id, assessment.engagement_id, assessmentId, text, PROMPT_VERSION, model],
+  );
+  return row.rows[0];
+}
+
+// --- Delta report (F4) --------------------------------------------------------
+// The quarterly artifact a wealth advisor brings to the client meeting. Built
+// FROM the deterministic comparison (compareAssessments) of the current active
+// completed assessment against the prior one. When there is no prior (or the
+// prior is on a different rubric version), it renders as a Baseline report:
+// levels, not deltas. Every figure comes from the payload; the numeral firewall
+// applies exactly as for the owner report.
+
+const DELTA_PROMPT_VERSION = 'delta_report.v1';
+
+export interface DeltaReportPayload {
+  mode: 'delta' | 'baseline';
+  company: { name: string; industry: string | null };
+  engagement_target_window: string | null;
+  current: { drs: number; tier: string; ori: number; date: string | null };
+  prior: { drs: number; tier: string; ori: number; date: string | null } | null;
+  drs_delta: number | null;
+  ori_delta: number | null;
+  dimensions: { name: string; current: number; prior: number | null; delta: number | null }[];
+  gaps_resolved: string[];
+  gaps_opened: string[];
+  open_gaps: string[]; // baseline mode: current fired gaps by name
+  // Counts are in the payload so both the composer and the model may state them
+  // without tripping the numeral firewall (no self-computed numbers).
+  counts: { gaps_resolved: number; gaps_opened: number; open_gaps: number };
+}
+
+async function priorActiveCompleted(
+  db: pg.ClientBase,
+  engagementId: string,
+  sequenceNumber: number,
+): Promise<{ id: string; rubric_version_id: string } | null> {
+  const r = await db.query(
+    `select id, rubric_version_id from active_assessments
+     where engagement_id = $1 and status = 'completed' and sequence_number < $2
+     order by sequence_number desc limit 1`,
+    [engagementId, sequenceNumber],
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function buildDeltaReportPayload(
+  db: pg.ClientBase,
+  currentAssessmentId: string,
+): Promise<DeltaReportPayload> {
+  const assessment = (
+    await db.query(
+      `select a.*, e.company_id, e.target_exit_window
+       from active_assessments a join engagements e on e.id = a.engagement_id
+       where a.id = $1 and a.status = 'completed'`,
+      [currentAssessmentId],
+    )
+  ).rows[0];
+  if (!assessment) throw new Error(`assessment ${currentAssessmentId} not found, not completed, or superseded`);
+
+  const company = (
+    await db.query(`select name, industry from companies where id = $1`, [assessment.company_id])
+  ).rows[0];
+  const dimNames = new Map<string, string>(
+    (
+      await db.query(`select code, name from dimensions where rubric_version_id = $1`, [
+        assessment.rubric_version_id,
+      ])
+    ).rows.map((r) => [r.code, r.name]),
+  );
+  const gapNames = new Map<string, string>(
+    (
+      await db.query(`select code, name from gap_definitions where rubric_version_id = $1`, [
+        assessment.rubric_version_id,
+      ])
+    ).rows.map((r) => [r.code, r.name]),
+  );
+
+  const explain = await explainAssessment(db, currentAssessmentId);
+  const prior = await priorActiveCompleted(db, assessment.engagement_id, assessment.sequence_number);
+  const comparison = prior ? await compareAssessments(db, prior.id, currentAssessmentId) : null;
+
+  const baseHeadline = {
+    drs: explain.drsScore,
+    tier: explain.drsTier,
+    ori: explain.oriScore,
+    date: assessment.completed_at,
+  };
+
+  if (comparison && comparison.comparable) {
+    const priorDate = (
+      await db.query(`select completed_at from assessments where id = $1`, [prior!.id])
+    ).rows[0]?.completed_at ?? null;
+    return {
+      mode: 'delta',
+      company: { name: company.name, industry: company.industry },
+      engagement_target_window: assessment.target_exit_window,
+      current: baseHeadline,
+      prior: {
+        drs: comparison.prior.drsScore,
+        tier: comparison.prior.drsTier,
+        ori: comparison.prior.oriScore,
+        date: priorDate,
+      },
+      drs_delta: comparison.drsDelta,
+      ori_delta: comparison.oriDelta,
+      dimensions: comparison.dimensions.map((d) => ({
+        name: dimNames.get(d.code) ?? d.code,
+        current: d.current,
+        prior: d.prior,
+        delta: d.delta,
+      })),
+      gaps_resolved: comparison.gapsResolved.map((c) => gapNames.get(c) ?? c),
+      gaps_opened: comparison.gapsOpened.map((c) => gapNames.get(c) ?? c),
+      open_gaps: explain.firedGaps.map((g) => g.name),
+      counts: {
+        gaps_resolved: comparison.gapsResolved.length,
+        gaps_opened: comparison.gapsOpened.length,
+        open_gaps: explain.firedGaps.length,
+      },
+    };
+  }
+
+  // Baseline (no prior, or prior on a different rubric version → not comparable)
+  return {
+    mode: 'baseline',
+    company: { name: company.name, industry: company.industry },
+    engagement_target_window: assessment.target_exit_window,
+    current: baseHeadline,
+    prior: null,
+    drs_delta: null,
+    ori_delta: null,
+    dimensions: explain.dimensions.map((d) => ({
+      name: d.name,
+      current: d.score,
+      prior: null,
+      delta: null,
+    })),
+    gaps_resolved: [],
+    gaps_opened: [],
+    open_gaps: explain.firedGaps.map((g) => g.name),
+    counts: { gaps_resolved: 0, gaps_opened: 0, open_gaps: explain.firedGaps.length },
+  };
+}
+
+// Deterministic composer — numeral-firewall-safe (uses only payload figures).
+export function composeDeltaReport(payload: DeltaReportPayload): string {
+  const { company, current, prior } = payload;
+  const lines: string[] = [];
+  const period = payload.mode === 'delta' ? 'Progress this period' : 'Baseline readiness';
+  lines.push(`# ${period} — ${company.name}`);
+  lines.push('');
+
+  if (payload.mode === 'delta' && prior) {
+    const dir = (payload.drs_delta ?? 0) >= 0 ? 'up' : 'down';
+    lines.push(
+      `Since the last review, ${company.name}'s Diligence Readiness Score moved from ${prior.drs} to ${current.drs} — ${dir} ${Math.abs(payload.drs_delta ?? 0)} points, now in the ${current.tier} tier.`,
+    );
+    if (payload.counts.gaps_resolved > 0) {
+      lines.push('');
+      lines.push(
+        `${payload.counts.gaps_resolved} diligence gap${payload.counts.gaps_resolved > 1 ? 's were' : ' was'} cleared this period. That work is what moved the score.`,
+      );
+    }
+  } else {
+    lines.push(
+      `This baseline places ${company.name} at a Diligence Readiness Score of ${current.drs}, in the ${current.tier} tier. It is the starting point the plan builds from.`,
+    );
+  }
+  lines.push('');
+  lines.push('## The six business areas');
+  for (const d of payload.dimensions) {
+    if (payload.mode === 'delta' && d.prior != null) {
+      lines.push(`- **${d.name}** — ${d.prior} to ${d.current}.`);
+    } else {
+      lines.push(`- **${d.name}** — ${d.current}.`);
+    }
+  }
+  lines.push('');
+
+  if (payload.mode === 'delta' && payload.gaps_resolved.length > 0) {
+    lines.push('## Gaps closed this period');
+    for (const g of payload.gaps_resolved) lines.push(`- ${g}`);
+    lines.push('');
+  }
+  if (payload.open_gaps.length > 0) {
+    lines.push('## Focus for next period');
+    for (const g of payload.open_gaps.slice(0, 6)) lines.push(`- ${g}`);
+    lines.push('');
+  }
+
+  lines.push('## What happens next');
+  const window = payload.engagement_target_window
+    ? ` within the ${payload.engagement_target_window} target window`
+    : '';
+  lines.push(
+    `Your advisor will work the focus items above with you${window}, then re-assess to confirm each fix moved the score.`,
+  );
+  return lines.join('\n');
+}
+
+async function generateDeltaReport(
+  db: pg.ClientBase,
+  currentAssessmentId: string,
+  generate?: GenerateFn,
+) {
+  const payload = await buildDeltaReportPayload(db, currentAssessmentId);
+
+  let text: string;
+  let model: string;
+  if (generate) {
+    ({ text, model } = await generateWithClaude(payload, generate, DELTA_PROMPT_VERSION));
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    ({ text, model } = await generateWithClaude(payload, callClaude, DELTA_PROMPT_VERSION));
+  } else {
+    text = composeDeltaReport(payload);
+    model = 'rule-based:delta_report.v1';
+  }
+
+  const assessment = (
+    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [currentAssessmentId])
+  ).rows[0];
+  const row = await db.query(
+    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+     values ($1, $2, $3, 'delta_report', $4, $5, $6)
+     returning *`,
+    [assessment.firm_id, assessment.engagement_id, currentAssessmentId, text, DELTA_PROMPT_VERSION, model],
   );
   return row.rows[0];
 }

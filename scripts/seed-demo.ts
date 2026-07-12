@@ -161,7 +161,27 @@ async function main() {
        on conflict (engagement_id) do nothing`,
       [firmId, engagementId],
     );
-    console.log(`seed-demo: done — firm '${DEMO_FIRM}', company '${DEMO_COMPANY}'`);
+
+    // Branded demo firm (F1): the advisor's firm is the face on client-facing
+    // reports. Idempotent upsert on firm_id.
+    await db.query(
+      `insert into firm_branding
+         (firm_id, display_name, accent_color, report_from_line, footer_disclosure_md)
+       values ($1, $2, $3, $4, $5)
+       on conflict (firm_id) do update set
+         display_name = excluded.display_name,
+         accent_color = excluded.accent_color,
+         report_from_line = excluded.report_from_line,
+         footer_disclosure_md = excluded.footer_disclosure_md`,
+      [
+        firmId,
+        'Cascade Wealth Partners',
+        '#1f6b47',
+        'Prepared by Dana Reyes, CFP®, CEPA — Cascade Wealth Partners',
+        'This report is prepared for informational purposes by Cascade Wealth Partners and does not constitute investment, tax, or legal advice.',
+      ],
+    );
+    console.log(`seed-demo: done — firm '${DEMO_FIRM}', company '${DEMO_COMPANY}', branded as 'Cascade Wealth Partners'`);
   } finally {
     await db.end();
   }

@@ -1,44 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { invokeFunction, supabase } from '../lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import {
+  useActiveAssessment,
+  useCompany,
+  useEngagement,
+  useExplain,
+  useRubricVersion,
+} from '../lib/queries';
+import {
+  Card,
+  EmptyState,
+  PageHeader,
+  ScoreDial,
+  SkeletonLines,
+  TierBadge,
+} from '../components/ui';
+import { fmtDate, fmtScore } from '../lib/format';
 import {
   gapReason,
   interpretSubScore,
-  type SubScoreExplainLike,
 } from '../../shared/scoring/interpret';
-
-interface Explain {
-  subScores: SubScoreExplainLike[];
-  dimensions: { code: string; name: string; score: number; drsWeight: number; contributionToDrs: number }[];
-  drsScore: number;
-  drsTier: string;
-  oriScore: number;
-  firedGaps: { code: string; name: string; severity: string; trigger: unknown }[];
-  flags: string[];
-}
-
-interface AssessmentRow {
-  id: string;
-  engagement_id: string;
-  rubric_version_id: string;
-  sequence_number: number;
-  completed_at: string | null;
-  status: string;
-}
 
 const severityStatus: Record<string, string> = {
   critical: 'critical',
   high: 'serious',
   med: 'warning',
   low: 'neutral',
-};
-
-const tierStatus: Record<string, string> = {
-  'Institutional Grade': 'good',
-  'Sale Ready': 'good',
-  'Needs Work': 'warning',
-  'High Risk': 'serious',
-  'Not Saleable (Yet)': 'critical',
 };
 
 const TIERS = [
@@ -51,64 +40,52 @@ const TIERS = [
 
 export default function ResultsPage() {
   const { assessmentId } = useParams();
-  const [assessment, setAssessment] = useState<AssessmentRow | null>(null);
-  const [companyName, setCompanyName] = useState('');
-  const [versionLabel, setVersionLabel] = useState('');
-  const [ownerDimNames, setOwnerDimNames] = useState<Map<string, string>>(new Map());
-  const [explain, setExplain] = useState<Explain | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const assessmentQ = useActiveAssessment(assessmentId);
+  const assessment = assessmentQ.data ?? null;
+  const engagementQ = useEngagement(assessment?.engagement_id);
+  const companyQ = useCompany(engagementQ.data?.company_id);
+  const versionQ = useRubricVersion(assessment?.rubric_version_id);
+  const explainQ = useExplain(assessmentId);
+  const explain = explainQ.data;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: a, error: aErr } = await supabase
-          .from('active_assessments')
-          .select('*')
-          .eq('id', assessmentId!)
-          .single();
-        if (aErr) throw new Error(aErr.message);
-        setAssessment(a as AssessmentRow);
-        const { data: engagement } = await supabase
-          .from('engagements')
-          .select('*')
-          .eq('id', a.engagement_id)
-          .single();
-        if (engagement) {
-          const { data: company } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('id', engagement.company_id)
-            .single();
-          setCompanyName(company?.name ?? '');
-        }
-        const { data: version } = await supabase
-          .from('rubric_versions')
-          .select('*')
-          .eq('id', a.rubric_version_id)
-          .single();
-        setVersionLabel(version?.version_label ?? '');
-        const { data: dims } = await supabase
-          .from('dimensions')
-          .select('*')
-          .eq('rubric_version_id', a.rubric_version_id)
-          .eq('score_group', 'owner_readiness');
-        setOwnerDimNames(new Map((dims ?? []).map((d: { code: string; name: string }) => [d.code, d.name])));
-        const ex = await invokeFunction<Explain>('explain-assessment', { assessment_id: assessmentId });
-        setExplain(ex);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, [assessmentId]);
+  const ownerDimsQ = useQuery({
+    queryKey: ['ownerDims', assessment?.rubric_version_id ?? ''],
+    enabled: !!assessment?.rubric_version_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dimensions')
+        .select('*')
+        .eq('rubric_version_id', assessment!.rubric_version_id)
+        .eq('score_group', 'owner_readiness');
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((d: { code: string; name: string }) => [d.code, d.name]));
+    },
+  });
+  const ownerDimNames = ownerDimsQ.data ?? new Map<string, string>();
 
   const subScoreNames = useMemo(
     () => new Map((explain?.subScores ?? []).map((s) => [s.code, s.name])),
     [explain],
   );
 
-  if (error) return <p className="form-error">{error}</p>;
-  if (!assessment || !explain) return <p className="muted">Loading results…</p>;
+  if (assessmentQ.isLoading || explainQ.isLoading) {
+    return (
+      <Card>
+        <SkeletonLines lines={6} />
+      </Card>
+    );
+  }
+  if (assessmentQ.error || explainQ.error) {
+    return (
+      <EmptyState icon="⚠" title="Couldn’t load results">
+        {(assessmentQ.error ?? explainQ.error)?.message}
+      </EmptyState>
+    );
+  }
+  if (!assessment || !explain) return <EmptyState title="Results not available" />;
 
+  const companyName = companyQ.data?.name ?? '';
+  const versionLabel = versionQ.data?.version_label ?? '';
   const divergent = Math.abs(explain.drsScore - explain.oriScore) >= 15;
   const ownerSubs = explain.subScores.filter((s) => ownerDimNames.has(s.dimensionCode));
   const ownerGroups = [...ownerDimNames.keys()]
@@ -121,41 +98,46 @@ export default function ResultsPage() {
 
   return (
     <div className="results">
-      <div className="page-title-row">
-        <h2>
-          {companyName} <span className="muted">· assessment #{assessment.sequence_number}</span>
-        </h2>
-        <span className="muted">
-          {versionLabel}
-          {assessment.completed_at ? ` · ${new Date(assessment.completed_at).toLocaleDateString()}` : ''}
-          {' · '}
-          <Link className="button-link" to={`/assessment/${assessment.id}/workbench`}>
-            what-if workbench →
-          </Link>
-          {' · '}
-          <Link className="button-link" to={`/assessment/${assessment.id}/report`}>
-            owner report →
-          </Link>
-          {' · '}
-          <Link className="button-link" to={`/engagement/${assessment.engagement_id}`}>
-            engagement →
-          </Link>
-        </span>
-      </div>
+      <PageHeader
+        title={
+          <>
+            {companyName} <span className="muted">· assessment #{assessment.sequence_number}</span>
+          </>
+        }
+        crumbs={[
+          { label: 'Portfolio', to: '/' },
+          { label: companyName, to: `/engagement/${assessment.engagement_id}` },
+          { label: `Assessment #${assessment.sequence_number}` },
+        ]}
+        subtitle={
+          <>
+            {versionLabel}
+            {assessment.completed_at ? ` · ${fmtDate(assessment.completed_at)}` : ''}
+          </>
+        }
+        actions={
+          <>
+            <Link className="button-link" to={`/assessment/${assessment.id}/workbench`}>
+              What-if →
+            </Link>
+            <Link className="button-link" to={`/assessment/${assessment.id}/report`}>
+              Owner report →
+            </Link>
+          </>
+        }
+      />
 
       {/* Score summary */}
       <section className="score-tiles">
-        <div className="tile score-tile">
+        <div className="tile score-tile" style={{ alignItems: 'center' }}>
           <span className="tile-label">Business readiness</span>
-          <span className="tile-value hero-tile-value">{explain.drsScore}</span>
-          <span className={`status-chip status-${tierStatus[explain.drsTier] ?? 'neutral'}`}>
-            {explain.drsTier}
-          </span>
+          <ScoreDial value={explain.drsScore} tier={explain.drsTier} />
+          <TierBadge tier={explain.drsTier} />
           <span className="muted tile-note">Diligence Readiness Score, out of 100</span>
         </div>
         <div className="tile score-tile">
           <span className="tile-label">Owner readiness</span>
-          <span className="tile-value hero-tile-value">{explain.oriScore}</span>
+          <span className="tile-value hero-tile-value">{fmtScore(explain.oriScore)}</span>
           <span className="muted tile-note">
             The owner’s personal and financial readiness, scored on its own — never blended into the
             business score.
@@ -171,7 +153,6 @@ export default function ResultsPage() {
         </div>
       </section>
 
-      {/* How the score works — plain overview */}
       <details className="how-it-works">
         <summary>How this score is built</summary>
         <div className="how-body">
@@ -209,7 +190,7 @@ export default function ResultsPage() {
           const readings = explain.subScores
             .filter((s) => s.dimensionCode === d.code)
             .map(interpretSubScore)
-            .sort((a, b) => a.points - b.points); // weakest first — that's where the work is
+            .sort((a, b) => a.points - b.points);
           const dimStatus =
             d.score >= 75 ? 'good' : d.score >= 55 ? 'ok' : d.score >= 40 ? 'warning' : 'critical';
           return (
@@ -220,7 +201,7 @@ export default function ResultsPage() {
                   <span className="dim-track">
                     <span className={`dim-fill dim-fill-${dimStatus}`} style={{ width: `${d.score}%` }} />
                   </span>
-                  <span className="dim-value">{d.score}</span>
+                  <span className="dim-value">{fmtScore(d.score)}</span>
                 </span>
                 <span className="dim-expand">details</span>
               </summary>
@@ -274,8 +255,7 @@ export default function ResultsPage() {
       </div>
 
       <h3 className="section-heading">
-        What buyers would flag{' '}
-        <span className="count-pill">{explain.firedGaps.length}</span>
+        What buyers would flag <span className="count-pill">{explain.firedGaps.length}</span>
       </h3>
       {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged — a clean assessment.</p>}
       <ul className="gap-detail-list">

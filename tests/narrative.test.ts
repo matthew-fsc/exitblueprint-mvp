@@ -4,9 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import {
   buildOwnerReportPayload,
+  composeDeltaReport,
   composeOwnerReport,
   generateDocument,
   numeralPostCheck,
+  type DeltaReportPayload,
 } from '../server/narrative';
 import { explainAssessment, scoreAssessment } from '../server/scoring';
 import { interpretSubScore, qualityBand } from '../shared/scoring/interpret';
@@ -36,6 +38,53 @@ describe('numeralPostCheck', () => {
 
   it('does not whitelist non-list-position numbers on numbered lines', () => {
     expect(numeralPostCheck('1. Improve retention by 15 percent', payload)).toEqual(['15']);
+  });
+});
+
+// Deterministic delta composer (F4) — pure, no DB. Every figure must trace to
+// the payload, so the numeral firewall passes on its own output.
+describe('composeDeltaReport', () => {
+  const deltaPayload: DeltaReportPayload = {
+    mode: 'delta',
+    company: { name: 'Cascade Facility Services', industry: 'Facilities' },
+    engagement_target_window: '24-36 months',
+    current: { drs: 72.3, tier: 'Sale Ready', ori: 63.2, date: '2026-07-06' },
+    prior: { drs: 59.9, tier: 'Needs Work', ori: 55, date: '2025-10-06' },
+    drs_delta: 12.4,
+    ori_delta: 8.2,
+    dimensions: [
+      { name: 'Revenue Quality', current: 82.31, prior: 73.31, delta: 9 },
+      { name: 'Financial Integrity', current: 76, prior: 56.5, delta: 19.5 },
+    ],
+    gaps_resolved: ['Owner Dependence', 'Reconciliation Discipline Gap'],
+    gaps_opened: [],
+    open_gaps: ['Incomplete Financial Statements', 'GAAP Proximity Gap'],
+    counts: { gaps_resolved: 2, gaps_opened: 0, open_gaps: 2 },
+  };
+
+  it('composes a delta report using only payload figures (firewall-clean)', () => {
+    const md = composeDeltaReport(deltaPayload);
+    expect(md).toContain('# Progress this period — Cascade Facility Services');
+    expect(md).toContain('59.9 to 72.3');
+    expect(md).toContain('up 12.4 points');
+    // no invented numerals: the composer's own output passes the numeral firewall
+    expect(numeralPostCheck(md, deltaPayload)).toEqual([]);
+  });
+
+  it('renders baseline mode with levels, never a fabricated change', () => {
+    const baseline: DeltaReportPayload = {
+      ...deltaPayload,
+      mode: 'baseline',
+      prior: null,
+      drs_delta: null,
+      ori_delta: null,
+      gaps_resolved: [],
+      dimensions: deltaPayload.dimensions.map((d) => ({ ...d, prior: null, delta: null })),
+    };
+    const md = composeDeltaReport(baseline);
+    expect(md).toContain('# Baseline readiness — Cascade Facility Services');
+    expect(md).not.toMatch(/points/); // no movement language in baseline
+    expect(numeralPostCheck(md, baseline)).toEqual([]);
   });
 });
 
@@ -160,7 +209,9 @@ describe.skipIf(!url)('generateDocument', () => {
   });
 
   it('rejects doc types that are not implemented yet', async () => {
-    await expect(generateDocument(db, assessmentId, 'advisor_brief')).rejects.toThrow(/S11/);
+    await expect(generateDocument(db, assessmentId, 'advisor_brief')).rejects.toThrow(
+      /not implemented yet/,
+    );
   });
 
   it('generates a rule-based report with NO API key and no injected generator', async () => {

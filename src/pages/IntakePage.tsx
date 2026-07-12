@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { loadRubric, type QuestionRow, type RubricData } from '../lib/rubric';
+import { type QuestionRow } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
+import { useActiveAssessment, useAnswers, useRubric } from '../lib/queries';
+import { SkeletonLines } from '../components/ui';
 import {
   QuestionControl,
   draftFromValue,
@@ -15,64 +17,57 @@ export default function IntakePage() {
   const { assessmentId } = useParams();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const [rubric, setRubric] = useState<RubricData | null>(null);
-  const [engagementId, setEngagementId] = useState<string>('');
+
+  const assessmentQ = useActiveAssessment(assessmentId);
+  const assessment = assessmentQ.data ?? null;
+  const rubricQ = useRubric(assessment?.rubric_version_id);
+  const rubric = rubricQ.data ?? null;
+  const answersQ = useAnswers(assessmentId);
+
   const [drafts, setDrafts] = useState<Map<string, Draft>>(new Map());
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const seeded = useRef(false);
 
+  const engagementId = assessment?.engagement_id ?? '';
+
+  // Redirect completed assessments to results (immutable — no intake).
   useEffect(() => {
-    (async () => {
-      try {
-        const { data: assessment, error: aErr } = await supabase
-          .from('assessments')
-          .select('*')
-          .eq('id', assessmentId!)
-          .single();
-        if (aErr) throw new Error(aErr.message);
-        if (assessment.status === 'completed') {
-          navigate(`/assessment/${assessmentId}/results`, { replace: true });
-          return;
+    if (assessment?.status === 'completed') {
+      navigate(`/assessment/${assessmentId}/results`, { replace: true });
+    }
+  }, [assessment, assessmentId, navigate]);
+
+  // Seed drafts once from the saved answers, applying the same defaults as
+  // before (rank order, empty numeric-list rows).
+  useEffect(() => {
+    if (seeded.current || !rubric || !answersQ.data) return;
+    const byQuestion = new Map<string, unknown>(
+      answersQ.data.map((a) => [a.question_id, a.value]),
+    );
+    const initial = new Map<string, Draft>();
+    for (const qs of rubric.questionsByDimension.values()) {
+      for (const q of qs) {
+        if (q.answer_type === 'rank') {
+          const saved = byQuestion.get(q.id);
+          initial.set(
+            q.id,
+            Array.isArray(saved)
+              ? { kind: 'rank', order: saved as string[] }
+              : { kind: 'rank', order: (q.options ?? '').split('|').filter(Boolean) },
+          );
+        } else if (q.answer_type === 'numeric_list') {
+          const saved = byQuestion.get(q.id);
+          initial.set(q.id, Array.isArray(saved) ? draftFromValue(q, saved) : emptyListDraft(q));
+        } else if (byQuestion.has(q.id)) {
+          initial.set(q.id, draftFromValue(q, byQuestion.get(q.id)));
         }
-        setEngagementId(assessment.engagement_id);
-        const rubricData = await loadRubric(assessment.rubric_version_id);
-        setRubric(rubricData);
-        const { data: answers } = await supabase
-          .from('answers')
-          .select('*')
-          .eq('assessment_id', assessmentId!);
-        const byQuestion = new Map<string, unknown>(
-          (answers ?? []).map((a: { question_id: string; value: unknown }) => [a.question_id, a.value]),
-        );
-        const initial = new Map<string, Draft>();
-        for (const qs of rubricData.questionsByDimension.values()) {
-          for (const q of qs) {
-            if (q.answer_type === 'rank') {
-              const saved = byQuestion.get(q.id);
-              initial.set(
-                q.id,
-                Array.isArray(saved)
-                  ? { kind: 'rank', order: saved as string[] }
-                  : { kind: 'rank', order: (q.options ?? '').split('|').filter(Boolean) },
-              );
-            } else if (q.answer_type === 'numeric_list') {
-              const saved = byQuestion.get(q.id);
-              initial.set(q.id, Array.isArray(saved) ? draftFromValue(q, saved) : emptyListDraft(q));
-            } else if (byQuestion.has(q.id)) {
-              initial.set(q.id, draftFromValue(q, byQuestion.get(q.id)));
-            }
-          }
-        }
-        setDrafts(initial);
-        setLoading(false);
-      } catch (err) {
-        setError((err as Error).message);
-        setLoading(false);
       }
-    })();
-  }, [assessmentId, navigate]);
+    }
+    setDrafts(initial);
+    seeded.current = true;
+  }, [rubric, answersQ.data]);
 
   const dimension = rubric?.dimensions[step];
   const questions = useMemo(
@@ -94,7 +89,6 @@ export default function IntakePage() {
     }
   };
 
-  // Progress across all scored questions (the ones that must be answered).
   const scoredQuestions = useMemo(
     () => (rubric ? [...rubric.questionsByDimension.values()].flat().filter((q) => q.scored) : []),
     [rubric],
@@ -109,7 +103,7 @@ export default function IntakePage() {
     for (const q of questions) {
       const draft = drafts.get(q.id);
       if (!draft) continue;
-      const value = toAnswerValue(q, draft); // throws on parse errors
+      const value = toAnswerValue(q, draft);
       if (value === undefined) continue;
       rows.push({ assessment_id: assessmentId, question_id: q.id, value, answered_by: profile?.id ?? null });
     }
@@ -120,8 +114,7 @@ export default function IntakePage() {
     if (error) throw new Error(error.message);
   };
 
-  const missingScored = (): QuestionRow[] =>
-    scoredQuestions.filter((q) => !isAnswered(q));
+  const missingScored = (): QuestionRow[] => scoredQuestions.filter((q) => !isAnswered(q));
 
   const goStep = async (target: number) => {
     setError(null);
@@ -144,7 +137,6 @@ export default function IntakePage() {
       await saveStep();
       const missing = missingScored();
       if (missing.length > 0) {
-        // Jump to the first dimension that still has an unanswered question.
         const firstDim = rubric!.dimensions.findIndex((d) =>
           (rubric!.questionsByDimension.get(d.id) ?? []).some((q) => missing.includes(q)),
         );
@@ -162,8 +154,12 @@ export default function IntakePage() {
     }
   };
 
-  if (loading) return <p className="muted">Loading intake…</p>;
-  if (!rubric || !dimension) return <p className="form-error">{error ?? 'Rubric unavailable'}</p>;
+  if (assessmentQ.isLoading || rubricQ.isLoading || answersQ.isLoading) {
+    return <SkeletonLines lines={6} />;
+  }
+  if (!rubric || !dimension) {
+    return <p className="form-error">{rubricQ.error?.message ?? assessmentQ.error?.message ?? 'Rubric unavailable'}</p>;
+  }
 
   const isLast = step === rubric.dimensions.length - 1;
   const stepAnswered = questions.filter((q) => q.scored && isAnswered(q)).length;
@@ -178,7 +174,6 @@ export default function IntakePage() {
         </button>
       </div>
 
-      {/* overall progress */}
       <div className="intake-progress">
         <div className="intake-progress-track">
           <div className="intake-progress-fill" style={{ width: `${progressPct}%` }} />
@@ -188,7 +183,6 @@ export default function IntakePage() {
         </span>
       </div>
 
-      {/* step chips (click to jump; answers save first) */}
       <ol className="stepper">
         {rubric.dimensions.map((d, i) => {
           const qs = rubric.questionsByDimension.get(d.id) ?? [];
@@ -210,9 +204,7 @@ export default function IntakePage() {
           <div>
             <h3>{dimension.name}</h3>
             <p className="muted dimension-group">
-              {dimension.score_group === 'business_readiness'
-                ? 'Business readiness'
-                : 'Owner readiness'}{' '}
+              {dimension.score_group === 'business_readiness' ? 'Business readiness' : 'Owner readiness'}{' '}
               · step {step + 1} of {rubric.dimensions.length}
             </p>
           </div>

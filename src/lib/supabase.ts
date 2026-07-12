@@ -22,3 +22,25 @@ export async function invokeFunction<T>(name: string, body: Record<string, unkno
   }
   throw new Error(message);
 }
+
+// Calls a function that returns a binary body (e.g. a rendered PDF) and returns
+// the Blob. supabase-js's functions.invoke assumes JSON, so we go direct with
+// the session token against the functions endpoint.
+export async function invokeFunctionBlob(name: string, body: Record<string, unknown>): Promise<Blob> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? anonKey;
+  const res = await fetch(`${url}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      apikey: anonKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.message ?? `request failed (${res.status})`);
+  }
+  return res.blob();
+}

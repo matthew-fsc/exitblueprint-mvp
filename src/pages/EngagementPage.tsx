@@ -1,77 +1,75 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { supabase } from '../lib/supabase';
+import {
+  qk,
+  useAssessmentsByEngagement,
+  useCompany,
+  useCompare,
+  useEngagement,
+  useEngagementDocuments,
+  useEngagementGaps,
+  useEngagementOutcome,
+  useExplain,
+  type AssessmentRow,
+} from '../lib/queries';
+import {
+  Card,
+  DataTable,
+  DeltaChip,
+  DimensionBars,
+  EmptyState,
+  PageHeader,
+  ScoreDial,
+  SkeletonLines,
+  TierBadge,
+  TrajectoryChart,
+  type Column,
+  type TrajectoryPoint,
+} from '../components/ui';
+import { fmtDate, fmtScore } from '../lib/format';
 
-interface Engagement {
-  id: string;
-  firm_id: string;
-  company_id: string;
-  status: string;
-  target_exit_window: string | null;
-  started_at: string;
-}
+// Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
+// the aspiration line on the trajectory until per-engagement targets land (F5).
+const TARGET_DRS = 85;
 
-interface AssessmentRow {
-  id: string;
-  sequence_number: number;
-  status: 'in_progress' | 'completed';
-  completed_at: string | null;
-  drs_score: number | null;
-  drs_tier: string | null;
-  ori_score: number | null;
-  created_at: string;
-}
+const PROCESS_LABEL: Record<string, string> = {
+  not_in_market: 'Not in market',
+  preparing: 'Preparing',
+  in_market: 'In market',
+  under_loi: 'Under LOI',
+  closed: 'Closed',
+  withdrawn: 'Withdrawn',
+  broken: 'Broken',
+};
 
 export default function EngagementPage() {
   const { engagementId } = useParams();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const [engagement, setEngagement] = useState<Engagement | null>(null);
-  const [companyName, setCompanyName] = useState('');
-  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
+  const qc = useQueryClient();
+
+  const engagementQ = useEngagement(engagementId);
+  const engagement = engagementQ.data ?? null;
+  const companyQ = useCompany(engagement?.company_id);
+  const assessmentsQ = useAssessmentsByEngagement(engagementId);
+  const assessments = assessmentsQ.data ?? [];
+  const outcomeQ = useEngagementOutcome(engagementId);
+  const documentsQ = useEngagementDocuments(engagementId);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const { data: eng, error: eErr } = await supabase
-      .from('engagements')
-      .select('*')
-      .eq('id', engagementId!)
-      .single();
-    if (eErr) {
-      setError(eErr.message);
-      setLoading(false);
-      return;
-    }
-    setEngagement(eng as Engagement);
-    const { data: company } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', eng.company_id)
-      .single();
-    setCompanyName(company?.name ?? '');
-    // Longitudinal read path: active assessments only (docs/02).
-    const { data: rows } = await supabase
-      .from('active_assessments')
-      .select('*')
-      .eq('engagement_id', engagementId!)
-      .order('sequence_number');
-    setAssessments((rows as AssessmentRow[]) ?? []);
-    setLoading(false);
-  }, [engagementId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const completed = assessments.filter((a) => a.status === 'completed' && a.drs_score != null);
+  const latest = completed[completed.length - 1] ?? null;
+  const gapsQ = useEngagementGaps(engagementId, latest?.rubric_version_id);
+  const explainQ = useExplain(latest?.id);
 
   const startAssessment = async () => {
     setError(null);
     try {
-      // Lock the new assessment to the currently active rubric version.
       const rubricVersion = await loadActiveRubricVersion();
-      // Next sequence over ALL assessments (incl. superseded) for uniqueness.
       const { data: last } = await supabase
         .from('assessments')
         .select('*')
@@ -92,107 +90,331 @@ export default function EngagementPage() {
         .select()
         .single();
       if (error) throw new Error(error.message);
+      qc.invalidateQueries({ queryKey: qk.assessmentsByEngagement(engagementId!) });
       navigate(`/assessment/${data.id}/intake`);
     } catch (err) {
       setError((err as Error).message);
     }
   };
 
-  if (loading) return <p className="muted">Loading engagement…</p>;
-  if (!engagement) return <p className="form-error">{error ?? 'Engagement not found'}</p>;
+  if (engagementQ.isLoading) {
+    return (
+      <Card>
+        <SkeletonLines lines={4} />
+      </Card>
+    );
+  }
+  if (!engagement) return <p className="form-error">{engagementQ.error?.message ?? 'Engagement not found'}</p>;
 
+  const companyName = companyQ.data?.name ?? '';
   const inProgress = assessments.find((a) => a.status === 'in_progress');
+  const points: TrajectoryPoint[] = completed.map((a) => ({
+    label: `#${a.sequence_number}`,
+    score: Number(a.drs_score),
+    tier: a.drs_tier ?? undefined,
+  }));
+  const delta =
+    completed.length > 1
+      ? Number(completed[completed.length - 1].drs_score) - Number(completed[0].drs_score)
+      : null;
+  const explain = explainQ.data;
+  const outcomeStatus = outcomeQ.data?.process_status ?? null;
+  const documents = documentsQ.data ?? [];
 
   return (
     <div>
-      <div className="page-title-row">
-        <h2>{companyName}</h2>
-        <span className="muted">
-          engagement {engagement.status}
-          {engagement.target_exit_window ? ` · target window ${engagement.target_exit_window}` : ''}
-        </span>
-      </div>
-      {error && <p className="form-error">{error}</p>}
-
-      <Trajectory assessments={assessments} />
-
-      <h3 className="section-heading">Assessments</h3>
-      {assessments.length === 0 && <p className="muted">No assessments yet.</p>}
-      <ul className="assessment-list">
-        {assessments.map((a) => (
-          <li key={a.id} className="assessment-card">
-            <span className="assessment-seq">#{a.sequence_number}</span>
-            {a.status === 'completed' ? (
-              <>
-                <span className="assessment-score">
-                  DRS <strong>{Number(a.drs_score)}</strong> · {a.drs_tier} · ORI{' '}
-                  {Number(a.ori_score)}
-                </span>
-                <span className="muted">
-                  {a.completed_at ? new Date(a.completed_at).toLocaleDateString() : ''}
-                </span>
-                <Link className="button-link" to={`/assessment/${a.id}/results`}>
-                  Results →
-                </Link>
-                <Link className="button-link" to={`/assessment/${a.id}/workbench`}>
-                  What-if →
-                </Link>
-              </>
+      <PageHeader
+        title={companyName}
+        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName }]}
+        subtitle={
+          <>
+            Engagement {engagement.status}
+            {engagement.target_exit_window ? ` · target window ${engagement.target_exit_window}` : ''}
+            {outcomeStatus ? ` · ${PROCESS_LABEL[outcomeStatus] ?? outcomeStatus}` : ''}
+          </>
+        }
+        actions={
+          <>
+            {completed.length > 0 && (
+              <Link className="button-link" to={`/engagement/${engagementId}/delta`}>
+                Delta report →
+              </Link>
+            )}
+            {!inProgress && profile ? (
+              <button onClick={startAssessment}>
+                {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
+              </button>
             ) : (
-              <>
-                <span className="muted">in progress</span>
-                <Link className="button-link" to={`/assessment/${a.id}/intake`}>
+              inProgress && (
+                <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
                   Resume intake →
                 </Link>
-              </>
+              )
             )}
-          </li>
+          </>
+        }
+      />
+      {error && <p className="form-error">{error}</p>}
+
+      {completed.length > 0 ? (
+        <>
+          <Card>
+            <div className="trajectory-head">
+              <h3 className="section-heading" style={{ margin: 0 }}>
+                Business readiness over time
+              </h3>
+              {delta !== null && <DeltaChip value={delta} />}
+            </div>
+            <div style={{ marginTop: '0.75rem' }}>
+              <TrajectoryChart points={points} targetScore={TARGET_DRS} />
+            </div>
+          </Card>
+
+          {/* current snapshot + open gaps */}
+          <div className="eng-grid">
+            <Card>
+              <div className="eng-snapshot-head">
+                <span className="stat-block-label">Current readiness · assessment #{latest?.sequence_number}</span>
+                {latest && (
+                  <Link className="button-link" to={`/assessment/${latest.id}/results`}>
+                    Full results →
+                  </Link>
+                )}
+              </div>
+              {explainQ.isLoading || !explain ? (
+                <SkeletonLines lines={5} />
+              ) : (
+                <div className="eng-snapshot">
+                  <div className="eng-snapshot-dial">
+                    <ScoreDial value={explain.drsScore} tier={explain.drsTier} size={120} />
+                    <TierBadge tier={explain.drsTier} />
+                    <span className="muted" style={{ fontSize: '0.8rem' }}>ORI {fmtScore(explain.oriScore)}</span>
+                  </div>
+                  <div className="eng-snapshot-dims">
+                    <DimensionBars dimensions={explain.dimensions.map((d) => ({ code: d.code, name: d.name, score: d.score }))} />
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <span className="stat-block-label">
+                Open gaps to remediate{' '}
+                {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
+              </span>
+              <div style={{ marginTop: '0.9rem' }}>
+                {gapsQ.isLoading ? (
+                  <SkeletonLines lines={4} />
+                ) : (gapsQ.data ?? []).length === 0 ? (
+                  <p className="gap-none">No open gaps — a clean book.</p>
+                ) : (
+                  <ul className="eng-gap-list">
+                    {(gapsQ.data ?? []).map((g) => (
+                      <li key={g.id}>
+                        <span className={`gap-chip gap-${g.severity === 'critical' ? 'critical' : g.severity === 'high' ? 'serious' : g.severity === 'med' ? 'warning' : 'neutral'}`}>
+                          {g.severity}
+                        </span>
+                        <span className="eng-gap-text">
+                          <strong>{g.name}</strong>
+                          {g.playbookName && (
+                            <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* compare any two */}
+          <ComparePanel assessments={completed} />
+        </>
+      ) : (
+        <EmptyState
+          title="No completed assessments yet"
+          action={profile && !inProgress && <button onClick={startAssessment}>Start baseline assessment</button>}
+        >
+          The baseline assessment sets the starting DRS and opens this engagement’s trajectory.
+        </EmptyState>
+      )}
+
+      {/* assessments list */}
+      <h3 className="section-heading">Assessments</h3>
+      <ul className="assessment-list">
+        {assessments.map((a) => (
+          <AssessmentCard key={a.id} a={a} />
         ))}
       </ul>
-      {!inProgress && profile && (
-        <button onClick={startAssessment}>
-          {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
-        </button>
-      )}
+
+      {/* tasks (populated in F5) + documents */}
+      <div className="eng-grid">
+        <div>
+          <h3 className="section-heading">Roadmap tasks</h3>
+          <EmptyState icon="◷" title="No tasks yet">
+            Remediation tasks generate from flagged gaps once the roadmap is built.
+          </EmptyState>
+        </div>
+        <div>
+          <h3 className="section-heading">Documents</h3>
+          {documents.length === 0 ? (
+            <EmptyState icon="▤" title="No documents yet">
+              Generate an owner report or a branded delta report from an assessment.
+            </EmptyState>
+          ) : (
+            <ul className="assessment-list">
+              {documents.map((d) => (
+                <li key={d.id} className="assessment-card">
+                  <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
+                  <span className="assessment-score muted">
+                    {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
+                  </span>
+                  <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
+                    Open →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// DRS over time across the engagement's completed assessments — the longitudinal
-// story an advisor wants at a glance.
-function Trajectory({ assessments }: { assessments: AssessmentRow[] }) {
-  const scored = assessments
-    .filter((a) => a.status === 'completed' && a.drs_score != null)
-    .map((a) => ({ seq: a.sequence_number, drs: Number(a.drs_score), tier: a.drs_tier }));
-  if (scored.length === 0) return null;
+function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
+  const [priorId, setPriorId] = useState('');
+  const [currentId, setCurrentId] = useState('');
 
-  const first = scored[0].drs;
-  const last = scored[scored.length - 1].drs;
-  const delta = Math.round((last - first) * 10) / 10;
-  const status = (v: number) =>
-    v >= 70 ? 'good' : v >= 55 ? 'ok' : v >= 40 ? 'warning' : 'critical';
+  useEffect(() => {
+    if (assessments.length >= 2) {
+      setPriorId(assessments[assessments.length - 2].id);
+      setCurrentId(assessments[assessments.length - 1].id);
+    }
+  }, [assessments]);
+
+  const compareQ = useCompare(priorId || undefined, currentId || undefined);
+  if (assessments.length < 2) return null;
+
+  const label = (a: AssessmentRow) =>
+    `#${a.sequence_number} · DRS ${fmtScore(Number(a.drs_score))} · ${a.completed_at ? fmtDate(a.completed_at) : ''}`;
+
+  const cmp = compareQ.data;
+  const dimCols: Column<{ code: string; prior: number; current: number; delta: number }>[] = [
+    { key: 'code', header: 'Dimension' },
+    { key: 'prior', header: 'Prior', numeric: true, render: (r) => fmtScore(r.prior) },
+    { key: 'current', header: 'Current', numeric: true, render: (r) => fmtScore(r.current) },
+    { key: 'delta', header: 'Δ', numeric: true, render: (r) => <DeltaChip value={r.delta} digits={2} /> },
+  ];
 
   return (
-    <section className="trajectory">
-      <div className="trajectory-head">
-        <h3 className="section-heading">Business readiness over time</h3>
-        {scored.length > 1 && (
-          <span className={`delta ${delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : 'delta-flat'}`}>
-            {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : 'no change'} since baseline
+    <>
+      <h3 className="section-heading">Compare two assessments</h3>
+      <Card>
+        <div className="compare-controls">
+          <label className="filter-control">
+            <span className="filter-label">Prior</span>
+            <select value={priorId} onChange={(e) => setPriorId(e.target.value)}>
+              {assessments.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {label(a)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="compare-arrow" aria-hidden>→</span>
+          <label className="filter-control">
+            <span className="filter-label">Current</span>
+            <select value={currentId} onChange={(e) => setCurrentId(e.target.value)}>
+              {assessments.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {label(a)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          {priorId === currentId ? (
+            <p className="muted">Pick two different assessments to see the change.</p>
+          ) : compareQ.isLoading ? (
+            <SkeletonLines lines={4} />
+          ) : compareQ.error ? (
+            <p className="form-error">{compareQ.error.message}</p>
+          ) : cmp && !cmp.comparable ? (
+            <div className="compare-incomparable">
+              <strong>Not directly comparable.</strong> The methodology changed between these
+              assessments ({cmp.prior_version} → {cmp.current_version}), so a numeric delta would be
+              misleading.
+            </div>
+          ) : cmp && cmp.comparable ? (
+            <div>
+              <div className="compare-headline">
+                <div>
+                  <span className="stat-block-label">DRS</span>
+                  <div className="compare-scoreline">
+                    <span className="tnum">{fmtScore(cmp.prior.drsScore)}</span>
+                    <span className="compare-arrow">→</span>
+                    <span className="tnum" style={{ fontWeight: 800 }}>{fmtScore(cmp.current.drsScore)}</span>
+                    <DeltaChip value={cmp.drsDelta} />
+                  </div>
+                </div>
+                <div>
+                  <span className="stat-block-label">Owner readiness</span>
+                  <div className="compare-scoreline">
+                    <span className="tnum">{fmtScore(cmp.prior.oriScore)}</span>
+                    <span className="compare-arrow">→</span>
+                    <span className="tnum" style={{ fontWeight: 800 }}>{fmtScore(cmp.current.oriScore)}</span>
+                    <DeltaChip value={cmp.oriDelta} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="compare-gap-summary">
+                <span className="delta delta-up">▼ {cmp.gapsResolved.length} resolved</span>
+                <span className="delta delta-down">▲ {cmp.gapsOpened.length} newly opened</span>
+              </div>
+
+              <div style={{ marginTop: '1rem' }}>
+                <DataTable columns={dimCols} rows={cmp.dimensions} keyFor={(r) => r.code} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function AssessmentCard({ a }: { a: AssessmentRow }) {
+  return (
+    <li className="assessment-card">
+      <span className="assessment-seq">#{a.sequence_number}</span>
+      {a.status === 'completed' ? (
+        <>
+          <span className="assessment-score">
+            DRS <strong className="tnum">{fmtScore(Number(a.drs_score))}</strong>{' '}
+            {a.drs_tier && <TierBadge tier={a.drs_tier} size="sm" />} · ORI{' '}
+            <span className="tnum">{fmtScore(Number(a.ori_score))}</span>
           </span>
-        )}
-      </div>
-      <div className="trajectory-track">
-        {scored.map((s) => (
-          <div key={s.seq} className="trajectory-point" title={`#${s.seq}: ${s.drs} · ${s.tier ?? ''}`}>
-            <span className="trajectory-bar-wrap">
-              <span className={`trajectory-bar dim-fill-${status(s.drs)}`} style={{ height: `${s.drs}%` }} />
-            </span>
-            <span className="trajectory-val">{s.drs}</span>
-            <span className="trajectory-seq muted">#{s.seq}</span>
-          </div>
-        ))}
-      </div>
-    </section>
+          <span className="muted">{a.completed_at ? fmtDate(a.completed_at) : ''}</span>
+          <Link className="button-link" to={`/assessment/${a.id}/results`}>
+            Results →
+          </Link>
+          <Link className="button-link" to={`/assessment/${a.id}/workbench`}>
+            What-if →
+          </Link>
+        </>
+      ) : (
+        <>
+          <span className="muted">in progress</span>
+          <Link className="button-link" to={`/assessment/${a.id}/intake`}>
+            Resume intake →
+          </Link>
+        </>
+      )}
+    </li>
   );
 }
