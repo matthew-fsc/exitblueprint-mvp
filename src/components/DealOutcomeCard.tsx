@@ -161,10 +161,18 @@ export function DealOutcomeCard({ engagementId }: { engagementId: string }) {
             Edit outcome
           </button>
         </>
+      ) : !editing ? (
+        <div className="deal-collapsed">
+          <p className="muted" style={{ margin: '0.4rem 0 0' }}>
+            When the deal closes (or breaks), record the result. We snapshot the score and valuation we
+            predicted so the firm learns how its readiness scores map to real prices.
+          </p>
+          <button className="btn-secondary" onClick={() => setEditing(true)}>Record deal outcome</button>
+        </div>
       ) : (
         <>
           <p className="muted" style={{ margin: '0.4rem 0 0.9rem' }}>
-            When the deal closes (or breaks), record the result. We snapshot the score and valuation we
+            Record the result at close (or when a deal breaks). We snapshot the score and valuation we
             predicted so the firm learns how its readiness scores map to real prices.
           </p>
           <form className="deal-form" onSubmit={submit}>
@@ -228,9 +236,7 @@ export function DealOutcomeCard({ engagementId }: { engagementId: string }) {
             </label>
             <div className="deal-actions">
               <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Record outcome'}</button>
-              {editing && recorded && (
-                <button type="button" className="btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
-              )}
+              <button type="button" className="btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
             </div>
           </form>
         </>

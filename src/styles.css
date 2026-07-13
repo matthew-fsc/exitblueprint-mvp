@@ -3371,6 +3371,8 @@ textarea:focus {
 .invite-devnote code { background: var(--surface-3); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
 
 /* ---- Deal outcome capture (calibration moat) ---- */
+.deal-collapsed { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.deal-collapsed button { white-space: nowrap; }
 .deal-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
 @media (max-width: 620px) { .deal-form { grid-template-columns: 1fr; } }
 .deal-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
