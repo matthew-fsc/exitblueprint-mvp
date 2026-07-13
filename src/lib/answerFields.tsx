@@ -113,15 +113,18 @@ export function QuestionControl({
   draft,
   answered,
   onChange,
+  source,
 }: {
   question: QuestionRow;
   draft: Draft | undefined;
   answered: boolean;
   onChange: (questionId: string, draft: Draft) => void;
+  source?: string;
 }) {
   const text = draft?.kind === 'text' ? draft.text : '';
   const options = (q.options ?? '').split('|').filter(Boolean);
   const unit = fieldUnit(q);
+  const fromLedger = source === 'connected_ledger';
 
   return (
     <div
@@ -132,6 +135,7 @@ export function QuestionControl({
       <label className="question-prompt">
         {q.prompt}
         {!q.scored && <span className="context-badge">optional context</span>}
+        {fromLedger && <span className="ledger-badge" title="Imported from your connected accounting">✓ from QuickBooks</span>}
       </label>
       {q.help_text && <p className="question-help">{q.help_text}</p>}
 

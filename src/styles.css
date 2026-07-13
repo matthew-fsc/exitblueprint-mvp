@@ -3268,3 +3268,13 @@ textarea:focus {
 .connect-blurb { font-size: 0.82rem; margin: 0; }
 .connect-detail { display: flex; flex-direction: column; gap: 0.5rem; }
 .connect-detail p { font-size: 0.82rem; margin: 0; }
+
+/* ---- Ledger import (QuickBooks/Xero → assessment answers) --------------- */
+.ledger-import { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  background: color-mix(in srgb, var(--status-good) 8%, var(--surface-1)); border: 1px solid color-mix(in srgb, var(--status-good) 35%, transparent);
+  border-radius: var(--radius); padding: 0.85rem 1.1rem; margin-bottom: 1.2rem; }
+.ledger-import strong { color: var(--text-primary); }
+.ledger-import button { white-space: nowrap; }
+.ledger-badge { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; font-size: 0.68rem;
+  font-weight: 700; color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent);
+  border-radius: 999px; padding: 0.1rem 0.45rem; vertical-align: middle; }
