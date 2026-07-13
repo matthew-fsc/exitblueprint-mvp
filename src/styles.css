@@ -3369,3 +3369,38 @@ textarea:focus {
 .invite-devnote { margin-top: 0.8rem; font-size: 0.78rem; color: var(--text-secondary);
   background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }
 .invite-devnote code { background: var(--surface-3); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+
+/* ---- Deal outcome capture (calibration moat) ---- */
+.deal-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
+@media (max-width: 620px) { .deal-form { grid-template-columns: 1fr; } }
+.deal-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.deal-field > span { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+.deal-field input, .deal-field select, .deal-field textarea { padding: 0.45rem 0.6rem; min-width: 0; }
+.deal-field-wide { grid-column: 1 / -1; }
+.deal-check { flex-direction: row; align-items: center; gap: 0.5rem; }
+.deal-check input { width: auto; }
+.deal-check > span { font-weight: 500; color: var(--text-primary); }
+.deal-actions { grid-column: 1 / -1; display: flex; gap: 0.6rem; align-items: center; }
+.deal-compare { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.75rem 0.9rem; }
+.deal-compare-col { display: flex; flex-direction: column; gap: 0.1rem; }
+.deal-compare-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.03em; }
+.deal-compare-val { font-size: 1.15rem; font-weight: 700; font-family: var(--font-display); }
+.deal-compare-sub { font-size: 0.76rem; }
+.deal-compare-arrow { color: var(--text-muted); font-size: 1.1rem; }
+
+/* ---- Firm calibration readout ---- */
+.cal-panel { display: flex; flex-direction: column; gap: 1rem; }
+.cal-table-wrap { overflow-x: auto; }
+.cal-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.cal-table th { text-align: left; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--text-secondary); font-weight: 600; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+.cal-table th.num, .cal-table td.num { text-align: right; white-space: nowrap; }
+.cal-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
+.cal-table tr:last-child td { border-bottom: none; }
+.cal-outcome { font-size: 0.78rem; font-weight: 600; text-transform: capitalize; }
+.cal-outcome-closed { color: var(--status-good); }
+.cal-outcome-broken { color: var(--status-critical); }
+.cal-outcome-withdrawn { color: var(--text-secondary); }
+.cal-miss { font-size: 0.76rem; color: var(--status-warning); }

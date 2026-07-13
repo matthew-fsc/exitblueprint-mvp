@@ -1,8 +1,7 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
-import { supabase } from '../lib/supabase';
-import { qk, useLedgerConnections, type LedgerConnection } from '../lib/queries';
-import { Card, SkeletonLines, useToast } from './ui';
+import { useLedgerActions } from '../lib/ledger';
+import { useLedgerConnections } from '../lib/queries';
+import { Card, SkeletonLines } from './ui';
 import { fmtDate } from '../lib/format';
 
 const PROVIDERS: { id: 'quickbooks' | 'xero'; name: string }[] = [
@@ -12,49 +11,20 @@ const PROVIDERS: { id: 'quickbooks' | 'xero'; name: string }[] = [
 
 // Advisor-side view of the client's accounting connection: see whether the books
 // are connected, connect/disconnect on the client's behalf, and a reminder that
-// a connection lets financials be imported (and verified) on the intake.
+// a connection lets financials be imported (and verified) on the intake. Drives
+// the same server flow as the owner portal, so the two never diverge.
 export function AccountingCard({
   companyId,
-  companyName,
-  firmId,
 }: {
   companyId: string | undefined;
-  companyName: string;
-  firmId: string;
+  companyName?: string;
+  firmId?: string;
 }) {
-  const qc = useQueryClient();
-  const toast = useToast();
   const { profile } = useAuth();
   const connQ = useLedgerConnections(companyId);
   const byProvider = new Map((connQ.data ?? []).map((c) => [c.provider, c]));
   const anyConnected = (connQ.data ?? []).some((c) => c.status === 'connected');
-
-  const connect = async (provider: 'quickbooks' | 'xero') => {
-    if (!companyId) return;
-    const { error } = await supabase.from('ledger_connections').upsert(
-      {
-        firm_id: firmId,
-        company_id: companyId,
-        provider,
-        status: 'connected',
-        external_org_name: companyName,
-        connected_at: new Date().toISOString(),
-        last_sync_at: new Date().toISOString(),
-        connected_by: profile?.id ?? null,
-      },
-      { onConflict: 'company_id,provider' },
-    );
-    if (error) return toast.show(error.message, 'error');
-    qc.invalidateQueries({ queryKey: qk.ledgerConnections(companyId) });
-    toast.show(`${provider === 'quickbooks' ? 'QuickBooks' : 'Xero'} connected`, 'good');
-  };
-
-  const disconnect = async (conn: LedgerConnection) => {
-    const { error } = await supabase.from('ledger_connections').delete().eq('id', conn.id);
-    if (error) return toast.show(error.message, 'error');
-    qc.invalidateQueries({ queryKey: qk.ledgerConnections(companyId!) });
-    toast.show('Disconnected', 'good');
-  };
+  const { connect, disconnect } = useLedgerActions(companyId, { connectedBy: profile?.id ?? null });
 
   return (
     <Card>
@@ -72,10 +42,11 @@ export function AccountingCard({
         <div className="acct-rows">
           {PROVIDERS.map((p) => {
             const conn = byProvider.get(p.id);
+            const connected = conn?.status === 'connected';
             return (
               <div className="acct-row" key={p.id}>
                 <span className="acct-name">{p.name}</span>
-                {conn ? (
+                {connected && conn ? (
                   <>
                     <span className="acct-status acct-on">
                       ● Connected{conn.last_sync_at ? ` · synced ${fmtDate(conn.last_sync_at)}` : ''}

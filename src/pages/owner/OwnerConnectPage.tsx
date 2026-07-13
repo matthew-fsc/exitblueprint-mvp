@@ -1,9 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useOwnerContext } from '../../lib/owner';
 import { useAuth } from '../../lib/auth';
-import { supabase } from '../../lib/supabase';
-import { qk, useLedgerConnections, type LedgerConnection } from '../../lib/queries';
-import { Card, PageHeader, SkeletonLines, useToast } from '../../components/ui';
+import { useLedgerActions } from '../../lib/ledger';
+import { useLedgerConnections } from '../../lib/queries';
+import { Card, PageHeader, SkeletonLines } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 
 const PROVIDERS: { id: 'quickbooks' | 'xero'; name: string; blurb: string }[] = [
@@ -12,46 +11,14 @@ const PROVIDERS: { id: 'quickbooks' | 'xero'; name: string; blurb: string }[] = 
 ];
 
 export default function OwnerConnectPage() {
-  const { company, companyId, loading } = useOwnerContext();
+  const { companyId, loading } = useOwnerContext();
   const { profile } = useAuth();
-  const qc = useQueryClient();
-  const toast = useToast();
   const connQ = useLedgerConnections(companyId);
   const byProvider = new Map((connQ.data ?? []).map((c) => [c.provider, c]));
-
-  const connect = async (provider: 'quickbooks' | 'xero') => {
-    if (!companyId || !company) return;
-    // Real OAuth is external; this records the connection the handshake would create.
-    const { error } = await supabase.from('ledger_connections').upsert(
-      {
-        firm_id: company.firm_id,
-        company_id: companyId,
-        provider,
-        status: 'connected',
-        external_org_name: company.name,
-        connected_at: new Date().toISOString(),
-        last_sync_at: new Date().toISOString(),
-        connected_by: profile?.id ?? null,
-      },
-      { onConflict: 'company_id,provider' },
-    );
-    if (error) {
-      toast.show(error.message, 'error');
-      return;
-    }
-    qc.invalidateQueries({ queryKey: qk.ledgerConnections(companyId) });
-    toast.show(`${provider === 'quickbooks' ? 'QuickBooks' : 'Xero'} connected`, 'good');
-  };
-
-  const disconnect = async (conn: LedgerConnection) => {
-    const { error } = await supabase.from('ledger_connections').delete().eq('id', conn.id);
-    if (error) {
-      toast.show(error.message, 'error');
-      return;
-    }
-    qc.invalidateQueries({ queryKey: qk.ledgerConnections(companyId!) });
-    toast.show('Disconnected', 'good');
-  };
+  const { connect, disconnect } = useLedgerActions(companyId, {
+    connectedBy: profile?.id ?? null,
+    returnTo: '/portal/connect',
+  });
 
   return (
     <div className="stack-lg">
@@ -71,18 +38,19 @@ export default function OwnerConnectPage() {
           <div className="connect-grid">
             {PROVIDERS.map((p) => {
               const conn = byProvider.get(p.id);
+              const connected = conn?.status === 'connected';
               return (
-                <div key={p.id} className={`connect-card ${conn ? 'connect-card-on' : ''}`}>
+                <div key={p.id} className={`connect-card ${connected ? 'connect-card-on' : ''}`}>
                   <div className="connect-card-head">
                     <span className="connect-name">{p.name}</span>
-                    {conn ? (
+                    {connected ? (
                       <span className="connect-status connect-status-on">● Connected</span>
                     ) : (
                       <span className="connect-status">Not connected</span>
                     )}
                   </div>
                   <p className="connect-blurb muted">{p.blurb}</p>
-                  {conn ? (
+                  {connected && conn ? (
                     <div className="connect-detail">
                       <p className="muted">
                         {conn.external_org_name}
