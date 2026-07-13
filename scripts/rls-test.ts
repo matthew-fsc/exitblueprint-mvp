@@ -141,6 +141,29 @@ async function main() {
       `insert into advisory_library_items (firm_id, source, item_type, code, title, body, severity, score_trigger)
        values (null, 'system', 'buyer_question', 'RLS-SYS-1', 'Global system question', 'shared', 'high', 70)`,
     );
+    // A question + firm B provenance row for the answer_provenance isolation checks.
+    const dimId = (
+      await db.query(
+        `insert into dimensions (rubric_version_id, code, name, score_group, drs_weight, sort_order)
+         values ($1, 'RLSFIN', 'RLS Fin', 'business_readiness', 0, 99) returning id`,
+        [rubric],
+      )
+    ).rows[0].id;
+    const questionId = (
+      await db.query(
+        `insert into questions (dimension_id, code, prompt, answer_type, scored, sort_order)
+         values ($1, 'RLS-Q1', 'q', 'numeric', true, 1) returning id`,
+        [dimId],
+      )
+    ).rows[0].id;
+    const assessmentBId = (
+      await db.query(`select id from assessments where firm_id = $1 limit 1`, [ids.firm_b])
+    ).rows[0].id;
+    await db.query(
+      `insert into answer_provenance (firm_id, assessment_id, question_id, source)
+       values ($1, $2, $3, 'document')`,
+      [ids.firm_b, assessmentBId, questionId],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -288,6 +311,28 @@ async function main() {
     }
     check('cannot write into the global system catalog', sysWriteBlocked);
 
+    // answer_provenance: advisor A reads/writes only their firm's rows.
+    const provA = await db.query('select firm_id from answer_provenance');
+    check(
+      'cannot read firm B provenance',
+      provA.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${provA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+    let provBWriteBlocked = false;
+    try {
+      await db.query('savepoint prov');
+      await db.query(
+        `insert into answer_provenance (firm_id, assessment_id, question_id, source)
+         values ($1, $2, $3, 'document')`,
+        [ids.firm_b, assessmentBId, questionId],
+      );
+      await db.query('release savepoint prov');
+    } catch {
+      provBWriteBlocked = true;
+      await db.query('rollback to savepoint prov');
+    }
+    check('cannot write provenance for firm B', provBWriteBlocked);
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -355,6 +400,13 @@ async function main() {
       await db.query('rollback to savepoint om');
     }
     check('owner cannot write milestones', ownerMilestoneWriteBlocked);
+    // Owner never sees another firm's financial provenance.
+    const ownerProv = await db.query('select firm_id from answer_provenance');
+    check(
+      'owner cannot read firm B provenance',
+      ownerProv.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${ownerProv.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
     // Owner reads the global catalog but no firm-scoped advisor items (advisor-only policy).
     const ownerLib = await db.query('select firm_id from advisory_library_items');
     check(

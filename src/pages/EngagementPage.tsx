@@ -13,6 +13,7 @@ import {
   useEngagementDocuments,
   useEngagementGaps,
   useGapBurndown,
+  useVerification,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -34,6 +35,7 @@ import {
   type Column,
   type PacePoint,
 } from '../components/ui';
+import { VerificationCard } from '../components/VerificationCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -79,6 +81,7 @@ export default function EngagementPage() {
   const latest = completed[completed.length - 1] ?? null;
   const gapsQ = useEngagementGaps(engagementId, latest?.rubric_version_id);
   const burndownQ = useGapBurndown(engagementId, latest?.rubric_version_id);
+  const verifQ = useVerification(latest?.id);
   const explainQ = useExplain(latest?.id);
 
   const startAssessment = async () => {
@@ -231,6 +234,9 @@ export default function EngagementPage() {
             </div>
           )}
 
+          {/* financial verification (Phase 1) */}
+          {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+
           {/* current snapshot + open gaps */}
           <div className="eng-grid">
             <Card>
@@ -250,6 +256,14 @@ export default function EngagementPage() {
                     <ScoreDial value={explain.drsScore} tier={explain.drsTier} size={120} />
                     <TierBadge tier={explain.drsTier} />
                     <span className="muted" style={{ fontSize: '0.8rem' }}>ORI {fmtScore(explain.oriScore)}</span>
+                    {verifQ.data && (
+                      <span
+                        className={`verif-chip verif-tier-${verifQ.data.tier === 'document_verified' ? 'high' : verifQ.data.tier === 'partly_verified' ? 'mid' : 'low'}`}
+                        title="Share of financial inputs backed by documents or a connected ledger"
+                      >
+                        {verifQ.data.pct}% verified
+                      </span>
+                    )}
                   </div>
                   <div className="eng-snapshot-dims">
                     <DimensionBars dimensions={explain.dimensions.map((d) => ({ code: d.code, name: d.name, score: d.score }))} />
