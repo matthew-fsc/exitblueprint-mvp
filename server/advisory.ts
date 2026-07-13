@@ -8,7 +8,7 @@
 // verbatim and never computes or adjusts a score. The DRS engine stays canonical.
 import type pg from 'pg';
 
-export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag';
+export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag' | 'education';
 
 export interface FiredAdvisoryItem {
   id: string;
