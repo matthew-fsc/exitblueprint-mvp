@@ -1,5 +1,6 @@
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack } from './lib/supabase';
@@ -193,6 +194,7 @@ export default function App() {
         <ToastProvider>
           <BrowserRouter>
             <AuthProvider>
+              <SpeedInsights />
               <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/health" element={<main className="page"><HealthPage /></main>} />
