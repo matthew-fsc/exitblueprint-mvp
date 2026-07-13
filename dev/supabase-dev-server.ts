@@ -17,7 +17,7 @@ import pg from 'pg';
 import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
 import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from '../server/narrative';
 import { instantiateTasksForGaps } from '../server/roadmap';
-import { fireAdvisoryItems } from '../server/advisory';
+import { fireAdvisoryItems, educationModules } from '../server/advisory';
 import { verificationSummary } from '../server/verification';
 import {
   renderDeltaReportHtml,
@@ -320,6 +320,9 @@ export function supabaseDevServer(): Plugin {
       }
       if (name === 'advisory-items') {
         return json(res, 200, await fireAdvisoryItems(service, body.engagement_id));
+      }
+      if (name === 'education-modules') {
+        return json(res, 200, await educationModules(service, body.engagement_id));
       }
       if (name === 'verification-summary') {
         return json(res, 200, await verificationSummary(service, assessmentId));

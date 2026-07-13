@@ -36,6 +36,9 @@ export const qk = {
   advisoryLibrary: () => ['advisoryLibrary'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
+  ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
+  education: (engagementId: string) => ['education', engagementId] as const,
+  ledgerConnections: (companyId: string) => ['ledgerConnections', companyId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -608,7 +611,7 @@ export function usePlaybooks(): UseQueryResult<Map<string, { name: string; phase
 }
 
 // ---- advisory library ------------------------------------------------------
-export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag';
+export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag' | 'education';
 
 export interface AdvisoryItemRow {
   id: string;
@@ -702,6 +705,76 @@ export function useVerification(
     enabled: !!assessmentId,
     queryFn: () =>
       invokeFunction<VerificationSummary>('verification-summary', { assessment_id: assessmentId }),
+  });
+}
+
+// ---- owner portal (Phase 3) ------------------------------------------------
+// The owner's engagement, resolved from their company (RLS returns only theirs).
+export function useOwnerEngagement(
+  companyId: string | undefined | null,
+): UseQueryResult<EngagementRow | null> {
+  return useQuery({
+    queryKey: qk.ownerEngagement(companyId ?? ''),
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagements')
+        .select('*')
+        .eq('company_id', companyId!)
+        .order('started_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return ((data ?? [])[0] as EngagementRow) ?? null;
+    },
+  });
+}
+
+export interface LedgerConnection {
+  id: string;
+  firm_id: string;
+  company_id: string;
+  provider: 'quickbooks' | 'xero';
+  status: 'disconnected' | 'connected' | 'error';
+  external_org_name: string | null;
+  connected_at: string | null;
+  last_sync_at: string | null;
+}
+
+export function useLedgerConnections(
+  companyId: string | undefined | null,
+): UseQueryResult<LedgerConnection[]> {
+  return useQuery({
+    queryKey: qk.ledgerConnections(companyId ?? ''),
+    enabled: !!companyId,
+    queryFn: async () =>
+      unwrap<LedgerConnection[]>(
+        await supabase.from('ledger_connections').select('*').eq('company_id', companyId!),
+      ),
+  });
+}
+
+// Education pieces sourced from the Advisory Library (item_type = education),
+// each flagged recommended when its score trigger has tripped — the same firing
+// rule as the rest of the library.
+export interface EducationLibraryModule {
+  id: string;
+  code: string | null;
+  title: string;
+  body: string;
+  dimension_code: string | null;
+  recommended: boolean;
+}
+export interface EducationModulesResult {
+  assessment_id: string | null;
+  modules: EducationLibraryModule[];
+}
+export function useEducationModules(
+  engagementId: string | undefined,
+): UseQueryResult<EducationModulesResult> {
+  return useQuery({
+    queryKey: qk.education(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<EducationModulesResult>('education-modules', { engagement_id: engagementId }),
   });
 }
 

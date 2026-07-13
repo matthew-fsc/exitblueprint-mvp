@@ -8,7 +8,7 @@
 // verbatim and never computes or adjusts a score. The DRS engine stays canonical.
 import type pg from 'pg';
 
-export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag';
+export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag' | 'education';
 
 export interface FiredAdvisoryItem {
   id: string;
@@ -100,7 +100,7 @@ export async function fireAdvisoryItems(
       `select id, item_type, code, title, body, response_framework, data_needed,
               dimension_code, sub_score_code, severity, buyer_type, score_trigger, source
        from advisory_library_items
-       where active = true and score_trigger is not null
+       where active = true and score_trigger is not null and item_type <> 'education'
          and (firm_id is null or firm_id = $1)`,
       [eng.firm_id],
     )
@@ -154,4 +154,101 @@ export async function fireAdvisoryItems(
   };
 
   return { assessment_id: assessment.id, items: fired, counts };
+}
+
+export interface EducationModule {
+  id: string;
+  code: string | null;
+  title: string;
+  body: string;
+  dimension_code: string | null;
+  sub_score_code: string | null;
+  score_trigger: number | null;
+  source: string;
+  sort_order: number;
+  // "Recommended for you" — the item is tied to a live score that is at or below
+  // its trigger (the same firing rule the advisory items use).
+  recommended: boolean;
+}
+
+// Education pieces for the owner's Learn tab: every education advisory item
+// visible to the engagement's firm (system + firm), each flagged recommended
+// when its governing score has tripped its trigger. Untriggered pieces are
+// always available but never "recommended". Descriptive — reads scores, never
+// writes one.
+export async function educationModules(
+  db: pg.ClientBase,
+  engagementId: string,
+): Promise<{ assessment_id: string | null; modules: EducationModule[] }> {
+  const eng = (
+    await db.query(`select id, firm_id from engagements where id = $1`, [engagementId])
+  ).rows[0];
+  if (!eng) throw new Error(`engagement ${engagementId} not found`);
+
+  const assessment = (
+    await db.query(
+      `select id from assessments where engagement_id = $1 and status = 'completed'
+       order by completed_at desc nulls last, created_at desc limit 1`,
+      [engagementId],
+    )
+  ).rows[0];
+
+  const dimScores = new Map<string, number>();
+  const subScores = new Map<string, number>();
+  if (assessment) {
+    for (const r of (
+      await db.query(
+        `select d.code, ds.score from dimension_scores ds
+         join dimensions d on d.id = ds.dimension_id where ds.assessment_id = $1`,
+        [assessment.id],
+      )
+    ).rows)
+      dimScores.set(r.code, Number(r.score));
+    for (const r of (
+      await db.query(
+        `select s.code, ssr.points from sub_score_results ssr
+         join sub_scores s on s.id = ssr.sub_score_id where ssr.assessment_id = $1`,
+        [assessment.id],
+      )
+    ).rows)
+      subScores.set(r.code, Number(r.points));
+  }
+
+  const rows = (
+    await db.query(
+      `select id, code, title, body, dimension_code, sub_score_code, score_trigger, source, sort_order
+       from advisory_library_items
+       where active = true and item_type = 'education' and (firm_id is null or firm_id = $1)
+       order by sort_order, title`,
+      [eng.firm_id],
+    )
+  ).rows;
+
+  const modules: EducationModule[] = rows.map((it) => {
+    let recommended = false;
+    if (it.score_trigger != null) {
+      const score = it.sub_score_code
+        ? subScores.get(it.sub_score_code)
+        : it.dimension_code
+          ? dimScores.get(it.dimension_code)
+          : undefined;
+      recommended = score != null && score <= Number(it.score_trigger);
+    }
+    return {
+      id: it.id,
+      code: it.code,
+      title: it.title,
+      body: it.body,
+      dimension_code: it.dimension_code,
+      sub_score_code: it.sub_score_code,
+      score_trigger: it.score_trigger != null ? Number(it.score_trigger) : null,
+      source: it.source,
+      sort_order: it.sort_order,
+      recommended,
+    };
+  });
+  // Recommended first, then by sort order (query already ordered within groups).
+  modules.sort((a, b) => Number(b.recommended) - Number(a.recommended));
+
+  return { assessment_id: assessment?.id ?? null, modules };
 }

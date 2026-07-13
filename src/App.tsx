@@ -13,6 +13,11 @@ import DeltaReportPage from './pages/DeltaReportPage';
 import RoadmapPage from './pages/RoadmapPage';
 import BuyerLensPage from './pages/BuyerLensPage';
 import LibraryPage from './pages/LibraryPage';
+import OwnerHomePage from './pages/owner/OwnerHomePage';
+import OwnerPlanPage from './pages/owner/OwnerPlanPage';
+import OwnerLearnPage from './pages/owner/OwnerLearnPage';
+import OwnerDocumentsPage from './pages/owner/OwnerDocumentsPage';
+import OwnerConnectPage from './pages/owner/OwnerConnectPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
@@ -34,6 +39,7 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return <p className="muted page">Loading…</p>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
     return (
       <main className="page">
@@ -43,6 +49,15 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
       </main>
     );
   }
+  return <>{children}</>;
+}
+
+function RequireOwner({ children }: { children: ReactNode }) {
+  const { session, profile, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <p className="muted page">Loading…</p>;
+  if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -107,6 +122,53 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <BrandingProvider>
       <AppBar />
+      <main className="page">{children}</main>
+    </BrandingProvider>
+  );
+}
+
+function OwnerAppBar() {
+  const { firmName, profile, signOut } = useAuth();
+  const { brand } = useBrand();
+  return (
+    <header className="app-bar">
+      <div className="app-bar-inner">
+        <div className="app-bar-left">
+          <FirmMark brand={brand} fallbackName={firmName} />
+          <span className="app-bar-divider" aria-hidden />
+          <nav className="app-nav" aria-label="Primary">
+            <NavLink to="/portal" end className="app-nav-link">Home</NavLink>
+            <NavLink to="/portal/plan" className="app-nav-link">Your plan</NavLink>
+            <NavLink to="/portal/learn" className="app-nav-link">Learn</NavLink>
+            <NavLink to="/portal/documents" className="app-nav-link">Documents</NavLink>
+            <NavLink to="/portal/connect" className="app-nav-link">Connect</NavLink>
+          </nav>
+        </div>
+        <div className="app-bar-right">
+          {isDevStack && <span className="dev-badge">Dev</span>}
+          <ThemeToggle />
+          <span className="app-bar-divider" aria-hidden />
+          <div className="user-chip">
+            <span className="user-avatar" aria-hidden>{userInitials(profile?.email)}</span>
+            <span className="user-email" title={profile?.email ?? undefined}>{profile?.email}</span>
+            <button className="user-signout" onClick={signOut} title="Sign out" aria-label="Sign out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function OwnerShell({ children }: { children: ReactNode }) {
+  return (
+    <BrandingProvider>
+      <OwnerAppBar />
       <main className="page">{children}</main>
     </BrandingProvider>
   );
@@ -194,6 +256,11 @@ export default function App() {
               </RequireAdvisor>
             }
           />
+          <Route path="/portal" element={<RequireOwner><OwnerShell><OwnerHomePage /></OwnerShell></RequireOwner>} />
+          <Route path="/portal/plan" element={<RequireOwner><OwnerShell><OwnerPlanPage /></OwnerShell></RequireOwner>} />
+          <Route path="/portal/learn" element={<RequireOwner><OwnerShell><OwnerLearnPage /></OwnerShell></RequireOwner>} />
+          <Route path="/portal/documents" element={<RequireOwner><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequireOwner>} />
+          <Route path="/portal/connect" element={<RequireOwner><OwnerShell><OwnerConnectPage /></OwnerShell></RequireOwner>} />
           <Route
             path="/assessment/:assessmentId/intake"
             element={

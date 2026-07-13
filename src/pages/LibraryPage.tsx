@@ -14,6 +14,7 @@ const TYPE_LABEL: Record<AdvisoryItemType, string> = {
   buyer_question: 'Buyer question',
   initiative: 'Initiative',
   risk_flag: 'Risk flag',
+  education: 'Education',
 };
 const DIMENSIONS = ['REV', 'FIN', 'OPS', 'CUS', 'MGT', 'GRW'];
 const SEVERITIES = ['critical', 'high', 'med', 'low'];
