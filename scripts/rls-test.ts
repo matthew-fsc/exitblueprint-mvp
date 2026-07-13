@@ -164,10 +164,22 @@ async function main() {
        values ($1, $2, $3, 'document')`,
       [ids.firm_b, assessmentBId, questionId],
     );
-    // Firm B ledger connection for the isolation checks.
+    // Firm B ledger connection + its OAuth secrets for the isolation checks.
+    const ledgerB = (
+      await db.query(
+        `insert into ledger_connections (firm_id, company_id, provider, status, external_org_name)
+         values ($1, $2, 'quickbooks', 'connected', 'Beta Books') returning id`,
+        [ids.firm_b, companyB],
+      )
+    ).rows[0].id;
     await db.query(
-      `insert into ledger_connections (firm_id, company_id, provider, status, external_org_name)
-       values ($1, $2, 'quickbooks', 'connected', 'Beta Books')`,
+      `insert into ledger_credentials (connection_id, access_token, refresh_token)
+       values ($1, 'secret-access', 'secret-refresh')`,
+      [ledgerB],
+    );
+    await db.query(
+      `insert into ledger_oauth_states (state, firm_id, company_id, provider)
+       values ('pending-b', $1, $2, 'quickbooks')`,
       [ids.firm_b, companyB],
     );
     // Firm B valuation recast + inputs for the isolation checks.
@@ -359,6 +371,19 @@ async function main() {
       ledgerA.rows.every((r) => r.firm_id !== ids.firm_b),
       `saw ${ledgerA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
     );
+    // OAuth tokens are quarantined: no client role can even select the table.
+    for (const secret of ['ledger_credentials', 'ledger_oauth_states']) {
+      let denied = false;
+      try {
+        await db.query('savepoint sec');
+        await db.query(`select * from ${secret}`);
+        await db.query('release savepoint sec');
+      } catch {
+        denied = true;
+        await db.query('rollback to savepoint sec');
+      }
+      check(`cannot read ${secret} (tokens quarantined from clients)`, denied);
+    }
 
     // valuation: methodology readable; firm B recast/inputs never visible.
     const valRules = await db.query('select count(*)::int c from valuation_rules_versions');

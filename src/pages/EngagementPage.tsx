@@ -37,6 +37,7 @@ import {
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
+import { DealOutcomeCard } from '../components/DealOutcomeCard';
 import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
@@ -252,6 +253,9 @@ export default function EngagementPage() {
           </div>
           {/* financial verification */}
           {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+
+          {/* deal outcome capture (calibration moat) */}
+          <DealOutcomeCard engagementId={engagementId!} />
 
           {/* current snapshot + open gaps */}
           <div className="eng-grid">

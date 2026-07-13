@@ -19,6 +19,7 @@ import OwnerPlanPage from './pages/owner/OwnerPlanPage';
 import OwnerLearnPage from './pages/owner/OwnerLearnPage';
 import OwnerDocumentsPage from './pages/owner/OwnerDocumentsPage';
 import OwnerConnectPage from './pages/owner/OwnerConnectPage';
+import LedgerCallbackPage from './pages/LedgerCallbackPage';
 import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
@@ -59,6 +60,16 @@ function RequireOwner({ children }: { children: ReactNode }) {
   if (loading) return <p className="muted page">Loading…</p>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+// Any signed-in user (advisor or owner) — used by the ledger OAuth callback,
+// which either role can reach when returning from the provider.
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { session, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <p className="muted page">Loading…</p>;
+  if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   return <>{children}</>;
 }
 
@@ -272,6 +283,7 @@ export default function App() {
           <Route path="/portal/learn" element={<RequireOwner><OwnerShell><OwnerLearnPage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/documents" element={<RequireOwner><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/connect" element={<RequireOwner><OwnerShell><OwnerConnectPage /></OwnerShell></RequireOwner>} />
+          <Route path="/ledger/callback" element={<RequireAuth><LedgerCallbackPage /></RequireAuth>} />
           <Route
             path="/assessment/:assessmentId/intake"
             element={

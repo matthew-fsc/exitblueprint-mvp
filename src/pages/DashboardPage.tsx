@@ -12,6 +12,7 @@ import {
   type Column,
 } from '../components/ui';
 import { usePortfolio, type PortfolioRow } from '../lib/queries';
+import { CalibrationPanel } from '../components/CalibrationPanel';
 import { TIER_ORDER } from '../lib/tokens';
 import { daysSince, fmtScore } from '../lib/format';
 
@@ -168,6 +169,8 @@ export default function DashboardPage() {
           </EmptyState>
         }
       />
+
+      <CalibrationPanel />
     </div>
   );
 }
