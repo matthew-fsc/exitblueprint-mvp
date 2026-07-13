@@ -1,18 +1,20 @@
-// QuickBooks/Xero ledger integration. Connecting the books lets us fill the
-// financial assessment questions the ledger can answer directly — so the owner
-// re-keys far less — while everything stays editable by hand.
+// QuickBooks/Xero ledger integration + the honest manual-entry alternative.
 //
-// The OAuth handshake and the accounting API are external; this adapter isolates
-// them behind pullLedgerFinancials so the rest of the app is provider-agnostic.
-// In this build the adapter derives a deterministic, internally consistent set
-// of figures from the company's books (the most recent answered figures where
-// present, else stable defaults), so the flow works end-to-end without live
-// credentials. Swapping in the real API is confined to pullLedgerFinancials.
+// Two ways real financial figures get into an assessment:
+//   1. A LIVE ledger sync (syncLedgerToAssessment) — real numbers pulled from the
+//      connected accounting API, stamped connected_ledger. The API call lives in
+//      pullLedgerFinancials; until it is wired (Phase 3, live OAuth), a connection
+//      imports NOTHING. We never fabricate figures and never stamp
+//      connected_ledger on data the ledger did not actually report.
+//   2. MANUAL entry (enterManualFinancials) — the advisor/owner types or uploads
+//      the figures. Stamped `document` when they attest the numbers come from real
+//      financial statements/exports (verified), else `self_reported` (not). Honest
+//      about where the number came from; never dressed up as a ledger pull.
 import type pg from 'pg';
 
-// The questions a connected ledger can answer. Contract terms, retention
-// cohorts, and add-back judgment are NOT here — those still need manual input or
-// documents, so a sync fills a lot, never everything.
+// The questions a connected ledger can answer (and the set a manual financial
+// entry may fill). Contract terms, retention cohorts, and add-back judgment are
+// NOT here — those always need separate input or documents.
 export const LEDGER_DERIVABLE_CODES = [
   'REV-ANNUAL',
   'REV-TOP5-SHARES',
@@ -22,22 +24,16 @@ export const LEDGER_DERIVABLE_CODES = [
   'FIN-STATEMENTS',
 ] as const;
 
-// Plausible "clean books" values for a company with no prior figures to read.
-const DEFAULTS: Record<string, unknown> = {
-  'REV-ANNUAL': [3_000_000, 3_400_000, 3_800_000, 4_100_000],
-  'REV-TOP5-SHARES': [22, 14, 9, 7, 5],
-  'REV-RECUR-PCT': 45,
-  'FIN-RECON': 'monthly',
-  'FIN-BASIS': 'accrual_consistent',
-  'FIN-STATEMENTS': 'all_three',
-};
-
 export interface LedgerPull {
   provider: string;
   org_name: string | null;
   values: Record<string, unknown>;
 }
 
+// Fetch real figures from the connected accounting API. This is the single seam
+// the live Intuit/Xero integration plugs into (Phase 3). Until then a connection
+// yields no figures — deliberately: we do not invent numbers, so nothing false
+// is ever stamped connected_ledger. Returns null when there is no connection.
 export async function pullLedgerFinancials(
   db: pg.ClientBase,
   companyId: string,
@@ -52,27 +48,9 @@ export async function pullLedgerFinancials(
   ).rows[0];
   if (!conn) return null;
 
-  // Read the company's most recent answered figures for the derivable questions
-  // (the ledger "confirms" what the books already show); fall back to defaults.
-  const prior = new Map<string, unknown>(
-    (
-      await db.query(
-        `select q.code, a.value
-         from answers a
-         join questions q on q.id = a.question_id
-         join assessments s on s.id = a.assessment_id
-         join engagements e on e.id = s.engagement_id
-         where e.company_id = $1 and q.code = any($2)
-         order by s.created_at desc`,
-        [companyId, LEDGER_DERIVABLE_CODES as unknown as string[]],
-      )
-    ).rows.map((r) => [r.code as string, r.value]),
-  );
-
+  // TODO(phase-3, live OAuth): call the provider API with the stored token and
+  // map its report figures onto LEDGER_DERIVABLE_CODES. Until wired, no figures.
   const values: Record<string, unknown> = {};
-  for (const code of LEDGER_DERIVABLE_CODES) {
-    values[code] = prior.has(code) ? prior.get(code) : DEFAULTS[code];
-  }
   return { provider: conn.provider, org_name: conn.external_org_name, values };
 }
 
@@ -82,9 +60,10 @@ export interface LedgerSyncResult {
   question_codes: string[];
 }
 
-// Fill an in-progress assessment's ledger-derivable answers from the connected
-// books, marking each with connected_ledger provenance. Idempotent; leaves every
-// other question untouched, and the filled answers remain editable by hand.
+// Fill an in-progress assessment's ledger-derivable answers from figures the
+// connected accounting API actually reports, marking each connected_ledger. Until
+// the live API is wired (pullLedgerFinancials), this fills nothing rather than
+// anything invented. Idempotent; other questions and hand edits are untouched.
 export async function syncLedgerToAssessment(
   db: pg.ClientBase,
   assessmentId: string,
@@ -139,4 +118,74 @@ export async function syncLedgerToAssessment(
   await db.query(`update ledger_connections set last_sync_at = now() where company_id = $1`, [companyId]);
 
   return { filled: filledCodes.length, provider: pull.provider, question_codes: filledCodes };
+}
+
+export interface ManualFinancialEntry {
+  code: string;
+  value: unknown;
+}
+export interface ManualFinancialsResult {
+  filled: number;
+  source: 'document' | 'self_reported';
+  question_codes: string[];
+}
+
+// The honest manual/upload path (docs/10-production-readiness.md, Phase 3): the
+// advisor or owner supplies the financial figures directly. When `documented` is
+// true they attest the numbers come from real financial statements / an export
+// (stamped `document` = verified); otherwise the figures are `self_reported`
+// (not verified). This is the replacement for the removed fabricated-defaults
+// import — a real number the customer stands behind, labeled for what it is.
+// Restricted to the derivable financial codes; other questions use the intake.
+export async function enterManualFinancials(
+  db: pg.ClientBase,
+  assessmentId: string,
+  entries: ManualFinancialEntry[],
+  documented: boolean,
+): Promise<ManualFinancialsResult> {
+  const a = (
+    await db.query(
+      `select id, firm_id, rubric_version_id, status from assessments where id = $1`,
+      [assessmentId],
+    )
+  ).rows[0];
+  if (!a) throw new Error(`assessment ${assessmentId} not found`);
+  if (a.status === 'completed') throw new Error('assessment is completed and immutable');
+
+  const source = documented ? 'document' : 'self_reported';
+  const allowed = new Set<string>(LEDGER_DERIVABLE_CODES);
+  const qids = new Map<string, string>(
+    (
+      await db.query(
+        `select q.id, q.code from questions q
+         join dimensions d on d.id = q.dimension_id
+         where d.rubric_version_id = $1`,
+        [a.rubric_version_id],
+      )
+    ).rows.map((r) => [r.code as string, r.id as string]),
+  );
+
+  const filled: string[] = [];
+  for (const { code, value } of entries) {
+    if (!allowed.has(code)) continue;
+    const qid = qids.get(code);
+    if (qid === undefined || value === undefined) continue;
+    await db.query(
+      `insert into answers (assessment_id, question_id, value) values ($1, $2, $3)
+       on conflict (assessment_id, question_id) do update set value = excluded.value`,
+      [assessmentId, qid, JSON.stringify(value)],
+    );
+    // `document` is verified (attested to real statements) → verified_at set;
+    // `self_reported` is not → verified_at null. Never connected_ledger here.
+    await db.query(
+      `insert into answer_provenance (firm_id, assessment_id, question_id, source, verified_at)
+       values ($1, $2, $3, $4, ${documented ? 'now()' : 'null'})
+       on conflict (assessment_id, question_id)
+       do update set source = excluded.source, verified_at = excluded.verified_at`,
+      [a.firm_id, assessmentId, qid, source],
+    );
+    filled.push(code);
+  }
+
+  return { filled: filled.length, source, question_codes: filled };
 }

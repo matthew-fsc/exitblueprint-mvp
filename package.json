@@ -17,7 +17,8 @@
     "seed:portfolio": "tsx scripts/seed-portfolio.ts",
     "admin": "tsx scripts/admin.ts",
     "test": "vitest run",
-    "test:rls": "tsx scripts/rls-test.ts"
+    "test:rls": "tsx scripts/rls-test.ts",
+    "serve:functions": "tsx server/http.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
