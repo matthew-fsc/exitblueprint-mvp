@@ -27,6 +27,8 @@ import {
   SkeletonLines,
   TierBadge,
   ExitPaceChart,
+  ContributionBars,
+  DivergenceMeter,
   type Column,
   type PacePoint,
 } from '../components/ui';
@@ -203,6 +205,28 @@ export default function EngagementPage() {
               />
             </div>
           </Card>
+
+          {/* decision charts: what's driving the score + owner-vs-business */}
+          {explain && (
+            <div className="eng-grid">
+              <Card>
+                <span className="stat-block-label">What's driving the score</span>
+                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+                  Each bar's width is the dimension's weight in the DRS; the fill is what it
+                  contributes today. Biggest shortfall first.
+                </p>
+                <ContributionBars dimensions={explain.dimensions} />
+              </Card>
+              <Card>
+                <span className="stat-block-label">Business vs. owner readiness</span>
+                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+                  The DRS and the Owner Readiness Index on one scale — their gap is a finding in
+                  itself.
+                </p>
+                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
+              </Card>
+            </div>
+          )}
 
           {/* current snapshot + open gaps */}
           <div className="eng-grid">

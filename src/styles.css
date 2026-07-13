@@ -3091,3 +3091,40 @@ textarea:focus {
 .pace-legend-line { width: 1rem; height: 0; display: inline-block; }
 .pace-legend-required { border-top: 1.6px dashed var(--text-secondary); }
 .pace-legend-projected { border-top: 2px dotted var(--status-ok); }
+
+/* ---- ContributionBars: weight-scaled DRS contribution + headroom --------- */
+.contrib { display: flex; flex-direction: column; gap: 0.6rem; }
+.contrib-row { display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.6rem; align-items: center; }
+.contrib-label { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem; }
+.contrib-name { font-size: 0.85rem; font-weight: 600; }
+.contrib-score { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.contrib-track-wrap { display: flex; align-items: center; gap: 0.5rem; }
+.contrib-track { height: 0.7rem; background: var(--surface-3); border-radius: 999px; position: relative;
+  min-width: 8%; overflow: hidden; }
+.contrib-fill { height: 100%; border-radius: 999px; }
+.contrib-headroom { font-size: 0.72rem; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 2.4rem; }
+.contrib-legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.72rem; color: var(--text-secondary);
+  margin-top: 0.3rem; }
+.contrib-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.contrib-swatch { width: 0.7rem; height: 0.7rem; border-radius: 3px; background: var(--accent); }
+.contrib-swatch.ghost { background: var(--surface-3); }
+
+/* ---- DivergenceMeter: DRS vs ORI ---------------------------------------- */
+.diverge { display: flex; flex-direction: column; gap: 0.7rem; }
+.diverge-heads { display: flex; justify-content: space-between; }
+.diverge-head { display: flex; flex-direction: column; }
+.diverge-head-right { text-align: right; }
+.diverge-num { font-size: 1.7rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.diverge-cap { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
+  font-weight: 600; margin-top: 0.15rem; }
+.diverge-track { position: relative; height: 0.85rem; background: var(--surface-3); border-radius: 999px; margin: 0.2rem 0; }
+.diverge-span { position: absolute; top: 50%; transform: translateY(-50%); height: 0.3rem;
+  background: var(--border-strong); border-radius: 999px; }
+.diverge-span-wide { background: color-mix(in srgb, var(--status-serious) 45%, transparent); }
+.diverge-marker { position: absolute; top: 50%; width: 0.95rem; height: 0.95rem; border-radius: 50%;
+  transform: translate(-50%, -50%); border: 2.5px solid var(--surface-1); box-shadow: 0 0 0 1px var(--border-strong); }
+.diverge-marker-drs { background: var(--accent); }
+.diverge-marker-ori { background: var(--status-serious); }
+.diverge-note { font-size: 0.82rem; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+.diverge-note-alert { color: var(--status-serious); font-weight: 500; }
