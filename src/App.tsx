@@ -6,6 +6,7 @@ import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack } from './lib/supabase';
 import { FirmMark, ToastProvider } from './components/ui';
 import { BrandingProvider, useBrand } from './lib/branding';
+import { Analytics } from '@vercel/analytics/react';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
@@ -342,6 +343,7 @@ export default function App() {
           </BrowserRouter>
         </ToastProvider>
       </QueryClientProvider>
+      <Analytics />
     </ThemeProvider>
   );
 }

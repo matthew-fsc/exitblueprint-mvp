@@ -6,3 +6,4 @@ dist/
 .localdb/
 supabase/.temp/
 *.tsbuildinfo
+.vite/
