@@ -35,6 +35,7 @@ export const qk = {
   engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
   advisoryLibrary: () => ['advisoryLibrary'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
+  verification: (assessmentId: string) => ['verification', assessmentId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -671,6 +672,36 @@ export function useFiredAdvisory(
     enabled: !!engagementId,
     queryFn: () =>
       invokeFunction<FiredAdvisoryResult>('advisory-items', { engagement_id: engagementId }),
+  });
+}
+
+// ---- financial verification (Phase 1) --------------------------------------
+export type ProvenanceSource = 'self_reported' | 'document' | 'connected_ledger';
+export type VerificationTier = 'self_reported' | 'partly_verified' | 'document_verified';
+
+export interface VerificationInput {
+  question_id: string;
+  question_code: string;
+  prompt: string;
+  dimension_code: string;
+  source: ProvenanceSource;
+}
+export interface VerificationSummary {
+  verified_inputs: number;
+  total_inputs: number;
+  pct: number;
+  tier: VerificationTier;
+  inputs: VerificationInput[];
+}
+
+export function useVerification(
+  assessmentId: string | undefined,
+): UseQueryResult<VerificationSummary> {
+  return useQuery({
+    queryKey: qk.verification(assessmentId ?? ''),
+    enabled: !!assessmentId,
+    queryFn: () =>
+      invokeFunction<VerificationSummary>('verification-summary', { assessment_id: assessmentId }),
   });
 }
 
