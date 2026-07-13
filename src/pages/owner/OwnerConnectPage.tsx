@@ -24,13 +24,14 @@ export default function OwnerConnectPage() {
     <div className="stack-lg">
       <PageHeader
         title="Connect your accounting"
-        subtitle="Link your books so your financials are verified automatically — no spreadsheets, and a score buyers can trust."
+        subtitle="Link your books so your advisor can verify your financials — the difference between a self-reported score and one buyers trust."
       />
       <Card>
         <p className="muted" style={{ marginTop: 0 }}>
-          Connecting your accounting lets your advisor pull verified figures directly, instead of
-          you re-keying them. Verified financials turn a self-reported score into a defensible one —
-          the difference buyers pay attention to. You stay in control and can disconnect anytime.
+          Connecting your accounting lets your advisor verify your figures against your real books,
+          instead of relying on self-reported numbers. Verified financials turn a self-reported score
+          into a defensible one — the difference buyers pay attention to. You stay in control and can
+          disconnect anytime.
         </p>
         {loading || connQ.isLoading ? (
           <SkeletonLines lines={3} />
@@ -54,7 +55,7 @@ export default function OwnerConnectPage() {
                     <div className="connect-detail">
                       <p className="muted">
                         {conn.external_org_name}
-                        {conn.last_sync_at && <> · synced {fmtDate(conn.last_sync_at)}</>}
+                        {conn.connected_at && <> · connected {fmtDate(conn.connected_at)}</>}
                       </p>
                       <button className="btn-ghost" onClick={() => disconnect(conn)}>Disconnect</button>
                     </div>

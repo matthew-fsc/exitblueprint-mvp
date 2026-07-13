@@ -33,8 +33,8 @@ export function AccountingCard({
         {anyConnected && <span className="verif-badge verif-tier-high">Connected</span>}
       </div>
       <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-        Connect the client's books to import the financial figures on the assessment intake — less
-        re-keying, and those inputs count as verified.
+        Connect the client's books so their financials can be verified against their real accounting
+        system — the basis for a defensible, buyer-ready score.
       </p>
       {connQ.isLoading ? (
         <SkeletonLines lines={2} />
@@ -49,7 +49,7 @@ export function AccountingCard({
                 {connected && conn ? (
                   <>
                     <span className="acct-status acct-on">
-                      ● Connected{conn.last_sync_at ? ` · synced ${fmtDate(conn.last_sync_at)}` : ''}
+                      ● Connected{conn.connected_at ? ` · ${fmtDate(conn.connected_at)}` : ''}
                     </span>
                     <button className="btn-ghost acct-btn" onClick={() => disconnect(conn)}>Disconnect</button>
                   </>
