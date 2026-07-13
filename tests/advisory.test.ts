@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
-import { fireAdvisoryItems } from '../server/advisory';
+import { fireAdvisoryItems, educationModules } from '../server/advisory';
 import { loadFixture } from './helpers';
 
 const url = process.env.DATABASE_URL;
@@ -148,6 +148,23 @@ describe.skipIf(!url)('fireAdvisoryItems', () => {
       )
     ).rows[0].c;
     expect(r.items.length).toBeLessThanOrEqual(total);
+  });
+
+  it('excludes education items from the advisor firing (they are owner-facing)', async () => {
+    const r = await fireAdvisoryItems(db, engagementId);
+    expect(r.items.every((i) => i.item_type !== 'education')).toBe(true);
+  });
+
+  it('surfaces education modules, recommended off the same score triggers', async () => {
+    const r = await educationModules(db, engagementId);
+    expect(r.modules.length).toBeGreaterThan(0);
+    // Fixture 2 scores low, so at least one triggered guide is recommended.
+    expect(r.modules.some((m) => m.recommended)).toBe(true);
+    // A recommended module must have a trigger; an untriggered one never is.
+    for (const m of r.modules) {
+      if (m.recommended) expect(m.score_trigger).not.toBeNull();
+      if (m.score_trigger === null) expect(m.recommended).toBe(false);
+    }
   });
 
   it('returns an empty result for an engagement with no completed assessment', async () => {

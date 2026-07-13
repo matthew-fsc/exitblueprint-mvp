@@ -611,7 +611,7 @@ export function usePlaybooks(): UseQueryResult<Map<string, { name: string; phase
 }
 
 // ---- advisory library ------------------------------------------------------
-export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag';
+export type AdvisoryItemType = 'buyer_question' | 'initiative' | 'risk_flag' | 'education';
 
 export interface AdvisoryItemRow {
   id: string;
@@ -728,55 +728,6 @@ export function useOwnerEngagement(
   });
 }
 
-export interface EducationModule {
-  code: string;
-  title: string;
-  dimension_code: string | null;
-  body_md: string | null;
-  recommended: boolean;
-}
-
-// Education content for the owner: all modules, with the ones tied (via
-// gap_content_map) to a currently-open gap flagged "recommended for you".
-export function useEducation(
-  engagementId: string | undefined,
-  rubricVersionId: string | undefined,
-): UseQueryResult<EducationModule[]> {
-  return useQuery({
-    queryKey: qk.education(engagementId ?? ''),
-    enabled: !!engagementId && !!rubricVersionId,
-    queryFn: async () => {
-      const [mods, gaps, maps] = await Promise.all([
-        supabase.from('content_modules').select('*'),
-        supabase.from('gaps').select('*').eq('engagement_id', engagementId!).in('status', ['open', 'in_remediation']),
-        supabase.from('gap_content_map').select('*'),
-      ]);
-      for (const r of [mods, gaps, maps]) if (r.error) throw new Error(r.error.message);
-      const openGapDefIds = new Set(
-        (gaps.data ?? []).map((g: { gap_definition_id: string }) => g.gap_definition_id),
-      );
-      const recommendedContentIds = new Set(
-        (maps.data ?? [])
-          .filter((m: { gap_definition_id: string }) => openGapDefIds.has(m.gap_definition_id))
-          .map((m: { content_module_id: string }) => m.content_module_id),
-      );
-      return ((mods.data ?? []) as {
-        id: string;
-        code: string;
-        title: string;
-        dimension_code: string | null;
-        body_md: string | null;
-      }[]).map((m) => ({
-        code: m.code,
-        title: m.title,
-        dimension_code: m.dimension_code,
-        body_md: m.body_md,
-        recommended: recommendedContentIds.has(m.id),
-      }));
-    },
-  });
-}
-
 export interface LedgerConnection {
   id: string;
   firm_id: string;
@@ -798,6 +749,32 @@ export function useLedgerConnections(
       unwrap<LedgerConnection[]>(
         await supabase.from('ledger_connections').select('*').eq('company_id', companyId!),
       ),
+  });
+}
+
+// Education pieces sourced from the Advisory Library (item_type = education),
+// each flagged recommended when its score trigger has tripped — the same firing
+// rule as the rest of the library.
+export interface EducationLibraryModule {
+  id: string;
+  code: string | null;
+  title: string;
+  body: string;
+  dimension_code: string | null;
+  recommended: boolean;
+}
+export interface EducationModulesResult {
+  assessment_id: string | null;
+  modules: EducationLibraryModule[];
+}
+export function useEducationModules(
+  engagementId: string | undefined,
+): UseQueryResult<EducationModulesResult> {
+  return useQuery({
+    queryKey: qk.education(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<EducationModulesResult>('education-modules', { engagement_id: engagementId }),
   });
 }
 

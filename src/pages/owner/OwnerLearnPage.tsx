@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useOwnerContext } from '../../lib/owner';
-import { useEducation, type EducationModule } from '../../lib/queries';
+import { useEducationModules, type EducationLibraryModule } from '../../lib/queries';
 import { Card, EmptyState, PageHeader, SkeletonLines } from '../../components/ui';
 
-function ModuleCard({ m }: { m: EducationModule }) {
+function ModuleCard({ m }: { m: EducationLibraryModule }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`learn-item ${m.recommended ? 'learn-item-rec' : ''}`}>
@@ -14,15 +14,15 @@ function ModuleCard({ m }: { m: EducationModule }) {
         </span>
         <span className="learn-toggle">{open ? '−' : '+'}</span>
       </button>
-      {open && <div className="learn-body">{m.body_md}</div>}
+      {open && <div className="learn-body">{m.body}</div>}
     </div>
   );
 }
 
 export default function OwnerLearnPage() {
-  const { engagement, latest, loading } = useOwnerContext();
-  const eduQ = useEducation(engagement?.id, latest?.rubric_version_id);
-  const modules = eduQ.data ?? [];
+  const { engagement, loading } = useOwnerContext();
+  const eduQ = useEducationModules(engagement?.id);
+  const modules = eduQ.data?.modules ?? [];
   const recommended = modules.filter((m) => m.recommended);
   const rest = modules.filter((m) => !m.recommended);
 
@@ -43,12 +43,12 @@ export default function OwnerLearnPage() {
           {recommended.length > 0 && (
             <section>
               <h3 className="section-heading">Recommended for you <span className="muted">· {recommended.length}</span></h3>
-              <Card><div className="learn-list">{recommended.map((m) => <ModuleCard key={m.code} m={m} />)}</div></Card>
+              <Card><div className="learn-list">{recommended.map((m) => <ModuleCard key={m.code ?? m.id} m={m} />)}</div></Card>
             </section>
           )}
           <section>
             <h3 className="section-heading">All guides <span className="muted">· {rest.length}</span></h3>
-            <Card><div className="learn-list">{rest.map((m) => <ModuleCard key={m.code} m={m} />)}</div></Card>
+            <Card><div className="learn-list">{rest.map((m) => <ModuleCard key={m.code ?? m.id} m={m} />)}</div></Card>
           </section>
         </>
       )}
