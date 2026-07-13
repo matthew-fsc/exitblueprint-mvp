@@ -5,7 +5,6 @@ import { useAuth } from '../lib/auth';
 import { type QuestionRow } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
 import {
-  qk,
   useActiveAssessment,
   useAnswers,
   useAnswerProvenance,
@@ -13,7 +12,7 @@ import {
   useLedgerConnections,
   useRubric,
 } from '../lib/queries';
-import { SkeletonLines, useToast } from '../components/ui';
+import { SkeletonLines } from '../components/ui';
 import {
   QuestionControl,
   draftFromValue,
@@ -27,7 +26,6 @@ export default function IntakePage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const toast = useToast();
 
   const assessmentQ = useActiveAssessment(assessmentId);
   const assessment = assessmentQ.data ?? null;
@@ -48,26 +46,6 @@ export default function IntakePage() {
   const seeded = useRef(false);
 
   const engagementId = assessment?.engagement_id ?? '';
-
-  const importFromLedger = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      const r = await invokeFunction<{ filled: number }>('sync-ledger', {
-        assessment_id: assessmentId,
-      });
-      seeded.current = false; // re-seed drafts from the freshly imported answers
-      await qc.invalidateQueries({ queryKey: qk.answers(assessmentId ?? '') });
-      qc.invalidateQueries({ queryKey: ['answerProvenance', assessmentId ?? ''] });
-      toast.show(
-        r.filled > 0 ? `Imported ${r.filled} answers from QuickBooks` : 'Nothing to import',
-        'good',
-      );
-    } catch (err) {
-      setError((err as Error).message);
-    }
-    setBusy(false);
-  };
 
   // Redirect completed assessments to results (immutable — no intake).
   useEffect(() => {
@@ -238,11 +216,13 @@ export default function IntakePage() {
         <div className="ledger-import">
           <div>
             <strong>{connectedProvider === 'quickbooks' ? 'QuickBooks' : 'Xero'} is connected.</strong>{' '}
-            <span className="muted">Import the financial figures automatically instead of entering them by hand — you can still edit anything after.</span>
+            <span className="muted">
+              Automatic import of verified figures lands with the live{' '}
+              {connectedProvider === 'quickbooks' ? 'QuickBooks' : 'Xero'} integration. For now, enter
+              the financials below — they count as verified when they come from the client's financial
+              statements.
+            </span>
           </div>
-          <button onClick={importFromLedger} disabled={busy}>
-            {busy ? 'Importing…' : 'Import from QuickBooks'}
-          </button>
         </div>
       )}
 

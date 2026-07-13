@@ -164,3 +164,19 @@ With 1–2 engineers working Phases 1–4 roughly in the order above (Phase 3's 
   "every `/functions/v1/*` call is served by deployed code, not Vite middleware"
   — the compute layer now exists outside the demo. Remaining Phase 1: stand up the
   real Supabase project + run migrations there (needs credentials).
+- **2026-07-13 — Phase 3 fake removed, honest manual financials (confirmed decision #2):**
+  deleted the fabricated `DEFAULTS` block from `server/ledger.ts` and stopped
+  `pullLedgerFinancials` from copying prior self-reported answers and re-stamping
+  them `connected_ledger` (a false verification upgrade). `pullLedgerFinancials`
+  is now a clean seam for the live Intuit/Xero API that imports **nothing** until
+  wired — it never fabricates. Added `enterManualFinancials(assessmentId, entries,
+  documented)`: the honest manual/upload path that stamps `document` (verified)
+  when the user attests the figures come from real statements, else `self_reported`
+  (not verified) — never `connected_ledger`. Wired as the `enter-manual-financials`
+  function (in the portable router, so both hosts get it). The intake's misleading
+  "Import from QuickBooks" auto-import banner/button is replaced with honest copy
+  (enter below; verified when from statements). Satisfies the definition-of-done
+  bullet "never the hard-coded DEFAULTS presented as connected." `tests/ledger.test.ts`
+  rewritten for the honest behavior (6 tests: no fabrication, document vs
+  self_reported provenance, non-derivable codes ignored, completed immutability).
+  92 tests green; RLS 44/44; tsc + build clean.

@@ -17,7 +17,7 @@ import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } fr
 import { instantiateTasksForGaps } from './roadmap';
 import { fireAdvisoryItems, educationModules } from './advisory';
 import { verificationSummary } from './verification';
-import { syncLedgerToAssessment } from './ledger';
+import { syncLedgerToAssessment, enterManualFinancials, type ManualFinancialEntry } from './ledger';
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
@@ -212,6 +212,15 @@ async function dispatch(
       return ok(await verificationSummary(service, assessmentId));
     case 'sync-ledger':
       return ok(await syncLedgerToAssessment(service, assessmentId));
+    case 'enter-manual-financials':
+      return ok(
+        await enterManualFinancials(
+          service,
+          assessmentId,
+          (body.entries as ManualFinancialEntry[]) ?? [],
+          !!body.documented,
+        ),
+      );
     case 'ledger-connect-begin':
       return ok(
         await beginLedgerConnect(service, {
