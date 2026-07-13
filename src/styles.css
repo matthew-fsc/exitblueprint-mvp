@@ -2973,7 +2973,14 @@ textarea:focus {
 
 /* ---- Advisory Library (buyer lens + catalog) ---------------------------- */
 .stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
+/* The gap is the single, uniform spacer between top-level blocks: neutralize the
+   ad-hoc margins that would otherwise add to it (page header, grids, headings). */
+.stack-lg > * { margin-top: 0; margin-bottom: 0; }
 .stack-lg > section { margin: 0; }
+.stack-lg section > .section-heading:first-child { margin-top: 0; }
+/* Section headings that sit at the top of a grid cell shouldn't add their
+   section-break margin (the grid is already a spaced block). */
+.stack-lg .eng-grid .section-heading { margin-top: 0; }
 
 .advisory-summary {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;

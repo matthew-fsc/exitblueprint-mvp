@@ -145,7 +145,7 @@ export default function EngagementPage() {
   const documents = documentsQ.data ?? [];
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader
         title={companyName}
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName }]}
@@ -340,12 +340,14 @@ export default function EngagementPage() {
       )}
 
       {/* assessments list */}
-      <h3 className="section-heading">Assessments</h3>
-      <ul className="assessment-list">
-        {assessments.map((a) => (
-          <AssessmentCard key={a.id} a={a} />
-        ))}
-      </ul>
+      <section>
+        <h3 className="section-heading">Assessments</h3>
+        <ul className="assessment-list">
+          {assessments.map((a) => (
+            <AssessmentCard key={a.id} a={a} />
+          ))}
+        </ul>
+      </section>
 
       {/* tasks (populated in F5) + documents */}
       <div className="eng-grid">
@@ -417,7 +419,7 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
   ];
 
   return (
-    <>
+    <section>
       <h3 className="section-heading">Compare two assessments</h3>
       <Card>
         <div className="compare-controls">
@@ -492,7 +494,7 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
           ) : null}
         </div>
       </Card>
-    </>
+    </section>
   );
 }
 

@@ -89,7 +89,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader
         title="Firm branding"
         subtitle="Your firm is the face on every client-facing report and portal. Exit Blueprint stays in the background."
