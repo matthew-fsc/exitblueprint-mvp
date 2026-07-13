@@ -16,4 +16,5 @@ export { TierBadge } from './TierBadge';
 export { Timeline, type TimelineItem } from './Timeline';
 export { ToastProvider, useToast } from './Toast';
 export { TrajectoryChart, type TrajectoryPoint } from './TrajectoryChart';
+export { ExitPaceChart, type PacePoint } from './ExitPaceChart';
 export { tierClass } from './tier';

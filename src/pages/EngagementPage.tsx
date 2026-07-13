@@ -26,15 +26,25 @@ import {
   ScoreDial,
   SkeletonLines,
   TierBadge,
-  TrajectoryChart,
+  ExitPaceChart,
   type Column,
-  type TrajectoryPoint,
+  type PacePoint,
 } from '../components/ui';
 import { fmtDate, fmtScore } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
-// the aspiration line on the trajectory until per-engagement targets land (F5).
+// the aspiration line on the trajectory.
 const TARGET_DRS = 85;
+
+// Turn a target-exit window ("24-36 months", "under 12 months") into a concrete
+// date: engagement start + the earliest month in the window (the "ready by"
+// date). Falls back to 24 months when the window is missing or unparseable.
+function targetExitDate(startedAt: string, window: string | null): Date {
+  const months = Number(window?.match(/\d+/)?.[0] ?? 24);
+  const d = new Date(startedAt);
+  d.setMonth(d.getMonth() + (Number.isFinite(months) ? months : 24));
+  return d;
+}
 
 const PROCESS_LABEL: Record<string, string> = {
   not_in_market: 'Not in market',
@@ -108,11 +118,14 @@ export default function EngagementPage() {
 
   const companyName = companyQ.data?.name ?? '';
   const inProgress = assessments.find((a) => a.status === 'in_progress');
-  const points: TrajectoryPoint[] = completed.map((a) => ({
-    label: `#${a.sequence_number}`,
-    score: Number(a.drs_score),
-    tier: a.drs_tier ?? undefined,
-  }));
+  const pacePoints: PacePoint[] = completed
+    .filter((a) => a.completed_at)
+    .map((a) => ({
+      date: a.completed_at as string,
+      score: Number(a.drs_score),
+      tier: a.drs_tier ?? undefined,
+    }));
+  const exitDate = targetExitDate(engagement.started_at, engagement.target_exit_window);
   const delta =
     completed.length > 1
       ? Number(completed[completed.length - 1].drs_score) - Number(completed[0].drs_score)
@@ -171,12 +184,16 @@ export default function EngagementPage() {
           <Card>
             <div className="trajectory-head">
               <h3 className="section-heading" style={{ margin: 0 }}>
-                Business readiness over time
+                On pace for the exit window?
               </h3>
               {delta !== null && <DeltaChip value={delta} />}
             </div>
+            <p className="muted" style={{ margin: '0.25rem 0 0' }}>
+              Readiness plotted against the target exit date, with the pace needed to reach
+              Competitive-Process-Ready (DRS {TARGET_DRS}) in time.
+            </p>
             <div style={{ marginTop: '0.75rem' }}>
-              <TrajectoryChart points={points} targetScore={TARGET_DRS} />
+              <ExitPaceChart points={pacePoints} targetScore={TARGET_DRS} targetDate={exitDate} />
             </div>
           </Card>
 
