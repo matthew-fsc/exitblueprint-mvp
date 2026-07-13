@@ -144,4 +144,23 @@ With 1–2 engineers working Phases 1–4 roughly in the order above (Phase 3's 
   be mounted by the dev emulator today and by a real production host (Edge
   Functions or a Node service) unchanged. This is the prerequisite step of "port
   the compute layer" and does not prejudge the Phase 0 runtime decision. Verified:
-  full test suite + RLS + a live round-trip through the refactored dev emulator.
+  full test suite + RLS + `tests/functions.test.ts` mounting the router directly.
+- **2026-07-13 — Phase 0 decisions confirmed by Matthew:** (1) compute runtime =
+  **one Node service** (fastest safe path; no Deno rewrite, PDF served in-process);
+  (2) launch on **manual/CSV ledger entry** while live QuickBooks/Xero is in
+  provider review; (3) email provider = deferred (not blocking).
+- **2026-07-13 — Phase 1 compute service SHIPPED:** `server/http.ts` — the real
+  Node deployable that serves every `/functions/v1/*` call against the real
+  Supabase Postgres via the service role, verifying Supabase access tokens
+  (HS256, `FUNCTIONS_JWT_SECRET`) and enforcing RLS through `asUser`. It mounts
+  the same `handleFunctionCall` router; PDF is served in-process. Frontend seam
+  added (`VITE_FUNCTIONS_URL` in `src/lib/supabase.ts`) so the app points at this
+  service in prod while auth/REST stay on Supabase; unset in dev = same-origin =
+  the emulator, unchanged. `server/Dockerfile` (Playwright base image, ships
+  Chromium) makes it deployable to Fly/Render. **Verified end-to-end:** ran the
+  service against local Postgres and curled it with a signed JWT — `/health` 200,
+  no-token 401, `deal-calibration` and `compute-valuation` returned real data,
+  foreign engagement 404 (RLS held). This satisfies the definition-of-done bullet
+  "every `/functions/v1/*` call is served by deployed code, not Vite middleware"
+  — the compute layer now exists outside the demo. Remaining Phase 1: stand up the
+  real Supabase project + run migrations there (needs credentials).
