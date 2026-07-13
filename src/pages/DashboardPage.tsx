@@ -111,7 +111,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader
         title="Portfolio"
         subtitle="Your book of exit-readiness engagements — who needs you this week."

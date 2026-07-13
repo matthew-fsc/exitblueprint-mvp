@@ -185,7 +185,7 @@ export default function RoadmapPage() {
   }).filter((g) => g.total > 0);
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader
         title="Roadmap"
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Roadmap' }]}
@@ -318,7 +318,7 @@ export default function RoadmapPage() {
         </div>
       </div>
 
-      <p className="muted" style={{ marginTop: '1.5rem', fontSize: '0.85rem' }}>
+      <p className="muted" style={{ fontSize: '0.85rem' }}>
         <Link className="button-link" to={`/engagement/${engagementId}`}>
           ← Back to engagement
         </Link>

@@ -39,6 +39,9 @@ export const qk = {
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
   education: (engagementId: string) => ['education', engagementId] as const,
   ledgerConnections: (companyId: string) => ['ledgerConnections', companyId] as const,
+  valuation: (engagementId: string) => ['valuation', engagementId] as const,
+  recast: (engagementId: string) => ['recast', engagementId] as const,
+  valuationInputs: (engagementId: string) => ['valuationInputs', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -796,6 +799,142 @@ export function useEducationModules(
     enabled: !!engagementId,
     queryFn: () =>
       invokeFunction<EducationModulesResult>('education-modules', { engagement_id: engagementId }),
+  });
+}
+
+// ---- valuation (Phase 2) ---------------------------------------------------
+export interface ValuationResult {
+  has_recast: boolean;
+  rules_version: string | null;
+  reported_ebitda: number;
+  defensible_ebitda: number;
+  full_recast_ebitda: number;
+  industry_key: string;
+  size_band: string;
+  base_multiple: number;
+  multiple_source: 'table' | 'override';
+  drs_score: number | null;
+  drs_tier: string | null;
+  readiness_factor: number;
+  verification_tier: string;
+  range_width: number;
+  ev_base: number;
+  ev_low: number;
+  ev_high: number;
+  potential_ev: number;
+  value_creation_gap: number;
+  interest_bearing_debt: number;
+  transaction_cost_pct: number;
+  transaction_costs: number;
+  tax_rate: number;
+  taxes: number;
+  net_proceeds: number;
+  owner_wealth_target: number | null;
+  wealth_gap: number | null;
+}
+
+export function useValuation(engagementId: string | undefined): UseQueryResult<ValuationResult> {
+  return useQuery({
+    queryKey: qk.valuation(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () => invokeFunction<ValuationResult>('compute-valuation', { engagement_id: engagementId }),
+  });
+}
+
+export interface RecastRow {
+  id: string;
+  engagement_id: string;
+  reported_ebitda: number;
+  fiscal_year: number | null;
+  notes: string | null;
+}
+export interface AddbackRow {
+  id: string;
+  recast_id: string;
+  label: string;
+  category: string | null;
+  amount: number;
+  challenge_likelihood: 'low' | 'medium' | 'high' | 'not_defensible';
+  documented: boolean;
+  note: string | null;
+}
+export interface ValuationInputsRow {
+  id: string;
+  engagement_id: string;
+  industry_key: string | null;
+  multiple_override: number | null;
+  interest_bearing_debt: number;
+  transaction_cost_pct: number | null;
+  tax_rate: number | null;
+  owner_wealth_target: number | null;
+}
+
+export function useRecast(
+  engagementId: string | undefined,
+): UseQueryResult<{ recast: RecastRow | null; addbacks: AddbackRow[] }> {
+  return useQuery({
+    queryKey: qk.recast(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data: recast, error } = await supabase
+        .from('ebitda_recasts')
+        .select('*')
+        .eq('engagement_id', engagementId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!recast) return { recast: null, addbacks: [] };
+      const { data: addbacks, error: aErr } = await supabase
+        .from('ebitda_addbacks')
+        .select('*')
+        .eq('recast_id', (recast as RecastRow).id)
+        .order('created_at');
+      if (aErr) throw new Error(aErr.message);
+      return { recast: recast as RecastRow, addbacks: (addbacks ?? []) as AddbackRow[] };
+    },
+  });
+}
+
+export function useValuationInputs(
+  engagementId: string | undefined,
+): UseQueryResult<ValuationInputsRow | null> {
+  return useQuery({
+    queryKey: qk.valuationInputs(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('valuation_inputs')
+        .select('*')
+        .eq('engagement_id', engagementId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as ValuationInputsRow) ?? null;
+    },
+  });
+}
+
+// ---- owner invitation (advisor) --------------------------------------------
+export interface OwnerProfileRow {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  company_id: string | null;
+}
+export function useOwnerProfile(
+  companyId: string | undefined,
+): UseQueryResult<OwnerProfileRow | null> {
+  return useQuery({
+    queryKey: ['ownerProfile', companyId ?? ''],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id,full_name,email,company_id')
+        .eq('company_id', companyId!)
+        .eq('role', 'owner')
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as OwnerProfileRow) ?? null;
+    },
   });
 }
 

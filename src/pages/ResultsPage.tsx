@@ -101,7 +101,7 @@ export default function ResultsPage() {
     .filter((g) => g.subs.length > 0);
 
   return (
-    <div className="results">
+    <div className="results stack-lg">
       <PageHeader
         title={
           <>
@@ -201,6 +201,7 @@ export default function ResultsPage() {
         </div>
       </details>
 
+      <section>
       <h3 className="section-heading">The six business areas</h3>
       <p className="section-sub muted">
         Open any area to see, in plain terms, what it measures and what your answers showed.
@@ -248,7 +249,9 @@ export default function ResultsPage() {
           );
         })}
       </div>
+      </section>
 
+      <section>
       <h3 className="section-heading">The owner’s side</h3>
       <p className="section-sub muted">
         Scored separately from the business. A ready business and an unready owner is a common — and
@@ -273,7 +276,9 @@ export default function ResultsPage() {
           </div>
         ))}
       </div>
+      </section>
 
+      <section>
       <h3 className="section-heading">
         What buyers would flag <span className="count-pill">{explain.firedGaps.length}</span>
       </h3>
@@ -300,6 +305,7 @@ export default function ResultsPage() {
           </li>
         ))}
       </ul>
+      </section>
     </div>
   );
 }

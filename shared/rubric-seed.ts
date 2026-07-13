@@ -113,6 +113,20 @@ export function parseAdvisoryLibrary(csvText: string): AdvisoryItemSeed[] {
   }));
 }
 
+export interface ValuationMultipleSeed {
+  industryKey: string;
+  sizeBand: string;
+  baseMultiple: number;
+}
+
+export function parseValuationMultiples(csvText: string): ValuationMultipleSeed[] {
+  return rows(csvText).map((r) => ({
+    industryKey: r.industry_key,
+    sizeBand: r.size_band,
+    baseMultiple: Number(r.base_multiple),
+  }));
+}
+
 export interface CodeMapSeed {
   fromCode: string;
   toCode: string;

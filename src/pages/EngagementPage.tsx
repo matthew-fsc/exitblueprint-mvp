@@ -36,6 +36,8 @@ import {
   type PacePoint,
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
+import { AccountingCard } from '../components/AccountingCard';
+import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -143,7 +145,7 @@ export default function EngagementPage() {
   const documents = documentsQ.data ?? [];
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader
         title={companyName}
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName }]}
@@ -156,6 +158,11 @@ export default function EngagementPage() {
         }
         actions={
           <>
+            {completed.length > 0 && (
+              <Link className="button-link" to={`/engagement/${engagementId}/valuation`}>
+                Valuation →
+              </Link>
+            )}
             {completed.length > 0 && (
               <Link className="button-link" to={`/engagement/${engagementId}/buyer-lens`}>
                 Buyer lens →
@@ -234,7 +241,16 @@ export default function EngagementPage() {
             </div>
           )}
 
-          {/* financial verification (Phase 1) */}
+          {/* owner access + accounting connection */}
+          <div className="eng-grid">
+            <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
+            <AccountingCard
+              companyId={engagement.company_id}
+              companyName={companyName}
+              firmId={engagement.firm_id}
+            />
+          </div>
+          {/* financial verification */}
           {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
 
           {/* current snapshot + open gaps */}
@@ -324,12 +340,14 @@ export default function EngagementPage() {
       )}
 
       {/* assessments list */}
-      <h3 className="section-heading">Assessments</h3>
-      <ul className="assessment-list">
-        {assessments.map((a) => (
-          <AssessmentCard key={a.id} a={a} />
-        ))}
-      </ul>
+      <section>
+        <h3 className="section-heading">Assessments</h3>
+        <ul className="assessment-list">
+          {assessments.map((a) => (
+            <AssessmentCard key={a.id} a={a} />
+          ))}
+        </ul>
+      </section>
 
       {/* tasks (populated in F5) + documents */}
       <div className="eng-grid">
@@ -401,7 +419,7 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
   ];
 
   return (
-    <>
+    <section>
       <h3 className="section-heading">Compare two assessments</h3>
       <Card>
         <div className="compare-controls">
@@ -476,7 +494,7 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
           ) : null}
         </div>
       </Card>
-    </>
+    </section>
   );
 }
 

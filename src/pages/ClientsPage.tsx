@@ -49,7 +49,7 @@ export default function ClientsPage() {
   };
 
   return (
-    <div>
+    <div className="stack-lg">
       <PageHeader title="Clients" subtitle="Companies your firm is guiding toward exit readiness." />
       {error && <p className="form-error">{error}</p>}
 

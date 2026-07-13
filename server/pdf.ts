@@ -452,7 +452,10 @@ export async function renderReportPdf(
   html: string,
   opts: { footerLeft?: string } = {},
 ): Promise<Buffer> {
-  const { chromium } = await import('@playwright/test');
+  // playwright-core (not @playwright/test) so PDF rendering works in production,
+  // where devDependencies are omitted. It ships no browsers/test-runner; the
+  // Chromium binary is located by resolveChromium().
+  const { chromium } = await import('playwright-core');
   const executablePath = resolveChromium();
   let browser;
   try {
