@@ -18,7 +18,8 @@
     "admin": "tsx scripts/admin.ts",
     "test": "vitest run",
     "test:rls": "tsx scripts/rls-test.ts",
-    "serve:functions": "tsx server/http.ts"
+    "serve:functions": "tsx server/http.ts",
+    "db:setup": "bash scripts/setup-supabase.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
