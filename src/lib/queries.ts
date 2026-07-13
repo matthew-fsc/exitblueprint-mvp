@@ -697,6 +697,27 @@ export interface VerificationSummary {
   inputs: VerificationInput[];
 }
 
+// Per-question provenance for an assessment (question_id -> source), so intake
+// can badge ledger-filled answers and downgrade them when edited by hand.
+export function useAnswerProvenance(
+  assessmentId: string | undefined,
+): UseQueryResult<Record<string, ProvenanceSource>> {
+  return useQuery({
+    queryKey: ['answerProvenance', assessmentId ?? ''],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('answer_provenance')
+        .select('question_id,source')
+        .eq('assessment_id', assessmentId!);
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(
+        (data ?? []).map((r: { question_id: string; source: ProvenanceSource }) => [r.question_id, r.source]),
+      );
+    },
+  });
+}
+
 export function useVerification(
   assessmentId: string | undefined,
 ): UseQueryResult<VerificationSummary> {

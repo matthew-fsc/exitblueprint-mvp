@@ -19,6 +19,7 @@ import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } fr
 import { instantiateTasksForGaps } from '../server/roadmap';
 import { fireAdvisoryItems, educationModules } from '../server/advisory';
 import { verificationSummary } from '../server/verification';
+import { syncLedgerToAssessment } from '../server/ledger';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -326,6 +327,9 @@ export function supabaseDevServer(): Plugin {
       }
       if (name === 'verification-summary') {
         return json(res, 200, await verificationSummary(service, assessmentId));
+      }
+      if (name === 'sync-ledger') {
+        return json(res, 200, await syncLedgerToAssessment(service, assessmentId));
       }
       if (name === 'render-delta-pdf') {
         const payload = await buildDeltaReportPayload(service, assessmentId);

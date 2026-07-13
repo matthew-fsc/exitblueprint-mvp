@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { type QuestionRow } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
-import { useActiveAssessment, useAnswers, useRubric } from '../lib/queries';
-import { SkeletonLines } from '../components/ui';
+import {
+  qk,
+  useActiveAssessment,
+  useAnswers,
+  useAnswerProvenance,
+  useEngagement,
+  useLedgerConnections,
+  useRubric,
+} from '../lib/queries';
+import { SkeletonLines, useToast } from '../components/ui';
 import {
   QuestionControl,
   draftFromValue,
@@ -17,12 +26,20 @@ export default function IntakePage() {
   const { assessmentId } = useParams();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const toast = useToast();
 
   const assessmentQ = useActiveAssessment(assessmentId);
   const assessment = assessmentQ.data ?? null;
   const rubricQ = useRubric(assessment?.rubric_version_id);
   const rubric = rubricQ.data ?? null;
   const answersQ = useAnswers(assessmentId);
+  const engagementQ = useEngagement(assessment?.engagement_id);
+  const companyId = engagementQ.data?.company_id;
+  const connQ = useLedgerConnections(companyId);
+  const provenanceQ = useAnswerProvenance(assessmentId);
+  const provenance = provenanceQ.data ?? {};
+  const connectedProvider = (connQ.data ?? []).find((c) => c.status === 'connected')?.provider ?? null;
 
   const [drafts, setDrafts] = useState<Map<string, Draft>>(new Map());
   const [step, setStep] = useState(0);
@@ -31,6 +48,26 @@ export default function IntakePage() {
   const seeded = useRef(false);
 
   const engagementId = assessment?.engagement_id ?? '';
+
+  const importFromLedger = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await invokeFunction<{ filled: number }>('sync-ledger', {
+        assessment_id: assessmentId,
+      });
+      seeded.current = false; // re-seed drafts from the freshly imported answers
+      await qc.invalidateQueries({ queryKey: qk.answers(assessmentId ?? '') });
+      qc.invalidateQueries({ queryKey: ['answerProvenance', assessmentId ?? ''] });
+      toast.show(
+        r.filled > 0 ? `Imported ${r.filled} answers from QuickBooks` : 'Nothing to import',
+        'good',
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setBusy(false);
+  };
 
   // Redirect completed assessments to results (immutable — no intake).
   useEffect(() => {
@@ -99,19 +136,33 @@ export default function IntakePage() {
     : 0;
 
   const saveStep = async (): Promise<void> => {
+    const savedByQuestion = new Map((answersQ.data ?? []).map((a) => [a.question_id, a.value]));
     const rows = [];
+    const overridden: string[] = []; // ledger/doc answers the advisor edited by hand
     for (const q of questions) {
       const draft = drafts.get(q.id);
       if (!draft) continue;
       const value = toAnswerValue(q, draft);
       if (value === undefined) continue;
       rows.push({ assessment_id: assessmentId, question_id: q.id, value, answered_by: profile?.id ?? null });
+      const src = provenance[q.id];
+      if (
+        (src === 'connected_ledger' || src === 'document') &&
+        JSON.stringify(value) !== JSON.stringify(savedByQuestion.get(q.id))
+      ) {
+        overridden.push(q.id);
+      }
     }
     if (rows.length === 0) return;
     const { error } = await supabase
       .from('answers')
       .upsert(rows, { onConflict: 'assessment_id,question_id' });
     if (error) throw new Error(error.message);
+    // A hand-edited figure is no longer ledger-verified — drop its provenance.
+    if (overridden.length > 0) {
+      await supabase.from('answer_provenance').delete().eq('assessment_id', assessmentId).in('question_id', overridden);
+      qc.invalidateQueries({ queryKey: ['answerProvenance', assessmentId ?? ''] });
+    }
   };
 
   const missingScored = (): QuestionRow[] => scoredQuestions.filter((q) => !isAnswered(q));
@@ -183,6 +234,18 @@ export default function IntakePage() {
         </span>
       </div>
 
+      {connectedProvider && (
+        <div className="ledger-import">
+          <div>
+            <strong>{connectedProvider === 'quickbooks' ? 'QuickBooks' : 'Xero'} is connected.</strong>{' '}
+            <span className="muted">Import the financial figures automatically instead of entering them by hand — you can still edit anything after.</span>
+          </div>
+          <button onClick={importFromLedger} disabled={busy}>
+            {busy ? 'Importing…' : 'Import from QuickBooks'}
+          </button>
+        </div>
+      )}
+
       <ol className="stepper">
         {rubric.dimensions.map((d, i) => {
           const qs = rubric.questionsByDimension.get(d.id) ?? [];
@@ -222,6 +285,7 @@ export default function IntakePage() {
             draft={drafts.get(q.id)}
             answered={isAnswered(q)}
             onChange={setDraft}
+            source={provenance[q.id]}
           />
         ))}
       </section>
