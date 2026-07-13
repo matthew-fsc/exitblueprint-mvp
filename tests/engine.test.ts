@@ -117,4 +117,32 @@ describe('explainFromAnswers', () => {
     expect(explain.firedGaps.map((g) => g.code).sort()).toEqual(fixture.expected.gaps);
     expect(explain.firedGaps.every((g) => g.trigger)).toBe(true);
   });
+
+  it('projects the DRS upward if sub-score gaps are remediated to threshold', () => {
+    // Fixture 2 scores low and fires many sub_score_below gaps, so the projected
+    // DRS must exceed the current DRS and never exceed the target ceiling.
+    const fixture = loadFixture(FIXTURE_NAMES[1]);
+    const explain = explainFromAnswers(rubric, fixture.answers);
+    expect(explain.projectedDrs).toBeGreaterThan(explain.drsScore);
+    expect(explain.projectedDrs).toBeLessThanOrEqual(100);
+
+    // Recompute the projection by hand from the same thresholds and aggregation.
+    const floors = new Map<string, number>();
+    for (const g of explain.firedGaps) {
+      const t = g.trigger as { type: string; code?: string; threshold?: number };
+      if (t.type === 'sub_score_below' && t.code) {
+        floors.set(t.code, Math.max(floors.get(t.code) ?? 0, t.threshold ?? 0));
+      }
+    }
+    const points = new Map(explain.subScores.map((s) => [s.code, s.points]));
+    for (const [code, floor] of floors) points.set(code, Math.max(points.get(code) ?? 0, floor));
+    const dims = rubric.dimensions
+      .filter((d) => d.scoreGroup === 'business_readiness')
+      .map((d) => {
+        const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
+        return { d, score: Number(parts.reduce((a, s) => a + s.weight * (points.get(s.code) ?? 0), 0).toFixed(2)) };
+      });
+    const expected = Number(dims.reduce((a, x) => a + x.score * x.d.drsWeight, 0).toFixed(1));
+    expect(explain.projectedDrs).toBe(expected);
+  });
 });
