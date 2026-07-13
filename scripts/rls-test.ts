@@ -164,6 +164,12 @@ async function main() {
        values ($1, $2, $3, 'document')`,
       [ids.firm_b, assessmentBId, questionId],
     );
+    // Firm B ledger connection for the isolation checks.
+    await db.query(
+      `insert into ledger_connections (firm_id, company_id, provider, status, external_org_name)
+       values ($1, $2, 'quickbooks', 'connected', 'Beta Books')`,
+      [ids.firm_b, companyB],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -333,6 +339,14 @@ async function main() {
     }
     check('cannot write provenance for firm B', provBWriteBlocked);
 
+    // ledger_connections: advisor A reads/writes only their firm's rows.
+    const ledgerA = await db.query('select firm_id from ledger_connections');
+    check(
+      'cannot read firm B ledger connection',
+      ledgerA.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${ledgerA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -400,6 +414,28 @@ async function main() {
       await db.query('rollback to savepoint om');
     }
     check('owner cannot write milestones', ownerMilestoneWriteBlocked);
+    // Owner can connect their own company's ledger, and never sees firm B's.
+    let ownerLedgerWrite = false;
+    try {
+      await db.query('savepoint ol');
+      await db.query(
+        `insert into ledger_connections (firm_id, company_id, provider, status, external_org_name)
+         values ($1, $2, 'xero', 'connected', 'Alpha Books')`,
+        [ids.firm_a, companyA],
+      );
+      ownerLedgerWrite = true;
+      await db.query('release savepoint ol');
+    } catch {
+      await db.query('rollback to savepoint ol');
+    }
+    check('owner can connect own company ledger', ownerLedgerWrite);
+    const ownerLedger = await db.query('select firm_id from ledger_connections');
+    check(
+      'owner cannot read firm B ledger connection',
+      ownerLedger.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${ownerLedger.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+
     // Owner never sees another firm's financial provenance.
     const ownerProv = await db.query('select firm_id from answer_provenance');
     check(

@@ -36,6 +36,9 @@ export const qk = {
   advisoryLibrary: () => ['advisoryLibrary'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
+  ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
+  education: (engagementId: string) => ['education', engagementId] as const,
+  ledgerConnections: (companyId: string) => ['ledgerConnections', companyId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -702,6 +705,99 @@ export function useVerification(
     enabled: !!assessmentId,
     queryFn: () =>
       invokeFunction<VerificationSummary>('verification-summary', { assessment_id: assessmentId }),
+  });
+}
+
+// ---- owner portal (Phase 3) ------------------------------------------------
+// The owner's engagement, resolved from their company (RLS returns only theirs).
+export function useOwnerEngagement(
+  companyId: string | undefined | null,
+): UseQueryResult<EngagementRow | null> {
+  return useQuery({
+    queryKey: qk.ownerEngagement(companyId ?? ''),
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagements')
+        .select('*')
+        .eq('company_id', companyId!)
+        .order('started_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return ((data ?? [])[0] as EngagementRow) ?? null;
+    },
+  });
+}
+
+export interface EducationModule {
+  code: string;
+  title: string;
+  dimension_code: string | null;
+  body_md: string | null;
+  recommended: boolean;
+}
+
+// Education content for the owner: all modules, with the ones tied (via
+// gap_content_map) to a currently-open gap flagged "recommended for you".
+export function useEducation(
+  engagementId: string | undefined,
+  rubricVersionId: string | undefined,
+): UseQueryResult<EducationModule[]> {
+  return useQuery({
+    queryKey: qk.education(engagementId ?? ''),
+    enabled: !!engagementId && !!rubricVersionId,
+    queryFn: async () => {
+      const [mods, gaps, maps] = await Promise.all([
+        supabase.from('content_modules').select('*'),
+        supabase.from('gaps').select('*').eq('engagement_id', engagementId!).in('status', ['open', 'in_remediation']),
+        supabase.from('gap_content_map').select('*'),
+      ]);
+      for (const r of [mods, gaps, maps]) if (r.error) throw new Error(r.error.message);
+      const openGapDefIds = new Set(
+        (gaps.data ?? []).map((g: { gap_definition_id: string }) => g.gap_definition_id),
+      );
+      const recommendedContentIds = new Set(
+        (maps.data ?? [])
+          .filter((m: { gap_definition_id: string }) => openGapDefIds.has(m.gap_definition_id))
+          .map((m: { content_module_id: string }) => m.content_module_id),
+      );
+      return ((mods.data ?? []) as {
+        id: string;
+        code: string;
+        title: string;
+        dimension_code: string | null;
+        body_md: string | null;
+      }[]).map((m) => ({
+        code: m.code,
+        title: m.title,
+        dimension_code: m.dimension_code,
+        body_md: m.body_md,
+        recommended: recommendedContentIds.has(m.id),
+      }));
+    },
+  });
+}
+
+export interface LedgerConnection {
+  id: string;
+  firm_id: string;
+  company_id: string;
+  provider: 'quickbooks' | 'xero';
+  status: 'disconnected' | 'connected' | 'error';
+  external_org_name: string | null;
+  connected_at: string | null;
+  last_sync_at: string | null;
+}
+
+export function useLedgerConnections(
+  companyId: string | undefined | null,
+): UseQueryResult<LedgerConnection[]> {
+  return useQuery({
+    queryKey: qk.ledgerConnections(companyId ?? ''),
+    enabled: !!companyId,
+    queryFn: async () =>
+      unwrap<LedgerConnection[]>(
+        await supabase.from('ledger_connections').select('*').eq('company_id', companyId!),
+      ),
   });
 }
 
