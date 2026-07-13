@@ -13,8 +13,31 @@ import {
   parseGapContentMap,
   parseGapPlaybookMap,
   parsePlaybook,
+  parseValuationMultiples,
   validateRubric,
 } from '../shared/rubric-seed';
+
+// Phase 2 valuation rules (Matthew's approved starters; edit by adding a version).
+const VALUATION_VERSION_LABEL = 'VAL-1.0';
+const VALUATION_CONFIG = {
+  size_bands: [
+    { key: 'lt_1m', max: 1_000_000 },
+    { key: '1_3m', max: 3_000_000 },
+    { key: '3_5m', max: 5_000_000 },
+    { key: 'gt_5m', max: null },
+  ],
+  readiness_adjustments: {
+    'Institutional Grade': 1.15,
+    'Sale Ready': 1.0,
+    'Needs Work': 0.85,
+    'High Risk': 0.7,
+    'Not Saleable (Yet)': 0.55,
+  },
+  verification_widths: { document_verified: 0.1, partly_verified: 0.2, self_reported: 0.3 },
+  transaction_cost_pct: 0.08,
+  default_tax_rate: 0.28,
+  target_drs: 85,
+};
 
 const RUBRIC_VERSION_LABEL = 'DRS-1.0';
 
@@ -47,6 +70,7 @@ async function main() {
   const gapPlaybookMap = parseGapPlaybookMap(read('gap-playbook-map.csv'));
   const gapContentMap = parseGapContentMap(read('gap-content-map.csv'));
   const advisoryItems = parseAdvisoryLibrary(read('advisory-library.csv'));
+  const valuationMultiples = parseValuationMultiples(read('valuation-multiples.csv'));
 
   const problems = validateRubric(rubric, playbooks, contentModules, gapPlaybookMap, gapContentMap);
   if (problems.length > 0) {
@@ -226,6 +250,26 @@ async function main() {
       );
     }
 
+    // Valuation rules: one active version holding the config, plus the multiples.
+    const valuationVersionId = await upsert(
+      'valuation_rules_versions',
+      `insert into valuation_rules_versions (version_label, status, effective_date, config)
+       values ($1, 'active', current_date, $2)
+       on conflict (version_label) do update set status = 'active', config = excluded.config
+       returning id, (xmax = 0) as inserted`,
+      [VALUATION_VERSION_LABEL, JSON.stringify(VALUATION_CONFIG)],
+    );
+    for (const m of valuationMultiples) {
+      await upsert(
+        'valuation_multiples',
+        `insert into valuation_multiples (rules_version_id, industry_key, size_band, base_multiple)
+         values ($1, $2, $3, $4)
+         on conflict (rules_version_id, industry_key, size_band) do update set base_multiple = excluded.base_multiple
+         returning id, (xmax = 0) as inserted`,
+        [valuationVersionId, m.industryKey, m.sizeBand, m.baseMultiple],
+      );
+    }
+
     await db.query('commit');
   } catch (err) {
     await db.query('rollback');
@@ -245,6 +289,8 @@ async function main() {
     gap_playbook_map: gapPlaybookMap.length,
     gap_content_map: gapContentMap.length,
     advisory_library_items: advisoryItems.length,
+    valuation_rules_versions: 1,
+    valuation_multiples: valuationMultiples.length,
   };
   let mismatched = false;
   console.log('seed: table                      inserted  updated  total  expected');

@@ -20,6 +20,7 @@ import { instantiateTasksForGaps } from '../server/roadmap';
 import { fireAdvisoryItems, educationModules } from '../server/advisory';
 import { verificationSummary } from '../server/verification';
 import { syncLedgerToAssessment } from '../server/ledger';
+import { computeValuation } from '../server/valuation';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -324,6 +325,9 @@ export function supabaseDevServer(): Plugin {
       }
       if (name === 'education-modules') {
         return json(res, 200, await educationModules(service, body.engagement_id));
+      }
+      if (name === 'compute-valuation') {
+        return json(res, 200, await computeValuation(service, body.engagement_id));
       }
       if (name === 'verification-summary') {
         return json(res, 200, await verificationSummary(service, assessmentId));

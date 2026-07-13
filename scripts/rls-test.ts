@@ -170,6 +170,19 @@ async function main() {
        values ($1, $2, 'quickbooks', 'connected', 'Beta Books')`,
       [ids.firm_b, companyB],
     );
+    // Firm B valuation recast + inputs for the isolation checks.
+    await db.query(
+      `insert into ebitda_recasts (firm_id, engagement_id, reported_ebitda) values ($1, $2, 900000)`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into valuation_inputs (firm_id, engagement_id, owner_wealth_target) values ($1, $2, 4000000)`,
+      [ids.firm_b, engagementB],
+    );
+    // A valuation rules version (rls-test runs before db:seed, so seed it here).
+    await db.query(
+      `insert into valuation_rules_versions (version_label, status) values ('RLS-VAL-1', 'active')`,
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -347,6 +360,22 @@ async function main() {
       `saw ${ledgerA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
     );
 
+    // valuation: methodology readable; firm B recast/inputs never visible.
+    const valRules = await db.query('select count(*)::int c from valuation_rules_versions');
+    check('can read valuation methodology', valRules.rows[0].c >= 1);
+    const recastA = await db.query('select firm_id from ebitda_recasts');
+    check(
+      'cannot read firm B recast',
+      recastA.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${recastA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+    const valInA = await db.query('select firm_id from valuation_inputs');
+    check(
+      'cannot read firm B valuation inputs',
+      valInA.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${valInA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+
     // --- Advisor B: mirror check ------------------------------------------
     console.log('advisor B (firm B):');
     await asUser(ids.user_b);
@@ -434,6 +463,13 @@ async function main() {
       'owner cannot read firm B ledger connection',
       ownerLedger.rows.every((r) => r.firm_id !== ids.firm_b),
       `saw ${ownerLedger.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+    // Owner reads their own number but never another firm's valuation.
+    const ownerRecast = await db.query('select firm_id from ebitda_recasts');
+    check(
+      'owner cannot read firm B recast',
+      ownerRecast.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${ownerRecast.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
     );
 
     // Owner never sees another firm's financial provenance.
