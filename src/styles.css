@@ -3128,3 +3128,18 @@ textarea:focus {
 .diverge-marker-ori { background: var(--status-serious); }
 .diverge-note { font-size: 0.82rem; color: var(--text-secondary); margin: 0; line-height: 1.45; }
 .diverge-note-alert { color: var(--status-serious); font-weight: 500; }
+
+/* ---- Deal-team handoff: tasks by responsible party ---------------------- */
+.handoff { display: flex; flex-direction: column; gap: 0.55rem; }
+.handoff-row { display: grid; grid-template-columns: 8.5rem 1fr auto auto; gap: 0.75rem; align-items: center; }
+.handoff-role { font-size: 0.88rem; font-weight: 600; }
+.handoff-bar { height: 0.55rem; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.handoff-fill { height: 100%; background: var(--status-good); border-radius: 999px; }
+.handoff-count { font-size: 0.82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.handoff-count strong { font-weight: 700; }
+.handoff-clear { color: var(--status-good); font-weight: 600; }
+.handoff-due { font-size: 0.78rem; white-space: nowrap; min-width: 6rem; text-align: right; }
+@media (max-width: 560px) {
+  .handoff-row { grid-template-columns: 6.5rem 1fr auto; }
+  .handoff-due { display: none; }
+}

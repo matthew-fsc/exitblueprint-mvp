@@ -169,6 +169,21 @@ export default function RoadmapPage() {
   const openTasks = tasks.filter((t) => t.status !== 'done');
   const doneTasks = tasks.filter((t) => t.status === 'done');
 
+  // Deal-team handoff view: what each responsible party owns, and how far along.
+  const ROLE_ORDER = ['owner', 'advisor', 'cpa', 'attorney', 'ops'];
+  const ROLE_LABEL: Record<string, string> = {
+    owner: 'Owner', advisor: 'Advisor', cpa: 'CPA / accountant', attorney: 'Attorney', ops: 'Operations',
+  };
+  const roleGroups = ROLE_ORDER.map((role) => {
+    const rt = tasks.filter((t) => t.owner_role === role);
+    const done = rt.filter((t) => t.status === 'done').length;
+    const nextDue = rt
+      .filter((t) => t.status !== 'done' && t.due_date)
+      .map((t) => t.due_date as string)
+      .sort()[0];
+    return { role, total: rt.length, done, open: rt.length - done, nextDue };
+  }).filter((g) => g.total > 0);
+
   return (
     <div>
       <PageHeader
@@ -202,6 +217,36 @@ export default function RoadmapPage() {
       ) : (
         <Card pad="lg">
           <GanttChart items={ganttItems} />
+        </Card>
+      )}
+
+      {/* deal-team handoff: what each responsible party owns */}
+      {roleGroups.length > 0 && (
+        <Card>
+          <span className="stat-block-label">By responsible party</span>
+          <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+            Who owns the remaining work — the advisor, the owner, and the deal team they coordinate.
+          </p>
+          <div className="handoff">
+            {roleGroups.map((g) => {
+              const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
+              return (
+                <div className="handoff-row" key={g.role}>
+                  <span className="handoff-role">{ROLE_LABEL[g.role] ?? g.role}</span>
+                  <div className="handoff-bar" title={`${g.done} of ${g.total} done`}>
+                    <div className="handoff-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="handoff-count">
+                    {g.open > 0 ? <><strong>{g.open}</strong> open</> : <span className="handoff-clear">clear</span>}
+                    <span className="muted"> · {g.done}/{g.total}</span>
+                  </span>
+                  <span className="handoff-due muted">
+                    {g.nextDue ? `next ${fmtDate(g.nextDue)}` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </Card>
       )}
 
