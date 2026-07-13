@@ -145,7 +145,7 @@ export default function OwnerHomePage() {
             </Link>
             <Link className="owner-link" to="/portal/connect">
               <span className="owner-link-title">Connect accounting</span>
-              <span className="owner-link-sub">Verify your financials in one click</span>
+              <span className="owner-link-sub">Link your books to verify your financials</span>
             </Link>
           </div>
         </Card>
