@@ -3278,3 +3278,57 @@ textarea:focus {
 .ledger-badge { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; font-size: 0.68rem;
   font-weight: 700; color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent);
   border-radius: 999px; padding: 0.1rem 0.45rem; vertical-align: middle; }
+
+/* ---- Valuation (Phase 2) ------------------------------------------------ */
+.val-start { display: flex; gap: 0.7rem; align-items: flex-end; margin-top: 1rem; flex-wrap: wrap; }
+.val-start label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; flex: 1; min-width: 14rem; }
+.val-start input { font-weight: 400; }
+
+.val-headline { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.5rem; }
+@media (max-width: 760px) { .val-headline { grid-template-columns: 1fr; } }
+.val-ev-range { display: flex; align-items: baseline; gap: 1rem; margin: 0.4rem 0 0.5rem; }
+.val-ev-base { font-family: var(--serif, Georgia, serif); font-size: 2.6rem; font-weight: 700; line-height: 1; }
+.val-ev-low, .val-ev-high { font-size: 1.1rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.val-ev-bar { position: relative; height: 0.5rem; background: var(--surface-3); border-radius: 999px; margin-bottom: 0.6rem; }
+.val-ev-fill { position: absolute; left: 12%; right: 12%; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; }
+.val-ev-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 3px; background: var(--accent-strong); border-radius: 2px; transform: translateX(-50%); }
+.val-ev-basis { font-size: 0.8rem; }
+
+.val-gaps { display: flex; flex-direction: column; gap: 1rem; border-left: 1px solid var(--border); padding-left: 1.5rem; }
+@media (max-width: 760px) { .val-gaps { border-left: none; padding-left: 0; } }
+.val-gap { display: flex; flex-direction: column; gap: 0.1rem; }
+.val-gap-num { font-size: 1.7rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent-strong); }
+.val-gap-num.val-gap-short { color: var(--status-serious); }
+.val-gap-num.val-gap-ok { color: var(--status-good); }
+.val-gap-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.val-gap .muted { font-size: 0.8rem; }
+
+.val-reported { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; margin: 0.7rem 0; }
+.val-reported input { font-weight: 400; max-width: 14rem; }
+.val-addbacks { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.val-addbacks td { padding: 0.35rem 0.4rem 0.35rem 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.val-addbacks tr.val-ab-excluded td:not(:last-child) { opacity: 0.5; text-decoration: line-through; }
+.val-ab-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.val-addbacks select { font-size: 0.78rem; padding: 0.2rem 0.4rem; }
+.val-ab-form { display: grid; grid-template-columns: 1fr 6rem 8rem auto; gap: 0.4rem; margin-top: 0.6rem; }
+.val-ab-form input, .val-ab-form select { font-size: 0.82rem; padding: 0.35rem 0.5rem; }
+@media (max-width: 620px) { .val-ab-form { grid-template-columns: 1fr 1fr; } }
+.val-recast-totals { margin-top: 0.7rem; font-size: 0.82rem; }
+
+.val-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.7rem 0 1rem; }
+.val-inputs label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; font-weight: 600; }
+.val-inputs input, .val-inputs select { font-weight: 400; padding: 0.4rem 0.5rem; }
+.val-net { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.val-net td { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+.val-net td:last-child { text-align: right; }
+.val-net-total td { border-bottom: none; border-top: 2px solid var(--border-strong); font-weight: 700; padding-top: 0.5rem; }
+.val-disclaimer { font-size: 0.76rem; font-style: italic; }
+
+/* ---- Owner value card ---- */
+.owner-value { display: flex; gap: 2.5rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.owner-value-main { display: flex; flex-direction: column; gap: 0.15rem; }
+.owner-value-num { font-family: var(--serif, Georgia, serif); font-size: 2rem; font-weight: 700; line-height: 1;
+  color: var(--accent-strong); font-variant-numeric: tabular-nums; }
+.owner-value-num.owner-value-short { color: var(--status-serious); }
+.owner-value-num.owner-value-ok { color: var(--status-good); }
+.owner-value-main .muted { font-size: 0.8rem; max-width: 16rem; }

@@ -157,6 +157,11 @@ export default function EngagementPage() {
         actions={
           <>
             {completed.length > 0 && (
+              <Link className="button-link" to={`/engagement/${engagementId}/valuation`}>
+                Valuation →
+              </Link>
+            )}
+            {completed.length > 0 && (
               <Link className="button-link" to={`/engagement/${engagementId}/buyer-lens`}>
                 Buyer lens →
               </Link>

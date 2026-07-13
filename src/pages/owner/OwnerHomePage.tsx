@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useOwnerContext } from '../../lib/owner';
-import { useExplain, useEngagementGaps, useVerification } from '../../lib/queries';
+import { useExplain, useEngagementGaps, useValuation, useVerification } from '../../lib/queries';
 import { Card, EmptyState, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
-import { fmtScore } from '../../lib/format';
+import { fmtCurrencyCompact, fmtScore } from '../../lib/format';
 
 const TIER_PLAIN: Record<string, string> = {
   'Institutional Grade': 'Your business is in the strongest shape buyers look for.',
@@ -17,7 +17,9 @@ export default function OwnerHomePage() {
   const explainQ = useExplain(latest?.id);
   const gapsQ = useEngagementGaps(engagement?.id, latest?.rubric_version_id);
   const verifQ = useVerification(latest?.id);
+  const valuationQ = useValuation(engagement?.id);
   const explain = explainQ.data;
+  const val = valuationQ.data;
 
   if (loading) return <Card><SkeletonLines lines={6} /></Card>;
 
@@ -75,6 +77,36 @@ export default function OwnerHomePage() {
           )}
         </Card>
       </div>
+
+      {val?.has_recast && (
+        <Card>
+          <span className="stat-block-label">What your business could be worth</span>
+          <div className="owner-value">
+            <div className="owner-value-main">
+              <span className="owner-value-num">{fmtCurrencyCompact(val.ev_base)}</span>
+              <span className="muted">estimated enterprise value · range {fmtCurrencyCompact(val.ev_low)}–{fmtCurrencyCompact(val.ev_high)}</span>
+            </div>
+            <div className="owner-value-main">
+              <span className="owner-value-num">{fmtCurrencyCompact(val.net_proceeds)}</span>
+              <span className="muted">estimated net to you, after debt, costs, and taxes</span>
+            </div>
+            {val.owner_wealth_target != null && val.wealth_gap != null && (
+              <div className="owner-value-main">
+                <span className={`owner-value-num ${val.wealth_gap > 0 ? 'owner-value-short' : 'owner-value-ok'}`}>
+                  {val.wealth_gap > 0 ? fmtCurrencyCompact(val.wealth_gap) : 'On track'}
+                </span>
+                <span className="muted">
+                  {val.wealth_gap > 0 ? `to reach your ${fmtCurrencyCompact(val.owner_wealth_target)} goal` : `vs. your ${fmtCurrencyCompact(val.owner_wealth_target)} goal`}
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="muted" style={{ margin: '0.7rem 0 0', fontSize: '0.78rem', fontStyle: 'italic' }}>
+            An estimate to guide planning — not an appraisal. Finishing your plan is worth about{' '}
+            {fmtCurrencyCompact(val.value_creation_gap)} more in enterprise value.
+          </p>
+        </Card>
+      )}
 
       <div className="owner-grid">
         <Card>

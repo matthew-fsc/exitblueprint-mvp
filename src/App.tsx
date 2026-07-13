@@ -13,6 +13,7 @@ import DeltaReportPage from './pages/DeltaReportPage';
 import RoadmapPage from './pages/RoadmapPage';
 import BuyerLensPage from './pages/BuyerLensPage';
 import LibraryPage from './pages/LibraryPage';
+import ValuationPage from './pages/ValuationPage';
 import OwnerHomePage from './pages/owner/OwnerHomePage';
 import OwnerPlanPage from './pages/owner/OwnerPlanPage';
 import OwnerLearnPage from './pages/owner/OwnerLearnPage';
@@ -232,6 +233,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <BuyerLensPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/valuation"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <ValuationPage />
                 </Shell>
               </RequireAdvisor>
             }
