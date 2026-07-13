@@ -341,6 +341,41 @@ export interface ExplainResult {
   oriScore: number;
   firedGaps: { code: string; name: string; severity: string; trigger: GapTrigger }[];
   flags: string[];
+  // Where the DRS would land if every currently-open, sub-score-driven gap were
+  // remediated to just clear its trigger threshold. Descriptive projection for
+  // the "on pace" chart — computed with the same aggregation as the live score.
+  projectedDrs: number;
+}
+
+// Recompute the DRS after raising the named sub-scores to (at least) the given
+// floors. Uses the exact dimension/DRS aggregation as scoreFromAnswers, so a
+// projection never drifts from the canonical engine.
+export function projectDrs(
+  rubric: Rubric,
+  currentPoints: Map<string, number>,
+  floors: Map<string, number>,
+): number {
+  const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
+  const points = new Map(currentPoints);
+  for (const [code, floor] of floors) {
+    points.set(code, Math.max(points.get(code) ?? 0, floor));
+  }
+  const dimensionScores = rubric.dimensions
+    .filter((d) => d.scoreGroup === 'business_readiness')
+    .map((d) => {
+      const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
+      return {
+        code: d.code,
+        score: pyRound(
+          parts.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0),
+          2,
+        ),
+      };
+    });
+  return pyRound(
+    dimensionScores.reduce((acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight, 0),
+    1,
+  );
 }
 
 export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainResult {
@@ -379,6 +414,18 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
     .filter((g) => result.gapCodes.includes(g.code))
     .map((g) => ({ code: g.code, name: g.name, severity: g.severity, trigger: g.trigger }));
 
+  // Projection: remediating a fired sub_score_below gap means lifting that
+  // sub-score to its threshold. Composite/answer-based gaps don't map to a
+  // single sub-score, so they don't move the projected DRS.
+  const floors = new Map<string, number>();
+  for (const g of firedGaps) {
+    if (g.trigger.type === 'sub_score_below') {
+      floors.set(g.trigger.code, Math.max(floors.get(g.trigger.code) ?? 0, g.trigger.threshold));
+    }
+  }
+  const currentPoints = new Map(result.subScores.map((s) => [s.code, s.points]));
+  const projectedDrs = projectDrs(rubric, currentPoints, floors);
+
   return {
     subScores,
     dimensions,
@@ -387,5 +434,6 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
     oriScore: result.oriScore,
     firedGaps,
     flags: result.flags,
+    projectedDrs,
   };
 }

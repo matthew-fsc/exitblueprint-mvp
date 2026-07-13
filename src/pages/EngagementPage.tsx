@@ -193,7 +193,14 @@ export default function EngagementPage() {
               Competitive-Process-Ready (DRS {TARGET_DRS}) in time.
             </p>
             <div style={{ marginTop: '0.75rem' }}>
-              <ExitPaceChart points={pacePoints} targetScore={TARGET_DRS} targetDate={exitDate} />
+              <ExitPaceChart
+                points={pacePoints}
+                targetScore={TARGET_DRS}
+                targetDate={exitDate}
+                projectedScore={
+                  explain && explain.projectedDrs > explain.drsScore ? explain.projectedDrs : null
+                }
+              />
             </div>
           </Card>
 

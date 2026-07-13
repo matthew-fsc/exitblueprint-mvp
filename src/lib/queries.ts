@@ -188,6 +188,7 @@ export interface ExplainResultShape {
   oriScore: number;
   firedGaps: { code: string; name: string; severity: string; trigger: unknown }[];
   flags: string[];
+  projectedDrs: number;
 }
 
 export function useExplain(assessmentId: string | undefined): UseQueryResult<ExplainResultShape> {
