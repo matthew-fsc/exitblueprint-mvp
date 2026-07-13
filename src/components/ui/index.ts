@@ -19,4 +19,5 @@ export { TrajectoryChart, type TrajectoryPoint } from './TrajectoryChart';
 export { ExitPaceChart, type PacePoint } from './ExitPaceChart';
 export { ContributionBars, type ContributionDatum } from './ContributionBars';
 export { DivergenceMeter } from './DivergenceMeter';
+export { GapBurndown, type BurndownDatum } from './GapBurndown';
 export { tierClass } from './tier';

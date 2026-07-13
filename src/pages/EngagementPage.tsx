@@ -12,6 +12,7 @@ import {
   useEngagement,
   useEngagementDocuments,
   useEngagementGaps,
+  useGapBurndown,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -29,6 +30,7 @@ import {
   ExitPaceChart,
   ContributionBars,
   DivergenceMeter,
+  GapBurndown,
   type Column,
   type PacePoint,
 } from '../components/ui';
@@ -76,6 +78,7 @@ export default function EngagementPage() {
   const completed = assessments.filter((a) => a.status === 'completed' && a.drs_score != null);
   const latest = completed[completed.length - 1] ?? null;
   const gapsQ = useEngagementGaps(engagementId, latest?.rubric_version_id);
+  const burndownQ = useGapBurndown(engagementId, latest?.rubric_version_id);
   const explainQ = useExplain(latest?.id);
 
   const startAssessment = async () => {
@@ -283,6 +286,14 @@ export default function EngagementPage() {
                   </ul>
                 )}
               </div>
+              {completed.length > 1 && (burndownQ.data ?? []).length > 1 && (
+                <div className="eng-burndown">
+                  <span className="stat-block-label">Open gaps over time</span>
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <GapBurndown points={burndownQ.data ?? []} />
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 

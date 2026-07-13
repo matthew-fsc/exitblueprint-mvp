@@ -339,6 +339,75 @@ export interface EngagementGap {
   playbookSummary: string | null;
 }
 
+export interface BurndownPoint {
+  seq: number;
+  date: string | null;
+  critical: number;
+  high: number;
+  med: number;
+  low: number;
+  total: number;
+}
+
+// Open gaps by severity as of each completed assessment — the burn-down that
+// shows remediation progress. A gap is open as of assessment A if it was opened
+// at/before A and not resolved until after A. Joined client-side (the dev REST
+// surface has no joins), like useEngagementGaps.
+export function useGapBurndown(
+  engagementId: string | undefined,
+  rubricVersionId: string | undefined,
+): UseQueryResult<BurndownPoint[]> {
+  return useQuery({
+    queryKey: ['gapBurndown', engagementId ?? ''],
+    enabled: !!engagementId && !!rubricVersionId,
+    queryFn: async () => {
+      const [gaps, defs, assess] = await Promise.all([
+        supabase.from('gaps').select('*').eq('engagement_id', engagementId!),
+        supabase.from('gap_definitions').select('*').eq('rubric_version_id', rubricVersionId!),
+        supabase.from('assessments').select('*').eq('engagement_id', engagementId!).eq('status', 'completed'),
+      ]);
+      for (const r of [gaps, defs, assess]) if (r.error) throw new Error(r.error.message);
+      const sevById = new Map(
+        (defs.data ?? []).map((d: { id: string; severity: string }) => [d.id, d.severity]),
+      );
+      const completed = ([...(assess.data ?? [])] as {
+        id: string;
+        sequence_number: number;
+        completed_at: string;
+      }[]).sort((a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime());
+      const byId = new Map(completed.map((a) => [a.id, a]));
+      const allGaps = (gaps.data ?? []) as {
+        gap_definition_id: string;
+        opened_by_assessment_id: string;
+        resolved_by_assessment_id: string | null;
+      }[];
+      return completed.map((a) => {
+        const cA = new Date(a.completed_at).getTime();
+        const counts = { critical: 0, high: 0, med: 0, low: 0 } as Record<string, number>;
+        for (const g of allGaps) {
+          const opener = byId.get(g.opened_by_assessment_id);
+          if (!opener || new Date(opener.completed_at).getTime() > cA) continue;
+          if (g.resolved_by_assessment_id) {
+            const res = byId.get(g.resolved_by_assessment_id);
+            if (res && new Date(res.completed_at).getTime() <= cA) continue;
+          }
+          const sev = sevById.get(g.gap_definition_id) ?? 'med';
+          counts[sev] = (counts[sev] ?? 0) + 1;
+        }
+        return {
+          seq: a.sequence_number,
+          date: a.completed_at,
+          critical: counts.critical,
+          high: counts.high,
+          med: counts.med,
+          low: counts.low,
+          total: counts.critical + counts.high + counts.med + counts.low,
+        };
+      });
+    },
+  });
+}
+
 export function useEngagementGaps(
   engagementId: string | undefined,
   rubricVersionId: string | undefined,
