@@ -14,22 +14,7 @@ import type { Connect, Plugin } from 'vite';
 import type { ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
-import { compareAssessments, explainAssessment, scoreAssessment } from '../server/scoring';
-import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from '../server/narrative';
-import { instantiateTasksForGaps } from '../server/roadmap';
-import { fireAdvisoryItems, educationModules } from '../server/advisory';
-import { verificationSummary } from '../server/verification';
-import { syncLedgerToAssessment } from '../server/ledger';
-import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from '../server/ledger-oauth';
-import { computeValuation } from '../server/valuation';
-import { recordDealOutcome, firmCalibration } from '../server/outcomes';
-import { inviteOwner } from '../server/invite';
-import {
-  renderDeltaReportHtml,
-  renderOwnerReportHtml,
-  renderReportPdf,
-  type ReportBranding,
-} from '../server/pdf';
+import { handleFunctionCall } from '../server/functions';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -275,224 +260,25 @@ export function supabaseDevServer(): Plugin {
     if (!claims) return json(res, 401, { message: 'JWT required' });
     const name = url.pathname.replace('/functions/v1/', '');
     const body = JSON.parse((await readBody(req)) || '{}');
-    const assessmentId = body.assessment_id;
 
-    // Authorize through RLS first. Ledger connection functions are company-
-    // scoped; engagement-scoped functions check the engagement; the rest check
-    // every assessment id they reference.
-    const LEDGER_FNS = new Set(['ledger-connect-begin', 'ledger-connect-complete', 'ledger-disconnect']);
-    const FIRM_FNS = new Set(['deal-calibration']);
-    let callerFirmId: string | null = null;
-    if (FIRM_FNS.has(name)) {
-      // Firm-scoped readouts: resolve the caller's own firm from their advisor
-      // profile — never trust a firm_id from the body.
-      callerFirmId = await asUser(claims, async (c) => {
-        const r = await c.query(
-          `select firm_id from profiles where user_id = $1 and role in ('advisor', 'admin')`,
-          [claims.sub],
-        );
-        return (r.rows[0]?.firm_id as string | undefined) ?? null;
-      });
-      if (!callerFirmId) return json(res, 403, { message: 'advisor profile required' });
-    } else if (LEDGER_FNS.has(name)) {
-      // Resolve the company this action touches (complete() carries only the
-      // opaque state, so read the company from the pending row), then confirm
-      // the caller can see that company under RLS.
-      let companyId: string | null =
-        typeof body.company_id === 'string' ? body.company_id : null;
-      if (name === 'ledger-connect-complete') {
-        companyId =
-          (await pool.query(`select company_id from ledger_oauth_states where state = $1`, [body.state]))
-            .rows[0]?.company_id ?? null;
-        // Unknown state: skip company auth and let the function return the
-        // proper "invalid or expired" error rather than a misleading 404.
-      }
-      if (name !== 'ledger-connect-complete' && !companyId) {
-        return json(res, 400, { message: 'company_id required' });
-      }
-      if (companyId) {
-        const visible = await asUser(claims, async (c) => {
-          const r = await c.query(`select id from companies where id = $1`, [companyId]);
-          return r.rowCount === 1;
-        });
-        if (!visible) return json(res, 404, { message: 'company not found' });
-      }
-    } else if (typeof body.engagement_id === 'string') {
-      const visible = await asUser(claims, async (c) => {
-        const r = await c.query(`select id from engagements where id = $1`, [body.engagement_id]);
-        return r.rowCount === 1;
-      });
-      if (!visible) return json(res, 404, { message: 'engagement not found' });
-    } else {
-      const ids = [assessmentId, body.prior_assessment_id, body.current_assessment_id].filter(
-        (v): v is string => typeof v === 'string',
-      );
-      const visible = await asUser(claims, async (c) => {
-        const r = await c.query(`select id from assessments where id = any($1)`, [ids]);
-        return ids.length > 0 && r.rowCount === ids.length;
-      });
-      if (!visible) return json(res, 404, { message: 'assessment not found' });
-    }
-
-    // Then run the server function with a service connection (like an edge
-    // function with the service role).
+    // Thin transport adapter over the portable router (server/functions.ts): a
+    // service-role connection for the privileged work, and asUser bound to the
+    // caller's claims so RLS applies exactly as in PostgREST. A production host
+    // mounts the same handleFunctionCall the same way.
     const service = await pool.connect();
     try {
-      if (name === 'score-assessment') {
-        return json(res, 200, await scoreAssessment(service, assessmentId));
-      }
-      if (name === 'explain-assessment') {
-        return json(res, 200, await explainAssessment(service, assessmentId));
-      }
-      if (name === 'compare-assessments') {
-        return json(
-          res,
-          200,
-          await compareAssessments(service, body.prior_assessment_id, body.current_assessment_id),
-        );
-      }
-      if (name === 'generate-document') {
-        return json(res, 200, await generateDocument(service, assessmentId, body.doc_type ?? 'owner_report'));
-      }
-      if (name === 'generate-roadmap') {
-        return json(
-          res,
-          200,
-          await instantiateTasksForGaps(service, body.engagement_id, body.anchor_date ?? null),
-        );
-      }
-      if (name === 'advisory-items') {
-        return json(res, 200, await fireAdvisoryItems(service, body.engagement_id));
-      }
-      if (name === 'education-modules') {
-        return json(res, 200, await educationModules(service, body.engagement_id));
-      }
-      if (name === 'compute-valuation') {
-        return json(res, 200, await computeValuation(service, body.engagement_id));
-      }
-      if (name === 'invite-owner') {
-        return json(res, 200, await inviteOwner(service, body.engagement_id, body.email, body.full_name));
-      }
-      if (name === 'record-deal-outcome') {
-        return json(res, 200, await recordDealOutcome(service, body.engagement_id, body.input ?? {}));
-      }
-      if (name === 'deal-calibration') {
-        return json(res, 200, await firmCalibration(service, callerFirmId!));
-      }
-      if (name === 'verification-summary') {
-        return json(res, 200, await verificationSummary(service, assessmentId));
-      }
-      if (name === 'sync-ledger') {
-        return json(res, 200, await syncLedgerToAssessment(service, assessmentId));
-      }
-      if (name === 'ledger-connect-begin') {
-        return json(
-          res,
-          200,
-          await beginLedgerConnect(service, {
-            companyId: body.company_id,
-            provider: body.provider,
-            connectedBy: body.connected_by ?? null,
-            returnTo: body.return_to ?? null,
-          }),
-        );
-      }
-      if (name === 'ledger-connect-complete') {
-        return json(
-          res,
-          200,
-          await completeLedgerConnect(service, {
-            state: body.state,
-            code: body.code ?? null,
-            realmId: body.realm_id ?? null,
-          }),
-        );
-      }
-      if (name === 'ledger-disconnect') {
-        // Confirm the target connection belongs to the authorized company.
-        const owns =
-          (
-            await service.query(
-              `select id from ledger_connections where id = $1 and company_id = $2`,
-              [body.connection_id, body.company_id],
-            )
-          ).rowCount === 1;
-        if (!owns) return json(res, 404, { message: 'connection not found' });
-        return json(res, 200, await disconnectLedger(service, { connectionId: body.connection_id }));
-      }
-      if (name === 'render-delta-pdf') {
-        const payload = await buildDeltaReportPayload(service, assessmentId);
-        const doc = (
-          await service.query(
-            `select gd.content_md, e.firm_id
-             from generated_documents gd join engagements e on e.id = gd.engagement_id
-             where gd.assessment_id = $1 and gd.doc_type = 'delta_report'
-             order by gd.created_at desc limit 1`,
-            [assessmentId],
-          )
-        ).rows[0];
-        if (!doc) return json(res, 404, { message: 'no delta report generated for this assessment yet' });
-        const branding = (
-          await service.query(
-            `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
-             from firm_branding where firm_id = $1`,
-            [doc.firm_id],
-          )
-        ).rows[0] as ReportBranding | undefined;
-        const html = renderDeltaReportHtml(payload, doc.content_md, branding ?? null);
-        const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
+      const result = await handleFunctionCall(name, body, {
+        userId: claims.sub,
+        asUser: (fn) => asUser(claims, fn),
+        service,
+      });
+      if (result.kind === 'pdf') {
         res.statusCode = 200;
         res.setHeader('content-type', 'application/pdf');
-        res.setHeader('content-disposition', 'attachment; filename="delta-report.pdf"');
-        return res.end(pdf);
+        res.setHeader('content-disposition', `attachment; filename="${result.filename}"`);
+        return res.end(Buffer.from(result.buffer));
       }
-      if (name === 'render-owner-pdf') {
-        const explain = await explainAssessment(service, assessmentId);
-        const payload = await buildOwnerReportPayload(service, assessmentId);
-        const doc = (
-          await service.query(
-            `select gd.content_md, e.firm_id, a.completed_at
-             from generated_documents gd
-             join engagements e on e.id = gd.engagement_id
-             join assessments a on a.id = gd.assessment_id
-             where gd.assessment_id = $1 and gd.doc_type = 'owner_report'
-             order by gd.created_at desc limit 1`,
-            [assessmentId],
-          )
-        ).rows[0];
-        if (!doc) return json(res, 404, { message: 'no owner report generated for this assessment yet' });
-        const branding = (
-          await service.query(
-            `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
-             from firm_branding where firm_id = $1`,
-            [doc.firm_id],
-          )
-        ).rows[0] as ReportBranding | undefined;
-        const html = renderOwnerReportHtml(
-          {
-            companyName: payload.company.name,
-            industry: payload.company.industry,
-            targetWindow: payload.engagement_target_window,
-            date: doc.completed_at,
-            drs: explain.drsScore,
-            tier: explain.drsTier,
-            ori: explain.oriScore,
-            dimensions: explain.dimensions.map((d) => ({ name: d.name, score: d.score })),
-            topGaps: payload.top_gaps,
-            flags: explain.flags,
-          },
-          doc.content_md,
-          branding ?? null,
-        );
-        const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
-        res.statusCode = 200;
-        res.setHeader('content-type', 'application/pdf');
-        res.setHeader('content-disposition', 'attachment; filename="exit-readiness-report.pdf"');
-        return res.end(pdf);
-      }
-      return json(res, 404, { message: `unknown function '${name}'` });
-    } catch (err) {
-      return json(res, 400, { message: (err as Error).message });
+      return json(res, result.status, result.body);
     } finally {
       service.release();
     }
