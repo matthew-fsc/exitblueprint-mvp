@@ -11,6 +11,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
+import { instantiateTasksForGaps } from '../server/roadmap';
 import type { Answers } from '../shared/scoring/types';
 
 const DEMO_FIRM = 'Blueprint Demo Advisors';
@@ -161,6 +162,11 @@ async function main() {
        on conflict (engagement_id) do nothing`,
       [firmId, engagementId],
     );
+
+    // Build the remediation roadmap from the open gaps so the owner's plan is
+    // populated (anchored to today, forward-looking). Idempotent.
+    const roadmap = await instantiateTasksForGaps(db, engagementId, new Date().toISOString().slice(0, 10));
+    if (roadmap.tasksCreated > 0) console.log(`seed-demo: roadmap built — ${roadmap.tasksCreated} tasks`);
 
     // Branded demo firm (F1): the advisor's firm is the face on client-facing
     // reports. Idempotent upsert on firm_id.

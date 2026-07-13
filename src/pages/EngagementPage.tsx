@@ -36,6 +36,7 @@ import {
   type PacePoint,
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
+import { AccountingCard } from '../components/AccountingCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -239,8 +240,15 @@ export default function EngagementPage() {
             </div>
           )}
 
-          {/* financial verification (Phase 1) */}
-          {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+          {/* accounting connection + financial verification */}
+          <div className="eng-grid">
+            <AccountingCard
+              companyId={engagement.company_id}
+              companyName={companyName}
+              firmId={engagement.firm_id}
+            />
+            {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+          </div>
 
           {/* current snapshot + open gaps */}
           <div className="eng-grid">

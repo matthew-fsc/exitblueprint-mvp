@@ -2694,6 +2694,17 @@ textarea:focus {
   .app-bar-left .app-bar-divider { display: none; }
   .app-nav-link { padding: 0 0.6rem; }
 }
+/* Narrow screens: let the nav scroll and the brand truncate instead of pushing
+   the page wider (the app bar is global, so this prevents body overflow). */
+@media (max-width: 680px) {
+  .app-bar-inner { padding: 0 0.75rem; gap: 0.5rem; }
+  .app-bar-left { gap: 0.55rem; }
+  .app-bar-left .firm-mark-name { max-width: 6.5rem; }
+  .app-nav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .app-nav::-webkit-scrollbar { display: none; }
+  .app-nav-link { padding: 0 0.5rem; font-size: 0.84rem; flex: 0 0 auto; }
+  .dev-badge { display: none; }
+}
 
 /* ============================================================
    UI polish pass — controls, cards, tables, buttons
@@ -3332,3 +3343,13 @@ textarea:focus {
 .owner-value-num.owner-value-short { color: var(--status-serious); }
 .owner-value-num.owner-value-ok { color: var(--status-good); }
 .owner-value-main .muted { font-size: 0.8rem; max-width: 16rem; }
+
+/* ---- Advisor accounting connection card ---- */
+.acct-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.acct-row { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.75rem; align-items: center;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.acct-row:last-child { border-bottom: none; }
+.acct-name { font-weight: 600; font-size: 0.9rem; }
+.acct-status { font-size: 0.82rem; }
+.acct-on { color: var(--status-good); font-weight: 600; }
+.acct-btn { font-size: 0.8rem; padding: 0.3rem 0.7rem; white-space: nowrap; }
