@@ -912,6 +912,32 @@ export function useValuationInputs(
   });
 }
 
+// ---- owner invitation (advisor) --------------------------------------------
+export interface OwnerProfileRow {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  company_id: string | null;
+}
+export function useOwnerProfile(
+  companyId: string | undefined,
+): UseQueryResult<OwnerProfileRow | null> {
+  return useQuery({
+    queryKey: ['ownerProfile', companyId ?? ''],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id,full_name,email,company_id')
+        .eq('company_id', companyId!)
+        .eq('role', 'owner')
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as OwnerProfileRow) ?? null;
+    },
+  });
+}
+
 export function useBranding(firmId: string | undefined | null): UseQueryResult<BrandingRow | null> {
   return useQuery({
     queryKey: qk.branding(firmId ?? ''),

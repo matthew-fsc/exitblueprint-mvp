@@ -37,6 +37,7 @@ import {
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
+import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -240,15 +241,17 @@ export default function EngagementPage() {
             </div>
           )}
 
-          {/* accounting connection + financial verification */}
+          {/* owner access + accounting connection */}
           <div className="eng-grid">
+            <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
             <AccountingCard
               companyId={engagement.company_id}
               companyName={companyName}
               firmId={engagement.firm_id}
             />
-            {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
           </div>
+          {/* financial verification */}
+          {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
 
           {/* current snapshot + open gaps */}
           <div className="eng-grid">
