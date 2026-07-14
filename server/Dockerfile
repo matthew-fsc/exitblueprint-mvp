@@ -9,7 +9,10 @@
 #
 # Required env:
 #   DATABASE_URL           service-role Postgres connection string (bypasses RLS)
-#   FUNCTIONS_JWT_SECRET   the Supabase project's JWT secret (verifies access tokens)
+#   Token verification — set at least ONE (both is fine mid-rotation):
+#     FUNCTIONS_JWT_SECRET   legacy HS256 shared secret (Settings → API → JWT Secret)
+#     SUPABASE_URL           https://<ref>.supabase.co — verifies asymmetric
+#                            (ES256/RS256) tokens against the project JWKS
 # Optional:
 #   PORT (default 8787), FUNCTIONS_ALLOWED_ORIGIN (default *), ANTHROPIC_API_KEY (AI narrative)
 FROM mcr.microsoft.com/playwright:v1.61.1-jammy

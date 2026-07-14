@@ -14,16 +14,24 @@
 //
 // Run locally:  DATABASE_URL=... FUNCTIONS_JWT_SECRET=... tsx server/http.ts
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 import { handleFunctionCall } from './functions';
+import { makeVerifyToken, type Claims } from './auth-jwt';
 
 const PORT = Number(process.env.PORT ?? 8787);
-const JWT_SECRET = process.env.FUNCTIONS_JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FUNCTIONS_JWT_SECRET is required (the Supabase project JWT secret)');
+// Verify access tokens against whichever signing regime the project uses. A
+// legacy project sets FUNCTIONS_JWT_SECRET (HS256); a project on asymmetric
+// signing keys sets SUPABASE_URL so tokens verify against its JWKS. Setting
+// both is fine (and correct mid-rotation) — the token's `alg` picks the path.
+const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, '');
+if (!process.env.FUNCTIONS_JWT_SECRET && !SUPABASE_URL) {
+  console.error('Set FUNCTIONS_JWT_SECRET (legacy HS256) or SUPABASE_URL (asymmetric JWKS) to verify tokens');
   process.exit(1);
 }
+const verifyToken = makeVerifyToken({
+  hsSecret: process.env.FUNCTIONS_JWT_SECRET,
+  jwksUrl: SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` : undefined,
+});
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error('DATABASE_URL is required (the service-role Postgres connection string)');
@@ -34,43 +42,10 @@ const ALLOWED_ORIGIN = process.env.FUNCTIONS_ALLOWED_ORIGIN ?? '*';
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 10 });
 
-interface Claims {
-  sub: string;
-  role?: string;
-  exp?: number;
-  [k: string]: unknown;
-}
-
-// Standard HS256 JWT verification (Supabase legacy access tokens). Returns the
-// claims or null. Constant-time signature compare; rejects expired tokens.
-function verifyJwt(token: string): Claims | null {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const expected = createHmac('sha256', JWT_SECRET as string)
-    .update(`${parts[0]}.${parts[1]}`)
-    .digest();
-  let actual: Buffer;
-  try {
-    actual = Buffer.from(parts[2], 'base64url');
-  } catch {
-    return null;
-  }
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
-  let claims: Claims;
-  try {
-    claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-  } catch {
-    return null;
-  }
-  if (claims.exp && claims.exp < Date.now() / 1000) return null;
-  if (!claims.sub) return null;
-  return claims;
-}
-
-function bearer(req: IncomingMessage): Claims | null {
+function bearer(req: IncomingMessage): Promise<Claims | null> {
   const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) return null;
-  return verifyJwt(auth.slice(7));
+  if (!auth?.startsWith('Bearer ')) return Promise.resolve(null);
+  return verifyToken(auth.slice(7));
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -131,7 +106,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname.startsWith('/functions/v1/')) {
-    const claims = bearer(req);
+    const claims = await bearer(req);
     if (!claims) return json(res, 401, { message: 'invalid or missing token' });
     const name = url.pathname.replace('/functions/v1/', '');
     let body: Record<string, unknown>;
