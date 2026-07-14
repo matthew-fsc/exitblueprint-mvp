@@ -57,9 +57,8 @@ Deploy order matters because of the URLs each piece needs from the others:
    - **Legacy JWT secret** (HS256, shared secret): the compute service works
      as-is. Copy the *JWT Secret* → you'll set it as `FUNCTIONS_JWT_SECRET`.
    - **Asymmetric signing keys** (ES256/RS256, the default on newer projects):
-     the service's current HS256 verification **won't validate real tokens**.
-     This needs a small JWKS-verification addition to `server/http.ts` (see
-     `docs/11-deploy-runbook.md` §2a) — flag it before going live.
+     set `SUPABASE_URL` on the compute service (Step 2.4) and it verifies tokens
+     against the project JWKS — no shared secret needed. Nothing to copy here.
 4. **Apply the schema + seed** from your machine (one command, idempotent):
    ```sh
    DATABASE_URL="postgresql://postgres:[PW]@db.<ref>.supabase.co:5432/postgres" \
@@ -88,9 +87,15 @@ Deploy order matters because of the URLs each piece needs from the others:
    | Var | Value | Required |
    |---|---|---|
    | `DATABASE_URL` | Service-role Postgres string — the **session pooler** (`aws-0-<region>.pooler.supabase.com:5432`) is the right choice for a long-lived service | ✅ |
-   | `FUNCTIONS_JWT_SECRET` | The Supabase JWT secret from Step 1.3 (legacy-secret projects) | ✅ |
+   | `FUNCTIONS_JWT_SECRET` | The Supabase JWT secret from Step 1.3 — **only if your project uses the legacy secret** | one of these two |
+   | `SUPABASE_URL` | `https://<ref>.supabase.co` — **if your project uses asymmetric signing keys** (Step 1.3). Tokens then verify against the project JWKS automatically | one of these two |
    | `FUNCTIONS_ALLOWED_ORIGIN` | Your Vercel URL — set it **after** Step 3 (start with a placeholder, then update) | ✅ |
    | `ANTHROPIC_API_KEY` | Enables real Claude narrative in reports; omit to ship without AI prose | optional |
+
+   > **Which token var?** The service (`server/auth-jwt.ts`) verifies both HS256
+   > and asymmetric tokens, routing per token by its `alg` header — set the one
+   > that matches Step 1.3 (or both, if mid-rotation). It refuses to start if
+   > neither is set.
 
 5. Deploy. When it's live, copy the service URL
    (e.g. `https://exitblueprint-functions.onrender.com`) — that's
@@ -161,7 +166,8 @@ domain and redeploy the frontend.
 | `VITE_SUPABASE_ANON_KEY` | Vercel | frontend | Browser anon/publishable key |
 | `VITE_FUNCTIONS_URL` | Vercel | frontend | Base URL of the Render compute service |
 | `DATABASE_URL` | Render | `server/http.ts` | Service-role Postgres (bypasses RLS) |
-| `FUNCTIONS_JWT_SECRET` | Render | `server/http.ts` | Verifies Supabase access tokens (HS256) |
+| `FUNCTIONS_JWT_SECRET` | Render | `server/auth-jwt.ts` | Verifies HS256 tokens (legacy secret) — set this **or** `SUPABASE_URL` |
+| `SUPABASE_URL` | Render | `server/auth-jwt.ts` | Verifies asymmetric tokens via project JWKS — set this **or** `FUNCTIONS_JWT_SECRET` |
 | `FUNCTIONS_ALLOWED_ORIGIN` | Render | `server/http.ts` | CORS allow-list = the Vercel origin |
 | `ANTHROPIC_API_KEY` | Render | `server/http.ts` | Optional: real Claude narrative |
 
@@ -190,8 +196,6 @@ compute service — recheck `VITE_FUNCTIONS_URL` (Vercel), `FUNCTIONS_ALLOWED_OR
 
 ## Known follow-ups before a real customer
 
-- **JWT signing-key mode** (Step 1.3): if your project uses asymmetric keys,
-  add JWKS verification to the compute service first.
 - **Owner invite email** (`docs/11-deploy-runbook.md` §4): swap
   `server/invite.ts`'s direct insert for Supabase `inviteUserByEmail`, and
   configure Supabase Auth email (SMTP or Postmark/Resend).

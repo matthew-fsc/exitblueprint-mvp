@@ -48,25 +48,31 @@ Render, or Railway.
 Required env on the service:
 
 - `DATABASE_URL` — service-role Postgres string (session pooler is fine).
-- `FUNCTIONS_JWT_SECRET` — verifies Supabase access tokens. **See §2a.**
+- **Token verification — set at least one (§2a):**
+  - `FUNCTIONS_JWT_SECRET` — legacy HS256 shared secret, or
+  - `SUPABASE_URL` — `https://<ref>.supabase.co`, for asymmetric (JWKS) tokens.
 - `FUNCTIONS_ALLOWED_ORIGIN` — your frontend origin (CORS).
 - `ANTHROPIC_API_KEY` — optional; turns on real Claude narrative.
 
 Health check: `GET /health` → `{ "ok": true }`.
 
-### 2a. JWT verification — confirm your project's mode
+### 2a. JWT verification — set the var that matches your project's mode
 
-The service currently verifies **HS256** with a shared secret (`FUNCTIONS_JWT_SECRET`).
-That works for projects using the **legacy JWT secret** (Dashboard → Project
-Settings → API → *JWT Secret*).
+The service verifies access tokens under **both** signing regimes, picking the
+path per token from its `alg` header (`server/auth-jwt.ts`):
 
-Newer Supabase projects default to **asymmetric JWT signing keys** (ES256/RS256),
-where tokens are verified against the project JWKS
-(`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`), not a shared secret.
-**If your project uses signing keys, the HS256 path won't validate real tokens** —
-the service needs a small JWKS-verification addition (planned; ask and it's a
-quick, unit-testable change). Check Dashboard → Project Settings → JWT Keys to see
-which mode you're on before wiring this up.
+- **Legacy JWT secret** (HS256; Dashboard → Project Settings → API → *JWT
+  Secret*): set `FUNCTIONS_JWT_SECRET` to that secret.
+- **Asymmetric signing keys** (ES256/RS256 — the default on newer projects;
+  Dashboard → Project Settings → JWT Keys): set `SUPABASE_URL`. Tokens are then
+  verified against the project JWKS
+  (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`), fetched and
+  cached automatically — no shared secret involved.
+
+Set **both** if your project is mid-rotation (old and new tokens coexist); the
+`alg` header routes each token to the right verifier. If neither is set the
+service refuses to start. Check Dashboard → Project Settings → JWT Keys to see
+which mode you're on.
 
 ---
 
