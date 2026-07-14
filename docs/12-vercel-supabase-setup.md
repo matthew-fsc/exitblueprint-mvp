@@ -74,8 +74,14 @@ Deploy order matters because of the URLs each piece needs from the others:
 
 ## Step 2 — Compute service on Render (functions + PDF)
 
-1. In the [Render dashboard](https://render.com) → **New → Web Service** →
-   connect your GitHub and pick `matthew-fsc/exitblueprint-mvp`.
+**Fastest path — the Blueprint:** the repo ships `render.yaml`. In the
+[Render dashboard](https://render.com) → **New → Blueprint** → pick
+`matthew-fsc/exitblueprint-mvp`. Render reads `render.yaml`, builds
+`server/Dockerfile`, wires the health check, and prompts for the secret env
+values below — skip to step 4. Or do it by hand:
+
+1. **New → Web Service** → connect your GitHub and pick
+   `matthew-fsc/exitblueprint-mvp`.
 2. **Runtime: Docker.** Set **Dockerfile Path** to `server/Dockerfile` and
    **Docker Build Context Directory** to the repo root (`.`) — the image copies
    `server/`, `shared/`, and the lockfile from root.
@@ -132,6 +138,15 @@ Deploy order matters because of the URLs each piece needs from the others:
    go to Render. **Never leave `VITE_FUNCTIONS_URL` unset in a production
    build** — unset means "same-origin dev emulator", which doesn't exist in
    production.
+
+   > **Using the Vercel↔Supabase integration?** It injects credentials under
+   > Next.js/generic names (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_URL`,
+   > `SUPABASE_ANON_KEY`, …), but Vite only exposes `VITE_`-prefixed vars to the
+   > browser. `vite.config.ts` **bridges** the two *public* values into the
+   > `VITE_` names at build time, so with the integration connected you do **not**
+   > need to add `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` by hand — only
+   > `VITE_FUNCTIONS_URL` (the Render URL), which no integration can know. The
+   > service-role key and JWT secret are never bridged to the client.
 3. Deploy. Note the assigned URL (e.g.
    `https://exitblueprint-mvp.vercel.app`).
 
