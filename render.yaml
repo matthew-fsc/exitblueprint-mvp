@@ -1,0 +1,39 @@
+# Render Blueprint for the compute service (server/http.ts) — the piece that
+# serves every /functions/v1/* call, including PDF rendering via Chromium.
+# See docs/12-vercel-supabase-setup.md §2 for the full walkthrough.
+#
+# Deploy: Render dashboard → New → Blueprint → pick this repo. Render reads this
+# file, builds server/Dockerfile, and prompts for the secret env values below.
+services:
+  - type: web
+    name: exitblueprint-functions
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    # Headless Chromium (PDF export) wants ~1GB+; standard (2GB) is the safe
+    # default. Drop to "starter" (512MB) only if you won't generate PDFs — it
+    # can OOM the Chromium path. Note: free/idle instances cold-start on request.
+    plan: standard
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Service-role Postgres string (bypasses RLS). Use the Supabase SESSION
+      # pooler (aws-0-<region>.pooler.supabase.com:5432) for a long-lived service.
+      - key: DATABASE_URL
+        sync: false
+      # Token verification — set the one matching your project (docs/11 §2a):
+      #   SUPABASE_URL          https://<ref>.supabase.co, for asymmetric (JWKS) tokens
+      #   FUNCTIONS_JWT_SECRET  legacy HS256 shared secret
+      # Set at least one; both is fine mid-rotation. The service refuses to boot
+      # with neither.
+      - key: SUPABASE_URL
+        sync: false
+      - key: FUNCTIONS_JWT_SECRET
+        sync: false
+      # CORS allow-list — set to your Vercel frontend origin (no trailing slash),
+      # e.g. https://exitblueprint-mvp.vercel.app.
+      - key: FUNCTIONS_ALLOWED_ORIGIN
+        sync: false
+      # Optional: turns on real Claude narrative in reports. Omit to ship without it.
+      - key: ANTHROPIC_API_KEY
+        sync: false
