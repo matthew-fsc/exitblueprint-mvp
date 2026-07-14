@@ -3,19 +3,26 @@ import { createClient } from '@supabase/supabase-js';
 // With a real Supabase project, set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY.
 // Without them (local dev), supabase-js talks to the same-origin dev emulator
 // (dev/supabase-dev-server.ts) backed by local Postgres with real RLS.
-const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || window.location.origin;
-const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'dev-anon-key';
+//
+// Trim the values: a stray newline/space pasted into a host's env-var UI (e.g.
+// Vercel) rides along into the request URL and the `apikey` header, and WebKit
+// then throws "The string did not match the expected pattern" when building the
+// request — a confusing failure that surfaces only at login. Trimming is safe:
+// neither a URL nor a Supabase key ever has meaningful leading/trailing space.
+const env = (v: string | undefined) => v?.trim() || undefined;
+const url = env(import.meta.env.VITE_SUPABASE_URL as string | undefined) || window.location.origin;
+const anonKey = env(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'dev-anon-key';
 
 // The compute layer (/functions/v1/*) is served by our own Node service in
 // production (docs/10-production-readiness.md) — a separate deployable from the
 // Supabase project that handles auth + REST. VITE_FUNCTIONS_URL points at it;
 // unset (dev), functions are same-origin, i.e. the dev emulator. Auth and REST
 // always go through the supabase client above; only functions are redirected.
-const functionsUrl = (import.meta.env.VITE_FUNCTIONS_URL as string | undefined) || url;
+const functionsUrl = env(import.meta.env.VITE_FUNCTIONS_URL as string | undefined) || url;
 
 export const supabase = createClient(url, anonKey);
 
-export const isDevStack = !import.meta.env.VITE_SUPABASE_URL;
+export const isDevStack = !env(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 
 async function functionEndpoint(name: string): Promise<{ endpoint: string; token: string }> {
   const { data } = await supabase.auth.getSession();
