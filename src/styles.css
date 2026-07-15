@@ -3245,7 +3245,7 @@ textarea:focus {
 }
 
 /* ---- GapBurndown: open gaps by severity per assessment ------------------ */
-.eng-burndown { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.eng-burndown { margin-top: 0.9rem; }
 .burndown-rows { display: flex; flex-direction: column; gap: 0.5rem; }
 .burndown-row { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.6rem; align-items: center; }
 .burndown-tick { display: flex; flex-direction: column; font-size: 0.82rem; font-weight: 700;

@@ -247,10 +247,9 @@ export default function EngagementPage() {
               </div>
               {completed.length > 1 && (burndownQ.data ?? []).length > 1 && (
                 <div className="eng-burndown">
-                  <span className="stat-block-label">Open gaps over time</span>
-                  <div style={{ marginTop: '0.6rem' }}>
+                  <Collapsible title="Open gaps over time">
                     <GapBurndown points={burndownQ.data ?? []} />
-                  </div>
+                  </Collapsible>
                 </div>
               )}
             </SectionCard>
