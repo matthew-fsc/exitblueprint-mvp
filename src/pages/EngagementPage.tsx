@@ -40,7 +40,6 @@ import {
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
-import { DealOutcomeCard } from '../components/DealOutcomeCard';
 import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
@@ -281,31 +280,40 @@ export default function EngagementPage() {
             </div>
           </Card>
 
-          {/* decision charts: what's driving the score + owner-vs-business */}
+          {/* score detail — analytical depth, folded away so the default view stays simple */}
           {explain && (
-            <div className="eng-grid">
-              <SectionCard
-                title="What's driving the score"
-                subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
-              >
-                <ContributionBars dimensions={explain.dimensions} />
-              </SectionCard>
-              <SectionCard
-                title="Business vs. owner readiness"
-                subtitle="The DRS and the Owner Readiness Index on one scale — their gap is a finding in itself."
-              >
-                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
-              </SectionCard>
-            </div>
+            <Collapsible
+              title="Score detail"
+              hint="What's driving the DRS · business vs. owner readiness"
+            >
+              <div className="eng-grid" style={{ marginTop: 0 }}>
+                <SectionCard
+                  title="What's driving the score"
+                  subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
+                >
+                  <ContributionBars dimensions={explain.dimensions} />
+                </SectionCard>
+                <SectionCard
+                  title="Business vs. owner readiness"
+                  subtitle="The DRS and the Owner Readiness Index on one scale — their gap is a finding in itself."
+                >
+                  <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
+                </SectionCard>
+              </div>
+            </Collapsible>
           )}
 
-          {/* compare any two */}
-          <ComparePanel assessments={completed} />
+          {/* compare any two — power tool, folded away */}
+          {completed.length > 1 && (
+            <Collapsible title="Compare two assessments" hint="See what changed between any two">
+              <ComparePanel assessments={completed} embedded />
+            </Collapsible>
+          )}
 
           {/* setup & admin — connections and record-keeping, folded away by default */}
           <Collapsible
             title="Engagement setup & admin"
-            hint="Owner access · accounting · verification · deal outcome"
+            hint="Owner access · accounting · verification"
           >
             <div className="stack-lg">
               <div className="eng-grid" style={{ marginTop: 0 }}>
@@ -317,7 +325,6 @@ export default function EngagementPage() {
                 />
               </div>
               {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
-              <DealOutcomeCard engagementId={engagementId!} />
             </div>
           </Collapsible>
         </>
@@ -367,7 +374,7 @@ export default function EngagementPage() {
   );
 }
 
-function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
+function ComparePanel({ assessments, embedded = false }: { assessments: AssessmentRow[]; embedded?: boolean }) {
   const [priorId, setPriorId] = useState('');
   const [currentId, setCurrentId] = useState('');
 
@@ -392,10 +399,8 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
     { key: 'delta', header: 'Δ', numeric: true, render: (r) => <DeltaChip value={r.delta} digits={2} /> },
   ];
 
-  return (
-    <section>
-      <h3 className="section-heading">Compare two assessments</h3>
-      <Card>
+  const inner = (
+    <>
         <div className="compare-controls">
           <label className="filter-control">
             <span className="filter-label">Prior</span>
@@ -467,7 +472,14 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
             </div>
           ) : null}
         </div>
-      </Card>
+    </>
+  );
+
+  if (embedded) return inner;
+  return (
+    <section>
+      <h3 className="section-heading">Compare two assessments</h3>
+      <Card>{inner}</Card>
     </section>
   );
 }

@@ -14,11 +14,11 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   EmptyState,
   EngagementNav,
   GanttChart,
   PageHeader,
-  SectionCard,
   SkeletonLines,
   useToast,
   type GanttItem,
@@ -225,9 +225,9 @@ export default function RoadmapPage() {
 
       {/* deal-team handoff: what each responsible party owns */}
       {roleGroups.length > 0 && (
-        <SectionCard
+        <Collapsible
           title="By responsible party"
-          subtitle="Who owns the remaining work — the advisor, the owner, and the deal team they coordinate."
+          hint="Who owns the remaining work — advisor, owner, and deal team"
         >
           <div className="handoff">
             {roleGroups.map((g) => {
@@ -249,7 +249,7 @@ export default function RoadmapPage() {
               );
             })}
           </div>
-        </SectionCard>
+        </Collapsible>
       )}
 
       {/* milestone entry */}
