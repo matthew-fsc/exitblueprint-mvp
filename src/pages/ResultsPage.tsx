@@ -11,12 +11,15 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   EmptyState,
+  GapSeverityChip,
   PageHeader,
   ScoreDial,
   SkeletonLines,
   TierBadge,
 } from '../components/ui';
+import { bySeverity } from '../lib/severity';
 import { fmtDate, fmtScore } from '../lib/format';
 import {
   consensus,
@@ -24,15 +27,6 @@ import {
   interpretSubScore,
 } from '../../shared/scoring/interpret';
 
-const severityStatus: Record<string, string> = {
-  critical: 'critical',
-  high: 'serious',
-  med: 'warning',
-  low: 'neutral',
-};
-
-// Gaps are shown most critical first.
-const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
 
 const TIERS = [
   { label: 'Institutional Grade', floor: 85 },
@@ -251,32 +245,33 @@ export default function ResultsPage() {
       </div>
       </section>
 
-      <section>
-      <h3 className="section-heading">The owner’s side</h3>
-      <p className="section-sub muted">
-        Scored separately from the business. A ready business and an unready owner is a common — and
-        important — mismatch.
-      </p>
-      <div className="dimension-list">
-        {ownerGroups.map((g) => (
-          <div key={g.code} className="owner-card">
-            <h4>{g.name}</h4>
-            <ul className="factor-list">
-              {g.subs.map(interpretSubScore).map((r) => (
-                <li key={r.code} className="factor">
-                  <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
-                  <span className="factor-text">
-                    <strong>{r.name}</strong>
-                    <span className="factor-reading"> {r.reading}</span>
-                  </span>
-                  <span className="factor-score">{r.points}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      </section>
+      <Collapsible
+        title="The owner’s side"
+        hint="Owner readiness — scored separately from the business"
+      >
+        <p className="section-sub muted" style={{ marginTop: 0 }}>
+          A ready business and an unready owner is a common — and important — mismatch.
+        </p>
+        <div className="dimension-list">
+          {ownerGroups.map((g) => (
+            <div key={g.code} className="owner-card">
+              <h4>{g.name}</h4>
+              <ul className="factor-list">
+                {g.subs.map(interpretSubScore).map((r) => (
+                  <li key={r.code} className="factor">
+                    <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
+                    <span className="factor-text">
+                      <strong>{r.name}</strong>
+                      <span className="factor-reading"> {r.reading}</span>
+                    </span>
+                    <span className="factor-score">{r.points}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Collapsible>
 
       <section>
       <h3 className="section-heading">
@@ -285,10 +280,10 @@ export default function ResultsPage() {
       {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged — a clean assessment.</p>}
       <ul className="gap-detail-list">
         {[...explain.firedGaps]
-          .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+          .sort(bySeverity)
           .map((g) => (
           <li key={g.code}>
-            <span className={`gap-chip gap-${severityStatus[g.severity] ?? 'neutral'}`}>{g.severity}</span>
+            <GapSeverityChip severity={g.severity} />
             <span className="gap-text">
               <strong>{g.name}</strong>
               <span className="muted"> {gapReason(g.trigger, subScoreNames)}</span>

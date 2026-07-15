@@ -15,6 +15,7 @@ import {
   Card,
   DataTable,
   DeltaChip,
+  EngagementNav,
   FirmMark,
   PageHeader,
   SkeletonLines,
@@ -23,6 +24,7 @@ import {
   type Column,
 } from '../components/ui';
 import { fmtDate, fmtScore } from '../lib/format';
+import { engagementCrumbs } from '../lib/nav';
 
 export default function DeltaReportPage() {
   const { engagementId } = useParams();
@@ -122,7 +124,7 @@ export default function DeltaReportPage() {
   if (completed.length === 0) {
     return (
       <div>
-        <PageHeader title="Delta report" crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Delta report' }]} />
+        <PageHeader title="Delta report" crumbs={engagementCrumbs(engagementId, companyName, 'Delta report')} />
         <p className="muted">No completed assessments yet — complete a baseline first.</p>
       </div>
     );
@@ -140,9 +142,12 @@ export default function DeltaReportPage() {
     <div className="report">
       <PageHeader
         title="Branded delta report"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Delta report' }]}
+        crumbs={engagementCrumbs(engagementId, companyName, 'Delta report')}
         subtitle="The quarterly artifact for your client meeting — your firm's brand, the readiness story."
       />
+      <div className="no-print">
+        <EngagementNav engagementId={engagementId!} />
+      </div>
       {error && <p className="form-error no-print">{error}</p>}
 
       {/* controls */}

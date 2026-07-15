@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useOwnerContext } from '../../lib/owner';
 import { useExplain, useEngagementGaps, useValuation, useVerification } from '../../lib/queries';
-import { Card, EmptyState, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
+import { Card, EmptyState, GapSeverityChip, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
 import { fmtCurrencyCompact, fmtScore } from '../../lib/format';
 
 const TIER_PLAIN: Record<string, string> = {
@@ -117,9 +117,7 @@ export default function OwnerHomePage() {
             <ul className="owner-priorities">
               {topGaps.map((g) => (
                 <li key={g.id}>
-                  <span className={`gap-chip gap-${g.severity === 'critical' ? 'critical' : g.severity === 'high' ? 'serious' : g.severity === 'med' ? 'warning' : 'neutral'}`}>
-                    {g.severity}
-                  </span>
+                  <GapSeverityChip severity={g.severity} />
                   <span><strong>{g.name}</strong>{g.playbookName && <span className="muted"> — {g.playbookName}</span>}</span>
                 </li>
               ))}

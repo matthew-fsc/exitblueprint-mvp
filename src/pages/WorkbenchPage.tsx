@@ -18,14 +18,8 @@ import {
   type ExplainResult,
   type Rubric,
 } from '../lib/scoringClient';
-
-const tierStatus: Record<string, string> = {
-  'Institutional Grade': 'good',
-  'Sale Ready': 'good',
-  'Needs Work': 'warning',
-  'High Risk': 'serious',
-  'Not Saleable (Yet)': 'critical',
-};
+import { GapSeverityChip } from '../components/ui';
+import { tierStatusOf } from '../lib/tokens';
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
@@ -374,7 +368,7 @@ export default function WorkbenchPage() {
                 {board.drsScore}
                 <Delta value={board.drsScore - base.drsScore} />
               </span>
-              <span className={`status-chip status-${tierStatus[board.drsTier] ?? 'neutral'}`}>
+              <span className={`status-chip status-${tierStatusOf(board.drsTier)}`}>
                 {board.drsTier}
               </span>
               {board.drsTier !== base.drsTier && (
@@ -437,9 +431,7 @@ export default function WorkbenchPage() {
                 <ul className="wb-gap-list">
                   {board.firedGaps.map((g) => (
                     <li key={g.code} className={gapCodesBase.has(g.code) ? '' : 'wb-gap-new'}>
-                      <span className={`gap-chip gap-${g.severity === 'critical' ? 'critical' : g.severity === 'high' ? 'serious' : g.severity === 'med' ? 'warning' : 'neutral'}`}>
-                        {g.severity}
-                      </span>
+                      <GapSeverityChip severity={g.severity} />
                       <span className="wb-gap-name">{g.name}</span>
                     </li>
                   ))}

@@ -20,11 +20,15 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   DataTable,
   DeltaChip,
   DimensionBars,
   EmptyState,
+  EngagementNav,
+  GapSeverityChip,
   PageHeader,
+  SectionCard,
   ScoreDial,
   SkeletonLines,
   TierBadge,
@@ -37,7 +41,6 @@ import {
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
-import { DealOutcomeCard } from '../components/DealOutcomeCard';
 import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore } from '../lib/format';
 
@@ -158,45 +161,100 @@ export default function EngagementPage() {
           </>
         }
         actions={
-          <>
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/valuation`}>
-                Valuation →
+          !inProgress && profile ? (
+            <button onClick={startAssessment}>
+              {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
+            </button>
+          ) : (
+            inProgress && (
+              <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
+                Resume intake →
               </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/buyer-lens`}>
-                Buyer lens →
-              </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
-                Roadmap →
-              </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/delta`}>
-                Delta report →
-              </Link>
-            )}
-            {!inProgress && profile ? (
-              <button onClick={startAssessment}>
-                {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
-              </button>
-            ) : (
-              inProgress && (
-                <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
-                  Resume intake →
-                </Link>
-              )
-            )}
-          </>
+            )
+          )
         }
       />
+      <EngagementNav engagementId={engagementId!} />
       {error && <p className="form-error">{error}</p>}
 
       {completed.length > 0 ? (
         <>
+          {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
+          <div className="eng-grid eng-grid-top">
+            <SectionCard
+              title={`Current readiness · assessment #${latest?.sequence_number}`}
+              action={
+                latest && (
+                  <Link className="button-link" to={`/assessment/${latest.id}/results`}>
+                    Full results →
+                  </Link>
+                )
+              }
+            >
+              {explainQ.isLoading || !explain ? (
+                <SkeletonLines lines={5} />
+              ) : (
+                <div className="eng-snapshot">
+                  <div className="eng-snapshot-dial">
+                    <ScoreDial value={explain.drsScore} tier={explain.drsTier} size={120} />
+                    <TierBadge tier={explain.drsTier} />
+                    <span className="muted" style={{ fontSize: '0.8rem' }}>ORI {fmtScore(explain.oriScore)}</span>
+                    {verifQ.data && (
+                      <span
+                        className={`verif-chip verif-tier-${verifQ.data.tier === 'document_verified' ? 'high' : verifQ.data.tier === 'partly_verified' ? 'mid' : 'low'}`}
+                        title="Share of financial inputs backed by documents or a connected ledger"
+                      >
+                        {verifQ.data.pct}% verified
+                      </span>
+                    )}
+                  </div>
+                  <div className="eng-snapshot-dims">
+                    <DimensionBars dimensions={explain.dimensions.map((d) => ({ code: d.code, name: d.name, score: d.score }))} />
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title={
+                <>
+                  Open gaps to remediate{' '}
+                  {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
+                </>
+              }
+            >
+              <div>
+                {gapsQ.isLoading ? (
+                  <SkeletonLines lines={4} />
+                ) : (gapsQ.data ?? []).length === 0 ? (
+                  <p className="gap-none">No open gaps — a clean book.</p>
+                ) : (
+                  <ul className="eng-gap-list">
+                    {(gapsQ.data ?? []).map((g) => (
+                      <li key={g.id}>
+                        <GapSeverityChip severity={g.severity} />
+                        <span className="eng-gap-text">
+                          <strong>{g.name}</strong>
+                          {g.playbookName && (
+                            <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {completed.length > 1 && (burndownQ.data ?? []).length > 1 && (
+                <div className="eng-burndown">
+                  <Collapsible title="Open gaps over time">
+                    <GapBurndown points={burndownQ.data ?? []} />
+                  </Collapsible>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          {/* trajectory against the exit window */}
           <Card>
             <div className="trajectory-head">
               <h3 className="section-heading" style={{ margin: 0 }}>
@@ -220,119 +278,53 @@ export default function EngagementPage() {
             </div>
           </Card>
 
-          {/* decision charts: what's driving the score + owner-vs-business */}
+          {/* score detail — analytical depth, folded away so the default view stays simple */}
           {explain && (
-            <div className="eng-grid">
-              <Card>
-                <span className="stat-block-label">What's driving the score</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  Each bar's width is the dimension's weight in the DRS; the fill is what it
-                  contributes today. Biggest shortfall first.
-                </p>
-                <ContributionBars dimensions={explain.dimensions} />
-              </Card>
-              <Card>
-                <span className="stat-block-label">Business vs. owner readiness</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  The DRS and the Owner Readiness Index on one scale — their gap is a finding in
-                  itself.
-                </p>
-                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
-              </Card>
-            </div>
+            <Collapsible
+              title="Score detail"
+              hint="What's driving the DRS · business vs. owner readiness"
+            >
+              <div className="eng-grid" style={{ marginTop: 0 }}>
+                <SectionCard
+                  title="What's driving the score"
+                  subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
+                >
+                  <ContributionBars dimensions={explain.dimensions} />
+                </SectionCard>
+                <SectionCard
+                  title="Business vs. owner readiness"
+                  subtitle="The DRS and the Owner Readiness Index on one scale — their gap is a finding in itself."
+                >
+                  <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
+                </SectionCard>
+              </div>
+            </Collapsible>
           )}
 
-          {/* owner access + accounting connection */}
-          <div className="eng-grid">
-            <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
-            <AccountingCard
-              companyId={engagement.company_id}
-              companyName={companyName}
-              firmId={engagement.firm_id}
-            />
-          </div>
-          {/* financial verification */}
-          {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+          {/* compare any two — power tool, folded away */}
+          {completed.length > 1 && (
+            <Collapsible title="Compare two assessments" hint="See what changed between any two">
+              <ComparePanel assessments={completed} embedded />
+            </Collapsible>
+          )}
 
-          {/* deal outcome capture (calibration moat) */}
-          <DealOutcomeCard engagementId={engagementId!} />
-
-          {/* current snapshot + open gaps */}
-          <div className="eng-grid">
-            <Card>
-              <div className="eng-snapshot-head">
-                <span className="stat-block-label">Current readiness · assessment #{latest?.sequence_number}</span>
-                {latest && (
-                  <Link className="button-link" to={`/assessment/${latest.id}/results`}>
-                    Full results →
-                  </Link>
-                )}
+          {/* setup & admin — connections and record-keeping, folded away by default */}
+          <Collapsible
+            title="Engagement setup & admin"
+            hint="Owner access · accounting · verification"
+          >
+            <div className="stack-lg">
+              <div className="eng-grid" style={{ marginTop: 0 }}>
+                <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
+                <AccountingCard
+                  companyId={engagement.company_id}
+                  companyName={companyName}
+                  firmId={engagement.firm_id}
+                />
               </div>
-              {explainQ.isLoading || !explain ? (
-                <SkeletonLines lines={5} />
-              ) : (
-                <div className="eng-snapshot">
-                  <div className="eng-snapshot-dial">
-                    <ScoreDial value={explain.drsScore} tier={explain.drsTier} size={120} />
-                    <TierBadge tier={explain.drsTier} />
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>ORI {fmtScore(explain.oriScore)}</span>
-                    {verifQ.data && (
-                      <span
-                        className={`verif-chip verif-tier-${verifQ.data.tier === 'document_verified' ? 'high' : verifQ.data.tier === 'partly_verified' ? 'mid' : 'low'}`}
-                        title="Share of financial inputs backed by documents or a connected ledger"
-                      >
-                        {verifQ.data.pct}% verified
-                      </span>
-                    )}
-                  </div>
-                  <div className="eng-snapshot-dims">
-                    <DimensionBars dimensions={explain.dimensions.map((d) => ({ code: d.code, name: d.name, score: d.score }))} />
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            <Card>
-              <span className="stat-block-label">
-                Open gaps to remediate{' '}
-                {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
-              </span>
-              <div style={{ marginTop: '0.9rem' }}>
-                {gapsQ.isLoading ? (
-                  <SkeletonLines lines={4} />
-                ) : (gapsQ.data ?? []).length === 0 ? (
-                  <p className="gap-none">No open gaps — a clean book.</p>
-                ) : (
-                  <ul className="eng-gap-list">
-                    {(gapsQ.data ?? []).map((g) => (
-                      <li key={g.id}>
-                        <span className={`gap-chip gap-${g.severity === 'critical' ? 'critical' : g.severity === 'high' ? 'serious' : g.severity === 'med' ? 'warning' : 'neutral'}`}>
-                          {g.severity}
-                        </span>
-                        <span className="eng-gap-text">
-                          <strong>{g.name}</strong>
-                          {g.playbookName && (
-                            <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              {completed.length > 1 && (burndownQ.data ?? []).length > 1 && (
-                <div className="eng-burndown">
-                  <span className="stat-block-label">Open gaps over time</span>
-                  <div style={{ marginTop: '0.6rem' }}>
-                    <GapBurndown points={burndownQ.data ?? []} />
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* compare any two */}
-          <ComparePanel assessments={completed} />
+              {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+            </div>
+          </Collapsible>
         </>
       ) : (
         <EmptyState
@@ -353,51 +345,34 @@ export default function EngagementPage() {
         </ul>
       </section>
 
-      {/* tasks (populated in F5) + documents */}
-      <div className="eng-grid">
-        <div>
-          <h3 className="section-heading">Roadmap</h3>
-          <EmptyState
-            icon="◷"
-            title="Remediation roadmap"
-            action={
-              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
-                Open roadmap →
-              </Link>
-            }
-          >
-            Turn the open gaps — most critical first — into a sequenced task plan with a Gantt
-            timeline, alongside the owner’s personal milestones.
+      {/* documents generated from this engagement */}
+      <section>
+        <h3 className="section-heading">Documents</h3>
+        {documents.length === 0 ? (
+          <EmptyState icon="▤" title="No documents yet">
+            Generate an owner report or a branded delta report from an assessment.
           </EmptyState>
-        </div>
-        <div>
-          <h3 className="section-heading">Documents</h3>
-          {documents.length === 0 ? (
-            <EmptyState icon="▤" title="No documents yet">
-              Generate an owner report or a branded delta report from an assessment.
-            </EmptyState>
-          ) : (
-            <ul className="assessment-list">
-              {documents.map((d) => (
-                <li key={d.id} className="assessment-card">
-                  <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
-                  <span className="assessment-score muted">
-                    {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
-                  </span>
-                  <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
-                    Open →
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+        ) : (
+          <ul className="assessment-list">
+            {documents.map((d) => (
+              <li key={d.id} className="assessment-card">
+                <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
+                <span className="assessment-score muted">
+                  {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
+                </span>
+                <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
+                  Open →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
 
-function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
+function ComparePanel({ assessments, embedded = false }: { assessments: AssessmentRow[]; embedded?: boolean }) {
   const [priorId, setPriorId] = useState('');
   const [currentId, setCurrentId] = useState('');
 
@@ -422,10 +397,8 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
     { key: 'delta', header: 'Δ', numeric: true, render: (r) => <DeltaChip value={r.delta} digits={2} /> },
   ];
 
-  return (
-    <section>
-      <h3 className="section-heading">Compare two assessments</h3>
-      <Card>
+  const inner = (
+    <>
         <div className="compare-controls">
           <label className="filter-control">
             <span className="filter-label">Prior</span>
@@ -497,7 +470,14 @@ function ComparePanel({ assessments }: { assessments: AssessmentRow[] }) {
             </div>
           ) : null}
         </div>
-      </Card>
+    </>
+  );
+
+  if (embedded) return inner;
+  return (
+    <section>
+      <h3 className="section-heading">Compare two assessments</h3>
+      <Card>{inner}</Card>
     </section>
   );
 }

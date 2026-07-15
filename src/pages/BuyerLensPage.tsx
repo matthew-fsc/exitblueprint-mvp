@@ -7,7 +7,9 @@ import {
   type AdvisoryItemType,
   type FiredAdvisoryItem,
 } from '../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, EmptyState, EngagementNav, PageHeader, SkeletonLines } from '../components/ui';
+import { advisorySevClass } from '../lib/severity';
+import { engagementCrumbs } from '../lib/nav';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -29,26 +31,13 @@ const SECTIONS: { type: AdvisoryItemType; label: string; blurb: string }[] = [
   },
 ];
 
-function sevClass(sev: string | null): string {
-  switch (sev) {
-    case 'critical':
-      return 'sev-critical';
-    case 'high':
-      return 'sev-high';
-    case 'med':
-      return 'sev-med';
-    default:
-      return 'sev-low';
-  }
-}
-
 function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
   const [open, setOpen] = useState(false);
   const hasDetail = !!(item.response_framework || item.data_needed);
   return (
-    <div className={`advisory-item ${sevClass(item.severity)}`}>
+    <div className={`advisory-item ${advisorySevClass(item.severity)}`}>
       <div className="advisory-item-head">
-        <span className={`sev-chip ${sevClass(item.severity)}`}>{item.severity ?? 'note'}</span>
+        <span className={`sev-chip ${advisorySevClass(item.severity)}`}>{item.severity ?? 'note'}</span>
         <div className="advisory-item-titles">
           <p className="advisory-item-title">{item.title}</p>
           <p className="advisory-item-body">{item.body}</p>
@@ -113,11 +102,7 @@ export default function BuyerLensPage() {
     <div className="stack-lg">
       <PageHeader
         title="Buyer lens"
-        crumbs={[
-          { label: 'Portfolio', to: '/' },
-          { label: companyName, to: `/engagement/${engagementId}` },
-          { label: 'Buyer lens' },
-        ]}
+        crumbs={engagementCrumbs(engagementId, companyName, 'Buyer lens')}
         subtitle="What the latest assessment tells a buyer — surfaced from the live score, most critical first."
         actions={
           <Link className="button-link" to="/library">
@@ -125,6 +110,7 @@ export default function BuyerLensPage() {
           </Link>
         }
       />
+      <EngagementNav engagementId={engagementId!} />
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
       {firedQ.isError && <p className="form-error">{(firedQ.error as Error).message}</p>}

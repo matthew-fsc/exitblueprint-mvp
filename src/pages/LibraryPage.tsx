@@ -9,6 +9,7 @@ import {
   type AdvisoryItemType,
 } from '../lib/queries';
 import { Card, ConfirmDialog, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { advisorySevClass } from '../lib/severity';
 
 const TYPE_LABEL: Record<AdvisoryItemType, string> = {
   buyer_question: 'Buyer question',
@@ -18,19 +19,6 @@ const TYPE_LABEL: Record<AdvisoryItemType, string> = {
 };
 const DIMENSIONS = ['REV', 'FIN', 'OPS', 'CUS', 'MGT', 'GRW'];
 const SEVERITIES = ['critical', 'high', 'med', 'low'];
-
-function sevClass(sev: string | null): string {
-  switch (sev) {
-    case 'critical':
-      return 'sev-critical';
-    case 'high':
-      return 'sev-high';
-    case 'med':
-      return 'sev-med';
-    default:
-      return 'sev-low';
-  }
-}
 
 export default function LibraryPage() {
   const { profile } = useAuth();
@@ -254,9 +242,9 @@ export default function LibraryPage() {
         <Card>
           <div className="advisory-list">
             {filtered.map((it) => (
-              <div key={it.id} className={`advisory-item ${sevClass(it.severity)}`}>
+              <div key={it.id} className={`advisory-item ${advisorySevClass(it.severity)}`}>
                 <div className="advisory-item-head">
-                  <span className={`sev-chip ${sevClass(it.severity)}`}>{it.severity ?? 'note'}</span>
+                  <span className={`sev-chip ${advisorySevClass(it.severity)}`}>{it.severity ?? 'note'}</span>
                   <div className="advisory-item-titles">
                     <p className="advisory-item-title">
                       {it.title}

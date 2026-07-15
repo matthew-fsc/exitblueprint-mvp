@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction, supabase } from '../lib/supabase';
@@ -14,7 +14,9 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   EmptyState,
+  EngagementNav,
   GanttChart,
   PageHeader,
   SkeletonLines,
@@ -22,6 +24,7 @@ import {
   type GanttItem,
 } from '../components/ui';
 import { fmtDate } from '../lib/format';
+import { engagementCrumbs } from '../lib/nav';
 
 export default function RoadmapPage() {
   const { engagementId } = useParams();
@@ -188,7 +191,7 @@ export default function RoadmapPage() {
     <div className="stack-lg">
       <PageHeader
         title="Roadmap"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Roadmap' }]}
+        crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
         subtitle="Remediation work and milestones on one timeline — business readiness and the owner’s personal plan."
         actions={
           <div className="roadmap-controls">
@@ -202,6 +205,7 @@ export default function RoadmapPage() {
           </div>
         }
       />
+      <EngagementNav engagementId={engagementId!} />
       {error && <p className="form-error">{error}</p>}
 
       {ganttItems.length === 0 ? (
@@ -222,11 +226,10 @@ export default function RoadmapPage() {
 
       {/* deal-team handoff: what each responsible party owns */}
       {roleGroups.length > 0 && (
-        <Card>
-          <span className="stat-block-label">By responsible party</span>
-          <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-            Who owns the remaining work — the advisor, the owner, and the deal team they coordinate.
-          </p>
+        <Collapsible
+          title="By responsible party"
+          hint="Who owns the remaining work — advisor, owner, and deal team"
+        >
           <div className="handoff">
             {roleGroups.map((g) => {
               const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
@@ -247,7 +250,7 @@ export default function RoadmapPage() {
               );
             })}
           </div>
-        </Card>
+        </Collapsible>
       )}
 
       {/* milestone entry */}
@@ -317,12 +320,6 @@ export default function RoadmapPage() {
           )}
         </div>
       </div>
-
-      <p className="muted" style={{ fontSize: '0.85rem' }}>
-        <Link className="button-link" to={`/engagement/${engagementId}`}>
-          ← Back to engagement
-        </Link>
-      </p>
     </div>
   );
 }

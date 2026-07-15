@@ -1,12 +1,16 @@
 // F0 component library. Import from '../components/ui' everywhere.
 export { Card } from './Card';
+export { Collapsible } from './Collapsible';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable, type Column } from './DataTable';
 export { DeltaChip } from './DeltaChip';
 export { DimensionBars, type DimensionDatum } from './DimensionBars';
 export { GanttChart, type GanttItem } from './GanttChart';
 export { EmptyState } from './EmptyState';
+export { EngagementNav } from './EngagementNav';
 export { FirmMark, type FirmBrand } from './FirmMark';
+export { GapSeverityChip } from './GapSeverityChip';
+export { SectionCard } from './SectionCard';
 export { PageHeader, type Crumb } from './PageHeader';
 export { ScoreDial } from './ScoreDial';
 export { Skeleton, SkeletonLines } from './Skeleton';
