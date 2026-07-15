@@ -407,41 +407,82 @@ export function renderOwnerReportHtml(
 
 // ---- renderer ---------------------------------------------------------------
 
+// Scan one Playwright browser-cache dir for a Chromium binary, newest revision
+// first. Handles the per-OS on-disk layouts (chrome-linux / chrome-mac /
+// chrome-win) so a locally `npx playwright install`ed browser is found too.
+function findChromiumInCache(base: string): string | undefined {
+  let entries: string[];
+  try {
+    entries = readdirSync(base);
+  } catch {
+    return undefined; // dir absent
+  }
+  // Prefer a full Chromium build, newest first.
+  const fullRels = [
+    ['chrome-linux', 'chrome'],
+    ['chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'],
+    ['chrome-win', 'chrome.exe'],
+  ];
+  for (const d of entries.filter((e) => e.startsWith('chromium-')).sort().reverse()) {
+    for (const rel of fullRels) {
+      const p = join(base, d, ...rel);
+      if (existsSync(p)) return p;
+    }
+  }
+  // Fall back to a headless-shell build (layout varies by version/OS).
+  const shellRels = [
+    ['chrome-linux', 'headless_shell'],
+    ['chrome-headless-shell-linux64', 'chrome-headless-shell'],
+    ['chrome-mac', 'chrome-headless-shell'],
+    ['chrome-win', 'chrome-headless-shell.exe'],
+  ];
+  for (const d of entries.filter((e) => e.startsWith('chromium_headless_shell')).sort().reverse()) {
+    for (const rel of shellRels) {
+      const p = join(base, d, ...rel);
+      if (existsSync(p)) return p;
+    }
+  }
+  return undefined;
+}
+
 // Find a usable Chromium without requiring the caller to set an env var. Order:
-// explicit EB_CHROMIUM_PATH, then the managed browser cache (the run/web
-// environments preinstall Chromium under PLAYWRIGHT_BROWSERS_PATH), then common
-// system installs. Returns undefined to let Playwright try its own default.
+// explicit EB_CHROMIUM_PATH, then any Playwright browser cache (the run/web
+// environments preinstall under PLAYWRIGHT_BROWSERS_PATH; a local `npx playwright
+// install` uses the per-OS default cache), then a system Chrome/Chromium/Edge.
+// Cross-platform so `npm run dev` renders PDFs on a Mac/Windows workstation, not
+// only in the Linux container. Returns undefined to let Playwright try its default.
 export function resolveChromium(): string | undefined {
   const envPath = process.env.EB_CHROMIUM_PATH;
   if (envPath && existsSync(envPath)) return envPath;
 
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const entries = readdirSync(base);
-    // Prefer a full Chromium build (chrome-linux/chrome), newest first.
-    for (const d of entries.filter((e) => e.startsWith('chromium-')).sort().reverse()) {
-      const p = join(base, d, 'chrome-linux', 'chrome');
-      if (existsSync(p)) return p;
-    }
-    // Fall back to a headless-shell build (layout varies by version).
-    for (const d of entries.filter((e) => e.startsWith('chromium_headless_shell')).sort().reverse()) {
-      for (const rel of [
-        ['chrome-linux', 'headless_shell'],
-        ['chrome-headless-shell-linux64', 'chrome-headless-shell'],
-      ]) {
-        const p = join(base, d, ...rel);
-        if (existsSync(p)) return p;
-      }
-    }
-  } catch {
-    /* base dir absent — fall through to system paths */
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const cacheBases = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    '/opt/pw-browsers',
+    '/ms-playwright',
+    home && join(home, '.cache', 'ms-playwright'), // Linux default
+    home && join(home, 'Library', 'Caches', 'ms-playwright'), // macOS default
+    home && join(home, 'AppData', 'Local', 'ms-playwright'), // Windows default
+  ].filter((v): v is string => !!v);
+  for (const base of cacheBases) {
+    const found = findChromiumInCache(base);
+    if (found) return found;
   }
 
   for (const p of [
+    // Linux
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
+    // macOS
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    // Windows
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   ]) {
     if (existsSync(p)) return p;
   }
@@ -463,7 +504,8 @@ export async function renderReportPdf(
   } catch (err) {
     throw new Error(
       `PDF rendering is unavailable: could not launch Chromium (${(err as Error).message.split('\n')[0]}). ` +
-        `Set EB_CHROMIUM_PATH to a Chromium/Chrome binary if one is installed.`,
+        `In local dev, install a browser with 'npx playwright install chromium', or set ` +
+        `EB_CHROMIUM_PATH to an existing Chromium/Chrome binary.`,
     );
   }
   try {
