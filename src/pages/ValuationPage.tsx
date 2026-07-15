@@ -180,7 +180,7 @@ export default function ValuationPage() {
             </Card>
           )}
 
-          <div className="eng-grid">
+          <div className="eng-grid eng-grid-top">
             {/* recast builder */}
             <SectionCard title="EBITDA recast">
               <label className="val-reported">Reported EBITDA

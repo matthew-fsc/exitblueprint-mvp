@@ -180,7 +180,7 @@ export default function EngagementPage() {
       {completed.length > 0 ? (
         <>
           {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
-          <div className="eng-grid">
+          <div className="eng-grid eng-grid-top">
             <SectionCard
               title={`Current readiness · assessment #${latest?.sequence_number}`}
               action={
