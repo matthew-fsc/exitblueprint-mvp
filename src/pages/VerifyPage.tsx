@@ -14,6 +14,8 @@ import fixture3 from '../../seed/fixtures/company-3-harborview-staffing.json';
 import { buildRubric } from '../../shared/rubric-seed';
 import { scoreFromAnswers } from '../../shared/scoring/engine';
 import type { Answers, ScoreResult } from '../../shared/scoring/types';
+import { tierStatusOf } from '../lib/tokens';
+import { gapSeverityStatus } from '../lib/severity';
 
 interface FixtureFile {
   profile: string;
@@ -34,21 +36,6 @@ const fixtures: { name: string; file: FixtureFile }[] = [
   { name: 'Apex Fabrication', file: fixture2 as FixtureFile },
   { name: 'Harborview Staffing', file: fixture3 as FixtureFile },
 ];
-
-const tierStatus: Record<string, string> = {
-  'Institutional Grade': 'good',
-  'Sale Ready': 'good',
-  'Needs Work': 'warning',
-  'High Risk': 'serious',
-  'Not Saleable (Yet)': 'critical',
-};
-
-const severityStatus: Record<string, string> = {
-  critical: 'critical',
-  high: 'serious',
-  med: 'warning',
-  low: 'neutral',
-};
 
 interface Comparison {
   label: string;
@@ -189,7 +176,7 @@ export default function VerifyPage() {
                   <span className="hero-value">{result.drsScore}</span>
                   <span className="hero-caption">DRS</span>
                 </div>
-                <span className={`status-chip status-${tierStatus[result.drsTier] ?? 'neutral'}`}>
+                <span className={`status-chip status-${tierStatusOf(result.drsTier)}`}>
                   ● {result.drsTier}
                 </span>
                 <div className="ori-line">
@@ -222,7 +209,7 @@ export default function VerifyPage() {
                   return (
                     <span
                       key={code}
-                      className={`gap-chip gap-${severityStatus[def?.severity ?? 'low']}`}
+                      className={`gap-chip gap-${gapSeverityStatus(def?.severity)}`}
                       title={def?.name}
                     >
                       {def?.severity}: {def?.name ?? code}

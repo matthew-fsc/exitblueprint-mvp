@@ -59,6 +59,11 @@ export const TIER_STATUS: Record<TierName, 'good' | 'ok' | 'warning' | 'serious'
   'Not Saleable (Yet)': 'critical',
 };
 
+// Tolerant lookup for a tier label coming from the DB/engine as a plain string.
+export function tierStatusOf(tier: string): 'good' | 'ok' | 'warning' | 'serious' | 'critical' | 'neutral' {
+  return TIER_STATUS[tier as TierName] ?? 'neutral';
+}
+
 // Brand + accent (forest). Mirrors the CSS variables; for JS consumers.
 export const BRAND = {
   forestDeep: '#16352a',

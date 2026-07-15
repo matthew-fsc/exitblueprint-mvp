@@ -26,6 +26,7 @@ import {
   DimensionBars,
   EmptyState,
   EngagementNav,
+  GapSeverityChip,
   PageHeader,
   SectionCard,
   ScoreDial,
@@ -231,9 +232,7 @@ export default function EngagementPage() {
                   <ul className="eng-gap-list">
                     {(gapsQ.data ?? []).map((g) => (
                       <li key={g.id}>
-                        <span className={`gap-chip gap-${g.severity === 'critical' ? 'critical' : g.severity === 'high' ? 'serious' : g.severity === 'med' ? 'warning' : 'neutral'}`}>
-                          {g.severity}
-                        </span>
+                        <GapSeverityChip severity={g.severity} />
                         <span className="eng-gap-text">
                           <strong>{g.name}</strong>
                           {g.playbookName && (

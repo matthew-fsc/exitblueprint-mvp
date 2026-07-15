@@ -24,6 +24,7 @@ import {
   type GanttItem,
 } from '../components/ui';
 import { fmtDate } from '../lib/format';
+import { engagementCrumbs } from '../lib/nav';
 
 export default function RoadmapPage() {
   const { engagementId } = useParams();
@@ -190,7 +191,7 @@ export default function RoadmapPage() {
     <div className="stack-lg">
       <PageHeader
         title="Roadmap"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Roadmap' }]}
+        crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
         subtitle="Remediation work and milestones on one timeline — business readiness and the owner’s personal plan."
         actions={
           <div className="roadmap-controls">

@@ -9,6 +9,7 @@ export { GanttChart, type GanttItem } from './GanttChart';
 export { EmptyState } from './EmptyState';
 export { EngagementNav } from './EngagementNav';
 export { FirmMark, type FirmBrand } from './FirmMark';
+export { GapSeverityChip } from './GapSeverityChip';
 export { SectionCard } from './SectionCard';
 export { PageHeader, type Crumb } from './PageHeader';
 export { ScoreDial } from './ScoreDial';

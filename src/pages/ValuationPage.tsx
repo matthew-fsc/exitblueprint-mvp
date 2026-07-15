@@ -13,6 +13,7 @@ import {
 } from '../lib/queries';
 import { Card, EmptyState, EngagementNav, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
 import { fmtCurrency, fmtCurrencyCompact } from '../lib/format';
+import { engagementCrumbs } from '../lib/nav';
 
 const INDUSTRIES = [
   ['field_services', 'Field / facility services'],
@@ -115,7 +116,7 @@ export default function ValuationPage() {
     <div className="stack-lg">
       <PageHeader
         title="Valuation"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Valuation' }]}
+        crumbs={engagementCrumbs(engagementId, companyName, 'Valuation')}
         subtitle="What the business is worth today, what finishing the roadmap is worth, and what the owner would net."
       />
       <EngagementNav engagementId={engagementId!} />
