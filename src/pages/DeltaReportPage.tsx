@@ -15,6 +15,7 @@ import {
   Card,
   DataTable,
   DeltaChip,
+  EngagementNav,
   FirmMark,
   PageHeader,
   SkeletonLines,
@@ -143,6 +144,9 @@ export default function DeltaReportPage() {
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Delta report' }]}
         subtitle="The quarterly artifact for your client meeting — your firm's brand, the readiness story."
       />
+      <div className="no-print">
+        <EngagementNav engagementId={engagementId!} />
+      </div>
       {error && <p className="form-error no-print">{error}</p>}
 
       {/* controls */}

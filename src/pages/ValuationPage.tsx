@@ -11,7 +11,7 @@ import {
   useValuationInputs,
   type AddbackRow,
 } from '../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, EngagementNav, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
 import { fmtCurrency, fmtCurrencyCompact } from '../lib/format';
 
 const INDUSTRIES = [
@@ -118,6 +118,7 @@ export default function ValuationPage() {
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName, to: `/engagement/${engagementId}` }, { label: 'Valuation' }]}
         subtitle="What the business is worth today, what finishing the roadmap is worth, and what the owner would net."
       />
+      <EngagementNav engagementId={engagementId!} />
 
       {!recast ? (
         <Card>
@@ -181,8 +182,7 @@ export default function ValuationPage() {
 
           <div className="eng-grid">
             {/* recast builder */}
-            <Card>
-              <span className="stat-block-label">EBITDA recast</span>
+            <SectionCard title="EBITDA recast">
               <label className="val-reported">Reported EBITDA
                 <input type="number" defaultValue={recast.reported_ebitda} onBlur={(e) => updateReported(e.target.value)} />
               </label>
@@ -216,11 +216,10 @@ export default function ValuationPage() {
                   {val.full_recast_ebitda !== val.defensible_ebitda && <> · full recast {fmtCurrency(val.full_recast_ebitda)} (not-defensible excluded)</>}
                 </p>
               )}
-            </Card>
+            </SectionCard>
 
             {/* assumptions + net-to-owner */}
-            <Card>
-              <span className="stat-block-label">Assumptions</span>
+            <SectionCard title="Assumptions">
               <div className="val-inputs">
                 <label>Industry
                   <select value={inputs?.industry_key ?? val?.industry_key ?? 'default'} onChange={(e) => saveInput({ industry_key: e.target.value })}>
@@ -248,7 +247,7 @@ export default function ValuationPage() {
                   </tbody>
                 </table>
               )}
-            </Card>
+            </SectionCard>
           </div>
           <p className="muted val-disclaimer">
             Estimate only, from valuation rules {val?.rules_version}. Not an appraisal or a fairness opinion.

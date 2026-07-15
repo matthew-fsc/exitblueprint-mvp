@@ -7,7 +7,7 @@ import {
   type AdvisoryItemType,
   type FiredAdvisoryItem,
 } from '../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, EmptyState, EngagementNav, PageHeader, SkeletonLines } from '../components/ui';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -125,6 +125,7 @@ export default function BuyerLensPage() {
           </Link>
         }
       />
+      <EngagementNav engagementId={engagementId!} />
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
       {firedQ.isError && <p className="form-error">{(firedQ.error as Error).message}</p>}

@@ -2511,35 +2511,40 @@ textarea:focus {
   padding-top: 1rem;
 }
 
-/* ---- engagement workspace toolbar ---- */
-.eng-workspace {
+/* ---- engagement sub-navigation (tab bar shared across engagement pages) ---- */
+.eng-nav {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.55rem 0.75rem;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--border);
 }
-.eng-workspace-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-  margin-right: 0.35rem;
-}
-.eng-workspace-link {
-  color: var(--text-primary);
-  text-decoration: none;
+.eng-nav-link {
+  padding: 0.5rem 0.85rem;
   font-weight: 600;
-  font-size: 0.86rem;
-  padding: 0.35rem 0.7rem;
-  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   white-space: nowrap;
 }
-.eng-workspace-link:hover { background: var(--surface-1); color: var(--accent-strong); }
+.eng-nav-link:hover { color: var(--text-primary); }
+.eng-nav-link.active {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent);
+}
+
+/* ---- SectionCard header ---- */
+.section-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+.section-card-titles { min-width: 0; }
+.section-card-sub { margin: 0.25rem 0 0; font-size: 0.88rem; }
+.section-card-action { flex-shrink: 0; }
 
 /* ---- engagement command view (F3) ---- */
 .eng-grid {
@@ -2547,13 +2552,6 @@ textarea:focus {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1rem;
   margin-top: 1rem;
-}
-.eng-snapshot-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
 }
 .eng-snapshot {
   display: grid;

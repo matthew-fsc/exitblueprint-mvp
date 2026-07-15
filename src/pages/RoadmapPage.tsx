@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction, supabase } from '../lib/supabase';
@@ -15,8 +15,10 @@ import {
 import {
   Card,
   EmptyState,
+  EngagementNav,
   GanttChart,
   PageHeader,
+  SectionCard,
   SkeletonLines,
   useToast,
   type GanttItem,
@@ -202,6 +204,7 @@ export default function RoadmapPage() {
           </div>
         }
       />
+      <EngagementNav engagementId={engagementId!} />
       {error && <p className="form-error">{error}</p>}
 
       {ganttItems.length === 0 ? (
@@ -222,11 +225,10 @@ export default function RoadmapPage() {
 
       {/* deal-team handoff: what each responsible party owns */}
       {roleGroups.length > 0 && (
-        <Card>
-          <span className="stat-block-label">By responsible party</span>
-          <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-            Who owns the remaining work — the advisor, the owner, and the deal team they coordinate.
-          </p>
+        <SectionCard
+          title="By responsible party"
+          subtitle="Who owns the remaining work — the advisor, the owner, and the deal team they coordinate."
+        >
           <div className="handoff">
             {roleGroups.map((g) => {
               const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
@@ -247,7 +249,7 @@ export default function RoadmapPage() {
               );
             })}
           </div>
-        </Card>
+        </SectionCard>
       )}
 
       {/* milestone entry */}
@@ -317,12 +319,6 @@ export default function RoadmapPage() {
           )}
         </div>
       </div>
-
-      <p className="muted" style={{ fontSize: '0.85rem' }}>
-        <Link className="button-link" to={`/engagement/${engagementId}`}>
-          ← Back to engagement
-        </Link>
-      </p>
     </div>
   );
 }

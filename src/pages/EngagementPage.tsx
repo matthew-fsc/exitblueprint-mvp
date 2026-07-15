@@ -25,7 +25,9 @@ import {
   DeltaChip,
   DimensionBars,
   EmptyState,
+  EngagementNav,
   PageHeader,
+  SectionCard,
   ScoreDial,
   SkeletonLines,
   TierBadge,
@@ -172,38 +174,23 @@ export default function EngagementPage() {
           )
         }
       />
+      <EngagementNav engagementId={engagementId!} />
       {error && <p className="form-error">{error}</p>}
 
       {completed.length > 0 ? (
         <>
-          {/* workspace tools — the engagement's deliverable surfaces, one row */}
-          <nav className="eng-workspace" aria-label="Engagement tools">
-            <span className="eng-workspace-label">Workspace</span>
-            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/roadmap`}>
-              Roadmap
-            </Link>
-            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/valuation`}>
-              Valuation
-            </Link>
-            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/buyer-lens`}>
-              Buyer lens
-            </Link>
-            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/delta`}>
-              Delta report
-            </Link>
-          </nav>
-
           {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
           <div className="eng-grid">
-            <Card>
-              <div className="eng-snapshot-head">
-                <span className="stat-block-label">Current readiness · assessment #{latest?.sequence_number}</span>
-                {latest && (
+            <SectionCard
+              title={`Current readiness · assessment #${latest?.sequence_number}`}
+              action={
+                latest && (
                   <Link className="button-link" to={`/assessment/${latest.id}/results`}>
                     Full results →
                   </Link>
-                )}
-              </div>
+                )
+              }
+            >
               {explainQ.isLoading || !explain ? (
                 <SkeletonLines lines={5} />
               ) : (
@@ -226,14 +213,17 @@ export default function EngagementPage() {
                   </div>
                 </div>
               )}
-            </Card>
+            </SectionCard>
 
-            <Card>
-              <span className="stat-block-label">
-                Open gaps to remediate{' '}
-                {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
-              </span>
-              <div style={{ marginTop: '0.9rem' }}>
+            <SectionCard
+              title={
+                <>
+                  Open gaps to remediate{' '}
+                  {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
+                </>
+              }
+            >
+              <div>
                 {gapsQ.isLoading ? (
                   <SkeletonLines lines={4} />
                 ) : (gapsQ.data ?? []).length === 0 ? (
@@ -264,7 +254,7 @@ export default function EngagementPage() {
                   </div>
                 </div>
               )}
-            </Card>
+            </SectionCard>
           </div>
 
           {/* trajectory against the exit window */}
@@ -294,22 +284,18 @@ export default function EngagementPage() {
           {/* decision charts: what's driving the score + owner-vs-business */}
           {explain && (
             <div className="eng-grid">
-              <Card>
-                <span className="stat-block-label">What's driving the score</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  Each bar's width is the dimension's weight in the DRS; the fill is what it
-                  contributes today. Biggest shortfall first.
-                </p>
+              <SectionCard
+                title="What's driving the score"
+                subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
+              >
                 <ContributionBars dimensions={explain.dimensions} />
-              </Card>
-              <Card>
-                <span className="stat-block-label">Business vs. owner readiness</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  The DRS and the Owner Readiness Index on one scale — their gap is a finding in
-                  itself.
-                </p>
+              </SectionCard>
+              <SectionCard
+                title="Business vs. owner readiness"
+                subtitle="The DRS and the Owner Readiness Index on one scale — their gap is a finding in itself."
+              >
                 <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
-              </Card>
+              </SectionCard>
             </div>
           )}
 
