@@ -20,6 +20,7 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   DataTable,
   DeltaChip,
   DimensionBars,
@@ -158,106 +159,41 @@ export default function EngagementPage() {
           </>
         }
         actions={
-          <>
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/valuation`}>
-                Valuation →
+          !inProgress && profile ? (
+            <button onClick={startAssessment}>
+              {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
+            </button>
+          ) : (
+            inProgress && (
+              <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
+                Resume intake →
               </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/buyer-lens`}>
-                Buyer lens →
-              </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
-                Roadmap →
-              </Link>
-            )}
-            {completed.length > 0 && (
-              <Link className="button-link" to={`/engagement/${engagementId}/delta`}>
-                Delta report →
-              </Link>
-            )}
-            {!inProgress && profile ? (
-              <button onClick={startAssessment}>
-                {assessments.length === 0 ? 'Start baseline assessment' : 'Start re-assessment'}
-              </button>
-            ) : (
-              inProgress && (
-                <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
-                  Resume intake →
-                </Link>
-              )
-            )}
-          </>
+            )
+          )
         }
       />
       {error && <p className="form-error">{error}</p>}
 
       {completed.length > 0 ? (
         <>
-          <Card>
-            <div className="trajectory-head">
-              <h3 className="section-heading" style={{ margin: 0 }}>
-                On pace for the exit window?
-              </h3>
-              {delta !== null && <DeltaChip value={delta} />}
-            </div>
-            <p className="muted" style={{ margin: '0.25rem 0 0' }}>
-              Readiness plotted against the target exit date, with the pace needed to reach
-              Competitive-Process-Ready (DRS {TARGET_DRS}) in time.
-            </p>
-            <div style={{ marginTop: '0.75rem' }}>
-              <ExitPaceChart
-                points={pacePoints}
-                targetScore={TARGET_DRS}
-                targetDate={exitDate}
-                projectedScore={
-                  explain && explain.projectedDrs > explain.drsScore ? explain.projectedDrs : null
-                }
-              />
-            </div>
-          </Card>
+          {/* workspace tools — the engagement's deliverable surfaces, one row */}
+          <nav className="eng-workspace" aria-label="Engagement tools">
+            <span className="eng-workspace-label">Workspace</span>
+            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/roadmap`}>
+              Roadmap
+            </Link>
+            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/valuation`}>
+              Valuation
+            </Link>
+            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/buyer-lens`}>
+              Buyer lens
+            </Link>
+            <Link className="eng-workspace-link" to={`/engagement/${engagementId}/delta`}>
+              Delta report
+            </Link>
+          </nav>
 
-          {/* decision charts: what's driving the score + owner-vs-business */}
-          {explain && (
-            <div className="eng-grid">
-              <Card>
-                <span className="stat-block-label">What's driving the score</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  Each bar's width is the dimension's weight in the DRS; the fill is what it
-                  contributes today. Biggest shortfall first.
-                </p>
-                <ContributionBars dimensions={explain.dimensions} />
-              </Card>
-              <Card>
-                <span className="stat-block-label">Business vs. owner readiness</span>
-                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
-                  The DRS and the Owner Readiness Index on one scale — their gap is a finding in
-                  itself.
-                </p>
-                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
-              </Card>
-            </div>
-          )}
-
-          {/* owner access + accounting connection */}
-          <div className="eng-grid">
-            <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
-            <AccountingCard
-              companyId={engagement.company_id}
-              companyName={companyName}
-              firmId={engagement.firm_id}
-            />
-          </div>
-          {/* financial verification */}
-          {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
-
-          {/* deal outcome capture (calibration moat) */}
-          <DealOutcomeCard engagementId={engagementId!} />
-
-          {/* current snapshot + open gaps */}
+          {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
           <div className="eng-grid">
             <Card>
               <div className="eng-snapshot-head">
@@ -331,8 +267,73 @@ export default function EngagementPage() {
             </Card>
           </div>
 
+          {/* trajectory against the exit window */}
+          <Card>
+            <div className="trajectory-head">
+              <h3 className="section-heading" style={{ margin: 0 }}>
+                On pace for the exit window?
+              </h3>
+              {delta !== null && <DeltaChip value={delta} />}
+            </div>
+            <p className="muted" style={{ margin: '0.25rem 0 0' }}>
+              Readiness plotted against the target exit date, with the pace needed to reach
+              Competitive-Process-Ready (DRS {TARGET_DRS}) in time.
+            </p>
+            <div style={{ marginTop: '0.75rem' }}>
+              <ExitPaceChart
+                points={pacePoints}
+                targetScore={TARGET_DRS}
+                targetDate={exitDate}
+                projectedScore={
+                  explain && explain.projectedDrs > explain.drsScore ? explain.projectedDrs : null
+                }
+              />
+            </div>
+          </Card>
+
+          {/* decision charts: what's driving the score + owner-vs-business */}
+          {explain && (
+            <div className="eng-grid">
+              <Card>
+                <span className="stat-block-label">What's driving the score</span>
+                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+                  Each bar's width is the dimension's weight in the DRS; the fill is what it
+                  contributes today. Biggest shortfall first.
+                </p>
+                <ContributionBars dimensions={explain.dimensions} />
+              </Card>
+              <Card>
+                <span className="stat-block-label">Business vs. owner readiness</span>
+                <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+                  The DRS and the Owner Readiness Index on one scale — their gap is a finding in
+                  itself.
+                </p>
+                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
+              </Card>
+            </div>
+          )}
+
           {/* compare any two */}
           <ComparePanel assessments={completed} />
+
+          {/* setup & admin — connections and record-keeping, folded away by default */}
+          <Collapsible
+            title="Engagement setup & admin"
+            hint="Owner access · accounting · verification · deal outcome"
+          >
+            <div className="stack-lg">
+              <div className="eng-grid" style={{ marginTop: 0 }}>
+                <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
+                <AccountingCard
+                  companyId={engagement.company_id}
+                  companyName={companyName}
+                  firmId={engagement.firm_id}
+                />
+              </div>
+              {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+              <DealOutcomeCard engagementId={engagementId!} />
+            </div>
+          </Collapsible>
         </>
       ) : (
         <EmptyState
@@ -353,46 +354,29 @@ export default function EngagementPage() {
         </ul>
       </section>
 
-      {/* tasks (populated in F5) + documents */}
-      <div className="eng-grid">
-        <div>
-          <h3 className="section-heading">Roadmap</h3>
-          <EmptyState
-            icon="◷"
-            title="Remediation roadmap"
-            action={
-              <Link className="button-link" to={`/engagement/${engagementId}/roadmap`}>
-                Open roadmap →
-              </Link>
-            }
-          >
-            Turn the open gaps — most critical first — into a sequenced task plan with a Gantt
-            timeline, alongside the owner’s personal milestones.
+      {/* documents generated from this engagement */}
+      <section>
+        <h3 className="section-heading">Documents</h3>
+        {documents.length === 0 ? (
+          <EmptyState icon="▤" title="No documents yet">
+            Generate an owner report or a branded delta report from an assessment.
           </EmptyState>
-        </div>
-        <div>
-          <h3 className="section-heading">Documents</h3>
-          {documents.length === 0 ? (
-            <EmptyState icon="▤" title="No documents yet">
-              Generate an owner report or a branded delta report from an assessment.
-            </EmptyState>
-          ) : (
-            <ul className="assessment-list">
-              {documents.map((d) => (
-                <li key={d.id} className="assessment-card">
-                  <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
-                  <span className="assessment-score muted">
-                    {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
-                  </span>
-                  <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
-                    Open →
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+        ) : (
+          <ul className="assessment-list">
+            {documents.map((d) => (
+              <li key={d.id} className="assessment-card">
+                <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
+                <span className="assessment-score muted">
+                  {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
+                </span>
+                <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
+                  Open →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

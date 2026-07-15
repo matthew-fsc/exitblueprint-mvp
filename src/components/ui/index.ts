@@ -1,5 +1,6 @@
 // F0 component library. Import from '../components/ui' everywhere.
 export { Card } from './Card';
+export { Collapsible } from './Collapsible';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable, type Column } from './DataTable';
 export { DeltaChip } from './DeltaChip';

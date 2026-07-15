@@ -2476,6 +2476,71 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- Collapsible (disclosure) ---- */
+.ui-collapsible {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.ui-collapsible-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.ui-collapsible-summary::-webkit-details-marker { display: none; }
+.ui-collapsible-summary:hover { background: var(--surface-2); border-radius: var(--radius); }
+.ui-collapsible-chevron {
+  display: inline-flex;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+.ui-collapsible[open] > .ui-collapsible-summary .ui-collapsible-chevron { transform: rotate(90deg); }
+.ui-collapsible-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+.ui-collapsible-hint { font-size: 0.82rem; }
+.ui-collapsible-body {
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+/* ---- engagement workspace toolbar ---- */
+.eng-workspace {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.eng-workspace-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-right: 0.35rem;
+}
+.eng-workspace-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.86rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.eng-workspace-link:hover { background: var(--surface-1); color: var(--accent-strong); }
+
 /* ---- engagement command view (F3) ---- */
 .eng-grid {
   display: grid;
