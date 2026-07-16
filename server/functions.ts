@@ -22,6 +22,7 @@ import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './l
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { inviteOwner } from './invite';
+import { createEngagementWithAgreement } from './agreements';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -68,6 +69,27 @@ async function authorize(
       return (r.rows[0]?.firm_id as string | undefined) ?? null;
     });
     if (!firmId) return { error: err(403, 'advisor profile required') };
+    return { firmId };
+  }
+  if (name === 'create-engagement') {
+    // Resolve the caller's own advisor firm (never trust a firm_id from the
+    // body), then confirm the target company is visible to them under RLS. The
+    // engagement doesn't exist yet, so it can't be authorized by its own id.
+    const firmId = await ctx.asUser(async (c) => {
+      const r = await c.query(
+        `select firm_id from profiles where user_id = $1 and role = 'advisor'`,
+        [ctx.userId],
+      );
+      return (r.rows[0]?.firm_id as string | undefined) ?? null;
+    });
+    if (!firmId) return { error: err(403, 'advisor profile required') };
+    const companyId = typeof body.company_id === 'string' ? body.company_id : null;
+    if (!companyId) return { error: err(400, 'company_id required') };
+    const visible = await ctx.asUser(async (c) => {
+      const r = await c.query(`select id from companies where id = $1`, [companyId]);
+      return r.rowCount === 1;
+    });
+    if (!visible) return { error: err(404, 'company not found') };
     return { firmId };
   }
   if (LEDGER_FNS.has(name)) {
@@ -183,6 +205,7 @@ async function dispatch(
   body: Record<string, unknown>,
   service: pg.ClientBase,
   firmId: string | null,
+  userId: string,
 ): Promise<FunctionResult> {
   const assessmentId = body.assessment_id as string;
   switch (name) {
@@ -204,6 +227,8 @@ async function dispatch(
       return ok(await computeValuation(service, body.engagement_id as string));
     case 'invite-owner':
       return ok(await inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string));
+    case 'create-engagement':
+      return ok(await createEngagementWithAgreement(service, userId, firmId as string, body));
     case 'record-deal-outcome':
       return ok(await recordDealOutcome(service, body.engagement_id as string, (body.input as DealOutcomeInput) ?? ({} as DealOutcomeInput)));
     case 'deal-calibration':
@@ -270,7 +295,7 @@ export async function handleFunctionCall(
   const authz = await authorize(name, body, ctx);
   if ('error' in authz) return authz.error;
   try {
-    return await dispatch(name, body, ctx.service, authz.firmId);
+    return await dispatch(name, body, ctx.service, authz.firmId, ctx.userId);
   } catch (e) {
     return err(400, (e as Error).message);
   }

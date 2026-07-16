@@ -5,6 +5,7 @@
 // attests to statements, else self_reported).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { acceptAgreement } from './helpers';
 import { syncLedgerToAssessment, enterManualFinancials, LEDGER_DERIVABLE_CODES } from '../server/ledger';
 import { verificationSummary } from '../server/verification';
 
@@ -29,6 +30,7 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
     const engagementId = (
       await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     assessmentId = (
       await db.query(
         `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status)
@@ -44,8 +46,10 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
     await db.query(`delete from answers where assessment_id = $1`, [assessmentId]);
     await db.query(`delete from ledger_connections where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

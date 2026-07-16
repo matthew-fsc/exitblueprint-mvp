@@ -13,6 +13,11 @@ import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
 import { instantiateTasksForGaps } from '../server/roadmap';
 import type { Answers } from '../shared/scoring/types';
+import {
+  DEFAULT_AGREEMENT_BODY,
+  DEFAULT_AGREEMENT_LABEL,
+  DEFAULT_AGREEMENT_TITLE,
+} from './agreement-template';
 
 const DEMO_FIRM = 'Blueprint Demo Advisors';
 const DEMO_COMPANY = 'Cascade Facility Services';
@@ -89,6 +94,31 @@ async function main() {
         [firmId, companyId],
       )
     ).rows[0].id;
+
+    // Beta R1: an engagement can't collect assessment data until an agreement
+    // acceptance is on file. Seed the demo firm's agreement version + a fully
+    // consented acceptance so the demo engagement's assessments can be created.
+    let agreementVersionId = (
+      await db.query(`select id from agreement_versions where firm_id = $1 and version_label = $2`, [
+        firmId,
+        DEFAULT_AGREEMENT_LABEL,
+      ])
+    ).rows[0]?.id;
+    agreementVersionId ??= (
+      await db.query(
+        `insert into agreement_versions (firm_id, version_label, title, body_md, status)
+         values ($1, $2, $3, $4, 'active') returning id`,
+        [firmId, DEFAULT_AGREEMENT_LABEL, DEFAULT_AGREEMENT_TITLE, DEFAULT_AGREEMENT_BODY],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into engagement_agreements
+         (firm_id, engagement_id, agreement_version_id, accepted_signer_name,
+          consent_benchmarking, consent_anonymized_aggregation, consent_outcome_tracking)
+       values ($1, $2, $3, 'Dana Whitfield', true, true, true)
+       on conflict (engagement_id) do nothing`,
+      [firmId, engagementId, agreementVersionId],
+    );
 
     for (const [index, snapshot] of snapshots.entries()) {
       const sequence = index + 1;

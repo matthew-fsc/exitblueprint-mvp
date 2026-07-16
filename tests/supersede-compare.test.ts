@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { compareAssessments, scoreAssessment, supersedeAssessment } from '../server/scoring';
 import type { Answers } from '../shared/scoring/types';
-import { loadFixture } from './helpers';
+import { loadFixture, acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
 
@@ -70,6 +70,7 @@ describe.skipIf(!url)('supersedeAssessment and compareAssessments', () => {
         [firmId, companyId],
       )
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
   });
 
   afterAll(async () => {
@@ -88,8 +89,10 @@ describe.skipIf(!url)('supersedeAssessment and compareAssessments', () => {
          (select id from rubric_versions where version_label = 'DRS-TEST-NEXT')`,
     );
     await db.query(`delete from rubric_versions where version_label = 'DRS-TEST-NEXT'`);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

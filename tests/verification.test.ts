@@ -3,6 +3,7 @@
 // reflects recorded provenance, and moves the tier as inputs are verified.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { acceptAgreement } from './helpers';
 import { verificationSummary, tierFor } from '../server/verification';
 
 const url = process.env.DATABASE_URL;
@@ -36,6 +37,7 @@ describe.skipIf(!url)('verificationSummary', () => {
     const engagementId = (
       await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     assessmentId = (
       await db.query(
         `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
@@ -49,8 +51,10 @@ describe.skipIf(!url)('verificationSummary', () => {
     if (!db) return;
     await db.query(`delete from answer_provenance where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

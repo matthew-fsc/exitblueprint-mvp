@@ -7,6 +7,7 @@
 // from the dev emulator.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { acceptAgreement } from './helpers';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
 
 const url = process.env.DATABASE_URL;
@@ -69,6 +70,7 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     engagementId = (
       await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
     ).rows[0].id;
+    await acceptAgreement(service, engagementId);
     assessmentId = (
       await service.query(
         `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at, drs_score, drs_tier, ori_score)
@@ -87,10 +89,12 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
       await service.query(`delete from deal_outcomes where firm_id = $1`, [firmId]);
       await service.query(`delete from ebitda_recasts where firm_id = $1`, [firmId]);
       await service.query(`delete from assessments where firm_id = $1`, [firmId]);
+      await service.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
       await service.query(`delete from engagements where firm_id = $1`, [firmId]);
       await service.query(`delete from companies where firm_id = $1`, [firmId]);
       await service.query(`delete from profiles where firm_id = $1`, [firmId]);
       await service.query(`delete from auth.users where id = $1`, [advisorUserId]);
+      await service.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
       await service.query(`delete from firms where id = $1`, [firmId]);
       await service.end();
     }
@@ -152,6 +156,69 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
       expect(r.status).toBeGreaterThanOrEqual(400);
       expect(r.body).toHaveProperty('message');
     }
+  });
+
+  it('create-engagement: creates the engagement and its acceptance atomically, gating assessments', async () => {
+    const companyId = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'CE Co') returning id`, [firmId])
+    ).rows[0].id;
+    const av = (
+      await service.query(
+        `select id from agreement_versions where firm_id = $1 and status = 'active' limit 1`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'create-engagement',
+      {
+        company_id: companyId,
+        agreement_version_id: av,
+        signer_name: 'Jane Owner',
+        consent: { benchmarking: true, anonymized_aggregation: false, outcome_tracking: true },
+      },
+      ctxFor(advisorUserId),
+    );
+    expect(r.kind).toBe('json');
+    if (r.kind !== 'json') return;
+    expect(r.status).toBe(200);
+    const engId = (r.body as { engagement_id: string }).engagement_id;
+
+    const acc = (
+      await service.query(
+        `select consent_benchmarking, consent_anonymized_aggregation, consent_outcome_tracking, accepted_signer_name
+         from engagement_agreements where engagement_id = $1`,
+        [engId],
+      )
+    ).rows[0];
+    expect(acc).toMatchObject({
+      consent_benchmarking: true,
+      consent_anonymized_aggregation: false,
+      consent_outcome_tracking: true,
+      accepted_signer_name: 'Jane Owner',
+    });
+
+    // The gate now admits an assessment for this engagement and stamps the version.
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const stamped = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number)
+         values ($1, $2, $3, 1) returning agreement_version_id`,
+        [firmId, engId, rv],
+      )
+    ).rows[0];
+    expect(stamped.agreement_version_id).toBe(av);
+  });
+
+  it('create-engagement: rejects a company the caller cannot see (404)', async () => {
+    const r = await handleFunctionCall(
+      'create-engagement',
+      {
+        company_id: '00000000-0000-0000-0000-000000000000',
+        agreement_version_id: '00000000-0000-0000-0000-000000000000',
+      },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 404 });
   });
 
   it('unknown function name → 404', async () => {

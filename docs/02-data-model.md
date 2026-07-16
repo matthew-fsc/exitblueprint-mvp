@@ -8,8 +8,10 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 - name, status (active|suspended)
 
 **profiles** - extends Supabase auth.users
-- user_id (fk auth.users), firm_id nullable, role (admin|advisor|owner), full_name, email
+- user_id (fk auth.users), firm_id nullable, role (admin|advisor|reviewer|owner), full_name, email
 - owners also get company_id (fk companies) for portal scoping
+- reviewer role exists for the beta document-review queue (Requirement 3); its
+  table policies land with that slice.
 
 ## Clients and engagements
 
@@ -20,6 +22,31 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 **engagements** - the unit of work; a company's readiness journey
 - firm_id, company_id, advisor_id (fk profiles), status (active|paused|exited|churned)
 - target_exit_window (text), started_at
+
+## Data-rights capture (beta Requirement 1)
+
+Before any assessment data is collected for an engagement, the advisor records
+acceptance of an immutable engagement-agreement version plus the client's
+data-use consents. The agreement/consent layer only gates and annotates inputs;
+it never writes to scoring.
+
+**agreement_versions** - immutable, full-text agreement templates per firm
+- firm_id, version_label (unique per firm), title, body_md, status (draft|active|retired)
+- effective_date, created_by (fk profiles)
+- Rows are never edited (UPDATE/DELETE withheld from authenticated); a new
+  version is a new row. Acceptances reference the exact version.
+
+**engagement_agreements** - per-engagement acceptance (one per engagement)
+- firm_id, engagement_id (fk, unique), agreement_version_id (fk agreement_versions)
+- accepted_by (fk profiles), accepted_signer_name, accepted_at
+- consent_benchmarking, consent_anonymized_aggregation, consent_outcome_tracking (bool)
+
+The sanctioned way to start an engagement is the `create-engagement` function,
+which inserts the engagement and its acceptance in one transaction. `assessments`
+gains **agreement_version_id** (the version in force when the data was collected);
+a BEFORE-INSERT trigger blocks any assessment for an engagement with no acceptance
+and stamps this column from the acceptance — the DB-hard guarantee behind "no
+assessment data before acceptance."
 
 ## Methodology (rubric lives in data; seeded from /seed)
 

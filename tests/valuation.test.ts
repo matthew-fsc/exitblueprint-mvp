@@ -3,6 +3,7 @@
 // the number can never silently drift — the same discipline as the DRS engine.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { acceptAgreement } from './helpers';
 import { computeValuation } from '../server/valuation';
 
 const url = process.env.DATABASE_URL;
@@ -23,6 +24,7 @@ describe.skipIf(!url)('computeValuation', () => {
     engagementId = (
       await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     // Sale-Ready tier → readiness 1.0; no provenance → self-reported → width 0.30.
     await db.query(
       `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at, drs_score, drs_tier)
@@ -52,8 +54,10 @@ describe.skipIf(!url)('computeValuation', () => {
     await db.query(`delete from ebitda_addbacks where firm_id = $1`, [firmId]);
     await db.query(`delete from ebitda_recasts where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });
