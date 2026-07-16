@@ -89,6 +89,28 @@ async function main() {
       )
     ).rows[0].id;
 
+    // Beta R1: engagements need an accepted agreement before assessments can be
+    // created (gate trigger). Version per firm + an acceptance per engagement.
+    const agreementA = (
+      await db.query(
+        `insert into agreement_versions (firm_id, version_label, title, body_md)
+         values ($1, 'EA-A', 'Firm A EA', 'firm A body') returning id`,
+        [ids.firm_a],
+      )
+    ).rows[0].id;
+    const agreementB = (
+      await db.query(
+        `insert into agreement_versions (firm_id, version_label, title, body_md)
+         values ($1, 'EA-B', 'Firm B EA', 'firm B body') returning id`,
+        [ids.firm_b],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into engagement_agreements (firm_id, engagement_id, agreement_version_id)
+       values ($1, $2, $3), ($4, $5, $6)`,
+      [ids.firm_a, engagementA, agreementA, ids.firm_b, engagementB, agreementB],
+    );
+
     const rubric = (
       await db.query(
         `insert into rubric_versions (version_label, status) values ('RLS-TEST', 'active') returning id`,
@@ -195,6 +217,19 @@ async function main() {
     await db.query(
       `insert into valuation_rules_versions (version_label, status) values ('RLS-VAL-1', 'active')`,
     );
+    // Firm B document + extracted field for the R3 isolation checks.
+    const documentB = (
+      await db.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type, status)
+         values ($1, $2, 'firmB.pdf', 'application/pdf', 'in_review') returning id`,
+        [ids.firm_b, engagementB],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into document_fields (firm_id, document_id, field_key, value, verification_status)
+       values ($1, $2, 'Secret EBITDA', '999', 'extracted')`,
+      [ids.firm_b, documentB],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -254,6 +289,74 @@ async function main() {
       await db.query('rollback to savepoint oe2');
     }
     check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
+
+    // agreement_versions + engagement_agreements: firm isolation (beta R1)
+    const avA = await db.query('select version_label from agreement_versions');
+    check('sees only own firm agreement_versions',
+      avA.rows.length === 1 && avA.rows[0].version_label === 'EA-A', `saw ${JSON.stringify(avA.rows)}`);
+    const eaA = await db.query('select engagement_id from engagement_agreements');
+    check('sees only own firm engagement_agreements',
+      eaA.rows.length === 1 && eaA.rows[0].engagement_id === engagementA);
+    let avBWriteBlocked = false;
+    try {
+      await db.query('savepoint av');
+      const ins = await db.query(
+        `insert into agreement_versions (firm_id, version_label, title, body_md)
+         values ($1, 'SNEAK', 't', 'b')`,
+        [ids.firm_b],
+      );
+      avBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint av');
+    } catch {
+      avBWriteBlocked = true;
+      await db.query('rollback to savepoint av');
+    }
+    check('cannot insert an agreement_version into firm B', avBWriteBlocked);
+
+    // Gate: an assessment cannot be created for an engagement with no accepted
+    // agreement (beta acceptance criterion 1 — no assessment data before consent).
+    await asSuper();
+    await db.query('savepoint gate');
+    let gateBlocked = false;
+    try {
+      const ge = (
+        await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [
+          ids.firm_a,
+          companyA,
+        ])
+      ).rows[0].id;
+      await db.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, status, sequence_number)
+         values ($1, $2, $3, 'in_progress', 1)`,
+        [ids.firm_a, ge, rubric],
+      );
+    } catch {
+      gateBlocked = true;
+    }
+    await db.query('rollback to savepoint gate');
+    check('assessment blocked for engagement without agreement acceptance', gateBlocked);
+    await asUser(ids.user_a);
+
+    // documents + document_fields: firm isolation (beta R3)
+    const docsA = await db.query('select id from documents');
+    check('sees no firm B documents', docsA.rows.length === 0, `saw ${docsA.rows.length}`);
+    const dfA = await db.query('select value from document_fields');
+    check('sees no firm B document_fields', dfA.rows.length === 0, `saw ${dfA.rows.length}`);
+    let docBWriteBlocked = false;
+    try {
+      await db.query('savepoint doc');
+      const ins = await db.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type, status)
+         values ($1, $2, 'sneak.pdf', 'application/pdf', 'in_review')`,
+        [ids.firm_b, engagementB],
+      );
+      docBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint doc');
+    } catch {
+      docBWriteBlocked = true;
+      await db.query('rollback to savepoint doc');
+    }
+    check('cannot insert a document into firm B', docBWriteBlocked);
 
     // firm_branding: advisor A writes+reads own firm, never sees firm B
     await db.query(

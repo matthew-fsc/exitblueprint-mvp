@@ -8,8 +8,10 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 - name, status (active|suspended)
 
 **profiles** - extends Supabase auth.users
-- user_id (fk auth.users), firm_id nullable, role (admin|advisor|owner), full_name, email
+- user_id (fk auth.users), firm_id nullable, role (admin|advisor|reviewer|owner), full_name, email
 - owners also get company_id (fk companies) for portal scoping
+- reviewer role exists for the beta document-review queue (Requirement 3); its
+  table policies land with that slice.
 
 ## Clients and engagements
 
@@ -20,6 +22,61 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 **engagements** - the unit of work; a company's readiness journey
 - firm_id, company_id, advisor_id (fk profiles), status (active|paused|exited|churned)
 - target_exit_window (text), started_at
+
+## Data-rights capture (beta Requirement 1)
+
+Before any assessment data is collected for an engagement, the advisor records
+acceptance of an immutable engagement-agreement version plus the client's
+data-use consents. The agreement/consent layer only gates and annotates inputs;
+it never writes to scoring.
+
+**agreement_versions** - immutable, full-text agreement templates per firm
+- firm_id, version_label (unique per firm), title, body_md, status (draft|active|retired)
+- effective_date, created_by (fk profiles)
+- Rows are never edited (UPDATE/DELETE withheld from authenticated); a new
+  version is a new row. Acceptances reference the exact version.
+
+**engagement_agreements** - per-engagement acceptance (one per engagement)
+- firm_id, engagement_id (fk, unique), agreement_version_id (fk agreement_versions)
+- accepted_by (fk profiles), accepted_signer_name, accepted_at
+- consent_benchmarking, consent_anonymized_aggregation, consent_outcome_tracking (bool)
+
+The sanctioned way to start an engagement is the `create-engagement` function,
+which inserts the engagement and its acceptance in one transaction. `assessments`
+gains **agreement_version_id** (the version in force when the data was collected);
+a BEFORE-INSERT trigger blocks any assessment for an engagement with no acceptance
+and stamps this column from the acceptance — the DB-hard guarantee behind "no
+assessment data before acceptance."
+
+## Document intake (beta Requirement 3)
+
+Advisors (or clients) upload source documents per assessment category; each moves
+through upload → virus scan → classification → extraction (ParserAdapter) → human
+review → verified fact. Extraction accuracy is not a beta blocker — the manual
+review path is complete; the automated path may be partial. Documents/fields
+never write to scoring tables.
+
+**documents**
+- firm_id, engagement_id, category, original_filename, mime_type, byte_size
+- status (uploaded|scanning|scanned|classified|extracting|in_review|verified|rejected)
+- scan_status (pending|clean|infected|skipped), classification, parser_name, storage_key
+- uploaded_by, reviewed_by, reviewed_at
+
+**document_blobs** — beta byte store (document_id fk unique, firm_id, bytes bytea).
+R5 moves bytes to Supabase Storage (encryption + signed URLs) behind the same
+StorageAdapter seam; schema-swappable.
+
+**document_fields** — extracted or manually-entered data points
+- firm_id, document_id, question_id (nullable link to a scored question), field_key, value
+- verification_status (unverified|extracted|verified), confidence, verified_by, verified_at
+
+**field_corrections** — parser-accuracy log (firm_id, document_field_id, original_value, corrected_value, corrected_by)
+
+RLS: staff (advisor + reviewer) full CRUD within firm — the reviewer role's first
+policies; owners upload+read their own company's documents/fields (not the QA log).
+Extraction/parsing goes through the ParserAdapter (server/documents/parser.ts) and
+storage through the StorageAdapter (server/documents/storage.ts) — no vendor is
+hard-coded.
 
 ## Methodology (rubric lives in data; seeded from /seed)
 

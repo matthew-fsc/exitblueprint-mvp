@@ -13,7 +13,7 @@ import {
 import { explainAssessment, scoreAssessment } from '../server/scoring';
 import { interpretSubScore, qualityBand } from '../shared/scoring/interpret';
 import type { Answers } from '../shared/scoring/types';
-import { loadFixture } from './helpers';
+import { loadFixture, acceptAgreement } from './helpers';
 
 describe('numeralPostCheck', () => {
   const payload = { score: 61.5, dims: [{ name: 'Revenue', score: 72.25 }], count: 3 };
@@ -116,6 +116,7 @@ describe.skipIf(!url)('generateDocument', () => {
         [firmId, companyId],
       )
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     assessmentId = (
       await db.query(
         `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number)
@@ -156,8 +157,10 @@ describe.skipIf(!url)('generateDocument', () => {
     }
     await db.query(`delete from gaps where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

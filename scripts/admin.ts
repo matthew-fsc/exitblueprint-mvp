@@ -5,13 +5,19 @@
 //
 // Usage:
 //   npm run admin -- create-firm --name "Summit Exit Advisors"
-//   npm run admin -- create-advisor --firm "Summit Exit Advisors" --email jo@summit.com [--role advisor] [--name "Jo Advisor"]
+//   npm run admin -- create-advisor --firm "Summit Exit Advisors" --email jo@summit.com [--role advisor|reviewer|admin] [--name "Jo Advisor"]
 //   npm run admin -- assign-company --email owner@client.com --company "Client Co"
+//   npm run admin -- create-agreement-version --firm "Summit Exit Advisors" [--label EA-1.0] [--title "..."] [--body "..."]
 //
 // Notes: create-advisor creates the auth.users row and profile. On hosted
 // Supabase, login credentials are issued afterwards via the dashboard/auth
 // invite (S5); this CLI provisions the records the app reads.
 import pg from 'pg';
+import {
+  DEFAULT_AGREEMENT_BODY,
+  DEFAULT_AGREEMENT_LABEL,
+  DEFAULT_AGREEMENT_TITLE,
+} from './agreement-template';
 
 const url = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
@@ -53,7 +59,7 @@ async function createFirm(db: pg.ClientBase, flags: Record<string, string>) {
 async function createAdvisor(db: pg.ClientBase, flags: Record<string, string>) {
   const email = required(flags, 'email');
   const role = flags.role ?? 'advisor';
-  if (!['advisor', 'admin', 'owner'].includes(role)) throw new Error(`unknown role '${role}'`);
+  if (!['advisor', 'admin', 'owner', 'reviewer'].includes(role)) throw new Error(`unknown role '${role}'`);
   const firm = await findFirm(db, required(flags, 'firm'));
 
   let userId: string;
@@ -109,6 +115,29 @@ async function assignCompany(db: pg.ClientBase, flags: Record<string, string>) {
   console.log(`assigned '${email}' to company '${company.rows[0].name}'`);
 }
 
+// Beta Requirement 1: a firm needs at least one active engagement-agreement
+// version before advisors can start engagements. Idempotent on (firm, label).
+async function createAgreementVersion(db: pg.ClientBase, flags: Record<string, string>) {
+  const firm = await findFirm(db, required(flags, 'firm'));
+  const label = flags.label ?? DEFAULT_AGREEMENT_LABEL;
+  const title = flags.title ?? DEFAULT_AGREEMENT_TITLE;
+  const body = flags.body ?? DEFAULT_AGREEMENT_BODY;
+  const existing = await db.query(
+    `select id from agreement_versions where firm_id = $1 and version_label = $2`,
+    [firm.id, label],
+  );
+  if (existing.rowCount) {
+    console.log(`agreement version '${label}' already exists for '${firm.name}': ${existing.rows[0].id}`);
+    return;
+  }
+  const res = await db.query(
+    `insert into agreement_versions (firm_id, version_label, title, body_md, status)
+     values ($1, $2, $3, $4, 'active') returning id`,
+    [firm.id, label, title, body],
+  );
+  console.log(`created agreement version '${label}' for firm '${firm.name}': ${res.rows[0].id}`);
+}
+
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2));
   const db = new pg.Client({ connectionString: url });
@@ -124,9 +153,12 @@ async function main() {
       case 'assign-company':
         await assignCompany(db, flags);
         break;
+      case 'create-agreement-version':
+        await createAgreementVersion(db, flags);
+        break;
       default:
         console.error(
-          'usage: admin.ts <create-firm --name X | create-advisor --firm X --email Y [--role advisor] [--name Z] | assign-company --email Y --company X>',
+          'usage: admin.ts <create-firm --name X | create-advisor --firm X --email Y [--role advisor|reviewer|admin] [--name Z] | assign-company --email Y --company X | create-agreement-version --firm X [--label EA-1.0] [--title T] [--body ...]>',
         );
         process.exit(1);
     }

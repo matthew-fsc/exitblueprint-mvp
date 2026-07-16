@@ -2403,6 +2403,50 @@ textarea:focus {
 .ui-modal-body { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
 .ui-modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
 
+/* ---- Engagement agreement acceptance (in the confirm modal) ---- */
+.ui-modal:has(.agreement-accept) { max-width: 40rem; }
+.agreement-accept { display: flex; flex-direction: column; gap: 0.9rem; }
+.agreement-version { margin: 0; font-size: 0.8rem; }
+.agreement-body {
+  max-height: 34vh; overflow-y: auto; white-space: pre-wrap;
+  background: var(--surface-2, var(--brand-tint)); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.9rem 1rem;
+  font-size: 0.86rem; line-height: 1.5; color: var(--text-secondary);
+}
+.agreement-signer { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
+.agreement-signer input { width: 100%; }
+.agreement-consents { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin: 0; }
+.agreement-consents legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
+.agreement-consents label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; padding: 0.2rem 0; }
+.agreement-consents input { width: auto; }
+
+/* ---- Documents + review queue (beta R3) ---- */
+.doc-upload input[type='file'] { font-size: 0.9rem; }
+.doc-list, .review-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.doc-row, .review-queue-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.7rem 0.95rem;
+}
+.doc-name { display: block; font-weight: 600; }
+.doc-meta { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; }
+.review-queue-main { min-width: 0; }
+
+.review-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } }
+.review-source-head { margin-bottom: 0.5rem; font-size: 0.82rem; }
+.review-source-view {
+  width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2, #fff); object-fit: contain;
+}
+.review-fields h3 { margin: 0 0 0.3rem; }
+.review-field-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.8rem 0; }
+.review-field-row { display: flex; gap: 0.5rem; align-items: center; }
+.review-field-key { flex: 1 1 42%; }
+.review-field-val { flex: 1 1 58%; }
+.review-field-del { padding: 0.35rem 0.6rem; line-height: 1; }
+.review-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+
 /* ---- Toast ---- */
 .ui-toast-wrap { position: fixed; bottom: 1.25rem; right: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 60; }
 .ui-toast {

@@ -12,6 +12,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
+import {
+  DEFAULT_AGREEMENT_BODY,
+  DEFAULT_AGREEMENT_LABEL,
+  DEFAULT_AGREEMENT_TITLE,
+} from './agreement-template';
 
 const url = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const DEMO_FIRM = 'Blueprint Demo Advisors';
@@ -79,6 +84,22 @@ async function main() {
       ).rows.map((r) => [r.code, r.id]),
     );
 
+    // Beta R1: every engagement needs an agreement acceptance before any
+    // assessment can be created. Ensure the firm's agreement version once.
+    let agreementVersionId = (
+      await db.query(`select id from agreement_versions where firm_id = $1 and version_label = $2`, [
+        firmId,
+        DEFAULT_AGREEMENT_LABEL,
+      ])
+    ).rows[0]?.id;
+    agreementVersionId ??= (
+      await db.query(
+        `insert into agreement_versions (firm_id, version_label, title, body_md, status)
+         values ($1, $2, $3, $4, 'active') returning id`,
+        [firmId, DEFAULT_AGREEMENT_LABEL, DEFAULT_AGREEMENT_TITLE, DEFAULT_AGREEMENT_BODY],
+      )
+    ).rows[0].id;
+
     const fixtureCache = new Map(FIXTURES.map((f) => [f, fixtureAnswers(f)]));
 
     const createAssessment = async (
@@ -132,6 +153,14 @@ async function main() {
           [firmId, companyId, advisorId, ['12-24 months', '24-36 months', '36+ months'][i % 3]],
         )
       ).rows[0].id;
+      await db.query(
+        `insert into engagement_agreements
+           (firm_id, engagement_id, agreement_version_id, accepted_signer_name,
+            consent_benchmarking, consent_anonymized_aggregation, consent_outcome_tracking)
+         values ($1, $2, $3, 'Portfolio seed', true, true, true)
+         on conflict (engagement_id) do nothing`,
+        [firmId, engagementId, agreementVersionId],
+      );
 
       // Rotate the baseline fixture; some engagements get a second, improved
       // assessment (a positive delta) using a stronger fixture.

@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
 import { fireAdvisoryItems, educationModules } from '../server/advisory';
-import { loadFixture } from './helpers';
+import { loadFixture, acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
 const SEV_RANK: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
@@ -43,6 +43,7 @@ describe.skipIf(!url)('fireAdvisoryItems', () => {
         [firmId, companyId],
       )
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     // Fixture 2 scores low across the board, firing many gaps and items.
     const assessmentId = (
       await db.query(
@@ -90,8 +91,10 @@ describe.skipIf(!url)('fireAdvisoryItems', () => {
     }
     await db.query(`delete from gaps where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

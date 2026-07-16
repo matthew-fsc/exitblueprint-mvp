@@ -6,7 +6,7 @@ export interface Profile {
   id: string;
   user_id: string;
   firm_id: string | null;
-  role: 'admin' | 'advisor' | 'owner';
+  role: 'admin' | 'advisor' | 'reviewer' | 'owner';
   full_name: string | null;
   email: string | null;
   company_id: string | null;

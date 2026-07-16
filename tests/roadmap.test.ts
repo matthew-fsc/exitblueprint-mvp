@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
 import { instantiateTasksForGaps } from '../server/roadmap';
-import { loadFixture } from './helpers';
+import { loadFixture, acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
 const SEV_RANK: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
@@ -39,6 +39,7 @@ describe.skipIf(!url)('instantiateTasksForGaps', () => {
         [firmId, companyId],
       )
     ).rows[0].id;
+    await acceptAgreement(db, engagementId);
     // Score fixture 2 (fires many gaps, incl. critical ones) to open gaps.
     const assessmentId = (
       await db.query(
@@ -70,8 +71,10 @@ describe.skipIf(!url)('instantiateTasksForGaps', () => {
     }
     await db.query(`delete from gaps where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
+    await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await db.query(`delete from firms where id = $1`, [firmId]);
     await db.end();
   });

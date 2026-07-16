@@ -129,6 +129,12 @@ const server = createServer(async (req, res) => {
         res.setHeader('content-disposition', `attachment; filename="${result.filename}"`);
         return res.end(Buffer.from(result.buffer));
       }
+      if (result.kind === 'binary') {
+        res.statusCode = 200;
+        res.setHeader('content-type', result.mime || 'application/octet-stream');
+        res.setHeader('content-disposition', `inline; filename="${result.filename}"`);
+        return res.end(Buffer.from(result.buffer));
+      }
       return json(res, result.status, result.body);
     } catch (e) {
       return json(res, 500, { message: (e as Error).message });

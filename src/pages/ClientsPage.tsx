@@ -2,9 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
-import { supabase } from '../lib/supabase';
-import { qk, useCompanies, useEngagements } from '../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { invokeFunction, supabase } from '../lib/supabase';
+import {
+  qk,
+  useActiveAgreementVersions,
+  useCompanies,
+  useEngagements,
+  type AgreementVersionRow,
+} from '../lib/queries';
+import { Card, ConfirmDialog, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
 
 export default function ClientsPage() {
   const { profile } = useAuth();
@@ -12,12 +18,24 @@ export default function ClientsPage() {
   const toast = useToast();
   const companiesQ = useCompanies();
   const engagementsQ = useEngagements();
+  const agreementsQ = useActiveAgreementVersions();
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Engagement onboarding is blocked on recording agreement acceptance: opening
+  // the modal captures the signer + data-use consents, then create-engagement
+  // persists the engagement and its acceptance atomically (beta Requirement 1).
+  const [pending, setPending] = useState<{ companyId: string; companyName: string } | null>(null);
+  const [signer, setSigner] = useState('');
+  const [consentBenchmarking, setConsentBenchmarking] = useState(false);
+  const [consentAggregation, setConsentAggregation] = useState(false);
+  const [consentOutcome, setConsentOutcome] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const companies = companiesQ.data ?? [];
   const engagements = engagementsQ.data ?? [];
+  const agreement: AgreementVersionRow | undefined = agreementsQ.data?.[0];
 
   const createCompany = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,23 +53,56 @@ export default function ClientsPage() {
     toast.show('Company added', 'good');
   };
 
-  const createEngagement = async (companyId: string) => {
+  const openAgreement = (companyId: string, companyName: string) => {
     setError(null);
-    const { error } = await supabase
-      .from('engagements')
-      .insert([{ firm_id: profile!.firm_id, company_id: companyId, advisor_id: profile!.id }]);
-    if (error) {
-      setError(error.message);
+    setSigner('');
+    setConsentBenchmarking(false);
+    setConsentAggregation(false);
+    setConsentOutcome(false);
+    setPending({ companyId, companyName });
+  };
+
+  const confirmEngagement = async () => {
+    if (!pending || !agreement) return;
+    if (!signer.trim()) {
+      setError('Enter who accepted the agreement on the client’s behalf.');
       return;
     }
-    qc.invalidateQueries({ queryKey: qk.engagements() });
-    toast.show('Engagement started', 'good');
+    setSubmitting(true);
+    setError(null);
+    try {
+      await invokeFunction('create-engagement', {
+        company_id: pending.companyId,
+        agreement_version_id: agreement.id,
+        signer_name: signer.trim(),
+        consent: {
+          benchmarking: consentBenchmarking,
+          anonymized_aggregation: consentAggregation,
+          outcome_tracking: consentOutcome,
+        },
+      });
+      setPending(null);
+      qc.invalidateQueries({ queryKey: qk.engagements() });
+      toast.show('Agreement recorded — engagement started', 'good');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setSubmitting(false);
   };
 
   return (
     <div className="stack-lg">
       <PageHeader title="Clients" subtitle="Companies your firm is guiding toward exit readiness." />
-      {error && <p className="form-error">{error}</p>}
+      {error && !pending && <p className="form-error">{error}</p>}
+
+      {!agreementsQ.isLoading && !agreement && (
+        <Card>
+          <p className="form-error" style={{ margin: 0 }}>
+            Your firm has no active engagement agreement, so new engagements can’t be started yet.
+            An admin can add one with <code>npm run admin -- create-agreement-version</code>.
+          </p>
+        </Card>
+      )}
 
       {companiesQ.isLoading ? (
         <Card>
@@ -78,7 +129,9 @@ export default function ClientsPage() {
                     Engagement ({engagement.status}) →
                   </Link>
                 ) : (
-                  <button onClick={() => createEngagement(c.id)}>Start engagement</button>
+                  <button onClick={() => openAgreement(c.id, c.name)} disabled={!agreement}>
+                    Start engagement
+                  </button>
                 )}
               </li>
             );
@@ -92,6 +145,64 @@ export default function ClientsPage() {
         <input placeholder="Industry (optional)" value={industry} onChange={(e) => setIndustry(e.target.value)} />
         <button type="submit">Add company</button>
       </form>
+
+      <ConfirmDialog
+        open={!!pending && !!agreement}
+        title={`Engagement agreement — ${pending?.companyName ?? ''}`}
+        confirmLabel="Record acceptance & start"
+        cancelLabel="Cancel"
+        busy={submitting}
+        onCancel={() => (submitting ? undefined : setPending(null))}
+        onConfirm={confirmEngagement}
+      >
+        {agreement && (
+          <div className="agreement-accept">
+            <p className="muted agreement-version">
+              {agreement.title} · version {agreement.version_label}
+            </p>
+            <div className="agreement-body">{agreement.body_md}</div>
+
+            <label className="agreement-signer">
+              <span>Client signatory (who accepted)</span>
+              <input
+                value={signer}
+                onChange={(e) => setSigner(e.target.value)}
+                placeholder="e.g. Jane Owner, CEO"
+              />
+            </label>
+
+            <fieldset className="agreement-consents">
+              <legend>Data-use consent (as authorized by the client)</legend>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={consentBenchmarking}
+                  onChange={(e) => setConsentBenchmarking(e.target.checked)}
+                />
+                Benchmarking use
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={consentAggregation}
+                  onChange={(e) => setConsentAggregation(e.target.checked)}
+                />
+                Anonymized aggregation
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={consentOutcome}
+                  onChange={(e) => setConsentOutcome(e.target.checked)}
+                />
+                Outcome tracking
+              </label>
+            </fieldset>
+
+            {error && <p className="form-error">{error}</p>}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

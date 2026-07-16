@@ -12,6 +12,10 @@ export const qk = {
   branding: (firmId: string) => ['branding', firmId] as const,
   companies: () => ['companies'] as const,
   company: (id: string) => ['company', id] as const,
+  agreementVersions: () => ['agreementVersions'] as const,
+  sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
+  reviewQueue: () => ['reviewQueue'] as const,
+  documentDetail: (id: string) => ['documentDetail', id] as const,
   engagements: () => ['engagements'] as const,
   engagement: (id: string) => ['engagement', id] as const,
   assessmentsByEngagement: (engagementId: string) =>
@@ -103,6 +107,32 @@ export function useCompanies(): UseQueryResult<CompanyRow[]> {
     queryKey: qk.companies(),
     queryFn: async () =>
       unwrap<CompanyRow[]>(await supabase.from('companies').select('*').order('name')),
+  });
+}
+
+export interface AgreementVersionRow {
+  id: string;
+  firm_id: string;
+  version_label: string;
+  title: string;
+  body_md: string;
+  status: 'draft' | 'active' | 'retired';
+  effective_date: string;
+}
+
+// Active engagement-agreement versions for the caller's firm (RLS-scoped),
+// newest effective first — the first row is the one to accept at onboarding.
+export function useActiveAgreementVersions(): UseQueryResult<AgreementVersionRow[]> {
+  return useQuery({
+    queryKey: qk.agreementVersions(),
+    queryFn: async () =>
+      unwrap<AgreementVersionRow[]>(
+        await supabase
+          .from('agreement_versions')
+          .select('*')
+          .eq('status', 'active')
+          .order('effective_date', { ascending: false }),
+      ),
   });
 }
 
