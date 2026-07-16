@@ -317,6 +317,28 @@ button:disabled {
   color: var(--accent-strong);
 }
 
+/* Verification tab: a muted secondary button, an inline value editor, and a
+   right-aligned action cluster for review-queue rows. */
+.button-secondary {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.button-secondary:hover {
+  color: var(--text-primary);
+  background: var(--surface-1);
+}
+.row-gap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.inline-input {
+  width: 9rem;
+  padding: 0.35rem 0.5rem;
+}
+
 input,
 select,
 textarea {

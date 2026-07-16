@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
 import { instantiateTasksForGaps } from '../server/roadmap';
+import { runEngagementVerification } from '../server/sellside';
 import type { Answers } from '../shared/scoring/types';
 import {
   DEFAULT_AGREEMENT_BODY,
@@ -197,6 +198,40 @@ async function main() {
     // populated (anchored to today, forward-looking). Idempotent.
     const roadmap = await instantiateTasksForGaps(db, engagementId, new Date().toISOString().slice(0, 10));
     if (roadmap.tasksCreated > 0) console.log(`seed-demo: roadmap built — ${roadmap.tasksCreated} tasks`);
+
+    // Sell-side verification demo: attach a fixture financial document, then run
+    // the verification pipeline + findings so the Verification tab is populated
+    // out of the box (reconciled values, a low-confidence review item, and the
+    // customer_concentration finding awaiting approval). Uses the fixture parser;
+    // idempotent because the pipeline rebuilds the engagement's derived data.
+    process.env.EB_PARSER = process.env.EB_PARSER ?? 'fixture';
+    const fixtureBytes = readFileSync(
+      join(root, 'fixtures', 'sellside', 'customer-financials.doc.json'),
+    );
+    let verifyDocId = (
+      await db.query(
+        `select id from documents where engagement_id = $1 and original_filename = $2`,
+        [engagementId, 'financials-demo.json'],
+      )
+    ).rows[0]?.id as string | undefined;
+    verifyDocId ??= (
+      await db.query(
+        `insert into documents
+           (firm_id, engagement_id, category, original_filename, mime_type, byte_size, status)
+         values ($1, $2, 'financial_statement', 'financials-demo.json', 'application/json', $3, 'uploaded')
+         returning id`,
+        [firmId, engagementId, fixtureBytes.length],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into document_blobs (document_id, firm_id, bytes) values ($1, $2, $3)
+       on conflict (document_id) do update set bytes = excluded.bytes`,
+      [verifyDocId, firmId, fixtureBytes],
+    );
+    const verify = await runEngagementVerification(db, firmId, engagementId);
+    console.log(
+      `seed-demo: verification run — ${verify.metrics.reconciled_total} reconciled, ${verify.findings} finding(s)`,
+    );
 
     // Branded demo firm (F1): the advisor's firm is the face on client-facing
     // reports. Idempotent upsert on firm_id.
