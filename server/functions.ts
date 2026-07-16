@@ -31,6 +31,14 @@ import {
   uploadDocument,
 } from './documents/pipeline';
 import { signDocumentToken } from './documents/signed-url';
+import { runEngagementVerification } from './sellside';
+import {
+  claimReviewItem,
+  escalateReviewItem,
+  resolveReviewItem,
+  reviewMetrics,
+  type ResolveInput,
+} from './review-queue';
 import { logAccess } from './audit';
 import {
   renderDeltaReportHtml,
@@ -69,6 +77,12 @@ const DOC_FNS = new Set([
   'submit-document-review',
   'sign-document-url',
 ]);
+
+// Sell-side verification: staff-only (advisor + reviewer), firm-scoped. Engagement
+// actions gate on the engagement id; review-item actions gate on the item's
+// engagement (resolved from the item, never trusted from the body).
+const SELLSIDE_ENGAGEMENT_FNS = new Set(['run-verification', 'verification-metrics']);
+const SELLSIDE_ITEM_FNS = new Set(['claim-review-item', 'resolve-review-item', 'escalate-review-item']);
 
 const ok = (body: unknown): FunctionResult => ({ kind: 'json', status: 200, body });
 const err = (status: number, message: string): FunctionResult => ({ kind: 'json', status, body: { message } });
@@ -141,6 +155,36 @@ async function authorize(
       );
       if (!visible) return { error: err(404, 'document not found') };
     }
+    return { firmId };
+  }
+  if (SELLSIDE_ENGAGEMENT_FNS.has(name) || SELLSIDE_ITEM_FNS.has(name)) {
+    // Staff = advisor or reviewer; resolve the firm from the profile, never the body.
+    const firmId = await ctx.asUser(async (c) => {
+      const r = await c.query(
+        `select firm_id from profiles where user_id = $1 and role in ('advisor', 'reviewer')`,
+        [ctx.userId],
+      );
+      return (r.rows[0]?.firm_id as string | undefined) ?? null;
+    });
+    if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
+    // Resolve the engagement the call touches: directly for engagement actions,
+    // via the review item for item actions.
+    let engagementId: string | null = null;
+    if (SELLSIDE_ENGAGEMENT_FNS.has(name)) {
+      engagementId = typeof body.engagement_id === 'string' ? body.engagement_id : null;
+      if (!engagementId) return { error: err(400, 'engagement_id required') };
+    } else {
+      const itemId = typeof body.review_item_id === 'string' ? body.review_item_id : null;
+      if (!itemId) return { error: err(400, 'review_item_id required') };
+      engagementId =
+        (await ctx.service.query(`select engagement_id from review_items where id = $1`, [itemId]))
+          .rows[0]?.engagement_id ?? null;
+      if (!engagementId) return { error: err(404, 'review item not found') };
+    }
+    const visible = await ctx.asUser(
+      async (c) => (await c.query(`select id from engagements where id = $1`, [engagementId])).rowCount === 1,
+    );
+    if (!visible) return { error: err(404, 'engagement not found') };
     return { firmId };
   }
   if (LEDGER_FNS.has(name)) {
@@ -368,6 +412,37 @@ async function dispatch(
         ).rowCount === 1;
       if (!owns) return err(404, 'connection not found');
       return ok(await disconnectLedger(service, { connectionId: body.connection_id as string }));
+    }
+    case 'run-verification':
+      return ok(await runEngagementVerification(service, firmId as string, body.engagement_id as string));
+    case 'verification-metrics':
+      return ok(await reviewMetrics(service, body.engagement_id as string));
+    case 'claim-review-item': {
+      const actor = (
+        await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
+      ).rows[0]?.id ?? null;
+      return ok(await claimReviewItem(service, body.review_item_id as string, actor));
+    }
+    case 'resolve-review-item': {
+      const actor = (
+        await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
+      ).rows[0]?.id ?? null;
+      return ok(
+        await resolveReviewItem(
+          service,
+          body.review_item_id as string,
+          actor,
+          (body.resolution as ResolveInput) ?? {},
+        ),
+      );
+    }
+    case 'escalate-review-item': {
+      const actor = (
+        await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
+      ).rows[0]?.id ?? null;
+      return ok(
+        await escalateReviewItem(service, body.review_item_id as string, actor, body.note as string | undefined),
+      );
     }
     case 'render-owner-pdf':
       return ownerReportPdf(service, assessmentId);

@@ -39,5 +39,7 @@ jobs:
         run: npm run seed:demo && npm run seed:demo
       - name: Scoring engine tests (fixtures must match exactly)
         run: npm test
+      - name: Extraction eval (fails on regression beyond tolerance)
+        run: npm run eval
       - name: Build app
         run: npm run build

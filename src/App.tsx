@@ -27,6 +27,7 @@ import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
 import DocumentsPage from './pages/DocumentsPage';
+import VerificationPage from './pages/VerificationPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import SecurityPage from './pages/SecurityPage';
@@ -331,6 +332,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <DocumentsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/verification"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <VerificationPage />
                 </Shell>
               </RequireAdvisor>
             }

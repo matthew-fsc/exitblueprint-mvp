@@ -19,6 +19,10 @@ DATABASE_URL=$(bash scripts/devdb.sh | grep '^DATABASE_URL=' | cut -d= -f2-)
 export DATABASE_URL
 echo "database: $DATABASE_URL"
 
+# Sell-side verification uses the fixture parser in the demo so uploaded fixture
+# documents extract and "Run verification" produces the populated tab.
+export EB_PARSER="${EB_PARSER:-fixture}"
+
 npm run --silent db:migrate
 npm run --silent db:seed | tail -1
 npm run --silent seed:demo | tail -1
