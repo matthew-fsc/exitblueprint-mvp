@@ -26,6 +26,9 @@ import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
+import DocumentsPage from './pages/DocumentsPage';
+import ReviewQueuePage from './pages/ReviewQueuePage';
+import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import SettingsPage from './pages/SettingsPage';
 import HealthPage from './pages/HealthPage';
 import VerifyPage from './pages/VerifyPage';
@@ -44,11 +47,32 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   if (loading) return <p className="muted page">Loading…</p>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
+  // A pure reviewer has no advisor workspace — send them to the review queue.
+  if (profile?.role === 'reviewer') return <Navigate to="/review" replace />;
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
     return (
       <main className="page">
         <p className="form-error">
           This account has no advisor profile. Provision one with scripts/admin.ts.
+        </p>
+      </main>
+    );
+  }
+  return <>{children}</>;
+}
+
+// Staff surfaces (the review queue): advisor, admin, or reviewer.
+function RequireStaff({ children }: { children: ReactNode }) {
+  const { session, profile, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <p className="muted page">Loading…</p>;
+  if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
+  if (!profile || !['advisor', 'admin', 'reviewer'].includes(profile.role)) {
+    return (
+      <main className="page">
+        <p className="form-error">
+          This account has no staff profile. Provision one with scripts/admin.ts.
         </p>
       </main>
     );
@@ -98,6 +122,9 @@ function AppBar() {
             </NavLink>
             <NavLink to="/clients" className="app-nav-link">
               Clients
+            </NavLink>
+            <NavLink to="/review" className="app-nav-link">
+              Review
             </NavLink>
             <NavLink to="/library" className="app-nav-link">
               Library
@@ -269,6 +296,36 @@ export default function App() {
                   <DeltaReportPage />
                 </Shell>
               </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/documents"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <DocumentsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/review"
+            element={
+              <RequireStaff>
+                <Shell>
+                  <ReviewQueuePage />
+                </Shell>
+              </RequireStaff>
+            }
+          />
+          <Route
+            path="/review/:documentId"
+            element={
+              <RequireStaff>
+                <Shell>
+                  <ReviewDocumentPage />
+                </Shell>
+              </RequireStaff>
             }
           />
           <Route

@@ -217,6 +217,19 @@ async function main() {
     await db.query(
       `insert into valuation_rules_versions (version_label, status) values ('RLS-VAL-1', 'active')`,
     );
+    // Firm B document + extracted field for the R3 isolation checks.
+    const documentB = (
+      await db.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type, status)
+         values ($1, $2, 'firmB.pdf', 'application/pdf', 'in_review') returning id`,
+        [ids.firm_b, engagementB],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into document_fields (firm_id, document_id, field_key, value, verification_status)
+       values ($1, $2, 'Secret EBITDA', '999', 'extracted')`,
+      [ids.firm_b, documentB],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -323,6 +336,27 @@ async function main() {
     await db.query('rollback to savepoint gate');
     check('assessment blocked for engagement without agreement acceptance', gateBlocked);
     await asUser(ids.user_a);
+
+    // documents + document_fields: firm isolation (beta R3)
+    const docsA = await db.query('select id from documents');
+    check('sees no firm B documents', docsA.rows.length === 0, `saw ${docsA.rows.length}`);
+    const dfA = await db.query('select value from document_fields');
+    check('sees no firm B document_fields', dfA.rows.length === 0, `saw ${dfA.rows.length}`);
+    let docBWriteBlocked = false;
+    try {
+      await db.query('savepoint doc');
+      const ins = await db.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type, status)
+         values ($1, $2, 'sneak.pdf', 'application/pdf', 'in_review')`,
+        [ids.firm_b, engagementB],
+      );
+      docBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint doc');
+    } catch {
+      docBWriteBlocked = true;
+      await db.query('rollback to savepoint doc');
+    }
+    check('cannot insert a document into firm B', docBWriteBlocked);
 
     // firm_branding: advisor A writes+reads own firm, never sees firm B
     await db.query(

@@ -24,6 +24,13 @@ import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './out
 import { inviteOwner } from './invite';
 import { createEngagementWithAgreement } from './agreements';
 import {
+  getDocumentBytes,
+  getDocumentDetail,
+  listReviewQueue,
+  submitDocumentReview,
+  uploadDocument,
+} from './documents/pipeline';
+import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
   renderReportPdf,
@@ -46,7 +53,19 @@ export interface FunctionContext {
 
 export type FunctionResult =
   | { kind: 'json'; status: number; body: unknown }
-  | { kind: 'pdf'; filename: string; buffer: Uint8Array };
+  | { kind: 'pdf'; filename: string; buffer: Uint8Array }
+  | { kind: 'binary'; mime: string; filename: string; buffer: Uint8Array };
+
+// Document functions are authorized for staff (advisor + reviewer); the review
+// queue is firm-scoped, the rest are gated on the engagement/document being
+// visible to the caller under RLS.
+const DOC_FNS = new Set([
+  'upload-document',
+  'list-review-queue',
+  'get-document',
+  'get-document-detail',
+  'submit-document-review',
+]);
 
 const ok = (body: unknown): FunctionResult => ({ kind: 'json', status: 200, body });
 const err = (status: number, message: string): FunctionResult => ({ kind: 'json', status, body: { message } });
@@ -90,6 +109,35 @@ async function authorize(
       return r.rowCount === 1;
     });
     if (!visible) return { error: err(404, 'company not found') };
+    return { firmId };
+  }
+  if (DOC_FNS.has(name)) {
+    // Staff = advisor or reviewer. Resolve the caller's firm from their profile
+    // (never the body), then confirm the referenced engagement/document is
+    // visible to them under RLS.
+    const firmId = await ctx.asUser(async (c) => {
+      const r = await c.query(
+        `select firm_id from profiles where user_id = $1 and role in ('advisor', 'reviewer')`,
+        [ctx.userId],
+      );
+      return (r.rows[0]?.firm_id as string | undefined) ?? null;
+    });
+    if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
+    if (name === 'upload-document') {
+      const engId = typeof body.engagement_id === 'string' ? body.engagement_id : null;
+      if (!engId) return { error: err(400, 'engagement_id required') };
+      const visible = await ctx.asUser(
+        async (c) => (await c.query(`select id from engagements where id = $1`, [engId])).rowCount === 1,
+      );
+      if (!visible) return { error: err(404, 'engagement not found') };
+    } else if (name !== 'list-review-queue') {
+      const docId = typeof body.document_id === 'string' ? body.document_id : null;
+      if (!docId) return { error: err(400, 'document_id required') };
+      const visible = await ctx.asUser(
+        async (c) => (await c.query(`select id from documents where id = $1`, [docId])).rowCount === 1,
+      );
+      if (!visible) return { error: err(404, 'document not found') };
+    }
     return { firmId };
   }
   if (LEDGER_FNS.has(name)) {
@@ -229,6 +277,27 @@ async function dispatch(
       return ok(await inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string));
     case 'create-engagement':
       return ok(await createEngagementWithAgreement(service, userId, firmId as string, body));
+    case 'upload-document': {
+      const actor = (
+        await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
+      ).rows[0]?.id ?? null;
+      return ok(await uploadDocument(service, firmId as string, actor, body as never));
+    }
+    case 'list-review-queue':
+      return ok({ items: await listReviewQueue(service, firmId as string) });
+    case 'get-document-detail':
+      return ok(await getDocumentDetail(service, body.document_id as string));
+    case 'submit-document-review': {
+      const actor = (
+        await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
+      ).rows[0]?.id ?? null;
+      return ok(await submitDocumentReview(service, firmId as string, actor, body as never));
+    }
+    case 'get-document': {
+      const d = await getDocumentBytes(service, body.document_id as string);
+      if (!d) return err(404, 'document not found');
+      return { kind: 'binary', mime: d.mime, filename: d.filename, buffer: d.bytes };
+    }
     case 'record-deal-outcome':
       return ok(await recordDealOutcome(service, body.engagement_id as string, (body.input as DealOutcomeInput) ?? ({} as DealOutcomeInput)));
     case 'deal-calibration':

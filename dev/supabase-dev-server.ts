@@ -278,6 +278,12 @@ export function supabaseDevServer(): Plugin {
         res.setHeader('content-disposition', `attachment; filename="${result.filename}"`);
         return res.end(Buffer.from(result.buffer));
       }
+      if (result.kind === 'binary') {
+        res.statusCode = 200;
+        res.setHeader('content-type', result.mime || 'application/octet-stream');
+        res.setHeader('content-disposition', `inline; filename="${result.filename}"`);
+        return res.end(Buffer.from(result.buffer));
+      }
       return json(res, result.status, result.body);
     } finally {
       service.release();

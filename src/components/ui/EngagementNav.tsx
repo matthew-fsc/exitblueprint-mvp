@@ -21,6 +21,9 @@ export function EngagementNav({ engagementId }: { engagementId: string }) {
       <NavLink to={`${base}/buyer-lens`} className="eng-nav-link">
         Buyer lens
       </NavLink>
+      <NavLink to={`${base}/documents`} className="eng-nav-link">
+        Documents
+      </NavLink>
       <NavLink to={`${base}/delta`} className="eng-nav-link">
         Delta report
       </NavLink>

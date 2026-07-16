@@ -48,6 +48,36 @@ a BEFORE-INSERT trigger blocks any assessment for an engagement with no acceptan
 and stamps this column from the acceptance — the DB-hard guarantee behind "no
 assessment data before acceptance."
 
+## Document intake (beta Requirement 3)
+
+Advisors (or clients) upload source documents per assessment category; each moves
+through upload → virus scan → classification → extraction (ParserAdapter) → human
+review → verified fact. Extraction accuracy is not a beta blocker — the manual
+review path is complete; the automated path may be partial. Documents/fields
+never write to scoring tables.
+
+**documents**
+- firm_id, engagement_id, category, original_filename, mime_type, byte_size
+- status (uploaded|scanning|scanned|classified|extracting|in_review|verified|rejected)
+- scan_status (pending|clean|infected|skipped), classification, parser_name, storage_key
+- uploaded_by, reviewed_by, reviewed_at
+
+**document_blobs** — beta byte store (document_id fk unique, firm_id, bytes bytea).
+R5 moves bytes to Supabase Storage (encryption + signed URLs) behind the same
+StorageAdapter seam; schema-swappable.
+
+**document_fields** — extracted or manually-entered data points
+- firm_id, document_id, question_id (nullable link to a scored question), field_key, value
+- verification_status (unverified|extracted|verified), confidence, verified_by, verified_at
+
+**field_corrections** — parser-accuracy log (firm_id, document_field_id, original_value, corrected_value, corrected_by)
+
+RLS: staff (advisor + reviewer) full CRUD within firm — the reviewer role's first
+policies; owners upload+read their own company's documents/fields (not the QA log).
+Extraction/parsing goes through the ParserAdapter (server/documents/parser.ts) and
+storage through the StorageAdapter (server/documents/storage.ts) — no vendor is
+hard-coded.
+
 ## Methodology (rubric lives in data; seeded from /seed)
 
 **rubric_versions**
