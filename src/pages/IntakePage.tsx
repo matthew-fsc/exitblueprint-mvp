@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
+import { track } from '../lib/analytics';
 import { type QuestionRow } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
 import {
@@ -53,6 +54,23 @@ export default function IntakePage() {
       navigate(`/assessment/${assessmentId}/results`, { replace: true });
     }
   }, [assessment, assessmentId, navigate]);
+
+  // R6: record that intake was entered, so a session that stalls in intake
+  // (started, never submitted) is reconstructable. Fires once per assessment.
+  const startedTracked = useRef(false);
+  useEffect(() => {
+    if (!startedTracked.current && engagementId && engagementQ.data && assessment?.status !== 'completed') {
+      startedTracked.current = true;
+      track({
+        type: 'assessment',
+        name: 'assessment_started',
+        firmId: engagementQ.data.firm_id,
+        profileId: profile?.id,
+        engagementId,
+        properties: { assessment_id: assessmentId },
+      });
+    }
+  }, [engagementId, engagementQ.data, assessment?.status, assessmentId, profile?.id]);
 
   // Seed drafts once from the saved answers, applying the same defaults as
   // before (rank order, empty numeric-list rows).
@@ -175,6 +193,14 @@ export default function IntakePage() {
         );
       }
       await invokeFunction('score-assessment', { assessment_id: assessmentId });
+      track({
+        type: 'assessment',
+        name: 'assessment_submitted',
+        firmId: engagementQ.data?.firm_id,
+        profileId: profile?.id,
+        engagementId,
+        properties: { assessment_id: assessmentId },
+      });
       navigate(`/assessment/${assessmentId}/results`);
     } catch (err) {
       setError((err as Error).message);

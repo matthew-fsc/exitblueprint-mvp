@@ -11,6 +11,7 @@ import {
   type AgreementVersionRow,
 } from '../lib/queries';
 import { Card, ConfirmDialog, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { track } from '../lib/analytics';
 
 export default function ClientsPage() {
   const { profile } = useAuth();
@@ -71,7 +72,7 @@ export default function ClientsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await invokeFunction('create-engagement', {
+      const created = await invokeFunction<{ engagement_id: string }>('create-engagement', {
         company_id: pending.companyId,
         agreement_version_id: agreement.id,
         signer_name: signer.trim(),
@@ -79,6 +80,18 @@ export default function ClientsPage() {
           benchmarking: consentBenchmarking,
           anonymized_aggregation: consentAggregation,
           outcome_tracking: consentOutcome,
+        },
+      });
+      track({
+        type: 'onboarding',
+        name: 'engagement_started',
+        firmId: profile?.firm_id,
+        profileId: profile?.id,
+        engagementId: created.engagement_id,
+        properties: {
+          consent_benchmarking: consentBenchmarking,
+          consent_anonymized_aggregation: consentAggregation,
+          consent_outcome_tracking: consentOutcome,
         },
       });
       setPending(null);

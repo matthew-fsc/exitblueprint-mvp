@@ -30,6 +30,8 @@ import {
   submitDocumentReview,
   uploadDocument,
 } from './documents/pipeline';
+import { signDocumentToken } from './documents/signed-url';
+import { logAccess } from './audit';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -65,6 +67,7 @@ const DOC_FNS = new Set([
   'get-document',
   'get-document-detail',
   'submit-document-review',
+  'sign-document-url',
 ]);
 
 const ok = (body: unknown): FunctionResult => ({ kind: 'json', status: 200, body });
@@ -285,17 +288,39 @@ async function dispatch(
     }
     case 'list-review-queue':
       return ok({ items: await listReviewQueue(service, firmId as string) });
-    case 'get-document-detail':
-      return ok(await getDocumentDetail(service, body.document_id as string));
+    case 'get-document-detail': {
+      const detail = await getDocumentDetail(service, body.document_id as string);
+      await logAccess(service, {
+        firmId: firmId as string,
+        actorUserId: userId,
+        action: 'document.read_detail',
+        resourceType: 'document',
+        resourceId: body.document_id as string,
+        engagementId: (detail.document as { engagement_id?: string }).engagement_id ?? null,
+      });
+      return ok(detail);
+    }
     case 'submit-document-review': {
       const actor = (
         await service.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId])
       ).rows[0]?.id ?? null;
       return ok(await submitDocumentReview(service, firmId as string, actor, body as never));
     }
+    case 'sign-document-url':
+      // Short-expiry signed URL for the source (R5): the GET download route
+      // verifies the token, so bytes are never served from a durable link.
+      return ok({ document_id: body.document_id, ...signDocumentToken(body.document_id as string) });
     case 'get-document': {
       const d = await getDocumentBytes(service, body.document_id as string);
       if (!d) return err(404, 'document not found');
+      await logAccess(service, {
+        firmId: firmId as string,
+        actorUserId: userId,
+        action: 'document.read',
+        resourceType: 'document',
+        resourceId: body.document_id as string,
+        detail: { filename: d.filename },
+      });
       return { kind: 'binary', mime: d.mime, filename: d.filename, buffer: d.bytes };
     }
     case 'record-deal-outcome':

@@ -29,11 +29,13 @@ import ReportPage from './pages/ReportPage';
 import DocumentsPage from './pages/DocumentsPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
+import SecurityPage from './pages/SecurityPage';
 import SettingsPage from './pages/SettingsPage';
 import HealthPage from './pages/HealthPage';
 import VerifyPage from './pages/VerifyPage';
 import ComponentsPage from './pages/ComponentsPage';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { getMfaState, type MfaState } from './lib/mfa';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,9 +43,26 @@ const queryClient = new QueryClient({
   },
 });
 
+// R5: advisor/admin accounts must satisfy MFA (bypassed on the dev stack). An
+// un-enrolled or unverified advisor is sent to /security before anything else.
+function useMfaGate(session: unknown): MfaState | 'loading' {
+  const [state, setState] = useState<MfaState | 'loading'>('loading');
+  useEffect(() => {
+    let alive = true;
+    getMfaState()
+      .then((s) => alive && setState(s))
+      .catch(() => alive && setState('satisfied'));
+    return () => {
+      alive = false;
+    };
+  }, [session]);
+  return state;
+}
+
 function RequireAdvisor({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
+  const mfa = useMfaGate(session);
   if (loading) return <p className="muted page">Loading…</p>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
@@ -57,6 +76,11 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
         </p>
       </main>
     );
+  }
+  if (mfa === 'loading') return <p className="muted page">Loading…</p>;
+  // /security is where MFA is set up, so it must stay reachable during the gate.
+  if (mfa !== 'satisfied' && location.pathname !== '/security') {
+    return <Navigate to="/security" replace />;
   }
   return <>{children}</>;
 }
@@ -128,6 +152,9 @@ function AppBar() {
             </NavLink>
             <NavLink to="/library" className="app-nav-link">
               Library
+            </NavLink>
+            <NavLink to="/security" className="app-nav-link">
+              Security
             </NavLink>
             <NavLink to="/settings" className="app-nav-link">
               Settings
@@ -334,6 +361,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <LibraryPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/security"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <SecurityPage />
                 </Shell>
               </RequireAdvisor>
             }

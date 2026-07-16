@@ -6,6 +6,7 @@
 // "no hard-coded vendor" rule (that's about parsing); this is about keeping the
 // storage backend swappable.
 import type pg from 'pg';
+import { decryptBytes, encryptBytes, ENC_ALGO } from './crypto';
 
 export interface StorageAdapter {
   readonly name: string;
@@ -24,16 +25,23 @@ export class DbBlobStorage implements StorageAdapter {
     db: pg.ClientBase,
     { documentId, firmId, bytes }: { documentId: string; firmId: string; bytes: Buffer },
   ): Promise<string> {
+    // Encrypt at rest (R5): store the AES-256-GCM envelope, tagged with the algo
+    // so get() knows to decrypt (legacy rows with enc_algo = null are plaintext).
+    const envelope = encryptBytes(bytes);
     await db.query(
-      `insert into document_blobs (document_id, firm_id, bytes) values ($1, $2, $3)
-       on conflict (document_id) do update set bytes = excluded.bytes`,
-      [documentId, firmId, bytes],
+      `insert into document_blobs (document_id, firm_id, bytes, enc_algo) values ($1, $2, $3, $4)
+       on conflict (document_id) do update set bytes = excluded.bytes, enc_algo = excluded.enc_algo`,
+      [documentId, firmId, envelope, ENC_ALGO],
     );
     return documentId; // the key is the document id for the DB backend
   }
   async get(db: pg.ClientBase, documentId: string): Promise<Buffer | null> {
-    const r = await db.query(`select bytes from document_blobs where document_id = $1`, [documentId]);
-    return r.rows[0] ? (r.rows[0].bytes as Buffer) : null;
+    const r = await db.query(`select bytes, enc_algo from document_blobs where document_id = $1`, [
+      documentId,
+    ]);
+    if (!r.rows[0]) return null;
+    const raw = r.rows[0].bytes as Buffer;
+    return r.rows[0].enc_algo === ENC_ALGO ? decryptBytes(raw) : raw;
   }
 }
 

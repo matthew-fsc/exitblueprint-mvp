@@ -29,6 +29,12 @@ async function functionEndpoint(name: string): Promise<{ endpoint: string; token
   return { endpoint: `${functionsUrl}/functions/v1/${name}`, token: data.session?.access_token ?? anonKey };
 }
 
+// The GET route that serves a source document for a short-expiry signed token
+// (R5). Usable directly as an <iframe>/<img> src — no session header needed.
+export function documentDownloadUrl(documentId: string, token: string): string {
+  return `${functionsUrl}/documents/download?doc=${encodeURIComponent(documentId)}&token=${encodeURIComponent(token)}`;
+}
+
 // POST to a function and return its JSON, surfacing the server's real error
 // message (not a generic "non-2xx status code") so users see the actual reason.
 export async function invokeFunction<T>(name: string, body: Record<string, unknown>): Promise<T> {

@@ -230,6 +230,16 @@ async function main() {
        values ($1, $2, 'Secret EBITDA', '999', 'extracted')`,
       [ids.firm_b, documentB],
     );
+    // Firm B audit-log + usage-event rows for the R5/R6 isolation checks.
+    await db.query(
+      `insert into data_access_log (firm_id, action, resource_type, resource_id)
+       values ($1, 'document.read', 'document', $2)`,
+      [ids.firm_b, documentB],
+    );
+    await db.query(
+      `insert into usage_events (firm_id, event_type, event_name) values ($1, 'report', 'report_downloaded')`,
+      [ids.firm_b],
+    );
 
     // --- Advisor A: sees firm A, not firm B -------------------------------
     console.log('advisor A (firm A):');
@@ -357,6 +367,26 @@ async function main() {
       await db.query('rollback to savepoint doc');
     }
     check('cannot insert a document into firm B', docBWriteBlocked);
+
+    // data_access_log + usage_events: firm isolation (beta R5/R6)
+    const logA = await db.query('select id from data_access_log');
+    check('sees no firm B data_access_log', logA.rows.length === 0, `saw ${logA.rows.length}`);
+    const ueA = await db.query('select event_name from usage_events');
+    check('sees no firm B usage_events', ueA.rows.length === 0, `saw ${ueA.rows.length}`);
+    // Advisor A can emit a usage event for their own firm (RLS insert check).
+    let ueInsertOk = false;
+    try {
+      await db.query('savepoint ue');
+      const ins = await db.query(
+        `insert into usage_events (firm_id, event_type, event_name) values ($1, 'onboarding', 'engagement_started')`,
+        [ids.firm_a],
+      );
+      ueInsertOk = (ins.rowCount ?? 0) === 1;
+      await db.query('release savepoint ue');
+    } catch {
+      await db.query('rollback to savepoint ue');
+    }
+    check('can emit a usage_event for own firm', ueInsertOk);
 
     // firm_branding: advisor A writes+reads own firm, never sees firm B
     await db.query(

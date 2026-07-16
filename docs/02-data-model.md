@@ -78,6 +78,28 @@ Extraction/parsing goes through the ParserAdapter (server/documents/parser.ts) a
 storage through the StorageAdapter (server/documents/storage.ts) — no vendor is
 hard-coded.
 
+## Security + instrumentation (beta Requirements 5 & 6)
+
+**document_blobs.enc_algo** — added: which envelope encrypts a row's bytes
+('aes-256-gcm'; null = legacy plaintext). Document bytes are AES-256-GCM
+encrypted at rest (server/documents/crypto.ts, key from EB_DOCUMENT_KEY) and
+served only through short-expiry HMAC-signed URLs (GET /documents/download;
+server/documents/signed-url.ts). MFA (TOTP) is required for advisor/admin
+accounts, enforced in the app via Supabase AAL (bypassed on the dev stack).
+
+**data_access_log** — append-only audit of access to client records
+- firm_id, actor_user_id, actor_profile_id, action ('document.read', 'document.download', …),
+  resource_type, resource_id, engagement_id, detail jsonb
+- Written server-side (service_role); readable by the firm's advisors/reviewers.
+
+**usage_events** — append-only advisor-journey instrumentation (SQL-queryable, no
+third-party analytics)
+- firm_id, actor_user_id, actor_profile_id, engagement_id, event_type
+  ('onboarding'|'assessment'|'document'|'report'|'review'), event_name,
+  properties jsonb, session_id, occurred_at
+- Authenticated users insert events for their own firm; advisors/reviewers read
+  their firm's stream. Emitted via src/lib/analytics.ts `track()`.
+
 ## Methodology (rubric lives in data; seeded from /seed)
 
 **rubric_versions**

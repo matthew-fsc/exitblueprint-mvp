@@ -75,6 +75,7 @@ describe.skipIf(!url)('document intake + review (portable router)', () => {
 
   afterAll(async () => {
     if (service) {
+      await service.query(`delete from data_access_log where firm_id = any($1)`, [[firmId, otherFirmId]]);
       await service.query(`delete from field_corrections where firm_id = any($1)`, [[firmId, otherFirmId]]);
       await service.query(`delete from document_fields where firm_id = any($1)`, [[firmId, otherFirmId]]);
       await service.query(`delete from document_blobs where firm_id = any($1)`, [[firmId, otherFirmId]]);

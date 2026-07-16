@@ -17,6 +17,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import pg from 'pg';
 import { handleFunctionCall } from './functions';
 import { makeVerifyToken, type Claims } from './auth-jwt';
+import { verifyDocumentToken } from './documents/signed-url';
+import { getDocumentBytes } from './documents/pipeline';
+import { logAccess } from './audit';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // Verify access tokens against whichever signing regime the project uses. A
@@ -102,6 +105,39 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     } catch {
       return json(res, 503, { ok: false });
+    }
+  }
+
+  // Short-expiry signed document download (R5). No JWT: the HMAC token in the
+  // query authorizes access to exactly one document until it expires.
+  if (req.method === 'GET' && url.pathname === '/documents/download') {
+    const docId = url.searchParams.get('doc') ?? '';
+    const token = url.searchParams.get('token') ?? '';
+    if (!docId || !verifyDocumentToken(docId, token)) {
+      return json(res, 403, { message: 'invalid or expired document token' });
+    }
+    const c = await pool.connect();
+    try {
+      const d = await getDocumentBytes(c, docId);
+      if (!d) return json(res, 404, { message: 'document not found' });
+      const meta = (await c.query(`select firm_id, engagement_id from documents where id = $1`, [docId]))
+        .rows[0];
+      if (meta) {
+        await logAccess(c, {
+          firmId: meta.firm_id,
+          action: 'document.download',
+          resourceType: 'document',
+          resourceId: docId,
+          engagementId: meta.engagement_id ?? null,
+          detail: { via: 'signed-url' },
+        });
+      }
+      res.statusCode = 200;
+      res.setHeader('content-type', d.mime || 'application/octet-stream');
+      res.setHeader('content-disposition', `inline; filename="${d.filename}"`);
+      return res.end(Buffer.from(d.bytes));
+    } finally {
+      c.release();
     }
   }
 

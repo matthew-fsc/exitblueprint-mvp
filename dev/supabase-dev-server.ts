@@ -15,6 +15,9 @@ import type { ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 import { handleFunctionCall } from '../server/functions';
+import { verifyDocumentToken } from '../server/documents/signed-url';
+import { getDocumentBytes } from '../server/documents/pipeline';
+import { logAccess } from '../server/audit';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -255,6 +258,39 @@ export function supabaseDevServer(): Plugin {
     }
   }
 
+  // Short-expiry signed document download (R5) — mirrors server/http.ts. No JWT;
+  // the HMAC token authorizes exactly one document until it expires.
+  async function handleDocumentDownload(_req: Connect.IncomingMessage, res: ServerResponse, url: URL) {
+    const docId = url.searchParams.get('doc') ?? '';
+    const token = url.searchParams.get('token') ?? '';
+    if (!docId || !verifyDocumentToken(docId, token)) {
+      return json(res, 403, { message: 'invalid or expired document token' });
+    }
+    const c = await pool.connect();
+    try {
+      const d = await getDocumentBytes(c, docId);
+      if (!d) return json(res, 404, { message: 'document not found' });
+      const meta = (await c.query(`select firm_id, engagement_id from documents where id = $1`, [docId]))
+        .rows[0];
+      if (meta) {
+        await logAccess(c, {
+          firmId: meta.firm_id,
+          action: 'document.download',
+          resourceType: 'document',
+          resourceId: docId,
+          engagementId: meta.engagement_id ?? null,
+          detail: { via: 'signed-url' },
+        });
+      }
+      res.statusCode = 200;
+      res.setHeader('content-type', d.mime || 'application/octet-stream');
+      res.setHeader('content-disposition', `inline; filename="${d.filename}"`);
+      return res.end(Buffer.from(d.bytes));
+    } finally {
+      c.release();
+    }
+  }
+
   async function handleFunctions(req: Connect.IncomingMessage, res: ServerResponse, url: URL) {
     const claims = bearerClaims(req);
     if (!claims) return json(res, 401, { message: 'JWT required' });
@@ -305,7 +341,9 @@ export function supabaseDevServer(): Plugin {
             ? handleRest
             : url.pathname.startsWith('/functions/v1/')
               ? handleFunctions
-              : null;
+              : url.pathname === '/documents/download'
+                ? handleDocumentDownload
+                : null;
         if (!route) return next();
         route(req, res, url).catch((err) => json(res, 500, { message: String(err) }));
       });

@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
+import { track } from '../lib/analytics';
 import {
   useActiveAssessment,
   useCompany,
@@ -38,10 +40,28 @@ const TIERS = [
 
 export default function ResultsPage() {
   const { assessmentId } = useParams();
+  const { profile } = useAuth();
   const assessmentQ = useActiveAssessment(assessmentId);
   const assessment = assessmentQ.data ?? null;
   const engagementQ = useEngagement(assessment?.engagement_id);
   const companyQ = useCompany(engagementQ.data?.company_id);
+
+  // R6: score delivery — record that the advisor viewed the DRS results (what
+  // they do next shows up as later events in the same session). Fires once.
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (!viewTracked.current && engagementQ.data && assessment) {
+      viewTracked.current = true;
+      track({
+        type: 'report',
+        name: 'results_viewed',
+        firmId: engagementQ.data.firm_id,
+        profileId: profile?.id,
+        engagementId: assessment.engagement_id,
+        properties: { assessment_id: assessmentId, drs: assessment.drs_score, tier: assessment.drs_tier },
+      });
+    }
+  }, [engagementQ.data, assessment, assessmentId, profile?.id]);
   const versionQ = useRubricVersion(assessment?.rubric_version_id);
   const explainQ = useExplain(assessmentId);
   const explain = explainQ.data;

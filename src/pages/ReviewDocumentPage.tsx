@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { invokeFunction, invokeFunctionRawBlob } from '../lib/supabase';
+import { documentDownloadUrl, invokeFunction } from '../lib/supabase';
 import { qk } from '../lib/queries';
+import { useAuth } from '../lib/auth';
+import { track } from '../lib/analytics';
 import { Card, PageHeader, SkeletonLines, useToast } from '../components/ui';
 
 interface DetailField {
@@ -38,6 +40,7 @@ export default function ReviewDocumentPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
+  const { profile } = useAuth();
 
   const detailQ = useQuery({
     queryKey: qk.documentDetail(documentId ?? ''),
@@ -59,21 +62,18 @@ export default function ReviewDocumentPage() {
     }
   }, [detailQ.data]);
 
-  // Fetch the source bytes as an object URL for the viewer; revoke on unmount.
+  // Load the source via a short-expiry signed URL (R5) — usable directly as the
+  // viewer src, no auth header, and it stops working after it expires.
   useEffect(() => {
     if (!documentId) return;
-    let url: string | null = null;
     let cancelled = false;
-    invokeFunctionRawBlob('get-document', { document_id: documentId })
-      .then((blob) => {
-        if (cancelled) return;
-        url = URL.createObjectURL(blob);
-        setSrcUrl(url);
+    invokeFunction<{ token: string }>('sign-document-url', { document_id: documentId })
+      .then((r) => {
+        if (!cancelled) setSrcUrl(documentDownloadUrl(documentId, r.token));
       })
       .catch(() => setSrcUrl(null));
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
     };
   }, [documentId]);
 
@@ -93,6 +93,13 @@ export default function ReviewDocumentPage() {
         fields: fields
           .filter((f) => f.field_key.trim())
           .map((f) => ({ id: f.id, field_key: f.field_key.trim(), value: f.value })),
+      });
+      track({
+        type: 'review',
+        name: 'document_verified',
+        firmId: profile?.firm_id,
+        profileId: profile?.id,
+        properties: { document_id: documentId, field_count: fields.filter((f) => f.field_key.trim()).length },
       });
       qc.invalidateQueries({ queryKey: qk.reviewQueue() });
       qc.invalidateQueries({ queryKey: qk.documentDetail(documentId) });

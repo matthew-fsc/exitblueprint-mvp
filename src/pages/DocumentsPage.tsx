@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { qk, useEngagement, useCompany } from '../lib/queries';
+import { useAuth } from '../lib/auth';
+import { track } from '../lib/analytics';
 import { Card, EmptyState, EngagementNav, PageHeader, SkeletonLines, useToast } from '../components/ui';
 
 interface DocumentRow {
@@ -53,6 +55,7 @@ export default function DocumentsPage() {
   const { engagementId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
+  const { profile } = useAuth();
   const engagementQ = useEngagement(engagementId);
   const companyQ = useCompany(engagementQ.data?.company_id);
   const docsQ = useEngagementSourceDocs(engagementId);
@@ -76,6 +79,14 @@ export default function DocumentsPage() {
         filename: file.name,
         mime_type: file.type || 'application/octet-stream',
         content_base64,
+      });
+      track({
+        type: 'document',
+        name: 'document_uploaded',
+        firmId: profile?.firm_id,
+        profileId: profile?.id,
+        engagementId,
+        properties: { category: category.trim() || null, mime_type: file.type || null },
       });
       setFile(null);
       setCategory('');

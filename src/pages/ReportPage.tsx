@@ -4,6 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
 import { qk, useLatestReport } from '../lib/queries';
 import { useBrand } from '../lib/branding';
+import { useAuth } from '../lib/auth';
+import { track } from '../lib/analytics';
 import { FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { fmtDate } from '../lib/format';
 
@@ -60,6 +62,7 @@ export default function ReportPage() {
   const { assessmentId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
+  const { profile } = useAuth();
   const { brand, branding } = useBrand();
   const reportQ = useLatestReport(assessmentId);
   const doc = reportQ.data ?? null;
@@ -124,6 +127,13 @@ export default function ReportPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      track({
+        type: 'report',
+        name: 'report_downloaded',
+        firmId: profile?.firm_id,
+        profileId: profile?.id,
+        properties: { assessment_id: assessmentId, doc_type: 'owner_report' },
+      });
     } catch (err) {
       setError((err as Error).message);
     }

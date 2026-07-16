@@ -2447,6 +2447,14 @@ textarea:focus {
 .review-field-del { padding: 0.35rem 0.6rem; line-height: 1; }
 .review-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
+/* ---- Security / MFA (beta R5) ---- */
+.mfa-enroll { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
+.mfa-qr { width: 180px; height: 180px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem; }
+.mfa-secret { font-family: ui-monospace, monospace; font-size: 0.85rem; background: var(--brand-tint); padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); }
+.mfa-verify { display: flex; gap: 0.5rem; align-items: center; }
+.security-summary { margin: 0.5rem 0 0.75rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.security-summary li { line-height: 1.55; }
+
 /* ---- Toast ---- */
 .ui-toast-wrap { position: fixed; bottom: 1.25rem; right: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 60; }
 .ui-toast {
