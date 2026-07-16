@@ -58,5 +58,25 @@ export async function invokeFunctionBlob(name: string, body: Record<string, unkn
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.message ?? `request failed (${res.status})`);
   }
+  // Guard against a 200 that isn't the binary we asked for. If VITE_FUNCTIONS_URL
+  // points at the static frontend (or a proxy/CORS error page), the request 404s
+  // to the SPA rewrite and comes back as index.html with a 200 — downloading that
+  // as a ".pdf" yields a broken file and no error. Surface the real reason instead.
+  const type = res.headers.get('content-type') ?? '';
+  if (!/application\/(pdf|octet-stream)/i.test(type)) {
+    const text = await res.text().catch(() => '');
+    const looksHtml = /^\s*</.test(text) || /text\/html/i.test(type);
+    throw new Error(
+      looksHtml
+        ? 'The compute service did not return a file. Check that VITE_FUNCTIONS_URL points at the functions service, not the frontend.'
+        : (() => {
+            try {
+              return (JSON.parse(text) as { message?: string })?.message ?? `unexpected response (${type || 'no content-type'})`;
+            } catch {
+              return `unexpected response (${type || 'no content-type'})`;
+            }
+          })(),
+    );
+  }
   return res.blob();
 }

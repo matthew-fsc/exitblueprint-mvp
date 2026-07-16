@@ -2,8 +2,11 @@
 // without the caller setting an env var (the earlier bug: it only honored
 // EB_CHROMIUM_PATH and otherwise let Playwright hunt for a bundled build that
 // isn't installed).
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolveChromium } from '../server/pdf';
 
 describe('resolveChromium', () => {
@@ -36,6 +39,40 @@ describe('resolveChromium', () => {
     } finally {
       if (prev === undefined) delete process.env.EB_CHROMIUM_PATH;
       else process.env.EB_CHROMIUM_PATH = prev;
+    }
+  });
+
+  // A locally `npx playwright install`ed browser must be found regardless of the
+  // host OS's on-disk layout (the earlier bug: only chrome-linux was checked, so
+  // PDF export failed in `npm run dev` on a Mac/Windows workstation).
+  describe('finds a browser in a Playwright cache (cross-platform layouts)', () => {
+    let dir: string;
+    const prevBase = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    const prevEnvPath = process.env.EB_CHROMIUM_PATH;
+
+    afterEach(() => {
+      if (dir) rmSync(dir, { recursive: true, force: true });
+      if (prevBase === undefined) delete process.env.PLAYWRIGHT_BROWSERS_PATH;
+      else process.env.PLAYWRIGHT_BROWSERS_PATH = prevBase;
+      if (prevEnvPath === undefined) delete process.env.EB_CHROMIUM_PATH;
+      else process.env.EB_CHROMIUM_PATH = prevEnvPath;
+    });
+
+    for (const rel of [
+      ['chrome-linux', 'chrome'],
+      ['chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'],
+      ['chrome-win', 'chrome.exe'],
+    ]) {
+      it(`resolves the ${rel[0]} layout`, () => {
+        delete process.env.EB_CHROMIUM_PATH;
+        dir = mkdtempSync(join(tmpdir(), 'pw-cache-'));
+        process.env.PLAYWRIGHT_BROWSERS_PATH = dir;
+        const binDir = join(dir, 'chromium-1234', ...rel.slice(0, -1));
+        mkdirSync(binDir, { recursive: true });
+        const binPath = join(binDir, rel[rel.length - 1]);
+        writeFileSync(binPath, '');
+        expect(resolveChromium()).toBe(binPath);
+      });
     }
   });
 });
