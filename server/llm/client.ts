@@ -133,7 +133,13 @@ export class LlmClient {
         clearTimeout(timer);
         const latency_ms = Date.now() - started;
         const cost_usd = costUsd(res.model, res.usage);
-        await this.logCall(opts, prompt.key, res, cost_usd, latency_ms);
+        // Cost logging is best-effort: a ledger-write failure must not discard a
+        // completion the caller already paid for.
+        try {
+          await this.logCall(opts, prompt.key, res, cost_usd, latency_ms);
+        } catch (logErr) {
+          console.warn(`llm_calls ledger write failed: ${(logErr as Error).message}`);
+        }
         return { ...res, cost_usd, latency_ms };
       } catch (err) {
         clearTimeout(timer);

@@ -208,7 +208,7 @@ export default function VerificationPage() {
             value={m ? `${Math.round(m.automation_ratio * 100)}%` : '—'}
             hint="verified without a human"
           />
-          <StatBlock label="Verified fields" value={m ? m.auto_resolved : '—'} />
+          <StatBlock label="Auto-verified" value={m ? m.auto_resolved : '—'} hint="no human needed" />
           <StatBlock label="Needs review" value={m ? m.human_required : '—'} />
           <StatBlock label="Findings" value={findings.length} />
         </StatRow>

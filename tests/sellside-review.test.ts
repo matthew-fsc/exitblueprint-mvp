@@ -165,6 +165,19 @@ describe.skipIf(!url)('verification + review queue (router)', () => {
     expect(status).toBe('resolved');
   });
 
+  it('human resolution does not inflate the automation ratio', async () => {
+    // After a human resolved ebitda, it must count as human-resolved — not roll
+    // into the automated share. annual_revenue stays the only auto-resolved field.
+    const m = body(
+      await handleFunctionCall('verification-metrics', { engagement_id: engagementId }, ctxFor(advisorUserId)),
+    ).body;
+    expect(m.reconciled_total).toBe(2);
+    expect(m.human_resolved).toBe(1); // ebitda
+    expect(m.human_required).toBe(0); // nothing left open
+    expect(m.auto_resolved).toBe(1); // annual_revenue only — NOT 2
+    expect(m.automation_ratio).toBeCloseTo(0.5, 5); // stays 0.5, does not jump to 1.0
+  });
+
   it('approving a finding flips its status', async () => {
     const item = (
       await service.query(

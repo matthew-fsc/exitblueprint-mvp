@@ -95,6 +95,12 @@ export async function runJob(
     const step = PIPELINE_STEPS[i];
     job.step = step;
     const handler = STEP_HANDLERS[step];
+    // Each step runs in its own transaction so its writes and the job-progress
+    // update commit together. A step that deletes-then-rebuilds (extract,
+    // populate_graph, reconcile) must not leave torn state if it throws
+    // mid-way — the rollback restores the prior verified data, and the job is
+    // marked failed at this step so a retry resumes here cleanly.
+    await db.query('begin');
     try {
       const result = await handler({ db, job, ontology, llm: opts.llm });
       if (result?.checkpoint) job.checkpoint = { ...job.checkpoint, ...result.checkpoint };
@@ -105,18 +111,24 @@ export async function runJob(
         job.step = next;
         job.status = 'waiting_review';
         await persist(db, job, { step: next, status: 'waiting_review' });
+        await db.query('commit');
         return job;
       }
       if (isLast) {
         job.status = 'completed';
         await persist(db, job, { step, status: 'completed', finished: true });
+        await db.query('commit');
         return job;
       }
       // Advance the pointer to the next step and persist progress.
       const next = PIPELINE_STEPS[i + 1];
       job.step = next;
       await persist(db, job, { step: next, status: 'running' });
+      await db.query('commit');
     } catch (err) {
+      // Roll back the step's partial writes before recording the outcome, so the
+      // failure/park status is written on a clean connection (autocommit).
+      await db.query('rollback').catch(() => {});
       if (err instanceof NotImplementedError) {
         // Park at the unimplemented step; a later slice implements it and resumes.
         job.status = 'pending';
@@ -137,42 +149,66 @@ export async function runJob(
   return job;
 }
 
-// Automation-ratio KPI per engagement: how many reconciled fields resolved
-// automatically vs needed a human (a pending/escalated review item). Exposed by
-// the metrics endpoint (built in the review API slice).
+// Automation-ratio KPI per engagement: of the reconciled fields, how many
+// resolved automatically (high confidence, no human) vs needed a human. Defined
+// on assessment_values, not on the open-review count, so that a human resolving
+// an item does NOT increase the automated share — a human-touched field
+// (resolved_by set) stays human-resolved for good. auto_resolved is a field the
+// pipeline resolved confidently: no resolved_by AND no open review item flagging
+// it. human_required is what still needs a human right now.
 export interface EngagementMetrics {
   reconciled_total: number;
   auto_resolved: number;
+  human_resolved: number;
   human_required: number;
-  automation_ratio: number; // auto / total, 0..1
+  automation_ratio: number; // auto_resolved / total, 0..1
+}
+
+async function count(db: pg.ClientBase, sql: string, params: unknown[]): Promise<number> {
+  return Number((await db.query(sql, params)).rows[0].n);
 }
 
 export async function engagementMetrics(
   db: pg.ClientBase,
   engagementId: string,
 ): Promise<EngagementMetrics> {
-  const total = Number(
-    (
-      await db.query(`select count(*)::int as n from assessment_values where engagement_id = $1`, [
-        engagementId,
-      ])
-    ).rows[0].n,
+  const total = await count(
+    db,
+    `select count(*)::int as n from assessment_values where engagement_id = $1`,
+    [engagementId],
   );
-  const human = Number(
-    (
-      await db.query(
-        `select count(*)::int as n from review_items
-          where engagement_id = $1 and type in ('conflict', 'low_confidence_extraction')
-            and status in ('pending', 'in_review', 'escalated')`,
-        [engagementId],
-      )
-    ).rows[0].n,
+  const humanResolved = await count(
+    db,
+    `select count(*)::int as n from assessment_values
+      where engagement_id = $1 and resolved_by is not null`,
+    [engagementId],
   );
-  const auto = Math.max(0, total - human);
+  const humanRequired = await count(
+    db,
+    `select count(*)::int as n from review_items
+      where engagement_id = $1 and type in ('conflict', 'low_confidence_extraction')
+        and status in ('pending', 'in_review', 'escalated')`,
+    [engagementId],
+  );
+  // Auto-resolved: no human touched it and nothing is queued against it.
+  const autoResolved = await count(
+    db,
+    `select count(*)::int as n from assessment_values av
+      where av.engagement_id = $1 and av.resolved_by is null
+        and not exists (
+          select 1 from review_items ri
+           where ri.engagement_id = av.engagement_id
+             and ri.type in ('conflict', 'low_confidence_extraction')
+             and ri.status in ('pending', 'in_review', 'escalated')
+             and ri.payload->>'field_key' = av.field_key
+        )`,
+    [engagementId],
+  );
   return {
     reconciled_total: total,
-    auto_resolved: auto,
-    human_required: human,
-    automation_ratio: total === 0 ? 1 : auto / total,
+    auto_resolved: autoResolved,
+    human_resolved: humanResolved,
+    human_required: humanRequired,
+    automation_ratio: total === 0 ? 1 : autoResolved / total,
   };
 }

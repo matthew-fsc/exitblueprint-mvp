@@ -5,17 +5,12 @@
 // answers are not yet wired from the assessment, so reconciliation resolves
 // against documents alone (conflicts still surface once that mapping lands).
 import type pg from 'pg';
-import { createJob, runJob, engagementMetrics } from './pipeline/runner';
+import { createJob, runJob, engagementMetrics, type EngagementMetrics } from './pipeline/runner';
 import { runFindings } from './findings/run';
 
 export interface VerificationSummary {
   job: { id: string; step: string; status: string };
-  metrics: {
-    reconciled_total: number;
-    auto_resolved: number;
-    human_required: number;
-    automation_ratio: number;
-  };
+  metrics: EngagementMetrics;
   findings: number;
 }
 
