@@ -72,14 +72,3 @@ export const BRAND = {
   accentStrong: '#17603f',
   accentDark: '#4bb888', // brighter accent for dark surfaces
 } as const;
-
-// Font stacks. Inter is self-hosted and bundled at build time (see main.tsx),
-// so there is no runtime network dependency — the app stays offline/CI-safe
-// while rendering in the intended face rather than a system fallback. The
-// system stack remains as the fallback if the woff2 ever fails to load.
-export const FONT = {
-  display:
-    "'Inter Tight Variable', 'Inter Variable', 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-  body: "'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-  tabular: "'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-} as const;

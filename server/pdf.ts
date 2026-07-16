@@ -8,7 +8,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DeltaReportPayload } from './narrative';
-import type { ExplainResult } from '../shared/scoring/engine';
 import { consensus, tierMeaning } from '../shared/scoring/interpret';
 
 export interface ReportBranding {
@@ -310,22 +309,6 @@ export interface OwnerReportData {
   dimensions: { name: string; score: number }[];
   topGaps: { name: string; severity: string; playbook: string | null }[];
   flags: string[];
-}
-
-export function ownerReportDataFromExplain(
-  explain: ExplainResult,
-  meta: { companyName: string; industry: string | null; targetWindow: string | null; date: string | null },
-  topGaps: { name: string; severity: string; playbook: string | null }[],
-): OwnerReportData {
-  return {
-    ...meta,
-    drs: explain.drsScore,
-    tier: explain.drsTier,
-    ori: explain.oriScore,
-    dimensions: explain.dimensions.map((d) => ({ name: d.name, score: d.score })),
-    topGaps,
-    flags: explain.flags,
-  };
 }
 
 export function renderOwnerReportHtml(

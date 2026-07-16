@@ -46,20 +46,12 @@ export function fmtCurrencyCompact(n: number | null | undefined): string {
 }
 
 const DATE = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-const DATE_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 
 export function fmtDate(d: string | Date | null | undefined): string {
   if (!d) return '—';
   const date = typeof d === 'string' ? new Date(d) : d;
   if (Number.isNaN(date.getTime())) return '—';
   return DATE.format(date);
-}
-
-export function fmtDateShort(d: string | Date | null | undefined): string {
-  if (!d) return '—';
-  const date = typeof d === 'string' ? new Date(d) : d;
-  if (Number.isNaN(date.getTime())) return '—';
-  return DATE_SHORT.format(date);
 }
 
 // Whole-number count of days between a past date and now (never negative).

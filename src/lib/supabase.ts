@@ -86,20 +86,3 @@ export async function invokeFunctionBlob(name: string, body: Record<string, unkn
   }
   return res.blob();
 }
-
-// Like invokeFunctionBlob but for arbitrary document MIME types (PDF, images,
-// etc.) — no content-type assertion, since a source document can be anything the
-// advisor uploaded. Returns the Blob with its server content-type preserved.
-export async function invokeFunctionRawBlob(name: string, body: Record<string, unknown>): Promise<Blob> {
-  const { endpoint, token } = await functionEndpoint(name);
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, apikey: anonKey, 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.message ?? `request failed (${res.status})`);
-  }
-  return res.blob();
-}

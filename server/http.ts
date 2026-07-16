@@ -43,6 +43,16 @@ if (!DATABASE_URL) {
 // Comma-separated allowed origins for CORS; '*' by default (tighten in prod).
 const ALLOWED_ORIGIN = process.env.FUNCTIONS_ALLOWED_ORIGIN ?? '*';
 
+// Document encryption at rest falls back to a weak dev key if EB_DOCUMENT_KEY is
+// unset — safe for dev, not for production. Warn loudly rather than silently
+// protecting client documents with a publicly-known key (docs/14).
+if (process.env.NODE_ENV === 'production' && !process.env.EB_DOCUMENT_KEY) {
+  console.warn(
+    'WARNING: EB_DOCUMENT_KEY is not set — uploaded documents are encrypted with the ' +
+      'insecure dev default key. Set a 32-byte hex key before storing real client documents.',
+  );
+}
+
 const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 10 });
 
 function bearer(req: IncomingMessage): Promise<Claims | null> {

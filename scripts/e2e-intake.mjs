@@ -18,7 +18,7 @@ const fixture = JSON.parse(
 );
 
 const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
+  executablePath: process.env.EB_CHROMIUM_PATH ?? process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
 });
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 const fail = async (msg) => {

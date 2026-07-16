@@ -46,8 +46,6 @@ export const qk = {
   valuation: (engagementId: string) => ['valuation', engagementId] as const,
   recast: (engagementId: string) => ['recast', engagementId] as const,
   valuationInputs: (engagementId: string) => ['valuationInputs', engagementId] as const,
-  dealOutcome: (engagementId: string) => ['dealOutcome', engagementId] as const,
-  calibration: () => ['calibration'] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -831,82 +829,6 @@ export function useEducationModules(
     enabled: !!engagementId,
     queryFn: () =>
       invokeFunction<EducationModulesResult>('education-modules', { engagement_id: engagementId }),
-  });
-}
-
-// ---- Deal outcomes: the calibration moat (docs/09-moats.md) -----------------
-export type DealOutcomeKind = 'closed' | 'broken' | 'withdrawn';
-export type BuyerType = 'strategic' | 'financial' | 'individual' | 'management' | 'other';
-export type DealStructure = 'all_cash' | 'cash_and_note' | 'earnout' | 'equity_rollover' | 'other';
-
-export interface DealOutcome {
-  id: string;
-  engagement_id: string;
-  outcome: DealOutcomeKind;
-  close_date: string | null;
-  days_on_market: number | null;
-  predicted_drs: number | null;
-  predicted_ori: number | null;
-  predicted_verified_pct: number | null;
-  predicted_ev_low: number | null;
-  predicted_ev_base: number | null;
-  predicted_ev_high: number | null;
-  final_ev: number | null;
-  final_multiple: number | null;
-  ebitda_at_close: number | null;
-  buyer_type: BuyerType | null;
-  structure: DealStructure | null;
-  retrade: boolean;
-  retrade_pct: number | null;
-  buyer_flagged_risks: unknown[];
-  notes: string | null;
-}
-
-export function useDealOutcome(engagementId: string | undefined): UseQueryResult<DealOutcome | null> {
-  return useQuery({
-    queryKey: qk.dealOutcome(engagementId ?? ''),
-    enabled: !!engagementId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('deal_outcomes')
-        .select('*')
-        .eq('engagement_id', engagementId!)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return (data as DealOutcome) ?? null;
-    },
-  });
-}
-
-export interface DealCalibrationRow {
-  engagement_id: string;
-  company_name: string;
-  outcome: DealOutcomeKind;
-  close_date: string | null;
-  predicted_drs: number | null;
-  predicted_ev_base: number | null;
-  final_ev: number | null;
-  final_multiple: number | null;
-  within_range: boolean | null;
-}
-export interface DealCalibration {
-  deals_recorded: number;
-  closed: number;
-  broken: number;
-  withdrawn: number;
-  with_prediction: number;
-  avg_ev_variance_pct: number | null;
-  within_range_pct: number | null;
-  avg_final_multiple: number | null;
-  avg_days_on_market: number | null;
-  retrade_rate_pct: number | null;
-  deals: DealCalibrationRow[];
-}
-
-export function useDealCalibration(): UseQueryResult<DealCalibration> {
-  return useQuery({
-    queryKey: qk.calibration(),
-    queryFn: () => invokeFunction<DealCalibration>('deal-calibration', {}),
   });
 }
 
