@@ -230,6 +230,35 @@ async function main() {
        values ($1, $2, 'Secret EBITDA', '999', 'extracted')`,
       [ids.firm_b, documentB],
     );
+    // Firm B sell-side intelligence rows for the isolation checks.
+    await db.query(
+      `insert into graph_nodes (firm_id, engagement_id, node_type, attributes)
+       values ($1, $2, 'Company', '{"name":"Secret Co"}'::jsonb)`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into assessment_values (firm_id, engagement_id, field_key, source)
+       values ($1, $2, 'annual_revenue', 'document_verified')`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into findings (firm_id, engagement_id, pattern_key, severity)
+       values ($1, $2, 'customer_concentration', 'high')`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into jobs (firm_id, engagement_id, pipeline, step) values ($1, $2, 'sellside_intake', 'intake')`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into review_items (firm_id, engagement_id, type) values ($1, $2, 'conflict')`,
+      [ids.firm_b, engagementB],
+    );
+    await db.query(
+      `insert into llm_calls (firm_id, engagement_id, prompt_key, model)
+       values ($1, $2, 'extract.financials.v1', 'claude-opus-4-8')`,
+      [ids.firm_b, engagementB],
+    );
     // Firm B audit-log + usage-event rows for the R5/R6 isolation checks.
     await db.query(
       `insert into data_access_log (firm_id, action, resource_type, resource_id)
@@ -367,6 +396,32 @@ async function main() {
       await db.query('rollback to savepoint doc');
     }
     check('cannot insert a document into firm B', docBWriteBlocked);
+
+    // Sell-side intelligence substrate: firm isolation (graph, reconciliation,
+    // findings, jobs, review queue, LLM cost ledger).
+    check('sees no firm B graph_nodes', (await db.query('select id from graph_nodes')).rows.length === 0);
+    check(
+      'sees no firm B assessment_values',
+      (await db.query('select id from assessment_values')).rows.length === 0,
+    );
+    check('sees no firm B findings', (await db.query('select id from findings')).rows.length === 0);
+    check('sees no firm B jobs', (await db.query('select id from jobs')).rows.length === 0);
+    check('sees no firm B review_items', (await db.query('select id from review_items')).rows.length === 0);
+    check('sees no firm B llm_calls', (await db.query('select id from llm_calls')).rows.length === 0);
+    let graphBWriteBlocked = false;
+    try {
+      await db.query('savepoint gn');
+      const ins = await db.query(
+        `insert into graph_nodes (firm_id, engagement_id, node_type) values ($1, $2, 'Company')`,
+        [ids.firm_b, engagementB],
+      );
+      graphBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint gn');
+    } catch {
+      graphBWriteBlocked = true;
+      await db.query('rollback to savepoint gn');
+    }
+    check('cannot insert a graph_node into firm B', graphBWriteBlocked);
 
     // data_access_log + usage_events: firm isolation (beta R5/R6)
     const logA = await db.query('select id from data_access_log');

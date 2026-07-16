@@ -39,6 +39,28 @@ export class ManualParserAdapter implements ParserAdapter {
   }
 }
 
+// Fixture adapter for the sell-side pipeline and its golden tests: the uploaded
+// document's bytes ARE a fixture JSON ({ classification, fields }), and the
+// adapter returns those fields verbatim. This is the "stub adapter that returns
+// fixtures" — no vendor, deterministic, and offline-testable. The real Reducto /
+// LlamaParse adapters implement the same interface later.
+export class FixtureParserAdapter implements ParserAdapter {
+  readonly name = 'fixture';
+  async parse(input: ParseInput): Promise<ParseResult> {
+    let doc: { classification?: string | null; fields?: ExtractedField[] };
+    try {
+      doc = JSON.parse(input.bytes.toString('utf8'));
+    } catch {
+      throw new Error('fixture parser: document bytes are not valid JSON');
+    }
+    return {
+      parserName: this.name,
+      classification: doc.classification ?? input.category,
+      fields: Array.isArray(doc.fields) ? doc.fields : [],
+    };
+  }
+}
+
 // Resolve the active adapter without hard-coding a vendor. EB_PARSER selects it;
 // unset → manual. Vendor adapters (reducto, llamaparse) are recognized names but
 // not implemented in the beta — they throw so a misconfiguration is loud rather
@@ -48,6 +70,8 @@ export function resolveParser(): ParserAdapter {
   switch (which) {
     case 'manual':
       return new ManualParserAdapter();
+    case 'fixture':
+      return new FixtureParserAdapter();
     case 'reducto':
     case 'llamaparse':
       throw new Error(

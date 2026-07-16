@@ -1,0 +1,116 @@
+{
+  "version": "container.v1",
+  "_note": "Container seeded with core node/edge types. The full business ontology from the prior repo ports in here as additional entries; the registry (server/ontology/registry.ts) validates against whatever this file declares. Do not encode ontology logic in code.",
+  "nodes": [
+    {
+      "key": "Company",
+      "label": "Company",
+      "description": "The subject business under assessment.",
+      "attributes": {
+        "name": { "type": "string", "required": true },
+        "industry": { "type": "string" },
+        "revenue_usd": { "type": "number" },
+        "ebitda_usd": { "type": "number" }
+      }
+    },
+    {
+      "key": "Customer",
+      "label": "Customer",
+      "description": "A customer account, used for concentration analysis.",
+      "attributes": {
+        "name": { "type": "string", "required": true },
+        "revenue_usd": { "type": "number" },
+        "revenue_pct": { "type": "number" }
+      }
+    },
+    {
+      "key": "RevenueYear",
+      "label": "Revenue Year",
+      "description": "A fiscal year's revenue, used for growth/volatility analysis.",
+      "attributes": {
+        "year": { "type": "number", "required": true },
+        "revenue_usd": { "type": "number", "required": true }
+      }
+    },
+    {
+      "key": "Person",
+      "label": "Person",
+      "description": "An individual: owner, executive, or key employee.",
+      "attributes": {
+        "name": { "type": "string", "required": true },
+        "role": { "type": "string" },
+        "is_owner": { "type": "boolean" }
+      }
+    },
+    {
+      "key": "Contract",
+      "label": "Contract",
+      "description": "A material contract (customer, lease, supplier).",
+      "attributes": {
+        "counterparty": { "type": "string", "required": true },
+        "kind": { "type": "string" },
+        "assignable": { "type": "boolean" },
+        "change_of_control_consent": { "type": "boolean" },
+        "annual_value_usd": { "type": "number" }
+      }
+    },
+    {
+      "key": "Addback",
+      "label": "EBITDA Addback",
+      "description": "An owner add-back adjustment to EBITDA, used for defensibility analysis.",
+      "attributes": {
+        "label": { "type": "string", "required": true },
+        "amount_usd": { "type": "number", "required": true },
+        "documented": { "type": "boolean" },
+        "category": { "type": "string" }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "key": "HAS_CUSTOMER",
+      "label": "has customer",
+      "from": ["Company"],
+      "to": ["Customer"],
+      "attributes": {}
+    },
+    {
+      "key": "HAS_REVENUE_YEAR",
+      "label": "has revenue year",
+      "from": ["Company"],
+      "to": ["RevenueYear"],
+      "attributes": {}
+    },
+    {
+      "key": "EMPLOYS",
+      "label": "employs",
+      "from": ["Company"],
+      "to": ["Person"],
+      "attributes": {}
+    },
+    {
+      "key": "PARTY_TO",
+      "label": "party to",
+      "from": ["Company"],
+      "to": ["Contract"],
+      "attributes": {}
+    },
+    {
+      "key": "DEPENDS_ON",
+      "label": "depends on",
+      "description": "The company depends on a person (key-person risk).",
+      "from": ["Company"],
+      "to": ["Person"],
+      "attributes": {
+        "reason": { "type": "string" }
+      }
+    },
+    {
+      "key": "CLAIMS_ADDBACK",
+      "label": "claims addback",
+      "from": ["Company"],
+      "to": ["Addback"],
+      "attributes": {}
+    }
+  ]
+}

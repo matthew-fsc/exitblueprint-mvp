@@ -1,0 +1,13 @@
+{
+  "classification": "financial_statement",
+  "fields": [
+    { "fieldKey": "Company:self:name", "value": "Fixture Co", "confidence": 1 },
+    { "fieldKey": "Company:self:revenue_usd", "value": "10000000", "confidence": 0.95 },
+    { "fieldKey": "Company:self:ebitda_usd", "value": "2000000", "confidence": 0.6 },
+    { "fieldKey": "Customer:Acme:name", "value": "Acme", "confidence": 0.9 },
+    { "fieldKey": "Customer:Acme:revenue_pct", "value": "0.32", "confidence": 0.9 },
+    { "fieldKey": "Customer:Acme:revenue_usd", "value": "3200000", "confidence": 0.9 },
+    { "fieldKey": "Customer:Beta:name", "value": "Beta", "confidence": 0.9 },
+    { "fieldKey": "Customer:Beta:revenue_pct", "value": "0.12", "confidence": 0.9 }
+  ]
+}

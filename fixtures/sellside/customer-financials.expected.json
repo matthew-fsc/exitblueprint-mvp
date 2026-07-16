@@ -1,0 +1,12 @@
+{
+  "facts": [
+    { "fact_key": "Company:self:name", "fact_value": "Fixture Co" },
+    { "fact_key": "Company:self:revenue_usd", "fact_value": "10000000" },
+    { "fact_key": "Company:self:ebitda_usd", "fact_value": "2000000" },
+    { "fact_key": "Customer:Acme:name", "fact_value": "Acme" },
+    { "fact_key": "Customer:Acme:revenue_pct", "fact_value": "0.32" },
+    { "fact_key": "Customer:Acme:revenue_usd", "fact_value": "3200000" },
+    { "fact_key": "Customer:Beta:name", "fact_value": "Beta" },
+    { "fact_key": "Customer:Beta:revenue_pct", "fact_value": "0.12" }
+  ]
+}
