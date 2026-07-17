@@ -3746,3 +3746,17 @@ textarea:focus {
   letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
 }
 .capital-blurb { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; }
+
+/* Roadmap catch-up controls (editable due dates, manual tasks, engagement timeline) */
+.rm-task-body { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+.rm-task-due {
+  font-size: 0.76rem; padding: 0.12rem 0.35rem; border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text-secondary); background: transparent;
+}
+.rm-task-due:hover, .rm-task-due:focus { border-color: var(--accent); color: var(--text-primary); }
+.rm-add-task { border-top: 1px dashed var(--border); padding-top: 0.9rem; }
+.eng-timeline-form { display: flex; gap: 1rem; flex-wrap: wrap; }
+.eng-timeline-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.eng-timeline-form input, .eng-timeline-form select {
+  padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem;
+}

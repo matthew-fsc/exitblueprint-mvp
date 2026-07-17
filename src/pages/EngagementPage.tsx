@@ -125,6 +125,18 @@ export default function EngagementPage() {
     }
   };
 
+  // Catch-up: an engagement may have begun months before it was entered here.
+  // Let the advisor set its real start date and target window so the timeline,
+  // sprints, and exit-pace reflect reality.
+  const saveEngagement = async (patch: Record<string, unknown>) => {
+    const { error } = await supabase.from('engagements').update(patch).eq('id', engagementId!);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: qk.engagement(engagementId!) });
+  };
+
   if (engagementQ.isLoading) {
     return (
       <Card>
@@ -386,6 +398,35 @@ export default function EngagementPage() {
             hint="Owner access · accounting · verification"
           >
             <div className="stack-lg">
+              <SectionCard
+                title="Engagement timeline"
+                subtitle="Started working with this owner before now? Set the real start date and target window so the trajectory, sprints, and exit pace match the actual engagement."
+              >
+                <div className="eng-timeline-form">
+                  <label>
+                    Started
+                    <input
+                      type="date"
+                      defaultValue={engagement.started_at ? engagement.started_at.slice(0, 10) : ''}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => e.target.value && saveEngagement({ started_at: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Target exit window
+                    <select
+                      defaultValue={engagement.target_exit_window ?? ''}
+                      onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
+                    >
+                      <option value="">Not set</option>
+                      <option value="under 12 months">Under 12 months</option>
+                      <option value="12-24 months">12–24 months</option>
+                      <option value="24-36 months">24–36 months</option>
+                      <option value="36+ months">36+ months</option>
+                    </select>
+                  </label>
+                </div>
+              </SectionCard>
               <div className="eng-grid" style={{ marginTop: 0 }}>
                 <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
                 <AccountingCard
