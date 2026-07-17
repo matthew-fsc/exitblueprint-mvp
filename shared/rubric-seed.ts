@@ -149,6 +149,73 @@ export function parseGapContentMap(csvText: string): CodeMapSeed[] {
   }));
 }
 
+export interface DataRoomSectionSeed {
+  code: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+}
+
+export interface DataRoomItemSeed {
+  sectionCode: string;
+  code: string;
+  label: string;
+  description: string | null;
+  buyerRationale: string | null;
+  appliesTo: string;
+  gapCode: string | null;
+  sortOrder: number;
+}
+
+export function parseDataRoomSections(csvText: string): DataRoomSectionSeed[] {
+  return rows(csvText).map((r) => ({
+    code: r.code,
+    name: r.name,
+    description: r.description || null,
+    sortOrder: Number(r.sort_order),
+  }));
+}
+
+export function parseDataRoomItems(csvText: string): DataRoomItemSeed[] {
+  return rows(csvText).map((r) => ({
+    sectionCode: r.section_code,
+    code: r.code,
+    label: r.label,
+    description: r.description || null,
+    buyerRationale: r.buyer_rationale || null,
+    appliesTo: r.applies_to || 'all',
+    gapCode: r.gap_code || null,
+    sortOrder: Number(r.sort_order),
+  }));
+}
+
+/**
+ * Referential integrity of the Data Room template (docs/15, work stream B):
+ * every item points at a known section, and every gap_code it carries — the
+ * shared taxonomy with the rubric — is a real gap definition.
+ */
+export function validateDataRoom(
+  sections: DataRoomSectionSeed[],
+  items: DataRoomItemSeed[],
+  gapDefinitions: GapDef[],
+): string[] {
+  const problems: string[] = [];
+  const sectionCodes = new Set(sections.map((s) => s.code));
+  const gapCodes = new Set(gapDefinitions.map((g) => g.code));
+  const seen = new Set<string>();
+  for (const i of items) {
+    if (!sectionCodes.has(i.sectionCode)) {
+      problems.push(`data_room item ${i.code}: unknown section ${i.sectionCode}`);
+    }
+    if (i.gapCode && !gapCodes.has(i.gapCode)) {
+      problems.push(`data_room item ${i.code}: unknown gap_code ${i.gapCode}`);
+    }
+    if (seen.has(i.code)) problems.push(`data_room item ${i.code}: duplicate code`);
+    seen.add(i.code);
+  }
+  return problems;
+}
+
 export interface PlaybookSeed {
   code: string;
   name: string;

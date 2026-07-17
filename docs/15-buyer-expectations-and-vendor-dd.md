@@ -345,25 +345,61 @@ binder already built.
 
 ---
 
-## 5. Open decisions for Matthew (do not implement until resolved)
+## 5. Decisions (resolved with Matthew 2026-07-17)
 
-1. **Transferability: scored dimension, gating-flag layer, or hybrid?** (§4-A2).
-   Recommendation: hybrid — score the gradable items, hard-gate the binary
-   deal-killers so a clean operating score can't mask unassigned IP or undisclosed
-   litigation.
-2. **Segment overlays vs. universal rubric.** Do supplier concentration (manufacturing)
-   and vendor-security readiness (services/SaaS) belong in the universal DRS, or in
-   **industry rubric_version overlays**? Recommendation: overlays, to keep the
-   universal DRS comparable across the book while letting segment signals count where
-   they apply.
-3. **How hard should transferability gate the tier?** E.g., should *any* unassigned
-   core IP or open regulatory action forbid *Institutional Grade (85+)* outright? The
-   Majic Stairs deal argues yes.
-4. **Data Room Readiness taxonomy ownership.** Confirm the data-room checklist and
-   the gap taxonomy share one source of truth (one item, one fact) rather than
-   drifting into two parallel lists.
-5. **SOC 2 timing.** Vendor reviews increasingly hard-gate on it; it is a
-   months-long external process. Decide when to start the readiness assessment.
+1. **Transferability modeling → HYBRID.** Score the gradable items (contract
+   coverage %, insurance adequacy) as a Transferability dimension AND treat the
+   binary deal-killers (unassigned IP, undisclosed litigation, open regulatory
+   action) as hard flags. A clean operating score must not be able to mask an
+   unassigned-IP closing condition.
+2. **Rubric scope → SPLIT (universal + overlays).** Legal / IP / transferability
+   lives in the universal rubric (every deal has it); industry-specific signals
+   (supplier concentration for manufacturing, vendor-security for services/SaaS)
+   live in segment `rubric_version` overlays. Keeps the core DRS comparable across
+   the whole book.
+3. **Tier gating → HARD CAP.** Any unassigned core IP, undisclosed litigation, or
+   open regulatory action forbids *Institutional Grade (85+)* outright, regardless
+   of operating score.
+4. **Data Room Readiness taxonomy → one source of truth.** The data-room checklist
+   and the gap taxonomy share one taxonomy: a data-room item that maps to a gap
+   carries that gap's code, so "the IP-assignment item" and the `IP_UNASSIGNED` gap
+   are the same fact, never two parallel lists.
+5. **Build order → Work stream B first** (Data Room Readiness), because it is
+   deterministic, reuses the R3 documents pipeline, ships client value immediately,
+   and establishes the shared taxonomy the rubric work (A) then reuses.
+
+Still open (not blocking B): **SOC 2 timing** — a months-long external process that
+vendor reviews increasingly hard-gate on; decide when to start the readiness
+assessment as part of work stream C.
+
+## 6. Implementation status
+
+- **Work stream B — Data Room Readiness (landed):** a versioned, canonical
+  diligence request template (7 sections, 37 items) seeded as global methodology
+  like the rubric (`seed/data-room-sections.csv`, `seed/data-room-items.csv`),
+  plus a per-engagement readiness state per item (not_started | in_progress |
+  ready | gap | not_applicable) with an optional link to an uploaded document
+  (reuses the R3 `documents` pipeline). Deterministic, no LLM — nothing here
+  computes or writes a score (rule 2). Template items that map to a scored gap
+  carry that gap's code (decision 4: one taxonomy). Surfaces:
+  - `supabase/migrations/20260717000100_data_room.sql` — `data_room_sections`,
+    `data_room_items` (global, methodology-read), `engagement_data_room_items`
+    (firm-scoped; staff CRUD + owner-own-company RLS mirroring documents).
+  - `server/data-room.ts` (`listDataRoom`, `setDataRoomItem`) wired into the
+    router as `list-data-room` / `set-data-room-item`, authorized through the
+    generic engagement path (staff by firm, owner by company).
+  - Frontend engagement **Data room** tab (`src/pages/DataRoomPage.tsx`): sections
+    in buyer-list order, per-item state selector, buyer rationale, gap-code tag,
+    and a readiness-percent summary (ready ÷ in-scope items).
+  - Each item exposes *why a buyer asks* — the education layer that turns the
+    buyer's ammunition into the owner's checklist.
+  - Verified: fresh migrate, seed ×2 (idempotent), seed:demo ×2, `test:rls` 67,
+    `vitest` 167 (`tests/data-room.test.ts` drives the router end-to-end), eval,
+    and `build` all green; the tab was driven live in a browser against the demo
+    tenant.
+- Work streams A and C: not started; A is gated on this taxonomy, which has now
+  landed, so A can proceed next (add the supplier/channel + Legal & Transferability
+  rubric_version, reusing these gap codes and extending them with the new ones).
 
 ---
 

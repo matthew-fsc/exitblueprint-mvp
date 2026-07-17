@@ -32,6 +32,7 @@ import {
 } from './documents/pipeline';
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
+import { listDataRoom, setDataRoomItem } from './data-room';
 import {
   claimReviewItem,
   escalateReviewItem,
@@ -412,6 +413,26 @@ async function dispatch(
         ).rowCount === 1;
       if (!owns) return err(404, 'connection not found');
       return ok(await disconnectLedger(service, { connectionId: body.connection_id as string }));
+    }
+    case 'list-data-room':
+      // Authorized via the generic engagement path (staff by firm, owner by
+      // company). Read-only view of the template + this engagement's states.
+      return ok(await listDataRoom(service, body.engagement_id as string));
+    case 'set-data-room-item': {
+      // The caller's profile records who last touched the item (provenance);
+      // owners have no firm_id, so resolve by user_id alone (role-agnostic).
+      const actor = (await service.query(`select id from profiles where user_id = $1`, [userId]))
+        .rows[0]?.id ?? null;
+      return ok(
+        await setDataRoomItem(service, {
+          engagementId: body.engagement_id as string,
+          itemCode: body.item_code as string,
+          readinessState: body.readiness_state as string,
+          note: (body.note as string) ?? null,
+          documentId: (body.document_id as string) ?? null,
+          updatedBy: actor,
+        }),
+      );
     }
     case 'run-verification':
       return ok(await runEngagementVerification(service, firmId as string, body.engagement_id as string));
