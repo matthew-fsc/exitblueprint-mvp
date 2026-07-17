@@ -397,9 +397,29 @@ assessment as part of work stream C.
     `vitest` 167 (`tests/data-room.test.ts` drives the router end-to-end), eval,
     and `build` all green; the tab was driven live in a browser against the demo
     tenant.
-- Work streams A and C: not started; A is gated on this taxonomy, which has now
-  landed, so A can proceed next (add the supplier/channel + Legal & Transferability
-  rubric_version, reusing these gap codes and extending them with the new ones).
+- **Work stream B — follow-ups (landed):** (1) the template was generalized to
+  all-business (every item `applies_to = all`; product/manufacturing-specific
+  wording removed — industry specifics belong in a future overlay per decision 2);
+  (2) a document can be uploaded and **tagged directly to a data-room item**
+  (`attach-data-room-document`), which routes it through the existing ingest
+  pipeline with a `data_room:<item_code>` category so parsing/extraction knows
+  which diligence item the file answers, links it to the item, and advances an
+  untouched item to `in_progress`. The tab shows each item's linked document and
+  status with an Upload/Replace control.
+- **Work stream C — security to the vendor-DD standard (in progress):**
+  `docs/16-vendor-security-dd.md` is the full LWG-packet-shaped response, honest
+  about implemented (✅) / documented (📄) / planned (🟡) controls. New this pass:
+  an **idle-session timeout** (30-min auto sign-out, `src/lib/auth.tsx`) — the
+  packet's "automatic shutdown of inactive sessions"; a canonical **sub-processor
+  register** (`seed/subprocessors.csv`); and expanded retention / orderly-
+  termination / BCP-DR sections in docs/13 + the `/security` page. Open items
+  (SOC 2, pen test, background-check policy, breach-notification contract clause,
+  CI vuln scanning, DR-test cadence, self-serve export+purge) are tracked in
+  docs/16 — honestly marked, not claimed.
+- **Work stream A: not started.** Gated on this taxonomy, which has landed, so A
+  can proceed next — add the supplier/channel + Legal & Transferability
+  rubric_version, reusing these gap codes and extending them (IP_UNASSIGNED,
+  TAX_NEXUS_EXPOSURE, SUPPLIER_SINGLE_SOURCE, …).
 
 ---
 

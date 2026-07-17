@@ -32,7 +32,7 @@ import {
 } from './documents/pipeline';
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
-import { listDataRoom, setDataRoomItem } from './data-room';
+import { attachDataRoomDocument, listDataRoom, setDataRoomItem } from './data-room';
 import {
   claimReviewItem,
   escalateReviewItem,
@@ -431,6 +431,20 @@ async function dispatch(
           note: (body.note as string) ?? null,
           documentId: (body.document_id as string) ?? null,
           updatedBy: actor,
+        }),
+      );
+    }
+    case 'attach-data-room-document': {
+      const actor = (await service.query(`select id from profiles where user_id = $1`, [userId]))
+        .rows[0]?.id ?? null;
+      return ok(
+        await attachDataRoomDocument(service, {
+          engagementId: body.engagement_id as string,
+          itemCode: body.item_code as string,
+          filename: body.filename as string,
+          mimeType: (body.mime_type as string) ?? 'application/octet-stream',
+          contentBase64: body.content_base64 as string,
+          actorProfileId: actor,
         }),
       );
     }

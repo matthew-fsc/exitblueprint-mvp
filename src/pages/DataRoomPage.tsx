@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction } from '../lib/supabase';
 import { qk, useEngagement, useCompany } from '../lib/queries';
 import { Card, EngagementNav, PageHeader, SkeletonLines, useToast } from '../components/ui';
+
+const toBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve((r.result as string).split(',')[1] ?? '');
+    r.onerror = () => reject(new Error('could not read file'));
+    r.readAsDataURL(file);
+  });
 
 // Data Room Readiness (docs/15, work stream B): the buyer's real diligence
 // request list, turned into the client's pre-built checklist. Deterministic — a
@@ -22,6 +30,8 @@ interface DataRoomItem {
   readiness_state: string;
   note: string | null;
   document_id: string | null;
+  document_filename: string | null;
+  document_status: string | null;
   updated_at: string | null;
 }
 interface DataRoomSection {
@@ -75,6 +85,8 @@ export default function DataRoomPage() {
   const companyQ = useCompany(engagementQ.data?.company_id);
   const dataRoomQ = useDataRoom(engagementId);
   const [saving, setSaving] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const setState = async (itemCode: string, readinessState: string) => {
     if (!engagementId) return;
@@ -90,6 +102,26 @@ export default function DataRoomPage() {
       toast.show((err as Error).message, 'error');
     }
     setSaving(null);
+  };
+
+  const attachDocument = async (itemCode: string, file: File) => {
+    if (!engagementId) return;
+    setUploading(itemCode);
+    try {
+      const content_base64 = await toBase64(file);
+      await invokeFunction('attach-data-room-document', {
+        engagement_id: engagementId,
+        item_code: itemCode,
+        filename: file.name,
+        mime_type: file.type || 'application/octet-stream',
+        content_base64,
+      });
+      await qc.invalidateQueries({ queryKey: qk.dataRoom(engagementId) });
+      toast.show('Uploaded — tagged to this item and sent for review', 'good');
+    } catch (err) {
+      toast.show((err as Error).message, 'error');
+    }
+    setUploading(null);
   };
 
   const view = dataRoomQ.data;
@@ -163,6 +195,42 @@ export default function DataRoomPage() {
                           <span className="dr-why-label">Why buyers ask:</span> {item.buyer_rationale}
                         </p>
                       )}
+                      <div className="dr-doc">
+                        {item.document_id ? (
+                          <span className="dr-doc-linked" title={`Status: ${item.document_status ?? 'uploaded'}`}>
+                            ◆ {item.document_filename ?? 'Document attached'}
+                            {item.document_status && item.document_status !== 'verified' && (
+                              <span className="dr-doc-status"> · {item.document_status.replace('_', ' ')}</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="muted dr-doc-none">No document attached</span>
+                        )}
+                        <input
+                          ref={(el) => {
+                            fileInputs.current[item.item_code] = el;
+                          }}
+                          type="file"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) attachDocument(item.item_code, f);
+                            e.target.value = '';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="dr-doc-btn"
+                          disabled={uploading === item.item_code}
+                          onClick={() => fileInputs.current[item.item_code]?.click()}
+                        >
+                          {uploading === item.item_code
+                            ? 'Uploading…'
+                            : item.document_id
+                              ? 'Replace'
+                              : 'Upload'}
+                        </button>
+                      </div>
                     </div>
                     <label className="dr-select">
                       <span className="sr-only">Readiness for {item.label}</span>

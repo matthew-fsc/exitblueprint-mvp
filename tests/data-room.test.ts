@@ -192,6 +192,54 @@ describe.skipIf(!url)('data room readiness (router)', () => {
     expect(r.body.readiness_state).toBe('in_progress');
   });
 
+  it('attaches an uploaded document to an item, tags it, and advances it', async () => {
+    const r = body(
+      await handleFunctionCall(
+        'attach-data-room-document',
+        {
+          engagement_id: engagementId,
+          item_code: 'FIN-RECON',
+          filename: 'recs.pdf',
+          mime_type: 'application/pdf',
+          content_base64: Buffer.from('reconciliations').toString('base64'),
+        },
+        ctxFor(advisorUserId),
+      ),
+    );
+    expect(r.status).toBe(200);
+    expect(r.body.document_id).toBeTruthy();
+    // an untouched item advances to in_progress and links the document.
+    expect(r.body.item.readiness_state).toBe('in_progress');
+    expect(r.body.item.document_filename).toBe('recs.pdf');
+    // the document carries the data_room:<item> category so parse can key off it.
+    const cat = (await service.query(`select category from documents where id = $1`, [r.body.document_id]))
+      .rows[0].category;
+    expect(cat).toBe('data_room:FIN-RECON');
+    // reflected in the list view (joined document fields).
+    const list = body(await handleFunctionCall('list-data-room', { engagement_id: engagementId }, ctxFor(advisorUserId)));
+    const recon = list.body.items.find((i: any) => i.item_code === 'FIN-RECON');
+    expect(recon.document_id).toBe(r.body.document_id);
+    expect(recon.document_filename).toBe('recs.pdf');
+  });
+
+  it('lets an owner attach a document to their company data room', async () => {
+    const r = body(
+      await handleFunctionCall(
+        'attach-data-room-document',
+        {
+          engagement_id: engagementId,
+          item_code: 'HR-ORG',
+          filename: 'roster.csv',
+          mime_type: 'text/csv',
+          content_base64: Buffer.from('name,title').toString('base64'),
+        },
+        ctxFor(ownerUserId),
+      ),
+    );
+    expect(r.status).toBe(200);
+    expect(r.body.item.document_filename).toBe('roster.csv');
+  });
+
   it('blocks a foreign advisor from the engagement', async () => {
     const r = body(
       await handleFunctionCall('list-data-room', { engagement_id: engagementId }, ctxFor(otherAdvisorUserId)),

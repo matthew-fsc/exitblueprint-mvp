@@ -29,25 +29,38 @@ implemented in the platform (beta Requirement 5)._
   reach is defined by row-level security policies.
 - **MFA:** multi-factor authentication (TOTP) is **required for advisor and admin
   accounts**, enforced at sign-in via authenticator assurance level.
+- **Idle timeout:** signed-in sessions are automatically terminated after 30
+  minutes of inactivity.
 - **Audit log:** every read of a client document or report is recorded in an
   append-only `data_access_log` (who, what, when), readable by the firm's
   advisors for compliance.
 - **Consent gate:** no assessment data is collected for a client until a signed
   engagement agreement and explicit data-use consents are recorded.
 
-## Retention
+## Retention & orderly termination
 
 - Records are retained for the life of the engagement and its readiness history.
-  Deletion on request is handled operationally (there is no automated purge in the
-  beta).
+- On termination, a firm's data is exported in industry-standard formats
+  (CSV/JSON + original documents) and then destroyed per the firm's instruction;
+  the firm-scoped schema makes a clean per-tenant export/purge tractable.
+  (Deletion on request is handled operationally in the beta; a self-serve audited
+  export+purge is a tracked roadmap item.)
 
 ## Subprocessors
 
+Canonical register: `seed/subprocessors.csv`.
+
 | Subprocessor | Purpose | Data |
 | --- | --- | --- |
-| **Supabase** | Database, authentication, storage | All client records |
-| **Compute host** (Render/Railway/Fly) | Report/PDF rendering, document processing | Transient, per-request |
-| **Anthropic** (optional) | AI narrative drafted from structured data | Report inputs only — **never** used to compute or influence a score |
+| **Supabase** | Database, authentication, storage | All client records (encrypted at rest, RLS-isolated) |
+| **Vercel** | Frontend hosting + serverless compute (functions, PDF) | Transient, per-request |
+| **Anthropic** | AI narrative drafted from structured data | Report inputs only — **never** used to compute or influence a score |
+
+## Business continuity
+
+Managed Postgres backups + point-in-time recovery (Supabase); stateless,
+redeployable-from-git compute; redundant edge hosting (Vercel). Full BCP/DR and
+the complete vendor-DD response: **docs/16-vendor-security-dd.md**.
 
 ## Configuration checklist (production)
 

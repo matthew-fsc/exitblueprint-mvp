@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
+// Idle-session timeout: sign out after this long with no user activity. A
+// vendor-DD control ("automatic shutdown of inactive sessions"). 30 minutes.
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -79,6 +83,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
   };
+
+  // Automatic shutdown of inactive sessions (vendor-DD control): sign out after
+  // IDLE_TIMEOUT_MS with no user activity. Only armed while signed in; any
+  // pointer/key/scroll/visibility activity resets the timer.
+  useEffect(() => {
+    if (!session) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void supabase.auth.signOut();
+      }, IDLE_TIMEOUT_MS);
+    };
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'visibilitychange'] as const;
+    for (const e of events) window.addEventListener(e, reset, { passive: true });
+    reset();
+    return () => {
+      clearTimeout(timer);
+      for (const e of events) window.removeEventListener(e, reset);
+    };
+  }, [session]);
 
   return (
     <AuthContext.Provider value={{ session, profile, firmName, loading, signOut }}>

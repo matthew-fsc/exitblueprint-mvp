@@ -3626,3 +3626,19 @@ textarea:focus {
 .dr-why { margin: 0.25rem 0 0; font-size: 0.82rem; color: var(--text-secondary); }
 .dr-why-label { font-weight: 650; color: var(--text-primary); }
 .dr-select select { padding: 0.35rem 0.5rem; border-radius: 6px; }
+
+/* Data room per-item document attach */
+.dr-doc { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.45rem; flex-wrap: wrap; }
+.dr-doc-linked { font-size: 0.82rem; font-weight: 600; color: var(--status-good); }
+.dr-doc-status { color: var(--text-secondary); font-weight: 500; }
+.dr-doc-none { font-size: 0.82rem; }
+.dr-doc-btn {
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, rgba(0,0,0,0.15));
+  background: var(--surface-2, transparent);
+  cursor: pointer;
+}
+.dr-doc-btn:disabled { opacity: 0.6; cursor: default; }

@@ -1,0 +1,4 @@
+name,purpose,data_exposure,region,attestation
+Supabase,"Postgres database, authentication, object storage","All client records — encrypted at rest, row-level-security isolated",US,SOC 2 Type II
+Vercel,"Frontend hosting and serverless compute (functions, PDF rendering)","Transient request/response only",US,SOC 2 Type II
+Anthropic,"AI narrative drafted from already-structured data","Report inputs only; never trains on data; never computes or influences a score",US,SOC 2 Type II
