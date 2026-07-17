@@ -52,13 +52,13 @@ update**. A disciplined, goals-first, continuously-reviewed loop.
 | # | CEPA/CFP concept | Current coverage | Gap | Disposition |
 |---|---|---|---|---|
 | 1 | **Three legs of the stool** | DRS (business), ORI (personal), valuation wealth gap (financial) — all exist, scattered | No single balanced readout; the frame CEPAs *lead* with is absent | **BUILT this pass** |
-| 2 | **Value Acceleration gates** | Roadmap phases 1/2/3 ≈ Prepare | Not framed as Discover / Prepare / Decide | Gate is now inferred on the alignment panel; full framing proposed |
+| 2 | **Value Acceleration gates** | Roadmap phases 1/2/3 ≈ Prepare | Not framed as Discover / Prepare / Decide | Gate inferred on the alignment panel; **90-day sprints BUILT** on the roadmap |
 | 3 | **Quantified wealth gap** | `owner_wealth_target` + `wealth_gap` computed in valuation | Target was buried in advanced inputs, so the gap read "not sized" | **BUILT** — first-class capture on the Value screen + a link from the alignment financial leg |
 | 4 | **Profit gap (best-in-class EBITDA)** | Value gap is readiness-driven (EV at DRS 85) | No EBITDA-margin-vs-peer profit gap | Proposed — needs industry margin benchmarks alongside the multiples |
 | 5 | **Attractiveness vs. readiness** | DRS ≈ readiness; GRW hints at attractiveness | No distinct attractiveness axis / 2×2 | Proposed (candidate overlay, docs/15 decision 2) |
-| 6 | **Four Intangible Capitals** | Sub-scores map to Human/Structural/Customer/Social | Not presented in the capitals vocabulary CEPAs use | Proposed — a lens/relabeling over existing sub-scores |
+| 6 | **Four Intangible Capitals** | Sub-scores map to Human/Structural/Customer/Social | Not presented in the capitals vocabulary CEPAs use | **BUILT** — a lens over existing dimensions on the score-detail view |
 | 7 | **Decide-gate options analysis** | `GOL-PATH` captures a preferred path | No structured hold vs. third-party / recap / ESOP / internal-transfer comparison | Proposed |
-| 8 | **90-day sprints & parallel tracks** | Tasks have offset dates | Not grouped into sprints; personal/financial track thin | Proposed |
+| 8 | **90-day sprints & parallel tracks** | Tasks have offset dates | Not grouped into sprints; personal/financial track thin | **Sprint grouping BUILT**; parallel personal/financial track still thin |
 | 9 | **Personal & financial de-risking** | ORI dimensions; PFN signals | Personal/financial *action items* (estate, guarantees, financial independence) are light vs. business tasks | Proposed |
 
 ## What we built: the Three Legs of the Stool alignment
@@ -91,13 +91,15 @@ pattern.
    wealth goal" prompt now lives in the wealth-gap slot on the Value screen; the
    alignment financial leg links straight to it when unsized, and the demo seeds a
    wealth target so all three legs show out of the box.
-2. **Value Acceleration gate framing + 90-day sprints** (gaps 2, 8) — group the
-   roadmap into sprints and label the engagement's gate; make the Prepare cadence
-   explicit.
-3. **Four Intangible Capitals lens** (gap 6) — relabel/roll up existing sub-scores
-   into Human/Structural/Customer/Social so CEPAs see their own vocabulary.
+2. ~~**Value Acceleration gate framing + 90-day sprints** (gaps 2, 8)~~ — **DONE.**
+   Open roadmap tasks now group into 90-day sprints (the Prepare cadence); the
+   engagement's gate shows on the alignment panel. (A dedicated parallel
+   personal/financial track is still thin.)
+3. ~~**Four Intangible Capitals lens** (gap 6)~~ — **DONE.** The six business
+   dimensions roll up into Human / Structural / Customer / Social on the
+   score-detail view — the CEPA vocabulary over our existing scores.
 4. **Decide-gate options analysis** (gap 7) and **profit gap** (gap 4) — larger,
-   need product decisions and (for the profit gap) industry margin benchmarks.
+   need product decisions and (for the profit gap) industry margin benchmarks. Next.
 
 ## Sources
 

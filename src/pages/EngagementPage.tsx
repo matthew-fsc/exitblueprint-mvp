@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { supabase } from '../lib/supabase';
 import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
+import { rollUpCapitals } from '../lib/practitioner';
 import {
   qk,
   useAssessmentsByEngagement,
@@ -351,6 +352,23 @@ export default function EngagementPage() {
                 >
                   <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
                 </SectionCard>
+              </div>
+              <div className="capitals-lens">
+                <p className="capitals-head">
+                  Four intangible capitals{' '}
+                  <span className="muted">— the CEPA lens: where the transferable value lives</span>
+                </p>
+                <div className="capitals-grid">
+                  {rollUpCapitals(explain.dimensions).map((c) => (
+                    <div key={c.key} className="capital">
+                      <div className="capital-top">
+                        <span className="capital-label">{c.label}</span>
+                        <span className="capital-score">{c.score != null ? Math.round(c.score) : '—'}</span>
+                      </div>
+                      <p className="capital-blurb">{c.blurb}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </Collapsible>
           )}
