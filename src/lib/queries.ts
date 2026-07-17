@@ -5,6 +5,9 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from './supabase';
 import { loadRubric, type RubricData } from './rubric';
+import { buildPortfolioRows, type PortfolioRow } from './portfolio';
+
+export type { PortfolioRow } from './portfolio';
 
 // ---- key registry ----------------------------------------------------------
 export const qk = {
@@ -299,21 +302,9 @@ export function useAnswers(assessmentId: string | undefined): UseQueryResult<Ans
 }
 
 // ---- portfolio (F2) --------------------------------------------------------
-export interface PortfolioRow {
-  engagementId: string;
-  companyName: string;
-  industry: string | null;
-  status: string;
-  latestDrs: number | null;
-  latestTier: string | null;
-  latestOri: number | null;
-  latestAt: string | null;
-  priorDrs: number | null;
-  delta: number | null;
-  points: { seq: number; drs: number; tier: string | null }[];
-  openGaps: number;
-  assessmentCount: number;
-}
+// PortfolioRow lives in ./portfolio (pure, unit-tested). The delta is computed
+// there and is rubric-version-aware: cross-version priors are marked
+// incomparable rather than differenced into a meaningless number.
 
 export function usePortfolio(): UseQueryResult<PortfolioRow[]> {
   return useQuery({
@@ -328,43 +319,12 @@ export function usePortfolio(): UseQueryResult<PortfolioRow[]> {
       for (const r of [engagements, companies, assessments, gaps]) {
         if (r.error) throw new Error(r.error.message);
       }
-      const companyById = new Map((companies.data ?? []).map((c: CompanyRow) => [c.id, c]));
-      const byEngagement = new Map<string, AssessmentRow[]>();
-      for (const a of (assessments.data ?? []) as AssessmentRow[]) {
-        const list = byEngagement.get(a.engagement_id) ?? [];
-        list.push(a);
-        byEngagement.set(a.engagement_id, list);
-      }
-      const openByEngagement = new Map<string, number>();
-      for (const g of (gaps.data ?? []) as { engagement_id: string }[]) {
-        openByEngagement.set(g.engagement_id, (openByEngagement.get(g.engagement_id) ?? 0) + 1);
-      }
-
-      return ((engagements.data ?? []) as EngagementRow[]).map((e) => {
-        const list = (byEngagement.get(e.id) ?? []).sort((a, b) => a.sequence_number - b.sequence_number);
-        const latest = list[list.length - 1] ?? null;
-        const prior = list.length > 1 ? list[list.length - 2] : null;
-        const company = companyById.get(e.company_id);
-        const latestDrs = latest?.drs_score != null ? Number(latest.drs_score) : null;
-        const priorDrs = prior?.drs_score != null ? Number(prior.drs_score) : null;
-        return {
-          engagementId: e.id,
-          companyName: company?.name ?? '—',
-          industry: company?.industry ?? null,
-          status: e.status,
-          latestDrs,
-          latestTier: latest?.drs_tier ?? null,
-          latestOri: latest?.ori_score != null ? Number(latest.ori_score) : null,
-          latestAt: latest?.completed_at ?? null,
-          priorDrs,
-          delta: latestDrs != null && priorDrs != null ? Math.round((latestDrs - priorDrs) * 10) / 10 : null,
-          points: list
-            .filter((a) => a.drs_score != null)
-            .map((a) => ({ seq: a.sequence_number, drs: Number(a.drs_score), tier: a.drs_tier })),
-          openGaps: openByEngagement.get(e.id) ?? 0,
-          assessmentCount: list.length,
-        } satisfies PortfolioRow;
-      });
+      return buildPortfolioRows(
+        (engagements.data ?? []) as EngagementRow[],
+        (companies.data ?? []) as CompanyRow[],
+        (assessments.data ?? []) as AssessmentRow[],
+        (gaps.data ?? []) as { engagement_id: string; status: string }[],
+      );
     },
   });
 }
