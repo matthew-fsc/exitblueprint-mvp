@@ -2620,8 +2620,31 @@ textarea:focus {
 .eng-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.15rem;
+  align-items: flex-end;
+  gap: 0.5rem 0;
   border-bottom: 1px solid var(--border);
+}
+.eng-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+.eng-nav-group + .eng-nav-group {
+  padding-left: 1.4rem;
+  border-left: 1px solid var(--border-subtle, var(--border));
+}
+.eng-nav-group-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  padding: 0 0.85rem;
+  margin-bottom: 1px;
+}
+.eng-nav-links {
+  display: flex;
+  gap: 0.1rem;
 }
 .eng-nav-link {
   padding: 0.5rem 0.85rem;
