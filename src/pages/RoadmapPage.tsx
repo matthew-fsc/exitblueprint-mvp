@@ -25,6 +25,7 @@ import {
 } from '../components/ui';
 import { fmtDate } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
+import { groupIntoSprints } from '../lib/practitioner';
 
 export default function RoadmapPage() {
   const { engagementId } = useParams();
@@ -48,6 +49,11 @@ export default function RoadmapPage() {
   const [mTitle, setMTitle] = useState('');
   const [mTrack, setMTrack] = useState<'business' | 'personal'>('personal');
   const [mDate, setMDate] = useState('');
+
+  // manual-task form — for catching the system up to an engagement already in flight
+  const [tTitle, setTTitle] = useState('');
+  const [tRole, setTRole] = useState<TaskRow['owner_role']>('advisor');
+  const [tDate, setTDate] = useState('');
 
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];
@@ -86,6 +92,74 @@ export default function RoadmapPage() {
     await supabase.from('tasks').update({ status }).eq('id', t.id);
     qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
   };
+
+  // Catch-up controls: set a task's real due date, and add work done/planned
+  // outside the generated playbooks.
+  const setTaskDue = async (t: TaskRow, due: string) => {
+    await supabase.from('tasks').update({ due_date: due || null }).eq('id', t.id);
+    qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
+  };
+
+  const addTask = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!engagement || !tTitle) return;
+    setError(null);
+    const nextSeq = Math.max(0, ...tasks.map((t) => t.sequence ?? 0)) + 1;
+    const { error } = await supabase.from('tasks').insert([
+      {
+        firm_id: engagement.firm_id,
+        engagement_id: engagementId,
+        title: tTitle,
+        owner_role: tRole,
+        due_date: tDate || null,
+        status: 'todo',
+        sequence: nextSeq,
+      },
+    ]);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setTTitle('');
+    setTDate('');
+    qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
+    toast.show('Task added', 'good');
+  };
+
+  const renderTask = (t: TaskRow) => (
+    <li key={t.id} className={`rm-task ${t.status === 'done' ? 'rm-task-done' : ''}`}>
+      <button
+        className={`rm-check ${t.status === 'done' ? 'rm-check-done' : ''}`}
+        title={t.status === 'done' ? 'Mark not done' : 'Mark done'}
+        onClick={() => setTaskStatus(t, t.status === 'done' ? 'todo' : 'done')}
+      >
+        {t.status === 'done' ? '✓' : ''}
+      </button>
+      <span className="rm-task-body">
+        <span className="rm-task-title">{t.title}</span>
+        {t.status === 'done' ? (
+          <span className="rm-task-meta"> · {t.due_date ? fmtDate(t.due_date) : '—'}</span>
+        ) : (
+          <input
+            className="rm-task-due"
+            type="date"
+            value={t.due_date ? t.due_date.slice(0, 10) : ''}
+            onChange={(e) => setTaskDue(t, e.target.value)}
+            title="Set the real due date"
+          />
+        )}
+      </span>
+      <span className="rm-role">{t.owner_role}</span>
+      {t.status !== 'done' && (
+        <button
+          className="linkish"
+          onClick={() => setTaskStatus(t, t.status === 'blocked' ? 'todo' : 'blocked')}
+        >
+          {t.status === 'blocked' ? 'Unblock' : 'Block'}
+        </button>
+      )}
+    </li>
+  );
 
   const addMilestone = async (e: FormEvent) => {
     e.preventDefault();
@@ -288,36 +362,53 @@ export default function RoadmapPage() {
           <h3 className="section-heading">
             Remediation tasks <span className="count-pill">{openTasks.length}</span>
           </h3>
+          <p className="muted rm-sprint-note" style={{ marginTop: 0 }}>
+            Grouped into 90-day sprints — the Prepare-gate cadence advisors execute against.
+          </p>
           {tasks.length === 0 ? (
             <p className="muted">Build the roadmap to generate tasks from the open gaps.</p>
           ) : (
-            <ul className="rm-tasklist">
-              {[...openTasks, ...doneTasks].map((t) => (
-                <li key={t.id} className={`rm-task ${t.status === 'done' ? 'rm-task-done' : ''}`}>
-                  <button
-                    className={`rm-check ${t.status === 'done' ? 'rm-check-done' : ''}`}
-                    title={t.status === 'done' ? 'Mark not done' : 'Mark done'}
-                    onClick={() => setTaskStatus(t, t.status === 'done' ? 'todo' : 'done')}
-                  >
-                    {t.status === 'done' ? '✓' : ''}
-                  </button>
-                  <span>
-                    <span className="rm-task-title">{t.title}</span>
-                    <span className="rm-task-meta"> · due {t.due_date ? fmtDate(t.due_date) : '—'}</span>
-                  </span>
-                  <span className="rm-role">{t.owner_role}</span>
-                  {t.status !== 'done' && (
-                    <button
-                      className="linkish"
-                      onClick={() => setTaskStatus(t, t.status === 'blocked' ? 'todo' : 'blocked')}
-                    >
-                      {t.status === 'blocked' ? 'Unblock' : 'Block'}
-                    </button>
-                  )}
-                </li>
+            <>
+              {groupIntoSprints(openTasks, new Date().toISOString()).map((sprint) => (
+                <div key={sprint.key} className="rm-sprint">
+                  <h4 className="rm-sprint-head">
+                    {sprint.label} <span className="count-pill">{sprint.tasks.length}</span>
+                  </h4>
+                  <ul className="rm-tasklist">{sprint.tasks.map(renderTask)}</ul>
+                </div>
               ))}
-            </ul>
+              {doneTasks.length > 0 && (
+                <div className="rm-sprint rm-sprint-done">
+                  <h4 className="rm-sprint-head">
+                    Completed <span className="count-pill">{doneTasks.length}</span>
+                  </h4>
+                  <ul className="rm-tasklist">{doneTasks.map(renderTask)}</ul>
+                </div>
+              )}
+            </>
           )}
+          <form className="inline-form rm-add-task" onSubmit={addTask} style={{ marginTop: '0.9rem' }}>
+            <h3>Add a task</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              Capture work already underway or planned outside the generated playbooks — mark it done
+              to reflect what’s finished.
+            </p>
+            <input
+              placeholder="e.g. QoE engagement letter signed"
+              value={tTitle}
+              onChange={(e) => setTTitle(e.target.value)}
+              required
+            />
+            <select value={tRole} onChange={(e) => setTRole(e.target.value)}>
+              {ROLE_ORDER.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r] ?? r}
+                </option>
+              ))}
+            </select>
+            <input type="date" value={tDate} onChange={(e) => setTDate(e.target.value)} />
+            <button type="submit">Add</button>
+          </form>
         </div>
       </div>
     </div>

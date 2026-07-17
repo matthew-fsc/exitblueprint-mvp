@@ -4,6 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { supabase } from '../lib/supabase';
+import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
+import { rollUpCapitals } from '../lib/practitioner';
 import {
   qk,
   useAssessmentsByEngagement,
@@ -14,6 +16,7 @@ import {
   useEngagementGaps,
   useGapBurndown,
   useVerification,
+  useValuation,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -89,6 +92,7 @@ export default function EngagementPage() {
   const burndownQ = useGapBurndown(engagementId, latest?.rubric_version_id);
   const verifQ = useVerification(latest?.id);
   const explainQ = useExplain(latest?.id);
+  const valuationQ = useValuation(engagementId);
 
   const startAssessment = async () => {
     setError(null);
@@ -119,6 +123,18 @@ export default function EngagementPage() {
     } catch (err) {
       setError((err as Error).message);
     }
+  };
+
+  // Catch-up: an engagement may have begun months before it was entered here.
+  // Let the advisor set its real start date and target window so the timeline,
+  // sprints, and exit-pace reflect reality.
+  const saveEngagement = async (patch: Record<string, unknown>) => {
+    const { error } = await supabase.from('engagements').update(patch).eq('id', engagementId!);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: qk.engagement(engagementId!) });
   };
 
   if (engagementQ.isLoading) {
@@ -254,6 +270,57 @@ export default function EngagementPage() {
             </SectionCard>
           </div>
 
+          {/* three legs of the stool — the CEPA alignment frame (docs/18) */}
+          {explain && (() => {
+            const v = valuationQ.data;
+            const alignment = buildAlignment({
+              drs: explain.drsScore,
+              tier: explain.drsTier,
+              ori: explain.oriScore,
+              hasValuation: !!v?.has_recast,
+              wealthGap: v?.wealth_gap ?? null,
+              netProceeds: v?.net_proceeds ?? null,
+              ownerWealthTarget: v?.owner_wealth_target ?? null,
+              openGapCodes: (gapsQ.data ?? []).map((g) => g.code),
+            });
+            const bandLabel: Record<AlignmentLeg['band'], string> = {
+              strong: 'On track', building: 'Building', attention: 'Needs work', unknown: 'Not sized',
+            };
+            return (
+              <Card>
+                <div className="legs-head">
+                  <div>
+                    <h3 className="legs-title">Three legs of the stool</h3>
+                    <p className="legs-sub">Business, personal, and financial readiness have to balance for a clean exit — a short leg wobbles the whole plan.</p>
+                  </div>
+                  <span className={`legs-gate legs-gate-${alignment.gate.toLowerCase()}`} title={alignment.gateHint}>
+                    {alignment.gate} gate
+                  </span>
+                </div>
+                <div className="legs-grid">
+                  {alignment.legs.map((l) => (
+                    <div key={l.key} data-leg={l.key} className={`leg leg-${l.band}`}>
+                      <div className="leg-top">
+                        <span className="leg-label">{l.label}</span>
+                        <span className={`leg-chip leg-chip-${l.band}`}>{bandLabel[l.band]}</span>
+                      </div>
+                      <div className="leg-headline">{l.headline}</div>
+                      <p className="leg-detail">{l.detail}</p>
+                      {l.key === 'financial' && l.band === 'unknown' && (
+                        <Link className="leg-cta" to={`/engagement/${engagementId}/valuation`}>
+                          Size it in Valuation →
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className={`legs-verdict${alignment.balanced ? '' : ' legs-verdict-alert'}`}>
+                  {alignment.verdict}
+                </p>
+              </Card>
+            );
+          })()}
+
           {/* trajectory against the exit window */}
           <Card>
             <div className="trajectory-head">
@@ -298,6 +365,23 @@ export default function EngagementPage() {
                   <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
                 </SectionCard>
               </div>
+              <div className="capitals-lens">
+                <p className="capitals-head">
+                  Four intangible capitals{' '}
+                  <span className="muted">— the CEPA lens: where the transferable value lives</span>
+                </p>
+                <div className="capitals-grid">
+                  {rollUpCapitals(explain.dimensions).map((c) => (
+                    <div key={c.key} className="capital">
+                      <div className="capital-top">
+                        <span className="capital-label">{c.label}</span>
+                        <span className="capital-score">{c.score != null ? Math.round(c.score) : '—'}</span>
+                      </div>
+                      <p className="capital-blurb">{c.blurb}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </Collapsible>
           )}
 
@@ -314,6 +398,35 @@ export default function EngagementPage() {
             hint="Owner access · accounting · verification"
           >
             <div className="stack-lg">
+              <SectionCard
+                title="Engagement timeline"
+                subtitle="Started working with this owner before now? Set the real start date and target window so the trajectory, sprints, and exit pace match the actual engagement."
+              >
+                <div className="eng-timeline-form">
+                  <label>
+                    Started
+                    <input
+                      type="date"
+                      defaultValue={engagement.started_at ? engagement.started_at.slice(0, 10) : ''}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => e.target.value && saveEngagement({ started_at: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Target exit window
+                    <select
+                      defaultValue={engagement.target_exit_window ?? ''}
+                      onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
+                    >
+                      <option value="">Not set</option>
+                      <option value="under 12 months">Under 12 months</option>
+                      <option value="12-24 months">12–24 months</option>
+                      <option value="24-36 months">24–36 months</option>
+                      <option value="36+ months">36+ months</option>
+                    </select>
+                  </label>
+                </div>
+              </SectionCard>
               <div className="eng-grid" style={{ marginTop: 0 }}>
                 <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
                 <AccountingCard
