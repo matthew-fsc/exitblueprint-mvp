@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { supabase } from '../lib/supabase';
+import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
 import {
   qk,
   useAssessmentsByEngagement,
@@ -14,6 +15,7 @@ import {
   useEngagementGaps,
   useGapBurndown,
   useVerification,
+  useValuation,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -89,6 +91,7 @@ export default function EngagementPage() {
   const burndownQ = useGapBurndown(engagementId, latest?.rubric_version_id);
   const verifQ = useVerification(latest?.id);
   const explainQ = useExplain(latest?.id);
+  const valuationQ = useValuation(engagementId);
 
   const startAssessment = async () => {
     setError(null);
@@ -253,6 +256,52 @@ export default function EngagementPage() {
               )}
             </SectionCard>
           </div>
+
+          {/* three legs of the stool — the CEPA alignment frame (docs/18) */}
+          {explain && (() => {
+            const v = valuationQ.data;
+            const alignment = buildAlignment({
+              drs: explain.drsScore,
+              tier: explain.drsTier,
+              ori: explain.oriScore,
+              hasValuation: !!v?.has_recast,
+              wealthGap: v?.wealth_gap ?? null,
+              netProceeds: v?.net_proceeds ?? null,
+              ownerWealthTarget: v?.owner_wealth_target ?? null,
+              openGapCodes: (gapsQ.data ?? []).map((g) => g.code),
+            });
+            const bandLabel: Record<AlignmentLeg['band'], string> = {
+              strong: 'On track', building: 'Building', attention: 'Needs work', unknown: 'Not sized',
+            };
+            return (
+              <Card>
+                <div className="legs-head">
+                  <div>
+                    <h3 className="legs-title">Three legs of the stool</h3>
+                    <p className="legs-sub">Business, personal, and financial readiness have to balance for a clean exit — a short leg wobbles the whole plan.</p>
+                  </div>
+                  <span className={`legs-gate legs-gate-${alignment.gate.toLowerCase()}`} title={alignment.gateHint}>
+                    {alignment.gate} gate
+                  </span>
+                </div>
+                <div className="legs-grid">
+                  {alignment.legs.map((l) => (
+                    <div key={l.key} className={`leg leg-${l.band}`}>
+                      <div className="leg-top">
+                        <span className="leg-label">{l.label}</span>
+                        <span className={`leg-chip leg-chip-${l.band}`}>{bandLabel[l.band]}</span>
+                      </div>
+                      <div className="leg-headline">{l.headline}</div>
+                      <p className="leg-detail">{l.detail}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className={`legs-verdict${alignment.balanced ? '' : ' legs-verdict-alert'}`}>
+                  {alignment.verdict}
+                </p>
+              </Card>
+            );
+          })()}
 
           {/* trajectory against the exit window */}
           <Card>
