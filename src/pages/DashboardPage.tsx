@@ -78,7 +78,16 @@ export default function DashboardPage() {
       header: 'Δ since prior',
       numeric: true,
       sortValue: (r) => r.delta ?? 0,
-      render: (r) => (r.delta != null ? <DeltaChip value={r.delta} /> : <span className="muted">—</span>),
+      render: (r) =>
+        r.deltaState === 'value' ? (
+          <DeltaChip value={r.delta} />
+        ) : r.deltaState === 'incomparable' ? (
+          <span className="muted" title="Prior assessment used a different rubric version — scores are not comparable" style={{ whiteSpace: 'nowrap' }}>
+            new rubric
+          </span>
+        ) : (
+          <span className="muted">—</span>
+        ),
     },
     {
       key: 'trend',
