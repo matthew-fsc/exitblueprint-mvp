@@ -53,6 +53,7 @@ export default function ValuationPage() {
   const [abLabel, setAbLabel] = useState('');
   const [abAmount, setAbAmount] = useState('');
   const [abChallenge, setAbChallenge] = useState<AddbackRow['challenge_likelihood']>('medium');
+  const [goalDraft, setGoalDraft] = useState('');
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: qk.recast(engagementId!) });
@@ -163,7 +164,7 @@ export default function ValuationPage() {
                     <span className="val-gap-label">Value-creation gap</span>
                     <span className="muted">upside from reaching Institutional Grade ({fmtCurrencyCompact(val.potential_ev)})</span>
                   </div>
-                  {val.owner_wealth_target != null && val.wealth_gap != null && (
+                  {val.owner_wealth_target != null && val.wealth_gap != null ? (
                     <div className="val-gap">
                       <span className={`val-gap-num ${val.wealth_gap > 0 ? 'val-gap-short' : 'val-gap-ok'}`}>
                         {val.wealth_gap > 0 ? fmtCurrencyCompact(val.wealth_gap) : 'Covered'}
@@ -174,6 +175,32 @@ export default function ValuationPage() {
                           ? `net proceeds fall short of the ${fmtCurrencyCompact(val.owner_wealth_target)} target`
                           : `net proceeds meet the ${fmtCurrencyCompact(val.owner_wealth_target)} target`}
                       </span>
+                    </div>
+                  ) : (
+                    <div className="val-gap val-gap-prompt">
+                      <span className="val-gap-label">Wealth gap</span>
+                      <span className="muted">
+                        Set the owner's wealth goal — the number they need from the sale to fund their next
+                        chapter — to size the gap and light up the financial leg.
+                      </span>
+                      <form
+                        className="val-goal-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (goalDraft.trim() === '') return;
+                          saveInput({ owner_wealth_target: Number(goalDraft) });
+                          setGoalDraft('');
+                        }}
+                      >
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="Owner's wealth goal (e.g. 5000000)"
+                          value={goalDraft}
+                          onChange={(e) => setGoalDraft(e.target.value)}
+                        />
+                        <button type="submit">Size the gap</button>
+                      </form>
                     </div>
                   )}
                 </div>

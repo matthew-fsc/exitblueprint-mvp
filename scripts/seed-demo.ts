@@ -255,6 +255,40 @@ async function main() {
     }
     console.log(`seed-demo: data room seeded — ${dataRoomStates.length} item states`);
 
+    // Valuation + wealth target so the Three Legs of the Stool panel (docs/18)
+    // shows a complete business/personal/FINANCIAL picture out of the box.
+    // Idempotent: replace any prior demo recast/inputs for this engagement.
+    await db.query(
+      `delete from ebitda_addbacks where recast_id in (select id from ebitda_recasts where engagement_id = $1)`,
+      [engagementId],
+    );
+    await db.query(`delete from ebitda_recasts where engagement_id = $1`, [engagementId]);
+    const recastId = (
+      await db.query(
+        `insert into ebitda_recasts (firm_id, engagement_id, reported_ebitda) values ($1, $2, $3) returning id`,
+        [firmId, engagementId, 1_800_000],
+      )
+    ).rows[0].id;
+    for (const [label, amount, ch] of [
+      ['Owner compensation above market', 260_000, 'low'],
+      ['Personal auto & travel', 55_000, 'low'],
+      ['One-time legal settlement', 90_000, 'medium'],
+    ] as [string, number, string][]) {
+      await db.query(
+        `insert into ebitda_addbacks (firm_id, recast_id, label, amount, challenge_likelihood) values ($1, $2, $3, $4, $5)`,
+        [firmId, recastId, label, amount, ch],
+      );
+    }
+    await db.query(
+      `insert into valuation_inputs (firm_id, engagement_id, interest_bearing_debt, owner_wealth_target, updated_at)
+       values ($1, $2, $3, $4, now())
+       on conflict (engagement_id) do update
+         set interest_bearing_debt = excluded.interest_bearing_debt,
+             owner_wealth_target = excluded.owner_wealth_target, updated_at = now()`,
+      [firmId, engagementId, 400_000, 8_000_000],
+    );
+    console.log('seed-demo: valuation seeded — recast + $8M wealth target (financial leg sized)');
+
     // Branded demo firm (F1): the advisor's firm is the face on client-facing
     // reports. Idempotent upsert on firm_id.
     await db.query(

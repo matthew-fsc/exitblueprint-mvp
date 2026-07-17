@@ -286,13 +286,18 @@ export default function EngagementPage() {
                 </div>
                 <div className="legs-grid">
                   {alignment.legs.map((l) => (
-                    <div key={l.key} className={`leg leg-${l.band}`}>
+                    <div key={l.key} data-leg={l.key} className={`leg leg-${l.band}`}>
                       <div className="leg-top">
                         <span className="leg-label">{l.label}</span>
                         <span className={`leg-chip leg-chip-${l.band}`}>{bandLabel[l.band]}</span>
                       </div>
                       <div className="leg-headline">{l.headline}</div>
                       <p className="leg-detail">{l.detail}</p>
+                      {l.key === 'financial' && l.band === 'unknown' && (
+                        <Link className="leg-cta" to={`/engagement/${engagementId}/valuation`}>
+                          Size it in Valuation →
+                        </Link>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -3705,3 +3705,20 @@ textarea:focus {
   background: var(--chip-neutral-bg); color: var(--text-primary); border-left: 3px solid var(--status-neutral);
 }
 .legs-verdict-alert { background: var(--chip-warn-bg); border-left-color: var(--status-warning); }
+
+/* Wealth-goal first-class capture (Value screen) + alignment leg CTA */
+.val-gap-prompt { gap: 0.4rem; }
+.val-goal-form { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.val-goal-form input {
+  flex: 1; min-width: 150px; padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border));
+  border-radius: 6px; font-size: 0.85rem;
+}
+.val-goal-form button {
+  padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-weight: 650;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap;
+}
+.leg-cta {
+  display: inline-block; margin-top: 0.55rem; font-size: 0.8rem; font-weight: 650;
+  color: var(--accent-strong, var(--accent)); text-decoration: none;
+}
+.leg-cta:hover { text-decoration: underline; }

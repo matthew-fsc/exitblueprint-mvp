@@ -53,7 +53,7 @@ update**. A disciplined, goals-first, continuously-reviewed loop.
 |---|---|---|---|---|
 | 1 | **Three legs of the stool** | DRS (business), ORI (personal), valuation wealth gap (financial) — all exist, scattered | No single balanced readout; the frame CEPAs *lead* with is absent | **BUILT this pass** |
 | 2 | **Value Acceleration gates** | Roadmap phases 1/2/3 ≈ Prepare | Not framed as Discover / Prepare / Decide | Gate is now inferred on the alignment panel; full framing proposed |
-| 3 | **Quantified wealth gap** | `owner_wealth_target` + `wealth_gap` computed in valuation | Target is rarely captured, so the gap reads "not sized" | Surfaced now; **needs a first-class capture prompt** in Value |
+| 3 | **Quantified wealth gap** | `owner_wealth_target` + `wealth_gap` computed in valuation | Target was buried in advanced inputs, so the gap read "not sized" | **BUILT** — first-class capture on the Value screen + a link from the alignment financial leg |
 | 4 | **Profit gap (best-in-class EBITDA)** | Value gap is readiness-driven (EV at DRS 85) | No EBITDA-margin-vs-peer profit gap | Proposed — needs industry margin benchmarks alongside the multiples |
 | 5 | **Attractiveness vs. readiness** | DRS ≈ readiness; GRW hints at attractiveness | No distinct attractiveness axis / 2×2 | Proposed (candidate overlay, docs/15 decision 2) |
 | 6 | **Four Intangible Capitals** | Sub-scores map to Human/Structural/Customer/Social | Not presented in the capitals vocabulary CEPAs use | Proposed — a lens/relabeling over existing sub-scores |
@@ -87,10 +87,10 @@ pattern.
 
 ## Recommended next (in priority order)
 
-1. **Wealth-gap capture** (gap 3) — a first-class prompt in the Value work stream
-   to set the owner's post-exit wealth target, so the financial leg quantifies for
-   every engagement. Smallest lift, highest payoff — it lights up the leg we just
-   built.
+1. ~~**Wealth-gap capture** (gap 3)~~ — **DONE.** A first-class "set the owner's
+   wealth goal" prompt now lives in the wealth-gap slot on the Value screen; the
+   alignment financial leg links straight to it when unsized, and the demo seeds a
+   wealth target so all three legs show out of the box.
 2. **Value Acceleration gate framing + 90-day sprints** (gaps 2, 8) — group the
    roadmap into sprints and label the engagement's gate; make the Prepare cadence
    explicit.
