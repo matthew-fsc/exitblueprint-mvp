@@ -17,6 +17,7 @@ export const qk = {
   company: (id: string) => ['company', id] as const,
   agreementVersions: () => ['agreementVersions'] as const,
   sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
+  dataRoom: (engagementId: string) => ['dataRoom', engagementId] as const,
   reviewQueue: () => ['reviewQueue'] as const,
   reconciliation: (engagementId: string) => ['reconciliation', engagementId] as const,
   engagementFindings: (engagementId: string) => ['engagementFindings', engagementId] as const,

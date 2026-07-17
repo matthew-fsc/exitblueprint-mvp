@@ -233,6 +233,28 @@ async function main() {
       `seed-demo: verification run — ${verify.metrics.reconciled_total} reconciled, ${verify.findings} finding(s)`,
     );
 
+    // Data Room readiness (docs/15 work stream B): populate a few states so the
+    // tab renders a realistic mix out of the box. Idempotent on (engagement, item).
+    const dataRoomStates: [string, string][] = [
+      ['FIN-STMTS', 'ready'],
+      ['FIN-QOE', 'in_progress'],
+      ['FIN-TAX', 'gap'],
+      ['OPS-SOP', 'in_progress'],
+      ['CUS-CONC', 'gap'],
+      ['CUS-CONTRACTS', 'ready'],
+      ['PIP-CERT', 'not_applicable'],
+      ['LEG-EMP', 'gap'],
+    ];
+    for (const [itemCode, state] of dataRoomStates) {
+      await db.query(
+        `insert into engagement_data_room_items (firm_id, engagement_id, item_code, readiness_state)
+         values ($1, $2, $3, $4)
+         on conflict (engagement_id, item_code) do update set readiness_state = excluded.readiness_state`,
+        [firmId, engagementId, itemCode, state],
+      );
+    }
+    console.log(`seed-demo: data room seeded — ${dataRoomStates.length} item states`);
+
     // Branded demo firm (F1): the advisor's firm is the face on client-facing
     // reports. Idempotent upsert on firm_id.
     await db.query(

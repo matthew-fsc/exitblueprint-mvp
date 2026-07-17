@@ -12,8 +12,11 @@ import {
   parseContentModules,
   parseGapContentMap,
   parseGapPlaybookMap,
+  parseDataRoomItems,
+  parseDataRoomSections,
   parsePlaybook,
   parseValuationMultiples,
+  validateDataRoom,
   validateRubric,
 } from '../shared/rubric-seed';
 
@@ -71,8 +74,13 @@ async function main() {
   const gapContentMap = parseGapContentMap(read('gap-content-map.csv'));
   const advisoryItems = parseAdvisoryLibrary(read('advisory-library.csv'));
   const valuationMultiples = parseValuationMultiples(read('valuation-multiples.csv'));
+  const dataRoomSections = parseDataRoomSections(read('data-room-sections.csv'));
+  const dataRoomItems = parseDataRoomItems(read('data-room-items.csv'));
 
-  const problems = validateRubric(rubric, playbooks, contentModules, gapPlaybookMap, gapContentMap);
+  const problems = [
+    ...validateRubric(rubric, playbooks, contentModules, gapPlaybookMap, gapContentMap),
+    ...validateDataRoom(dataRoomSections, dataRoomItems, rubric.gapDefinitions),
+  ];
   if (problems.length > 0) {
     console.error('seed: referential integrity problems, nothing written:');
     for (const p of problems) console.error(`  - ${p}`);
@@ -270,6 +278,34 @@ async function main() {
       );
     }
 
+    // Data Room template (docs/15 work stream B): global methodology, like the
+    // rubric. Sections then items; items carry a soft gap_code (shared taxonomy).
+    for (const s of dataRoomSections) {
+      await upsert(
+        'data_room_sections',
+        `insert into data_room_sections (code, name, description, sort_order)
+         values ($1, $2, $3, $4)
+         on conflict (code) do update
+           set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order
+         returning id, (xmax = 0) as inserted`,
+        [s.code, s.name, s.description, s.sortOrder],
+      );
+    }
+    for (const i of dataRoomItems) {
+      await upsert(
+        'data_room_items',
+        `insert into data_room_items (section_code, code, label, description, buyer_rationale, applies_to, gap_code, sort_order)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (code) do update
+           set section_code = excluded.section_code, label = excluded.label,
+               description = excluded.description, buyer_rationale = excluded.buyer_rationale,
+               applies_to = excluded.applies_to, gap_code = excluded.gap_code,
+               sort_order = excluded.sort_order
+         returning id, (xmax = 0) as inserted`,
+        [i.sectionCode, i.code, i.label, i.description, i.buyerRationale, i.appliesTo, i.gapCode, i.sortOrder],
+      );
+    }
+
     await db.query('commit');
   } catch (err) {
     await db.query('rollback');
@@ -291,6 +327,8 @@ async function main() {
     advisory_library_items: advisoryItems.length,
     valuation_rules_versions: 1,
     valuation_multiples: valuationMultiples.length,
+    data_room_sections: dataRoomSections.length,
+    data_room_items: dataRoomItems.length,
   };
   let mismatched = false;
   console.log('seed: table                      inserted  updated  total  expected');

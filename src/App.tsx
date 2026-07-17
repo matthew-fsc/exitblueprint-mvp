@@ -27,6 +27,7 @@ import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
 import DocumentsPage from './pages/DocumentsPage';
+import DataRoomPage from './pages/DataRoomPage';
 import VerificationPage from './pages/VerificationPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
@@ -332,6 +333,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <DocumentsPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/data-room"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <DataRoomPage />
                 </Shell>
               </RequireAdvisor>
             }

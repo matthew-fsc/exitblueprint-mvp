@@ -217,6 +217,17 @@ async function main() {
     await db.query(
       `insert into valuation_rules_versions (version_label, status) values ('RLS-VAL-1', 'active')`,
     );
+    // A Data Room template row (also seeded here, since rls-test precedes db:seed)
+    // so the firm-scoped engagement_data_room_items FK resolves.
+    await db.query(`insert into data_room_sections (code, name) values ('FIN', 'Financial')`);
+    await db.query(
+      `insert into data_room_items (section_code, code, label) values ('FIN', 'FIN-STMTS', 'Statements')`,
+    );
+    await db.query(
+      `insert into engagement_data_room_items (firm_id, engagement_id, item_code, readiness_state)
+       values ($1, $2, 'FIN-STMTS', 'ready')`,
+      [ids.firm_b, engagementB],
+    );
     // Firm B document + extracted field for the R3 isolation checks.
     const documentB = (
       await db.query(
@@ -396,6 +407,34 @@ async function main() {
       await db.query('rollback to savepoint doc');
     }
     check('cannot insert a document into firm B', docBWriteBlocked);
+
+    // Data Room readiness: firm isolation. Template is global (readable), but the
+    // per-engagement states are firm-scoped tenant data.
+    const drTemplate = await db.query('select code from data_room_items');
+    check('reads the global data room template', drTemplate.rows.length >= 1);
+    const drA = await db.query('select id from engagement_data_room_items');
+    check('sees no firm B data room states', drA.rows.length === 0, `saw ${drA.rows.length}`);
+    let drBWriteBlocked = false;
+    try {
+      await db.query('savepoint dr');
+      const ins = await db.query(
+        `insert into engagement_data_room_items (firm_id, engagement_id, item_code, readiness_state)
+         values ($1, $2, 'FIN-STMTS', 'gap')`,
+        [ids.firm_b, engagementB],
+      );
+      drBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint dr');
+    } catch {
+      drBWriteBlocked = true;
+      await db.query('rollback to savepoint dr');
+    }
+    check('cannot insert a data room state into firm B', drBWriteBlocked);
+    const drOwnWrite = await db.query(
+      `insert into engagement_data_room_items (firm_id, engagement_id, item_code, readiness_state)
+       values ($1, $2, 'FIN-STMTS', 'ready') returning id`,
+      [ids.firm_a, engagementA],
+    );
+    check('can set own firm data room state', drOwnWrite.rowCount === 1);
 
     // Sell-side intelligence substrate: firm isolation (graph, reconciliation,
     // findings, jobs, review queue, LLM cost ledger).
@@ -616,6 +655,19 @@ async function main() {
       await db.query('rollback to savepoint w2');
     }
     check('cannot write (read-only role)', ownerWriteBlocked);
+    // Owner maintains their own company's data room (they assemble the binder).
+    const ownerDrRead = await db.query('select item_code from engagement_data_room_items');
+    check(
+      'owner reads only their company data room',
+      ownerDrRead.rows.length === 1 && ownerDrRead.rows[0].item_code === 'FIN-STMTS',
+      `saw ${ownerDrRead.rows.length}`,
+    );
+    const ownerDrWrite = await db.query(
+      `update engagement_data_room_items set readiness_state = 'gap'
+       where engagement_id = $1 and item_code = 'FIN-STMTS' returning id`,
+      [engagementA],
+    );
+    check('owner can update their company data room', ownerDrWrite.rowCount === 1);
     const ownerBranding = await db.query('select display_name from firm_branding');
     check(
       'owner reads only their firm branding',

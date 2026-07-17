@@ -24,6 +24,9 @@ export function EngagementNav({ engagementId }: { engagementId: string }) {
       <NavLink to={`${base}/documents`} className="eng-nav-link">
         Documents
       </NavLink>
+      <NavLink to={`${base}/data-room`} className="eng-nav-link">
+        Data room
+      </NavLink>
       <NavLink to={`${base}/verification`} className="eng-nav-link">
         Verification
       </NavLink>

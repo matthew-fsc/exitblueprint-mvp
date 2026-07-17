@@ -113,21 +113,26 @@ export default function SecurityPage() {
           </li>
           <li>
             <strong>Access controls.</strong> Roles are admin, advisor, reviewer, and client
-            (owner). MFA is required for advisor and admin accounts. Every read of a client
-            document or report is written to an audit log.
+            (owner). MFA is required for advisor and admin accounts, and sessions are signed out
+            automatically after 30 minutes of inactivity. Every read of a client document or report
+            is written to an audit log.
           </li>
           <li>
             <strong>Consent & retention.</strong> No assessment data is collected before a signed
             engagement agreement and data-use consent are recorded; assessments are immutable
-            snapshots. Records are retained for the life of the engagement.
+            snapshots. On termination, a firm's data is exported in standard formats and destroyed
+            per its instruction.
           </li>
           <li>
-            <strong>Subprocessors.</strong> Supabase (database, auth, storage), the compute host
-            (PDF/report rendering), and Anthropic (optional AI narrative from structured data —
-            never used to compute a score).
+            <strong>Subprocessors.</strong> Supabase (database, auth, storage), Vercel (hosting +
+            compute), and Anthropic (AI narrative from structured data — never used to compute a
+            score). Each is SOC 2 attested.
           </li>
         </ul>
-        <p className="muted">Full summary: docs/13-security-summary.md.</p>
+        <p className="muted">
+          Full summary: docs/13-security-summary.md. Vendor due-diligence response:
+          docs/16-vendor-security-dd.md.
+        </p>
       </Card>
     </div>
   );

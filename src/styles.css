@@ -3578,3 +3578,67 @@ textarea:focus {
 .cal-outcome-broken { color: var(--status-critical); }
 .cal-outcome-withdrawn { color: var(--text-secondary); }
 .cal-miss { font-size: 0.76rem; color: var(--status-warning); }
+
+/* Data Room Readiness (docs/15 work stream B) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.dr-summary { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.dr-summary-pct {
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  font-size: 1.9rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.dr-list { list-style: none; margin: 0; padding: 0; }
+.dr-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--border-subtle, rgba(0,0,0,0.08));
+}
+.dr-row:first-child { border-top: 0; }
+.dr-row-main { flex: 1; min-width: 0; }
+.dr-row-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.dr-label { font-weight: 650; }
+.dr-gap-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--chip-neutral-bg);
+  color: var(--chip-neutral-fg);
+}
+.dr-desc { margin: 0.3rem 0 0; font-size: 0.86rem; color: var(--text-secondary); }
+.dr-why { margin: 0.25rem 0 0; font-size: 0.82rem; color: var(--text-secondary); }
+.dr-why-label { font-weight: 650; color: var(--text-primary); }
+.dr-select select { padding: 0.35rem 0.5rem; border-radius: 6px; }
+
+/* Data room per-item document attach */
+.dr-doc { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.45rem; flex-wrap: wrap; }
+.dr-doc-linked { font-size: 0.82rem; font-weight: 600; color: var(--status-good); }
+.dr-doc-status { color: var(--text-secondary); font-weight: 500; }
+.dr-doc-none { font-size: 0.82rem; }
+.dr-doc-btn {
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, rgba(0,0,0,0.15));
+  background: var(--surface-2, transparent);
+  cursor: pointer;
+}
+.dr-doc-btn:disabled { opacity: 0.6; cursor: default; }

@@ -1,0 +1,8 @@
+code,name,description,sort_order
+FIN,Financial & Accounting,"Financial statements, quality of earnings, working capital, and the numbers a buyer will independently re-verify.",1
+OPS,Operations & Suppliers,"Process, capacity, vendors, and the operational continuity a buyer underwrites at close.",2
+HR,Organization & People,"Org chart, key-person dependency, compensation, and the culture that has to survive integration.",3
+CUS,"Customers, Sales & Marketing","Customer concentration, contracts, channel relationships, and the durability of the demand engine.",4
+PIP,"Offering & Intellectual Property","The product or service, its specifications and certifications, liability exposure, and clean company ownership of intellectual property.",5
+CMP,"Facilities, IT, Compliance & Insurance","Permits, environmental, IT, insurance, and regulatory standing.",6
+LEG,"Corporate, Legal & Contracts","Corporate records, cap table, material contracts, litigation, and the legal cleanliness of the transfer.",7
