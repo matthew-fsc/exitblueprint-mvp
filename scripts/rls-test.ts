@@ -186,6 +186,34 @@ async function main() {
        values ($1, $2, $3, 'document')`,
       [ids.firm_b, assessmentBId, questionId],
     );
+    // Immutability fixtures: Firm A's completed assessment plus one scored child
+    // of each kind, so the freeze triggers (migration 20260718000200) have real
+    // rows to guard. Inserted while completed — inserts are never frozen.
+    const assessmentACompleted = (
+      await db.query(
+        `select id from assessments where firm_id = $1 and status = 'completed' limit 1`,
+        [ids.firm_a],
+      )
+    ).rows[0].id;
+    const subScoreId = (
+      await db.query(
+        `insert into sub_scores (dimension_id, code, name, weight, formula_type, input_question_codes)
+         values ($1, 'RLS-SS1', 'RLS Sub', 1, 'band_gte', 'RLS-Q1') returning id`,
+        [dimId],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb)`,
+      [assessmentACompleted, questionId],
+    );
+    await db.query(
+      `insert into sub_score_results (assessment_id, sub_score_id, points) values ($1, $2, 1)`,
+      [assessmentACompleted, subScoreId],
+    );
+    await db.query(
+      `insert into dimension_scores (assessment_id, dimension_id, score) values ($1, $2, 1)`,
+      [assessmentACompleted, dimId],
+    );
     // Firm B ledger connection + its OAuth secrets for the isolation checks.
     const ledgerB = (
       await db.query(
@@ -344,6 +372,46 @@ async function main() {
       await db.query('rollback to savepoint oe2');
     }
     check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
+
+    // Completed-assessment immutability (migration 20260718000200; docs/23).
+    // Advisor A holds role `authenticated` here (asUser), the untrusted path the
+    // freeze triggers constrain: a completed snapshot and its scored children
+    // cannot be altered or deleted through an end-user JWT — not the score, not
+    // the answers, and not even the supersede bookkeeping (corrections are
+    // orchestrated server-side as service_role, never by a client write). Each
+    // attempt runs in its own savepoint since the trigger RAISEs (aborting to
+    // that savepoint).
+    const expectFrozen = async (label: string, sql: string, params: unknown[]) => {
+      let blocked = false;
+      try {
+        await db.query(`savepoint imm`);
+        await db.query(sql, params);
+        await db.query(`rollback to savepoint imm`); // succeeded (wrongly) — undo
+      } catch {
+        blocked = true;
+        await db.query(`rollback to savepoint imm`);
+      }
+      check(label, blocked);
+    };
+    await expectFrozen(
+      'cannot edit the score of a completed assessment',
+      `update assessments set drs_score = 1 where id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      'cannot delete a completed assessment',
+      `delete from assessments where id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot edit a completed assessment's sub_score_results",
+      `update sub_score_results set points = 0 where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot delete a completed assessment's dimension_scores",
+      `delete from dimension_scores where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot delete a completed assessment's answers",
+      `delete from answers where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      'cannot supersede a completed assessment via a client write (server-side only)',
+      `update assessments set record_status = 'superseded', supersede_reason = 'rls-test' where id = $1`,
+      [assessmentACompleted]);
 
     // agreement_versions + engagement_agreements: firm isolation (beta R1)
     const avA = await db.query('select version_label from agreement_versions');
