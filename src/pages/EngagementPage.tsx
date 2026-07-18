@@ -283,7 +283,7 @@ export default function EngagementPage() {
                   <div className="eng-snapshot-dial">
                     <ScoreDial value={explain.drsScore} tier={explain.drsTier} size={120} />
                     <TierBadge tier={explain.drsTier} />
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>ORI {fmtScore(explain.oriScore)}</span>
+                    <span className="muted text-sm">ORI {fmtScore(explain.oriScore)}</span>
                     {verifQ.data && (
                       <span
                         className={`verif-chip verif-tier-${verifQ.data.tier === 'document_verified' ? 'high' : verifQ.data.tier === 'partly_verified' ? 'mid' : 'low'}`}
@@ -469,7 +469,7 @@ export default function EngagementPage() {
             <div className="stack-lg">
               <ul className="log-list">
                 {(logQ.data ?? []).length === 0 && (
-                  <p className="muted" style={{ margin: 0 }}>
+                  <p className="muted m-0">
                     No entries yet — record a meeting or the reasoning behind a recommendation so it
                     compounds into the firm’s knowledge, not one advisor’s memory.
                   </p>
@@ -546,7 +546,7 @@ export default function EngagementPage() {
                 title="How the plan connects"
                 hint="From each gap to its recommendation, rationale, and progress"
               >
-                <p className="muted" style={{ marginTop: 0 }}>
+                <p className="muted mt-0">
                   The engagement's connected record: {knowledge.connectedPct}% of logged reasoning is tied to a
                   specific recommendation.
                 </p>
@@ -831,7 +831,7 @@ function DealOutcomeCapture({
 
   return (
     <form className="outcome-form stack-lg" onSubmit={save}>
-      <p className="muted" style={{ margin: 0 }}>
+      <p className="muted m-0">
         {existing
           ? 'Outcome recorded. Update any field and save again.'
           : 'Record the result at close or break. The score/valuation prediction at this moment is snapshotted automatically to calibrate future scores.'}

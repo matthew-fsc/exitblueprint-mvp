@@ -36,7 +36,7 @@ export default function LedgerCallbackPage() {
       <div className="stack-lg">
         <PageHeader title="Finishing connection" subtitle="Linking your accounting to the engagement." />
         <Card>
-          <p className="muted" style={{ marginTop: 0 }}>
+          <p className="muted mt-0">
             {error ? `Could not finish connecting: ${error}` : 'One moment while we complete the handshake…'}
           </p>
         </Card>

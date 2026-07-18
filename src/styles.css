@@ -96,6 +96,20 @@
   --gap-section: var(--space-7);
   --pad-card: var(--space-6);
   --pad-page-x: var(--space-6);
+
+  /* ---- type scale (single source for the small-text sizes the UI repeats) ----
+     Prose is 15px (body). These name the sub-body sizes that were previously
+     hand-picked as ~0.72–0.9rem in dozens of places. */
+  --text-xs: 0.72rem;   /* eyebrow labels, chips, hints */
+  --text-sm: 0.8rem;    /* dense metadata, table cells */
+  --text-md: 0.88rem;   /* secondary body, card subtitles */
+
+  /* ---- eyebrow label (the uppercase micro-label reused ~everywhere: stat/section
+     labels, filter labels, tile labels, chip labels). One definition; components
+     reference these so the pattern never drifts again. */
+  --eyebrow-size: var(--text-xs);
+  --eyebrow-weight: 700;
+  --eyebrow-tracking: 0.05em;
 }
 
 :root[data-theme='dark'] {
@@ -251,6 +265,14 @@ h1, h2, h3, h4 {
 .muted {
   color: var(--text-secondary);
 }
+
+/* ---- text + margin utilities (replace one-off inline styles) ---- */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-md { font-size: var(--text-md); }
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+/* `.eyebrow` (defined with .stat-block-label) is the canonical uppercase label. */
 
 .page-header h1 {
   margin: 0;
@@ -876,10 +898,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 .score-tile .tile-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--eyebrow-tracking);
   color: var(--text-secondary);
 }
 
@@ -2130,11 +2152,11 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   gap: 0.35rem;
 }
 .wb-score-label {
-  font-size: 0.72rem;
+  font-size: var(--eyebrow-size);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--eyebrow-tracking);
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--eyebrow-weight);
 }
 .wb-score-value {
   display: flex;
@@ -2453,11 +2475,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   flex-direction: column;
   gap: var(--space-1);
 }
+/* Canonical eyebrow label — the uppercase micro-label. Use `.eyebrow` in markup;
+   the component classes below share its tokens so the pattern stays uniform. */
+.eyebrow,
 .stat-block-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--eyebrow-tracking);
   color: var(--text-secondary);
 }
 .stat-block-value {
@@ -2487,10 +2512,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   top: 0;
   background: var(--surface-2);
   color: var(--text-secondary);
-  font-weight: 700;
-  font-size: 0.74rem;
+  font-weight: var(--eyebrow-weight);
+  font-size: var(--eyebrow-size);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--eyebrow-tracking);
   z-index: 1;
 }
 .ui-table th.num, .ui-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -2681,7 +2706,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .gallery-section { margin: 2rem 0; }
 .gallery-section > h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
 .gallery-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin: 0.75rem 0; padding: 1rem; background: var(--surface-2); border-radius: var(--radius); }
-.gallery-label { width: 100%; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.gallery-label { width: 100%; font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--text-muted); }
 
 /* ---- settings / form fields (F1) ---- */
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -2730,10 +2755,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .filter-control { display: flex; flex-direction: column; gap: var(--space-1); }
 .filter-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--eyebrow-tracking);
   color: var(--text-muted);
 }
 .filter-control select { min-width: 12rem; }
@@ -2861,10 +2886,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ws-chip-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ws-chip-top { display: flex; align-items: center; gap: var(--space-1); }
 .ws-chip-label {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--eyebrow-tracking);
   color: var(--text-secondary);
 }
 .ws-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
@@ -3253,12 +3278,12 @@ textarea:focus {
 }
 .consensus-callout .consensus-label {
   display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 0.35rem;
+  margin-bottom: var(--space-1);
 }
 .consensus-callout p {
   margin: 0;
@@ -3473,7 +3498,7 @@ textarea:focus {
 }
 .advisory-item-detail p { margin: 0.15rem 0 0; font-size: 0.9rem; line-height: 1.45; }
 .advisory-detail-label {
-  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
   color: var(--status-neutral);
 }
 .advisory-item-actions { margin-top: 0.5rem; }
@@ -3542,8 +3567,8 @@ textarea:focus {
   .roadmap-cols { grid-template-columns: 1fr; }
 }
 .roadmap-controls { display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap; }
-.roadmap-startdate { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.72rem;
-  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.roadmap-startdate { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--text-secondary); }
 .roadmap-startdate input { padding: 0.42rem 0.6rem; font-weight: 400; text-transform: none; letter-spacing: 0; }
 
 /* ---- ExitPaceChart: calendar trajectory with required-pace + projection --- */
@@ -3586,8 +3611,8 @@ textarea:focus {
 .diverge-head { display: flex; flex-direction: column; }
 .diverge-head-right { text-align: right; }
 .diverge-num { font-family: var(--font-display); font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.diverge-cap { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);
-  font-weight: 600; margin-top: 0.15rem; }
+.diverge-cap { font-size: var(--eyebrow-size); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--text-secondary);
+  font-weight: var(--eyebrow-weight); margin-top: var(--space-1); }
 .diverge-track { position: relative; height: 0.85rem; background: var(--surface-3); border-radius: 999px; margin: 0.2rem 0; }
 .diverge-span { position: absolute; top: 50%; transform: translateY(-50%); height: 0.3rem;
   background: var(--border-strong); border-radius: 999px; }
@@ -3687,7 +3712,7 @@ textarea:focus {
 .owner-milestones, .owner-tasklist, .owner-doclist { list-style: none; margin: 0.7rem 0 0; padding: 0; display: flex; flex-direction: column; }
 .owner-milestones li { display: flex; align-items: baseline; gap: 0.7rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .owner-milestones li:last-child { border-bottom: none; }
-.owner-track { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 0.12rem 0.45rem;
+.owner-track { font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); padding: 0.12rem 0.45rem;
   border-radius: 999px; white-space: nowrap; }
 .owner-track-personal { background: color-mix(in srgb, var(--status-serious) 18%, transparent); color: var(--status-serious); }
 .owner-track-business { background: var(--accent-tint, var(--surface-3)); color: var(--accent-strong); }
@@ -3770,7 +3795,7 @@ textarea:focus {
 .val-gap-num { font-family: var(--font-display); font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--accent-strong); }
 .val-gap-num.val-gap-short { color: var(--status-serious); }
 .val-gap-num.val-gap-ok { color: var(--status-good); }
-.val-gap-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.val-gap-label { font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); }
 .val-gap .muted { font-size: 0.8rem; }
 
 .val-reported { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; margin: 0.7rem 0; }
@@ -3848,8 +3873,8 @@ textarea:focus {
 .cal-panel { display: flex; flex-direction: column; gap: 1rem; }
 .cal-table-wrap { overflow-x: auto; }
 .cal-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.cal-table th { text-align: left; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em;
-  color: var(--text-secondary); font-weight: 600; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+.cal-table th { text-align: left; font-size: var(--eyebrow-size); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
+  color: var(--text-secondary); font-weight: var(--eyebrow-weight); padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
 .cal-table th.num, .cal-table td.num { text-align: right; white-space: nowrap; }
 .cal-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .cal-table tr:last-child td { border-bottom: none; }
@@ -4042,7 +4067,7 @@ textarea:focus {
 .chain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
 .chain { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; }
 .chain-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.chain-status { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--status-good); }
+.chain-status { font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--status-good); }
 .chain-progress { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .chain-flow { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
 .chain-node {
@@ -4059,7 +4084,7 @@ textarea:focus {
 .cmp:last-child { border-bottom: 0; }
 .cmp-name { font-weight: 650; text-decoration: none; color: var(--accent-strong, var(--accent)); }
 .cmp-meta { display: inline-flex; align-items: center; gap: 0.5rem; justify-self: end; }
-.cmp-outcome { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
+.cmp-outcome { font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--text-secondary); }
 .cmp-reasons { grid-column: 1 / -1; font-size: 0.82rem; }
 
 /* Deal-outcome capture (docs/09 moat #1) */

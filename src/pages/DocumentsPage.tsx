@@ -112,7 +112,7 @@ export default function DocumentsPage() {
 
       <form className="inline-form doc-upload" onSubmit={upload}>
         <h3>Upload a document</h3>
-        <p className="muted" style={{ margin: 0 }}>
+        <p className="muted m-0">
           Uploads run through virus scan, classification, and extraction, then land in the review
           queue for a human to confirm against the source before any value is trusted.
         </p>

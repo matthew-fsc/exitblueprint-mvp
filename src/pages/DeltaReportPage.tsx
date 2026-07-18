@@ -256,7 +256,7 @@ export default function DeltaReportPage() {
               <FirmMark brand={brand} />
               {branding?.report_from_line && <span className="muted">{branding.report_from_line}</span>}
             </div>
-            <h1 style={{ marginTop: 0 }}>
+            <h1 className="mt-0">
               {isBaseline ? 'Baseline readiness' : 'Progress this period'} — {companyName}
             </h1>
 

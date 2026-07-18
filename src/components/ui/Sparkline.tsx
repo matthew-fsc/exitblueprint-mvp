@@ -16,7 +16,7 @@ export function Sparkline({
   const { theme } = useTheme();
   const mode = theme === 'dark' ? 'dark' : 'light';
   if (points.length === 0) {
-    return <span className="muted" style={{ fontSize: '0.78rem' }}>—</span>;
+    return <span className="muted text-sm">—</span>;
   }
   const pad = 3;
   const xs = (i: number) =>
