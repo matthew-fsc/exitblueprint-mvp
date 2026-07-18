@@ -33,8 +33,11 @@ export async function inviteOwner(
   // Already an owner for this company? Return it (idempotent, no duplicates).
   const existing = (
     await db.query(
+      // profiles.user_id is now text (Clerk id); cast the legacy auth.users uuid
+      // to join. Transitional — this whole path is replaced by Clerk organization
+      // invitations in the Clerk invite slice (docs/24 A5).
       `select coalesce(p.email, u.email) as email, p.full_name
-       from profiles p join auth.users u on u.id = p.user_id
+       from profiles p join auth.users u on u.id::text = p.user_id
        where p.company_id = $1 and p.role = 'owner' limit 1`,
       [eng.company_id],
     )

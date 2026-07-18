@@ -46,7 +46,7 @@ describe.skipIf(!url)('inviteOwner', () => {
     const prof = (
       await db.query(
         `select p.role, p.company_id, p.firm_id, u.email
-         from profiles p join auth.users u on u.id = p.user_id
+         from profiles p join auth.users u on u.id::text = p.user_id
          where p.company_id = $1 and p.role = 'owner'`,
         [companyId],
       )
