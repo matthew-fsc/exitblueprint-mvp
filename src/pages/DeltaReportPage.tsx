@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  Collapsible,
   DataTable,
   DeltaChip,
   EngagementNav,
@@ -76,6 +77,16 @@ export default function DeltaReportPage() {
     setBusy(false);
   };
 
+  // Auto-generate on first visit so the advisor lands on a finished document.
+  // Once per page visit (not on every selection change, to avoid draft churn).
+  const autoTried = useRef(false);
+  useEffect(() => {
+    if (docQ.isLoading || doc || !currentId || autoTried.current || busy) return;
+    autoTried.current = true; // synchronous guard — no double-fire under StrictMode
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docQ.isLoading, doc, currentId]);
+
   const saveDraft = async () => {
     if (!doc) return;
     setBusy(true);
@@ -99,10 +110,24 @@ export default function DeltaReportPage() {
     setBusy(false);
   };
 
+  const copySource = async () => {
+    try {
+      await navigator.clipboard.writeText(draft);
+      toast.show('Markdown copied', 'good');
+    } catch {
+      setError('Could not copy to clipboard.');
+    }
+  };
+
   const downloadPdf = async () => {
     setBusy(true);
     setError(null);
     try {
+      // Flush unsaved edits so the PDF matches the on-screen document.
+      if (doc && !doc.finalized_at && draft !== doc.content_md) {
+        await supabase.from('generated_documents').update({ content_md: draft }).eq('id', doc.id);
+        refresh();
+      }
       const blob = await invokeFunctionBlob('render-delta-pdf', { assessment_id: currentId });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -194,33 +219,38 @@ export default function DeltaReportPage() {
       {/* editor + branded preview */}
       {doc ? (
         <>
-          <div className="report-meta no-print" style={{ marginTop: '1rem' }}>
-            <span className={`status-chip status-${doc.finalized_at ? 'good' : 'warning'}`}>
-              {doc.finalized_at ? `Finalized ${fmtDate(doc.finalized_at)}` : 'Draft — review and edit before finalizing'}
-            </span>
-            <span className="muted">
-              {doc.model.startsWith('rule-based') ? 'Composed from the deterministic comparison' : `Drafted by ${doc.model}`}
-            </span>
+          <div className="report-toolbar no-print" style={{ marginTop: 'var(--space-4)' }}>
+            <div className="report-toolbar-status">
+              <span className={`status-chip status-${doc.finalized_at ? 'good' : 'warning'}`}>
+                {doc.finalized_at ? `Finalized ${fmtDate(doc.finalized_at)}` : 'Draft'}
+              </span>
+              <span className="muted report-toolbar-meta">
+                {doc.model.startsWith('rule-based') ? 'Composed from the deterministic comparison' : `Drafted by ${doc.model}`}
+              </span>
+            </div>
+            <div className="report-toolbar-actions">
+              {!doc.finalized_at && (
+                <button className="button-secondary" onClick={finalize} disabled={busy}>Finalize</button>
+              )}
+              <button onClick={downloadPdf} disabled={busy}>
+                {busy ? 'Preparing…' : 'Download branded PDF'}
+              </button>
+            </div>
           </div>
 
+          {/* The editable narrative source, tucked into an expand bar above the
+              polished document. The figures below are fixed from the scoring engine. */}
           {!doc.finalized_at && (
-            <>
-              <textarea className="report-editor no-print" rows={12} value={draft} onChange={(e) => setDraft(e.target.value)} />
-              <div className="report-actions no-print">
-                <span className="muted" style={{ fontSize: '0.82rem' }}>Edit the narrative; the figures below are fixed from the scoring engine.</span>
-                <span>
-                  <button className="linkish" onClick={saveDraft} disabled={busy}>Save draft</button>{' '}
-                  <button onClick={finalize} disabled={busy}>Finalize</button>
-                </span>
+            <Collapsible title="Edit narrative" hint="raw Markdown — the figures stay fixed from the scoring engine">
+              <textarea className="report-editor" rows={14} value={draft} onChange={(e) => setDraft(e.target.value)} />
+              <div className="report-source-actions">
+                <button className="linkish" onClick={copySource}>Copy Markdown</button>
+                <button className="button-secondary" onClick={saveDraft} disabled={busy}>Save changes</button>
               </div>
-            </>
+            </Collapsible>
           )}
 
-          <div className="report-actions no-print" style={{ justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-            <button onClick={downloadPdf} disabled={busy}>Download branded PDF</button>
-          </div>
-
-          {/* WYSIWYG preview mirroring the PDF layout */}
+          {/* WYSIWYG preview mirroring the PDF layout — the primary view */}
           <article className="report-body delta-preview">
             <div className="report-brandbar">
               <FirmMark brand={brand} />
@@ -270,10 +300,19 @@ export default function DeltaReportPage() {
           </article>
         </>
       ) : (
-        <p className="muted" style={{ marginTop: '1rem' }}>
-          Generate the report to preview it, edit the narrative, and download a branded PDF. Every figure is fixed by the
-          scoring engine; only the prose is editable.
-        </p>
+        <div className="report-generating no-print">
+          {busy ? (
+            <>
+              <div className="report-spinner" aria-hidden />
+              <p className="muted">Composing the branded report from the deterministic comparison…</p>
+            </>
+          ) : (
+            <p className="muted">
+              Generate the report to preview it, edit the narrative, and download a branded PDF. Every figure is fixed
+              by the scoring engine; only the prose is editable.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
