@@ -184,8 +184,8 @@ export default function DataRoomPage() {
                             item.readiness_state}
                         </span>
                         {item.gap_code && (
-                          <span className="dr-gap-tag" title="Maps to a scored gap">
-                            {item.gap_code}
+                          <span className="dr-gap-tag" title={`Maps to a scored gap (${item.gap_code})`}>
+                            Scored gap
                           </span>
                         )}
                       </div>
