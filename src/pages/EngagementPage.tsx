@@ -21,6 +21,7 @@ import {
   useEngagementLog,
   type EngagementLogRow,
   useTasks,
+  useComparables,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -99,6 +100,7 @@ export default function EngagementPage() {
   const valuationQ = useValuation(engagementId);
   const logQ = useEngagementLog(engagementId);
   const tasksQ = useTasks(engagementId);
+  const comparablesQ = useComparables(engagementId);
   const [logKind, setLogKind] = useState<EngagementLogRow['kind']>('meeting');
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [logTitle, setLogTitle] = useState('');
@@ -558,6 +560,34 @@ export default function EngagementPage() {
               </Collapsible>
             );
           })()}
+
+          {/* comparable engagements — learn from the firm's own book */}
+          {(comparablesQ.data ?? []).length > 0 && (
+            <Collapsible
+              title={
+                <>
+                  Comparable engagements{' '}
+                  <span className="count-pill">{comparablesQ.data!.length}</span>
+                </>
+              }
+              hint="Similar prior engagements in your book — by industry, size, and shared gaps"
+            >
+              <ul className="cmp-list">
+                {comparablesQ.data!.map((c) => (
+                  <li key={c.engagementId} className="cmp">
+                    <Link className="cmp-name" to={`/engagement/${c.engagementId}`}>
+                      {c.companyName}
+                    </Link>
+                    <span className="cmp-meta">
+                      {c.tier ? <TierBadge tier={c.tier} /> : <span className="muted">not yet scored</span>}
+                      {c.outcomeStatus && <span className="cmp-outcome">{c.outcomeStatus.replace(/_/g, ' ')}</span>}
+                    </span>
+                    <span className="cmp-reasons muted">{c.reasons.join(' · ')}</span>
+                  </li>
+                ))}
+              </ul>
+            </Collapsible>
+          )}
 
           {/* compare any two — power tool, folded away */}
           {completed.length > 1 && (

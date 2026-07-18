@@ -19,6 +19,7 @@ export const qk = {
   sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
   dataRoom: (engagementId: string) => ['dataRoom', engagementId] as const,
   engagementLog: (engagementId: string) => ['engagementLog', engagementId] as const,
+  comparables: (engagementId: string) => ['comparables', engagementId] as const,
   reviewQueue: () => ['reviewQueue'] as const,
   reconciliation: (engagementId: string) => ['reconciliation', engagementId] as const,
   engagementFindings: (engagementId: string) => ['engagementFindings', engagementId] as const,
@@ -453,6 +454,35 @@ export function useEngagementGaps(
           };
         })
         .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
+    },
+  });
+}
+
+export interface ComparableRow {
+  engagementId: string;
+  companyName: string;
+  industry: string | null;
+  sizeBand: string | null;
+  drs: number | null;
+  tier: string | null;
+  outcomeStatus: string | null;
+  sharedGaps: string[];
+  reasons: string[];
+  score: number;
+}
+
+// Comparable engagements from the firm's own book (docs/21 Category B).
+export function useComparables(
+  engagementId: string | undefined,
+): UseQueryResult<ComparableRow[]> {
+  return useQuery({
+    queryKey: engagementId ? qk.comparables(engagementId) : ['comparables', ''],
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const r = await invokeFunction<{ comparables: ComparableRow[] }>('engagement-comparables', {
+        engagement_id: engagementId,
+      });
+      return r.comparables;
     },
   });
 }

@@ -3795,3 +3795,12 @@ textarea:focus {
 .chain-node-missing { color: var(--text-secondary); border-style: dashed; font-weight: 500; }
 .chain-arrow { color: var(--text-secondary); }
 .chain-reason { font-size: 0.82rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+
+/* Comparable engagements (docs/21 Category B) */
+.cmp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.cmp { display: grid; grid-template-columns: minmax(140px, 1fr) auto; gap: 0.3rem 0.9rem; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
+.cmp:last-child { border-bottom: 0; }
+.cmp-name { font-weight: 650; text-decoration: none; color: var(--accent-strong, var(--accent)); }
+.cmp-meta { display: inline-flex; align-items: center; gap: 0.5rem; justify-self: end; }
+.cmp-outcome { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
+.cmp-reasons { grid-column: 1 / -1; font-size: 0.82rem; }

@@ -58,7 +58,7 @@ should concentrate.**
 | Buyer-diligence simulation | Buyer lens (buyer questions), findings patterns, Data Room Readiness | Grow into "what will sophisticated diligence discover" — proactive, not reactive |
 | Structured meeting outcomes | **BUILT (v1)** — `engagement_log` | Meetings/decisions captured as structured, backdatable records on the engagement Overview |
 | Advisor rationale capture | **BUILT (v1)** — `engagement_log` kind=rationale, gap_id link | Records *why*, attached to the gap it explains |
-| Evidence metadata / historical comparisons | `document_fields` verification; no cross-engagement comparison yet | Add cross-engagement pattern lookup ("comparable engagements") |
+| Evidence metadata / historical comparisons | `document_fields` verification | **Comparable engagements BUILT** — firm-scoped historical cases by industry/size/shared gaps (`shared/comparables.ts`) |
 
 **Action (started):** the **engagement_log** (staff-only, backdatable, optionally
 tied to a gap) now captures meetings, decisions, and the *rationale* behind
@@ -108,8 +108,8 @@ Reading the roadmap through docs/20's decision framework:
    `src/lib/knowledge.ts`), surfaced on the engagement Overview. Design choice:
    assembled **deterministically over source tables**, not duplicated into the
    document-verified `graph_nodes/edges` (which stay for extracted facts) — same
-   information, no sync/staleness. Next: cross-engagement pattern lookup, then
-   connect outcomes onto the chain.
+   information, no sync/staleness. Cross-engagement pattern lookup (comparable
+   engagements) is now BUILT; next is connecting outcomes onto the chain.
 2. ~~**New capture (B):** structured meeting outcomes + advisor rationale~~ —
    **DONE (v1)** via `engagement_log`, now connected to recommendations (item 1).
 3. **Activate substrate (A→Outcome Intelligence):** surface the dormant
