@@ -54,6 +54,47 @@ export function fmtDate(d: string | Date | null | undefined): string {
   return DATE.format(date);
 }
 
+// Turn an internal snake_case / UPPER_SNAKE key (field_key, pattern_key, item
+// code) into a human label for display — machine identifiers must never reach an
+// advisor's screen. Common finance acronyms are cased correctly.
+const ACRONYMS: Record<string, string> = {
+  ebitda: 'EBITDA', gaap: 'GAAP', sop: 'SOP', sops: 'SOPs', ar: 'AR', ap: 'AP',
+  arr: 'ARR', mrr: 'MRR', crm: 'CRM', kpi: 'KPI', kpis: 'KPIs', pct: '%',
+  hr: 'HR', it: 'IT', qoe: 'QoE', osha: 'OSHA', sla: 'SLA', ceo: 'CEO', p: 'P',
+};
+export function humanizeKey(key: string | null | undefined): string {
+  if (!key) return '—';
+  return String(key)
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w, i) => {
+      const a = ACRONYMS[w.toLowerCase()];
+      if (a) return a;
+      return i === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase();
+    })
+    .join(' ');
+}
+
+// Format a reconciliation / evidence value in the context of its field key:
+// money fields render as currency, ratio/percent fields as a percentage, other
+// numbers get thousands separators, and non-numeric values pass through. No raw
+// integers like "10000000" ever reach the UI.
+const MONEY_HINT = /(revenue|ebitda|income|cost|debt|value|proceeds|comp|salary|price|cash|arr|mrr|settlement|payroll|capital|ev|purchase)/i;
+const PCT_HINT = /(pct|percent|ratio|rate|margin|concentration|share)/i;
+export function formatFieldValue(key: string, v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'number' && !Number.isNaN(v)) {
+    if (PCT_HINT.test(key)) return `${Math.round(v <= 1 && v > 0 ? v * 100 : v)}%`;
+    if (MONEY_HINT.test(key)) return fmtCurrency(v);
+    return v.toLocaleString('en-US');
+  }
+  if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) {
+    return formatFieldValue(key, Number(v));
+  }
+  if (typeof v === 'string') return v;
+  return String(v);
+}
+
 // Whole-number count of days between a past date and now (never negative).
 export function daysSince(d: string | Date | null | undefined): number | null {
   if (!d) return null;

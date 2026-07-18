@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { qk, useEngagement, useCompany } from '../lib/queries';
+import { humanizeKey, formatFieldValue } from '../lib/format';
 import {
   Card,
   EmptyState,
@@ -209,8 +210,8 @@ export default function VerificationPage() {
             hint="verified without a human"
           />
           <StatBlock label="Auto-verified" value={m ? m.auto_resolved : '—'} hint="no human needed" />
-          <StatBlock label="Needs review" value={m ? m.human_required : '—'} />
-          <StatBlock label="Findings" value={findings.length} />
+          <StatBlock label="Needs review" value={m ? m.human_required : '—'} hint="awaiting a human" />
+          <StatBlock label="Findings" value={findings.length} hint="buy-side patterns" />
         </StatRow>
       </SectionCard>
 
@@ -241,9 +242,9 @@ export default function VerificationPage() {
                 const s = SOURCE_LABEL[r.source] ?? { text: r.source, cls: 'neutral' };
                 return (
                   <tr key={r.id}>
-                    <td>{r.field_key}</td>
-                    <td>{show(r.self_reported_value)}</td>
-                    <td>{show(r.verified_value)}</td>
+                    <td>{humanizeKey(r.field_key)}</td>
+                    <td>{formatFieldValue(r.field_key, r.self_reported_value)}</td>
+                    <td>{formatFieldValue(r.field_key, r.verified_value)}</td>
                     <td>{r.confidence === null ? '—' : `${Math.round(Number(r.confidence) * 100)}%`}</td>
                     <td>
                       <span className={`status-chip status-${s.cls}`}>{s.text}</span>
@@ -273,10 +274,10 @@ export default function VerificationPage() {
             {findings.map((f) => (
               <li key={f.id} className="doc-row">
                 <div>
-                  <span className="doc-name">{f.pattern_key.replace(/_/g, ' ')}</span>
+                  <span className="doc-name">{humanizeKey(f.pattern_key)}</span>
                   <span className="doc-meta">
                     {Object.entries(f.graph_evidence?.facts ?? {})
-                      .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${show(v)}`)
+                      .map(([k, v]) => `${humanizeKey(k)}: ${formatFieldValue(k, v)}`)
                       .join(' · ')}
                   </span>
                 </div>
@@ -321,10 +322,11 @@ export default function VerificationPage() {
                     </span>
                     <span className="doc-meta">
                       {isRecon
-                        ? `${show(it.payload.field_key)} — self-reported ${show(
+                        ? `${humanizeKey(it.payload.field_key as string)} — self-reported ${formatFieldValue(
+                            it.payload.field_key as string,
                             it.payload.self_reported,
-                          )} vs document ${show(it.payload.verified)}`
-                        : `${show(it.payload.pattern_key)} · ${show(it.payload.severity)}`}
+                          )} vs document ${formatFieldValue(it.payload.field_key as string, it.payload.verified)}`
+                        : `${humanizeKey(it.payload.pattern_key as string)} · ${show(it.payload.severity)}`}
                     </span>
                   </div>
                   <div className="row-gap">

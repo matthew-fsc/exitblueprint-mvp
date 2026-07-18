@@ -373,6 +373,29 @@ textarea {
   color: var(--text-primary);
 }
 
+/* File inputs: style the native picker button so it reads as a designed control
+   (like .button-secondary) instead of the raw OS widget. */
+input[type='file'] {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+}
+input[type='file']::file-selector-button {
+  font: inherit;
+  font-weight: 600;
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+input[type='file']::file-selector-button:hover {
+  background: var(--surface-3);
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -869,32 +892,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 /* ---- how it works ---- */
-.how-it-works {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.85rem 1.2rem;
-  margin-bottom: 0.5rem;
-}
-
-.how-it-works > summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--brand);
-  list-style: none;
-}
-
-.how-it-works > summary::before {
-  content: '▸ ';
-  color: var(--text-secondary);
-}
-
-.how-it-works[open] > summary::before {
-  content: '▾ ';
-}
-
+/* The "How this score is built" body now lives inside a shared Collapsible
+   (the standalone .how-it-works disclosure was retired for one consistent
+   chevron-style disclosure across the app). */
 .how-body {
-  margin-top: 0.75rem;
   font-size: 0.9rem;
   line-height: 1.55;
 }

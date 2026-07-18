@@ -187,8 +187,7 @@ export default function ResultsPage() {
         </div>
       </section>
 
-      <details className="how-it-works">
-        <summary>How this score is built</summary>
+      <Collapsible title="How this score is built">
         <div className="how-body">
           <p>
             Six areas of the business are each scored out of 100 from your assessment answers. Those
@@ -213,7 +212,7 @@ export default function ResultsPage() {
             ))}
           </div>
         </div>
-      </details>
+      </Collapsible>
 
       <section>
       <h3 className="section-heading">The six business areas</h3>

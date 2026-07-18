@@ -127,8 +127,8 @@ export default function DashboardPage() {
       />
 
       <StatRow>
-        <StatBlock label="Engagements" value={rows.length} />
-        <StatBlock label="Average DRS" value={avgDrs ?? '—'} />
+        <StatBlock label="Engagements" value={rows.length} hint="active in your book" />
+        <StatBlock label="Average DRS" value={avgDrs ?? '—'} hint="across the book" />
         <StatBlock label="Movers this quarter" value={movers} hint="up ≥ 3 points vs prior" />
         <StatBlock
           label="Stale ≥ 90 days"
