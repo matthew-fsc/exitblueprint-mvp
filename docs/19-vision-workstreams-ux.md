@@ -6,6 +6,11 @@ synthesizes `CLAUDE.md` and docs 00, 07, 09, 15–18 into one place. When this d
 and `CLAUDE.md` disagree, `CLAUDE.md` wins — those are hard rules; this is the
 frame around them.
 
+> **Strategic frame:** the apex strategy is **docs/20 (Strategic Positioning)** —
+> "the institutional intelligence platform for business-owner advisory" — with the
+> current-MVP classification in **docs/21 (MVP Strategic Audit)**. This doc is the
+> operational work-streams/UX layer beneath that strategy.
+
 ---
 
 ## 1. Vision & thesis
