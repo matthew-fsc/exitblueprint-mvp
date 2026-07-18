@@ -25,7 +25,9 @@ async function main() {
   await db.query('begin');
 
   const asUser = async (userId: string | null) => {
-    // Simulate a PostgREST request: authenticated role + JWT claims.
+    // Simulate a request under Clerk third-party auth: authenticated role + a JWT
+    // claim set whose `sub` is a Clerk user id (text). RLS resolves identity via
+    // auth.jwt() ->> 'sub' (see 20260719000100_clerk_identity.sql).
     await db.query('reset role');
     if (userId === null) {
       await db.query("select set_config('request.jwt.claims', '', true)");
@@ -40,16 +42,14 @@ async function main() {
 
   try {
     // Fixture data: two firms, an advisor in each, an owner in firm A.
+    // Identity is Clerk now: profiles.user_id holds a Clerk user id (text), no
+    // auth.users FK. Mint Clerk-shaped subjects directly.
     const ids = (
       await db.query(`
         with fa as (insert into firms (name) values ('Firm A') returning id),
-             fb as (insert into firms (name) values ('Firm B') returning id),
-             ua as (insert into auth.users (id, email) values (gen_random_uuid(), 'a@a.test') returning id),
-             ub as (insert into auth.users (id, email) values (gen_random_uuid(), 'b@b.test') returning id),
-             uo as (insert into auth.users (id, email) values (gen_random_uuid(), 'o@a.test') returning id)
+             fb as (insert into firms (name) values ('Firm B') returning id)
         select (select id from fa) firm_a, (select id from fb) firm_b,
-               (select id from ua) user_a, (select id from ub) user_b,
-               (select id from uo) user_o`)
+               'user_clerk_a' user_a, 'user_clerk_b' user_b, 'user_clerk_o' user_o`)
     ).rows[0];
 
     const companyA = (
@@ -74,6 +74,17 @@ async function main() {
       `insert into profiles (user_id, firm_id, role, company_id, full_name)
        values ($1, $2, 'owner', $3, 'Owner A')`,
       [ids.user_o, ids.firm_a, companyA],
+    );
+
+    // Billing: a subscription per firm (the webhook/service-role writes these).
+    await db.query(
+      `insert into firm_subscriptions (firm_id, plan_code, status, seats) values
+         ($1, 'practice', 'active', 5), ($2, 'solo', 'active', 1)`,
+      [ids.firm_a, ids.firm_b],
+    );
+    // An internal webhook log row — must never be readable by an authenticated user.
+    await db.query(
+      `insert into billing_events (stripe_event_id, type) values ('evt_test_1', 'invoice.paid')`,
     );
 
     const engagementA = (
@@ -326,6 +337,25 @@ async function main() {
     check('cannot read firm B row', firmB.rows.length === 0);
     const assessB = await db.query('select * from assessments where firm_id = $1', [ids.firm_b]);
     check('cannot read firm B assessments', assessB.rows.length === 0);
+    // Billing isolation.
+    const subs = await db.query('select firm_id, plan_code from firm_subscriptions');
+    check('reads only own firm subscription',
+      subs.rows.length === 1 && subs.rows[0].firm_id === ids.firm_a && subs.rows[0].plan_code === 'practice',
+      `saw ${JSON.stringify(subs.rows)}`);
+    const plansRead = await db.query('select count(*)::int c from plans');
+    check('reads the plan catalog', plansRead.rows[0].c >= 3, `saw ${plansRead.rows[0].c}`);
+    // billing_events has no grant to authenticated at all — a read is a hard
+    // permission error, not just an empty RLS result. Assert it throws.
+    let billingEventsDenied = false;
+    try {
+      await db.query('savepoint be');
+      await db.query('select count(*) from billing_events');
+      await db.query('release savepoint be');
+    } catch {
+      billingEventsDenied = true;
+      await db.query('rollback to savepoint be');
+    }
+    check('cannot read billing_events (service-role only)', billingEventsDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');

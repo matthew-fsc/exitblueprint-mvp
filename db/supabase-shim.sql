@@ -32,4 +32,15 @@ as $$
   select (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid
 $$;
 
+-- Mirrors Supabase's auth.jwt(): the full verified claim set as jsonb. Under
+-- third-party auth (Clerk), the subject (`sub`) is a text user id like
+-- `user_2ab…`, so identity lookups read `auth.jwt() ->> 'sub'` (text) rather
+-- than auth.uid() (which casts to uuid). Present natively on real Supabase;
+-- defined here so migrations that reference it also run on plain Postgres.
+create or replace function auth.jwt() returns jsonb
+language sql stable
+as $$
+  select nullif(current_setting('request.jwt.claims', true), '')::jsonb
+$$;
+
 grant usage on schema auth to anon, authenticated, service_role;
