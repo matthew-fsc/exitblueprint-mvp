@@ -267,17 +267,6 @@ export default function RoadmapPage() {
         title="Roadmap"
         crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
         subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
-        actions={
-          <div className="roadmap-controls">
-            <label className="roadmap-startdate">
-              <span>Start date</span>
-              <input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
-            </label>
-            <button onClick={generate} disabled={busy}>
-              {busy ? 'Working…' : tasks.length ? 'Reschedule from start date' : 'Build roadmap from gaps'}
-            </button>
-          </div>
-        }
       />
       <EngagementNav engagementId={engagementId!} />
       {error && <p className="form-error">{error}</p>}
@@ -286,16 +275,29 @@ export default function RoadmapPage() {
         <EmptyState
           icon="clock"
           title="No roadmap yet"
-          action={<button onClick={generate} disabled={busy}>Build roadmap from gaps</button>}
+          action={<button onClick={generate} disabled={busy}>{busy ? 'Working…' : 'Build roadmap from gaps'}</button>}
         >
           Building the roadmap turns this engagement’s open gaps — most critical first — into a
           sequenced set of remediation tasks. Add personal milestones for the owner’s wealth plan
           alongside them.
         </EmptyState>
       ) : (
-        <Card pad="lg">
-          <GanttChart items={ganttItems} />
-        </Card>
+        <div className="roadmap-timeline">
+          {/* The start-date + reschedule control lives with the timeline it drives,
+              not crowding the page title. */}
+          <div className="roadmap-toolbar">
+            <label className="roadmap-startdate">
+              <span>Start date</span>
+              <input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
+            </label>
+            <button className="button-secondary" onClick={generate} disabled={busy}>
+              {busy ? 'Working…' : 'Reschedule from start date'}
+            </button>
+          </div>
+          <Card pad="lg">
+            <GanttChart items={ganttItems} />
+          </Card>
+        </div>
       )}
 
       {/* deal-team handoff: what each responsible party owns */}
@@ -327,8 +329,9 @@ export default function RoadmapPage() {
         </Collapsible>
       )}
 
-      {/* milestone entry */}
-      <div className="eng-grid">
+      {/* Milestones is a compact left rail; remediation tasks (the main content)
+          take the wider column — so the sparse side never strands a tall empty gap. */}
+      <div className="roadmap-cols">
         <div>
           <h3 className="section-heading">Milestones</h3>
           {milestones.length === 0 && <p className="muted">No milestones yet. Add the owner’s personal and business targets below.</p>}

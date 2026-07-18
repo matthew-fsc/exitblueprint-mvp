@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isDevStack } from '../lib/supabase';
 import { enrollTotp, getMfaState, verifyTotp, type MfaState, type TotpEnrollment } from '../lib/mfa';
-import { Card, PageHeader, useToast } from '../components/ui';
+import { PageHeader, SectionCard, useToast } from '../components/ui';
 
 // R5: MFA enrollment/verification + a one-page security summary for advisor
 // compliance review (the full version lives in docs/13-security-summary.md).
@@ -51,8 +51,7 @@ export default function SecurityPage() {
     <div className="stack-lg">
       <PageHeader title="Security" subtitle="Account protection and how client data is handled." />
 
-      <Card>
-        <h3>Multi-factor authentication</h3>
+      <SectionCard title="Multi-factor authentication">
         {isDevStack ? (
           <p className="muted">
             MFA is enforced on the hosted deployment. The local dev stack has no authenticator
@@ -97,10 +96,9 @@ export default function SecurityPage() {
             {error && <p className="form-error">{error}</p>}
           </div>
         )}
-      </Card>
+      </SectionCard>
 
-      <Card>
-        <h3>How client data is protected</h3>
+      <SectionCard title="How client data is protected">
         <ul className="security-summary">
           <li>
             <strong>Data storage.</strong> Postgres (Supabase) with row-level security on every
@@ -130,10 +128,9 @@ export default function SecurityPage() {
           </li>
         </ul>
         <p className="muted">
-          Full summary: docs/13-security-summary.md. Vendor due-diligence response:
-          docs/16-vendor-security-dd.md.
+          A full security summary and our vendor due-diligence response are available on request.
         </p>
-      </Card>
+      </SectionCard>
     </div>
   );
 }

@@ -145,8 +145,8 @@ export default function SettingsPage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Firm branding"
-        subtitle="Your firm is the face on every client-facing report and portal. Exit Blueprint stays in the background."
+        title="Firm settings"
+        subtitle="Your plan, and how your firm appears on every client-facing report and portal — Exit Blueprint stays in the background."
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Settings' }]}
       />
 
