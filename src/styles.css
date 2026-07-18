@@ -3804,3 +3804,14 @@ textarea:focus {
 .cmp-meta { display: inline-flex; align-items: center; gap: 0.5rem; justify-self: end; }
 .cmp-outcome { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
 .cmp-reasons { grid-column: 1 / -1; font-size: 0.82rem; }
+
+/* Deal-outcome capture (docs/09 moat #1) */
+.outcome-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }
+.outcome-grid label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+.outcome-grid input, .outcome-grid select { padding: 0.4rem 0.5rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem; }
+.outcome-retrade { flex-direction: row !important; align-items: center; gap: 0.4rem !important; align-self: end; }
+.outcome-risks-label { font-size: 0.82rem; font-weight: 650; color: var(--text-secondary); }
+.outcome-risks { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.outcome-risk { font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+.outcome-risk.on { border-color: var(--accent); background: var(--accent-wash, var(--chip-good-bg)); color: var(--text-primary); }
+.outcome-risk input { margin: 0; }

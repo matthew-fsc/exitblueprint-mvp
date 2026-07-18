@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
-import { supabase } from '../lib/supabase';
+import { invokeFunction, supabase } from '../lib/supabase';
 import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
 import { rollUpCapitals } from '../lib/practitioner';
 import { buildEngagementKnowledge } from '../lib/knowledge';
@@ -22,6 +22,7 @@ import {
   type EngagementLogRow,
   useTasks,
   useComparables,
+  useDealOutcome,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -44,6 +45,7 @@ import {
   ContributionBars,
   DivergenceMeter,
   GapBurndown,
+  useToast,
   type Column,
   type PacePoint,
 } from '../components/ui';
@@ -561,6 +563,18 @@ export default function EngagementPage() {
             );
           })()}
 
+          {/* deal outcome — record what actually happened (calibration substrate) */}
+          <Collapsible
+            title="Deal outcome"
+            hint="Record what actually happened at close — the calibration record"
+          >
+            <DealOutcomeCapture
+              engagementId={engagementId!}
+              firmId={engagement.firm_id}
+              gaps={(gapsQ.data ?? []).map((g) => ({ code: g.code, name: g.name }))}
+            />
+          </Collapsible>
+
           {/* comparable engagements — learn from the firm's own book */}
           {(comparablesQ.data ?? []).length > 0 && (
             <Collapsible
@@ -686,6 +700,180 @@ export default function EngagementPage() {
         )}
       </section>
     </div>
+  );
+}
+
+// Deal-outcome capture (moat #1): record what actually happened at close. The
+// record-deal-outcome function snapshots the prediction (DRS/EV) automatically;
+// here the advisor captures the facts — including which gaps the buyer flagged,
+// the highest-value calibration signal. Capture only (no predicted-vs-actual
+// comparison surface, which was removed by product direction).
+const OUTCOMES = [
+  { v: 'closed', l: 'Closed' },
+  { v: 'broken', l: 'Broken' },
+  { v: 'withdrawn', l: 'Withdrawn' },
+] as const;
+const BUYER_TYPES = ['strategic', 'financial', 'individual', 'management', 'other'];
+const STRUCTURES = ['all_cash', 'cash_and_note', 'earnout', 'equity_rollover', 'other'];
+
+function DealOutcomeCapture({
+  engagementId,
+  firmId,
+  gaps,
+}: {
+  engagementId: string;
+  firmId: string;
+  gaps: { code: string; name: string }[];
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { profile } = useAuth();
+  const outcomeQ = useDealOutcome(engagementId);
+  const existing = outcomeQ.data;
+  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({
+    outcome: 'closed',
+    close_date: '',
+    days_on_market: '',
+    final_ev: '',
+    final_multiple: '',
+    ebitda_at_close: '',
+    buyer_type: '',
+    structure: '',
+    retrade: false,
+    retrade_pct: '',
+    notes: '',
+  });
+  const [risks, setRisks] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!existing) return;
+    setF({
+      outcome: existing.outcome,
+      close_date: existing.close_date ?? '',
+      days_on_market: existing.days_on_market?.toString() ?? '',
+      final_ev: existing.final_ev?.toString() ?? '',
+      final_multiple: existing.final_multiple?.toString() ?? '',
+      ebitda_at_close: existing.ebitda_at_close?.toString() ?? '',
+      buyer_type: existing.buyer_type ?? '',
+      structure: existing.structure ?? '',
+      retrade: existing.retrade ?? false,
+      retrade_pct: existing.retrade_pct?.toString() ?? '',
+      notes: existing.notes ?? '',
+    });
+    setRisks(new Set(existing.buyer_flagged_risks ?? []));
+  }, [existing]);
+
+  const set = (k: keyof typeof f, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
+  const toggleRisk = (code: string) =>
+    setRisks((prev) => {
+      const next = new Set(prev);
+      next.has(code) ? next.delete(code) : next.add(code);
+      return next;
+    });
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await invokeFunction('record-deal-outcome', {
+        engagement_id: engagementId,
+        input: {
+          outcome: f.outcome,
+          close_date: f.close_date || null,
+          days_on_market: f.days_on_market === '' ? null : Number(f.days_on_market),
+          final_ev: f.final_ev === '' ? null : Number(f.final_ev),
+          final_multiple: f.final_multiple === '' ? null : Number(f.final_multiple),
+          ebitda_at_close: f.ebitda_at_close === '' ? null : Number(f.ebitda_at_close),
+          buyer_type: f.buyer_type || null,
+          structure: f.structure || null,
+          retrade: f.retrade,
+          retrade_pct: f.retrade_pct === '' ? null : Number(f.retrade_pct),
+          buyer_flagged_risks: [...risks],
+          notes: f.notes.trim() || null,
+          recorded_by: profile?.id ?? null,
+        },
+      });
+      // Keep the engagement's process status in step with the recorded outcome.
+      await supabase
+        .from('engagement_outcomes')
+        .upsert({ firm_id: firmId, engagement_id: engagementId, process_status: f.outcome }, { onConflict: 'engagement_id' });
+      qc.invalidateQueries({ queryKey: ['dealOutcome', engagementId] });
+      qc.invalidateQueries({ queryKey: qk.engagementOutcome(engagementId) });
+      toast.show('Outcome recorded', 'good');
+    } catch (err) {
+      toast.show((err as Error).message, 'error');
+    }
+    setBusy(false);
+  };
+
+  return (
+    <form className="outcome-form stack-lg" onSubmit={save}>
+      <p className="muted" style={{ margin: 0 }}>
+        {existing
+          ? 'Outcome recorded. Update any field and save again.'
+          : 'Record the result at close or break. The score/valuation prediction at this moment is snapshotted automatically to calibrate future scores.'}
+      </p>
+      <div className="outcome-grid">
+        <label>Outcome
+          <select value={f.outcome} onChange={(e) => set('outcome', e.target.value)}>
+            {OUTCOMES.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+          </select>
+        </label>
+        <label>Close / break date
+          <input type="date" value={f.close_date} onChange={(e) => set('close_date', e.target.value)} />
+        </label>
+        <label>Days on market
+          <input type="number" value={f.days_on_market} onChange={(e) => set('days_on_market', e.target.value)} />
+        </label>
+        <label>Final EV ($)
+          <input type="number" value={f.final_ev} onChange={(e) => set('final_ev', e.target.value)} />
+        </label>
+        <label>Final multiple (x)
+          <input type="number" step="0.1" value={f.final_multiple} onChange={(e) => set('final_multiple', e.target.value)} />
+        </label>
+        <label>EBITDA at close ($)
+          <input type="number" value={f.ebitda_at_close} onChange={(e) => set('ebitda_at_close', e.target.value)} />
+        </label>
+        <label>Buyer type
+          <select value={f.buyer_type} onChange={(e) => set('buyer_type', e.target.value)}>
+            <option value="">—</option>
+            {BUYER_TYPES.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </label>
+        <label>Structure
+          <select value={f.structure} onChange={(e) => set('structure', e.target.value)}>
+            <option value="">—</option>
+            {STRUCTURES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+          </select>
+        </label>
+        <label className="outcome-retrade">
+          <input type="checkbox" checked={f.retrade} onChange={(e) => set('retrade', e.target.checked)} /> Retrade
+        </label>
+        {f.retrade && (
+          <label>Retrade (%)
+            <input type="number" step="0.1" value={f.retrade_pct} onChange={(e) => set('retrade_pct', e.target.value)} />
+          </label>
+        )}
+      </div>
+      {gaps.length > 0 && (
+        <div>
+          <span className="outcome-risks-label">Which gaps did the buyer actually flag?</span>
+          <div className="outcome-risks">
+            {gaps.map((g) => (
+              <label key={g.code} className={`outcome-risk ${risks.has(g.code) ? 'on' : ''}`}>
+                <input type="checkbox" checked={risks.has(g.code)} onChange={() => toggleRisk(g.code)} /> {g.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+      <textarea placeholder="Notes (what drove the price, terms, lessons)" value={f.notes} onChange={(e) => set('notes', e.target.value)} rows={2} />
+      <div>
+        <button type="submit" disabled={busy}>{busy ? 'Saving…' : existing ? 'Update outcome' : 'Record outcome'}</button>
+        {existing?.updated_at && <span className="muted" style={{ marginLeft: '0.6rem' }}>last saved {fmtDate(existing.updated_at)}</span>}
+      </div>
+    </form>
   );
 }
 

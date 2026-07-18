@@ -112,9 +112,13 @@ Reading the roadmap through docs/20's decision framework:
    engagements) is now BUILT; next is connecting outcomes onto the chain.
 2. ~~**New capture (B):** structured meeting outcomes + advisor rationale~~ —
    **DONE (v1)** via `engagement_log`, now connected to recommendations (item 1).
-3. **Activate substrate (A→Outcome Intelligence):** surface the dormant
-   `deal_outcomes` calibration UI (docs/09 moat 1) — start turning predictions into
-   a calibrated score.
+3. **Outcome capture (A→Outcome Intelligence) — BUILT.** A "Deal outcome" capture
+   on the engagement Overview records the result at close/break (final EV, multiple,
+   EBITDA, buyer type, structure, retrade, days on market, and WHICH gaps the buyer
+   flagged); the record-deal-outcome function snapshots the prediction (DRS/ORI/
+   verified%/EV) automatically — the FICO/calibration substrate (docs/09 moat 1).
+   Capture only; the removed predicted-vs-actual comparison surface was NOT
+   re-added. Next: an aggregate calibration read once enough deals are recorded.
 4. **Grow (B):** the **Advisor Library** from a catalog into firm-authored decision
    trees / risk patterns / rationale.
 5. **Defer (D):** profit-gap and Decide-gate valuation modeling, owner-portal

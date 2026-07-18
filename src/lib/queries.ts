@@ -458,6 +458,43 @@ export function useEngagementGaps(
   });
 }
 
+export interface DealOutcomeRow {
+  outcome: 'closed' | 'broken' | 'withdrawn';
+  close_date: string | null;
+  days_on_market: number | null;
+  final_ev: number | null;
+  final_multiple: number | null;
+  ebitda_at_close: number | null;
+  buyer_type: string | null;
+  structure: string | null;
+  retrade: boolean;
+  retrade_pct: number | null;
+  buyer_flagged_risks: string[] | null;
+  notes: string | null;
+  updated_at: string | null;
+}
+
+// The recorded outcome for an engagement (moat #1 calibration substrate). Read
+// under RLS; written via the record-deal-outcome function (which snapshots the
+// prediction). Null until recorded.
+export function useDealOutcome(
+  engagementId: string | undefined,
+): UseQueryResult<DealOutcomeRow | null> {
+  return useQuery({
+    queryKey: engagementId ? ['dealOutcome', engagementId] : ['dealOutcome', ''],
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_outcomes')
+        .select('outcome, close_date, days_on_market, final_ev, final_multiple, ebitda_at_close, buyer_type, structure, retrade, retrade_pct, buyer_flagged_risks, notes, updated_at')
+        .eq('engagement_id', engagementId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as DealOutcomeRow) ?? null;
+    },
+  });
+}
+
 export interface ComparableRow {
   engagementId: string;
   companyName: string;
