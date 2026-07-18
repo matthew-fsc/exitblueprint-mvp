@@ -18,6 +18,7 @@ export const qk = {
   agreementVersions: () => ['agreementVersions'] as const,
   sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
   dataRoom: (engagementId: string) => ['dataRoom', engagementId] as const,
+  engagementLog: (engagementId: string) => ['engagementLog', engagementId] as const,
   reviewQueue: () => ['reviewQueue'] as const,
   reconciliation: (engagementId: string) => ['reconciliation', engagementId] as const,
   engagementFindings: (engagementId: string) => ['engagementFindings', engagementId] as const,
@@ -452,6 +453,38 @@ export function useEngagementGaps(
           };
         })
         .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
+    },
+  });
+}
+
+export interface EngagementLogRow {
+  id: string;
+  kind: 'meeting' | 'decision' | 'rationale' | 'note';
+  occurred_on: string;
+  title: string;
+  detail: string | null;
+  gap_id: string | null;
+  author_id: string | null;
+  created_at: string;
+}
+
+// Institutional memory (docs/21 Category B): the advisor's meetings, decisions,
+// and rationale for this engagement. Staff-only under RLS.
+export function useEngagementLog(
+  engagementId: string | undefined,
+): UseQueryResult<EngagementLogRow[]> {
+  return useQuery({
+    queryKey: qk.engagementLog(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_log')
+        .select('id, kind, occurred_on, title, detail, gap_id, author_id, created_at')
+        .eq('engagement_id', engagementId!)
+        .order('occurred_on', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as EngagementLogRow[]) ?? [];
     },
   });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
@@ -17,6 +17,8 @@ import {
   useGapBurndown,
   useVerification,
   useValuation,
+  useEngagementLog,
+  type EngagementLogRow,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -93,6 +95,12 @@ export default function EngagementPage() {
   const verifQ = useVerification(latest?.id);
   const explainQ = useExplain(latest?.id);
   const valuationQ = useValuation(engagementId);
+  const logQ = useEngagementLog(engagementId);
+  const [logKind, setLogKind] = useState<EngagementLogRow['kind']>('meeting');
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [logTitle, setLogTitle] = useState('');
+  const [logDetail, setLogDetail] = useState('');
+  const [logGap, setLogGap] = useState('');
 
   const startAssessment = async () => {
     setError(null);
@@ -135,6 +143,38 @@ export default function EngagementPage() {
       return;
     }
     qc.invalidateQueries({ queryKey: qk.engagement(engagementId!) });
+  };
+
+  // Institutional memory: capture a meeting, decision, or the rationale behind a
+  // recommendation — the "why", attached to the gap it explains where relevant.
+  const addLogEntry = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!engagement || !logTitle.trim()) return;
+    const { error } = await supabase.from('engagement_log').insert([
+      {
+        firm_id: engagement.firm_id,
+        engagement_id: engagementId,
+        author_id: profile?.id ?? null,
+        kind: logKind,
+        occurred_on: logDate || new Date().toISOString().slice(0, 10),
+        title: logTitle.trim(),
+        detail: logDetail.trim() || null,
+        gap_id: logGap || null,
+      },
+    ]);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setLogTitle('');
+    setLogDetail('');
+    setLogGap('');
+    qc.invalidateQueries({ queryKey: qk.engagementLog(engagementId!) });
+  };
+
+  const removeLogEntry = async (id: string) => {
+    await supabase.from('engagement_log').delete().eq('id', id);
+    qc.invalidateQueries({ queryKey: qk.engagementLog(engagementId!) });
   };
 
   if (engagementQ.isLoading) {
@@ -384,6 +424,82 @@ export default function EngagementPage() {
               </div>
             </Collapsible>
           )}
+
+          {/* engagement log — institutional memory: meetings, decisions, rationale */}
+          <Collapsible
+            title={
+              <>
+                Engagement log{' '}
+                {logQ.data && logQ.data.length > 0 && (
+                  <span className="count-pill">{logQ.data.length}</span>
+                )}
+              </>
+            }
+            hint="Meetings, decisions & the rationale behind recommendations"
+          >
+            <div className="stack-lg">
+              <ul className="log-list">
+                {(logQ.data ?? []).length === 0 && (
+                  <p className="muted" style={{ margin: 0 }}>
+                    No entries yet — record a meeting or the reasoning behind a recommendation so it
+                    compounds into the firm’s knowledge, not one advisor’s memory.
+                  </p>
+                )}
+                {(logQ.data ?? []).map((entry) => {
+                  const gap = (gapsQ.data ?? []).find((g) => g.id === entry.gap_id);
+                  return (
+                    <li key={entry.id} className="log-entry">
+                      <span className={`log-kind log-kind-${entry.kind}`}>{entry.kind}</span>
+                      <div className="log-body">
+                        <div className="log-head">
+                          <strong>{entry.title}</strong>
+                          <span className="muted log-date">{fmtDate(entry.occurred_on)}</span>
+                        </div>
+                        {entry.detail && <p className="log-detail">{entry.detail}</p>}
+                        {gap && <span className="log-gap">re: {gap.name}</span>}
+                      </div>
+                      <button className="linkish" onClick={() => removeLogEntry(entry.id)}>
+                        Remove
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <form className="inline-form log-form" onSubmit={addLogEntry}>
+                <h3>Add to the log</h3>
+                <div className="log-form-row">
+                  <select value={logKind} onChange={(e) => setLogKind(e.target.value as EngagementLogRow['kind'])}>
+                    <option value="meeting">Meeting</option>
+                    <option value="decision">Decision</option>
+                    <option value="rationale">Rationale</option>
+                    <option value="note">Note</option>
+                  </select>
+                  <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+                  <select value={logGap} onChange={(e) => setLogGap(e.target.value)}>
+                    <option value="">Not tied to a gap</option>
+                    {(gapsQ.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        re: {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  placeholder="e.g. Q2 review — agreed to prioritize customer diversification"
+                  value={logTitle}
+                  onChange={(e) => setLogTitle(e.target.value)}
+                  required
+                />
+                <textarea
+                  placeholder="Detail / rationale (why this decision or recommendation)"
+                  value={logDetail}
+                  onChange={(e) => setLogDetail(e.target.value)}
+                  rows={2}
+                />
+                <button type="submit">Add entry</button>
+              </form>
+            </div>
+          </Collapsible>
 
           {/* compare any two — power tool, folded away */}
           {completed.length > 1 && (

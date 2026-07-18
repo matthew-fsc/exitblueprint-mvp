@@ -56,14 +56,16 @@ should concentrate.**
 | Advisor Library | `advisory_library_items` (system catalog + firm rows) | Move from a catalog toward **firm-authored decision trees, rationale, risk patterns** (docs/20) |
 | Institutional Knowledge Graph | `graph_nodes` / `graph_edges` / `findings` | **Connect the chain**: business characteristics → gaps → recommendations → evidence → actions → progress → outcomes. The single highest-leverage B item |
 | Buyer-diligence simulation | Buyer lens (buyer questions), findings patterns, Data Room Readiness | Grow into "what will sophisticated diligence discover" — proactive, not reactive |
-| Structured meeting outcomes | **Not built** | New: capture meeting decisions/recommendations as structured records, not notes |
-| Advisor rationale capture | **Not built** | New: record *why* a recommendation was made, so logic (not just action) compounds |
+| Structured meeting outcomes | **BUILT (v1)** — `engagement_log` | Meetings/decisions captured as structured, backdatable records on the engagement Overview |
+| Advisor rationale capture | **BUILT (v1)** — `engagement_log` kind=rationale, gap_id link | Records *why*, attached to the gap it explains |
 | Evidence metadata / historical comparisons | `document_fields` verification; no cross-engagement comparison yet | Add cross-engagement pattern lookup ("comparable engagements") |
 
-**Action:** the two clearest new builds are **structured meeting outcomes** and
-**advisor rationale capture** — today the platform records what was done, not the
-reasoning, and the reasoning is what makes the graph institutional memory rather
-than a log.
+**Action (started):** the **engagement_log** (staff-only, backdatable, optionally
+tied to a gap) now captures meetings, decisions, and the *rationale* behind
+recommendations — the first Category-B build. Next: feed these entries into the
+knowledge graph (`graph_edges` from a rationale entry → the gap it explains → the
+recommendation), and grow the Advisor Library from a catalog into firm-authored
+decision trees.
 
 ## Category C — Commodity (keep functional, don't over-invest)
 
@@ -105,8 +107,8 @@ Reading the roadmap through docs/20's decision framework:
    characteristics → gaps → recommendations → evidence → actions → outcomes so the
    system can begin answering "which preparation strategies lead to stronger
    outcomes."
-2. **New capture (B):** **structured meeting outcomes** + **advisor rationale** —
-   capture the *reasoning*, not just the action.
+2. ~~**New capture (B):** structured meeting outcomes + advisor rationale~~ —
+   **DONE (v1)** via `engagement_log`. Next: wire these into `graph_edges`.
 3. **Activate substrate (A→Outcome Intelligence):** surface the dormant
    `deal_outcomes` calibration UI (docs/09 moat 1) — start turning predictions into
    a calibrated score.

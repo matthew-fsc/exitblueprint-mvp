@@ -3760,3 +3760,23 @@ textarea:focus {
 .eng-timeline-form input, .eng-timeline-form select {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem;
 }
+
+/* Engagement log — institutional memory (docs/21 Category B) */
+.log-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.log-entry { display: flex; gap: 0.7rem; align-items: flex-start; padding-bottom: 0.55rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
+.log-entry:last-child { border-bottom: 0; }
+.log-kind {
+  flex-shrink: 0; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0.16rem 0.45rem; border-radius: 999px; margin-top: 0.1rem;
+}
+.log-kind-meeting { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+.log-kind-decision { background: var(--chip-good-bg); color: var(--chip-good-fg); }
+.log-kind-rationale { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+.log-kind-note { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+.log-body { flex: 1; min-width: 0; }
+.log-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+.log-date { font-size: 0.78rem; white-space: nowrap; }
+.log-detail { margin: 0.25rem 0 0; font-size: 0.86rem; color: var(--text-secondary); }
+.log-gap { display: inline-block; margin-top: 0.3rem; font-size: 0.76rem; font-weight: 600; color: var(--accent-strong, var(--accent)); }
+.log-form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.log-form-row select, .log-form-row input { flex: 1; min-width: 130px; }

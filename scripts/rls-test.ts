@@ -228,6 +228,11 @@ async function main() {
        values ($1, $2, 'FIN-STMTS', 'ready')`,
       [ids.firm_b, engagementB],
     );
+    // Firm B engagement-log entry for the institutional-memory isolation checks.
+    await db.query(
+      `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'decision', 'Secret rationale')`,
+      [ids.firm_b, engagementB],
+    );
     // Firm B document + extracted field for the R3 isolation checks.
     const documentB = (
       await db.query(
@@ -435,6 +440,29 @@ async function main() {
       [ids.firm_a, engagementA],
     );
     check('can set own firm data room state', drOwnWrite.rowCount === 1);
+
+    // Engagement log (institutional memory): firm isolation, staff-only.
+    const elogA = await db.query('select id from engagement_log');
+    check('sees no firm B engagement log', elogA.rows.length === 0, `saw ${elogA.rows.length}`);
+    const logOwnWrite = await db.query(
+      `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'meeting', 'Kickoff') returning id`,
+      [ids.firm_a, engagementA],
+    );
+    check('can write own firm engagement log', logOwnWrite.rowCount === 1);
+    let logBWriteBlocked = false;
+    try {
+      await db.query('savepoint elog');
+      const ins = await db.query(
+        `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'note', 'sneak')`,
+        [ids.firm_b, engagementB],
+      );
+      logBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint elog');
+    } catch {
+      logBWriteBlocked = true;
+      await db.query('rollback to savepoint elog');
+    }
+    check('cannot insert an engagement log entry into firm B', logBWriteBlocked);
 
     // Sell-side intelligence substrate: firm isolation (graph, reconciliation,
     // findings, jobs, review queue, LLM cost ledger).
@@ -668,6 +696,9 @@ async function main() {
       [engagementA],
     );
     check('owner can update their company data room', ownerDrWrite.rowCount === 1);
+    // Engagement log is internal advisory reasoning — owners must not see it.
+    const ownerLog = await db.query('select id from engagement_log');
+    check('owner sees no engagement log (staff-only)', ownerLog.rows.length === 0, `saw ${ownerLog.rows.length}`);
     const ownerBranding = await db.query('select display_name from firm_branding');
     check(
       'owner reads only their firm branding',
