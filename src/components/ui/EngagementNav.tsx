@@ -1,10 +1,12 @@
 import { NavLink } from 'react-router-dom';
 
-// Engagement sub-navigation, organized around the five sell-side preparation
-// work streams (docs/17) rather than a flat list of features. The routes are
-// unchanged; grouping them under work-stream labels makes the arc legible and,
-// in particular, collapses the three Evidence tabs (data room, documents,
-// verification) into the one binder-building job they actually are.
+// Engagement sub-navigation. The tabs are ordered by the five sell-side
+// preparation work streams (docs/17) and separated into those groups by a subtle
+// divider — but the work-stream *labels* live only on the WorkstreamRail below,
+// not here: repeating them in both places duplicated the taxonomy and, because
+// each tab group was as wide as its uppercase label, stranded short tabs with
+// uneven gaps. The tab bar is now a clean, evenly-spaced row (institutional
+// convention: tabs are navigation; the rail carries the workflow state).
 interface NavTab {
   to: string;
   label: string;
@@ -42,14 +44,11 @@ export function EngagementNav({ engagementId }: { engagementId: string }) {
     <nav className="eng-nav" aria-label="Engagement">
       {WORK_STREAMS.map((ws) => (
         <div className="eng-nav-group" key={ws.stream}>
-          <span className="eng-nav-group-label">{ws.stream}</span>
-          <div className="eng-nav-links">
-            {ws.tabs.map((t) => (
-              <NavLink key={t.label} to={`${base}${t.to}`} end={t.end} className="eng-nav-link">
-                {t.label}
-              </NavLink>
-            ))}
-          </div>
+          {ws.tabs.map((t) => (
+            <NavLink key={t.label} to={`${base}${t.to}`} end={t.end} className="eng-nav-link">
+              {t.label}
+            </NavLink>
+          ))}
         </div>
       ))}
     </nav>
