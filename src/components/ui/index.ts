@@ -8,6 +8,8 @@ export { DimensionBars, type DimensionDatum } from './DimensionBars';
 export { GanttChart, type GanttItem } from './GanttChart';
 export { EmptyState } from './EmptyState';
 export { EngagementNav } from './EngagementNav';
+export { WorkstreamRail } from './WorkstreamRail';
+export { MoneyInput } from './MoneyInput';
 export { FirmMark, type FirmBrand } from './FirmMark';
 export { GapSeverityChip } from './GapSeverityChip';
 export { SectionCard } from './SectionCard';

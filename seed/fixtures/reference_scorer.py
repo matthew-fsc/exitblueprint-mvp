@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Generates the Exit Blueprint seed folder from the DRS methodology (Blueprint II)."""
+"""Generates the Exit Blueprint seed folder from the DRS methodology (Blueprint II).
+
+Output directory defaults to the repository's own seed/ folder (two levels up
+from this file); override with the SEED_OUT environment variable.
+"""
 import json, csv, os, math
 
-OUT = "/home/claude/exit-blueprint-specs/seed"
+OUT = os.environ.get(
+    "SEED_OUT",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+)
 os.makedirs(f"{OUT}/fixtures", exist_ok=True)
 os.makedirs(f"{OUT}/playbooks", exist_ok=True)
 

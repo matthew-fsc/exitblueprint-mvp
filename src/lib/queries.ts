@@ -18,6 +18,8 @@ export const qk = {
   agreementVersions: () => ['agreementVersions'] as const,
   sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
   dataRoom: (engagementId: string) => ['dataRoom', engagementId] as const,
+  engagementLog: (engagementId: string) => ['engagementLog', engagementId] as const,
+  comparables: (engagementId: string) => ['comparables', engagementId] as const,
   reviewQueue: () => ['reviewQueue'] as const,
   reconciliation: (engagementId: string) => ['reconciliation', engagementId] as const,
   engagementFindings: (engagementId: string) => ['engagementFindings', engagementId] as const,
@@ -452,6 +454,104 @@ export function useEngagementGaps(
           };
         })
         .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
+    },
+  });
+}
+
+export interface DealOutcomeRow {
+  outcome: 'closed' | 'broken' | 'withdrawn';
+  close_date: string | null;
+  days_on_market: number | null;
+  final_ev: number | null;
+  final_multiple: number | null;
+  ebitda_at_close: number | null;
+  buyer_type: string | null;
+  structure: string | null;
+  retrade: boolean;
+  retrade_pct: number | null;
+  buyer_flagged_risks: string[] | null;
+  notes: string | null;
+  updated_at: string | null;
+}
+
+// The recorded outcome for an engagement (moat #1 calibration substrate). Read
+// under RLS; written via the record-deal-outcome function (which snapshots the
+// prediction). Null until recorded.
+export function useDealOutcome(
+  engagementId: string | undefined,
+): UseQueryResult<DealOutcomeRow | null> {
+  return useQuery({
+    queryKey: engagementId ? ['dealOutcome', engagementId] : ['dealOutcome', ''],
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_outcomes')
+        .select('outcome, close_date, days_on_market, final_ev, final_multiple, ebitda_at_close, buyer_type, structure, retrade, retrade_pct, buyer_flagged_risks, notes, updated_at')
+        .eq('engagement_id', engagementId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as DealOutcomeRow) ?? null;
+    },
+  });
+}
+
+export interface ComparableRow {
+  engagementId: string;
+  companyName: string;
+  industry: string | null;
+  sizeBand: string | null;
+  drs: number | null;
+  tier: string | null;
+  outcomeStatus: string | null;
+  sharedGaps: string[];
+  reasons: string[];
+  score: number;
+}
+
+// Comparable engagements from the firm's own book (docs/21 Category B).
+export function useComparables(
+  engagementId: string | undefined,
+): UseQueryResult<ComparableRow[]> {
+  return useQuery({
+    queryKey: engagementId ? qk.comparables(engagementId) : ['comparables', ''],
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const r = await invokeFunction<{ comparables: ComparableRow[] }>('engagement-comparables', {
+        engagement_id: engagementId,
+      });
+      return r.comparables;
+    },
+  });
+}
+
+export interface EngagementLogRow {
+  id: string;
+  kind: 'meeting' | 'decision' | 'rationale' | 'note';
+  occurred_on: string;
+  title: string;
+  detail: string | null;
+  gap_id: string | null;
+  author_id: string | null;
+  created_at: string;
+}
+
+// Institutional memory (docs/21 Category B): the advisor's meetings, decisions,
+// and rationale for this engagement. Staff-only under RLS.
+export function useEngagementLog(
+  engagementId: string | undefined,
+): UseQueryResult<EngagementLogRow[]> {
+  return useQuery({
+    queryKey: qk.engagementLog(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_log')
+        .select('id, kind, occurred_on, title, detail, gap_id, author_id, created_at')
+        .eq('engagement_id', engagementId!)
+        .order('occurred_on', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as EngagementLogRow[]) ?? [];
     },
   });
 }

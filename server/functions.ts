@@ -33,6 +33,7 @@ import {
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
 import { attachDataRoomDocument, listDataRoom, setDataRoomItem } from './data-room';
+import { engagementComparables } from './comparables';
 import {
   claimReviewItem,
   escalateReviewItem,
@@ -414,6 +415,10 @@ async function dispatch(
       if (!owns) return err(404, 'connection not found');
       return ok(await disconnectLedger(service, { connectionId: body.connection_id as string }));
     }
+    case 'engagement-comparables':
+      // Firm-scoped "relevant historical cases" — the caller is already
+      // authorized on this engagement; siblings are constrained to its firm.
+      return ok(await engagementComparables(service, body.engagement_id as string));
     case 'list-data-room':
       // Authorized via the generic engagement path (staff by firm, owner by
       // company). Read-only view of the template + this engagement's states.

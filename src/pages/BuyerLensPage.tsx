@@ -103,7 +103,7 @@ export default function BuyerLensPage() {
       <PageHeader
         title="Buyer lens"
         crumbs={engagementCrumbs(engagementId, companyName, 'Buyer lens')}
-        subtitle="What the latest assessment tells a buyer — surfaced from the live score, most critical first."
+        subtitle="Buyer-facing risks derived from the latest assessment, most critical first."
         actions={
           <Link className="button-link" to="/library">
             Advisory library →

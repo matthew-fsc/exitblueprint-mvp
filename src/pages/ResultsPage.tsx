@@ -95,7 +95,7 @@ export default function ResultsPage() {
   }
   if (assessmentQ.error || explainQ.error) {
     return (
-      <EmptyState icon="⚠" title="Couldn’t load results">
+      <EmptyState icon="warning" title="Couldn’t load results">
         {(assessmentQ.error ?? explainQ.error)?.message}
       </EmptyState>
     );

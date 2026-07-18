@@ -11,7 +11,7 @@ import {
   useValuationInputs,
   type AddbackRow,
 } from '../lib/queries';
-import { Card, EmptyState, EngagementNav, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, EngagementNav, MoneyInput, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
 import { fmtCurrency, fmtCurrencyCompact } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
 
@@ -53,6 +53,7 @@ export default function ValuationPage() {
   const [abLabel, setAbLabel] = useState('');
   const [abAmount, setAbAmount] = useState('');
   const [abChallenge, setAbChallenge] = useState<AddbackRow['challenge_likelihood']>('medium');
+  const [abFormKey, setAbFormKey] = useState(0); // remounts the amount field on reset
   const [goalDraft, setGoalDraft] = useState('');
 
   const refresh = () => {
@@ -85,7 +86,7 @@ export default function ValuationPage() {
       { firm_id: engagement.firm_id, recast_id: recast.id, label: abLabel, amount: Number(abAmount) || 0, challenge_likelihood: abChallenge },
     ]);
     if (error) return toast.show(error.message, 'error');
-    setAbLabel(''); setAbAmount(''); setAbChallenge('medium');
+    setAbLabel(''); setAbAmount(''); setAbChallenge('medium'); setAbFormKey((k) => k + 1);
     refresh();
   };
 
@@ -118,7 +119,7 @@ export default function ValuationPage() {
       <PageHeader
         title="Valuation"
         crumbs={engagementCrumbs(engagementId, companyName, 'Valuation')}
-        subtitle="What the business is worth today, what finishing the roadmap is worth, and what the owner would net."
+        subtitle="Current enterprise value, the value of completing the roadmap, and the owner's net proceeds."
       />
       <EngagementNav engagementId={engagementId!} />
 
@@ -130,7 +131,7 @@ export default function ValuationPage() {
           </EmptyState>
           <form className="val-start" onSubmit={startRecast}>
             <label>Reported EBITDA (most recent year)
-              <input type="number" value={reported} onChange={(e) => setReported(e.target.value)} placeholder="e.g. 1200000" required />
+              <MoneyInput initial={reported} live onCommit={(v) => setReported(v == null ? '' : String(v))} placeholder="1,200,000" ariaLabel="Reported EBITDA" />
             </label>
             <button type="submit">Start recast</button>
           </form>
@@ -192,12 +193,12 @@ export default function ValuationPage() {
                           setGoalDraft('');
                         }}
                       >
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="Owner's wealth goal (e.g. 5000000)"
-                          value={goalDraft}
-                          onChange={(e) => setGoalDraft(e.target.value)}
+                        <MoneyInput
+                          initial={goalDraft}
+                          live
+                          onCommit={(v) => setGoalDraft(v == null ? '' : String(v))}
+                          placeholder="Owner's wealth goal (e.g. 5,000,000)"
+                          ariaLabel="Owner's wealth goal"
                         />
                         <button type="submit">Size the gap</button>
                       </form>
@@ -212,7 +213,7 @@ export default function ValuationPage() {
             {/* recast builder */}
             <SectionCard title="EBITDA recast">
               <label className="val-reported">Reported EBITDA
-                <input type="number" defaultValue={recast.reported_ebitda} onBlur={(e) => updateReported(e.target.value)} />
+                <MoneyInput initial={recast.reported_ebitda} onCommit={(v) => updateReported(String(v ?? 0))} ariaLabel="Reported EBITDA" />
               </label>
               <table className="val-addbacks">
                 <tbody>
@@ -232,7 +233,7 @@ export default function ValuationPage() {
               </table>
               <form className="val-ab-form" onSubmit={addAddback}>
                 <input placeholder="Add-back (e.g. Owner comp above market)" value={abLabel} onChange={(e) => setAbLabel(e.target.value)} required />
-                <input type="number" placeholder="Amount" value={abAmount} onChange={(e) => setAbAmount(e.target.value)} />
+                <MoneyInput key={abFormKey} initial={abAmount} live onCommit={(v) => setAbAmount(v == null ? '' : String(v))} placeholder="Amount" ariaLabel="Add-back amount" />
                 <select value={abChallenge} onChange={(e) => setAbChallenge(e.target.value as AddbackRow['challenge_likelihood'])}>
                   {CHALLENGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -258,10 +259,10 @@ export default function ValuationPage() {
                   <input type="number" step="0.1" placeholder={val ? `table ${val.base_multiple}×` : 'table'} defaultValue={inputs?.multiple_override ?? ''} onBlur={(e) => saveInput({ multiple_override: e.target.value === '' ? null : Number(e.target.value) })} />
                 </label>
                 <label>Interest-bearing debt
-                  <input type="number" defaultValue={inputs?.interest_bearing_debt ?? 0} onBlur={(e) => saveInput({ interest_bearing_debt: Number(e.target.value) || 0 })} />
+                  <MoneyInput initial={inputs?.interest_bearing_debt ?? 0} onCommit={(v) => saveInput({ interest_bearing_debt: v ?? 0 })} ariaLabel="Interest-bearing debt" />
                 </label>
                 <label>Owner's target ("the number")
-                  <input type="number" defaultValue={inputs?.owner_wealth_target ?? ''} onBlur={(e) => saveInput({ owner_wealth_target: e.target.value === '' ? null : Number(e.target.value) })} />
+                  <MoneyInput initial={inputs?.owner_wealth_target ?? ''} onCommit={(v) => saveInput({ owner_wealth_target: v })} ariaLabel="Owner's wealth target" />
                 </label>
               </div>
               {val?.has_recast && (

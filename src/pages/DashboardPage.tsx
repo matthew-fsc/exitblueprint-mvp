@@ -123,7 +123,7 @@ export default function DashboardPage() {
     <div className="stack-lg">
       <PageHeader
         title="Portfolio"
-        subtitle="Your book of exit-readiness engagements — who needs you this week."
+        subtitle="Exit-readiness engagements across your book, ordered by attention needed."
       />
 
       <StatRow>

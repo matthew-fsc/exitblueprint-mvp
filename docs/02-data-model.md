@@ -139,6 +139,17 @@ third-party analytics)
 **content_modules** - code, title, dimension_code, body_md
 **gap_content_map** - gap_definition_id, content_module_id, drip_order int
 
+## Institutional memory (docs/20/21 Category B)
+
+**engagement_log** — advisor-authored record of the *reasoning*, not just the
+action: meetings, decisions, and the rationale behind recommendations.
+- firm_id, engagement_id, author_id (fk profiles)
+- kind (meeting|decision|rationale|note), occurred_on date (backdatable for
+  engagements already in flight), title, detail
+- gap_id (nullable fk gaps, ON DELETE SET NULL) — the recommendation the entry explains
+- Staff-only under RLS (advisor+reviewer, firm-scoped): internal advisory logic,
+  never owner-facing. Never writes to a score (rule 2).
+
 ## Assessment lifecycle (immutable snapshots)
 
 **assessments**

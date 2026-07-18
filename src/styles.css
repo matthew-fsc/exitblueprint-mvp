@@ -358,9 +358,72 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* Native date inputs: style the browser chrome so they read as designed
+   controls, consistent with text inputs rather than default OS widgets. */
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 2.4rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+input[type='date']::-webkit-datetime-edit { padding: 0; }
+input[type='date']::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input[type='date']:required:invalid::-webkit-datetime-edit { color: var(--text-secondary); }
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
+:root[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+  }
+}
+
 .form-error {
   color: var(--status-critical);
   font-size: 0.85rem;
+}
+
+/* Money field: a currency prefix fused to a grouped-thousands input. */
+.money-input {
+  display: inline-flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  overflow: hidden;
+}
+.money-input:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.money-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.55rem;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-right: 1px solid var(--input-border);
+  font-variant-numeric: tabular-nums;
+}
+.money-input input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.money-input input:focus {
+  outline: none;
 }
 
 /* ---- status chips + quality colors (shared) ---- */
@@ -2662,6 +2725,79 @@ textarea:focus {
   border-bottom-color: var(--accent);
 }
 
+/* ---- work-stream progress rail (docs/22) ----
+   The five preparation work streams as a left-to-right arc on the Overview, each
+   chip showing where the engagement stands and linking into that stream's tab. */
+.ws-rail {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.ws-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-neutral);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ws-chip:hover { background: var(--surface-2); }
+.ws-chip.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ws-chip-step {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+.ws-chip-body { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.ws-chip-top { display: flex; align-items: center; gap: 0.4rem; }
+.ws-chip-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.ws-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ws-chip-headline {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* state colours: done → good, active → warning, todo → neutral, blocked → muted */
+.ws-state-done { border-left-color: var(--status-good); }
+.ws-state-active { border-left-color: var(--status-warning); }
+.ws-state-todo { border-left-color: var(--status-neutral); }
+.ws-state-blocked { border-left-color: var(--border); opacity: 0.72; }
+.ws-dot-done { background: var(--status-good); }
+.ws-dot-active { background: var(--status-warning); }
+.ws-dot-todo { background: var(--status-neutral); }
+.ws-dot-blocked { background: var(--border-strong, var(--status-neutral)); }
+.ws-state-done .ws-chip-step { color: var(--chip-good-fg); background: var(--chip-good-bg); }
+.ws-state-active .ws-chip-step { color: var(--chip-warn-fg); background: var(--chip-warn-bg); }
+@media (max-width: 900px) {
+  .ws-rail { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .ws-rail { grid-template-columns: 1fr; }
+}
+
 /* ---- SectionCard header ---- */
 .section-card-head {
   display: flex;
@@ -3038,7 +3174,7 @@ textarea:focus {
 /* ============================================================
    Gantt roadmap (F5)
    ============================================================ */
-.gantt { --gantt-label: 200px; }
+.gantt { --gantt-label: 244px; }
 .gantt-scroll { overflow-x: auto; }
 .gantt-inner {
   position: relative;
@@ -3077,21 +3213,24 @@ textarea:focus {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.gantt-row { min-height: 34px; border-bottom: 1px solid var(--surface-2); }
+.gantt-row { min-height: 40px; border-bottom: 1px solid var(--surface-2); }
 .gantt-row:last-child { border-bottom: none; }
 .gantt-rowlabel {
   padding: 0.3rem 0.85rem;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 1px;
   overflow: hidden;
 }
 .gantt-rowlabel-title {
   font-size: 0.8rem;
   font-weight: 600;
-  white-space: nowrap;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .gantt-rowlabel-sub { font-size: 0.68rem; color: var(--text-muted); }
 .gantt-bar {
@@ -3760,3 +3899,58 @@ textarea:focus {
 .eng-timeline-form input, .eng-timeline-form select {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem;
 }
+
+/* Engagement log — institutional memory (docs/21 Category B) */
+.log-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.log-entry { display: flex; gap: 0.7rem; align-items: flex-start; padding-bottom: 0.55rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
+.log-entry:last-child { border-bottom: 0; }
+.log-kind {
+  flex-shrink: 0; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0.16rem 0.45rem; border-radius: 999px; margin-top: 0.1rem;
+}
+.log-kind-meeting { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+.log-kind-decision { background: var(--chip-good-bg); color: var(--chip-good-fg); }
+.log-kind-rationale { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+.log-kind-note { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+.log-body { flex: 1; min-width: 0; }
+.log-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+.log-date { font-size: 0.78rem; white-space: nowrap; }
+.log-detail { margin: 0.25rem 0 0; font-size: 0.86rem; color: var(--text-secondary); }
+.log-gap { display: inline-block; margin-top: 0.3rem; font-size: 0.76rem; font-weight: 600; color: var(--accent-strong, var(--accent)); }
+.log-form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.log-form-row select, .log-form-row input { flex: 1; min-width: 130px; }
+
+/* Engagement knowledge chain — "how the plan connects" (docs/21 Category B) */
+.chain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.chain { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; }
+.chain-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.chain-status { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--status-good); }
+.chain-progress { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.chain-flow { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.chain-node {
+  font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 5px;
+  background: var(--surface-2, var(--chip-neutral-bg)); border: 1px solid var(--border);
+}
+.chain-node-missing { color: var(--text-secondary); border-style: dashed; font-weight: 500; }
+.chain-arrow { color: var(--text-secondary); }
+.chain-reason { font-size: 0.82rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+
+/* Comparable engagements (docs/21 Category B) */
+.cmp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.cmp { display: grid; grid-template-columns: minmax(140px, 1fr) auto; gap: 0.3rem 0.9rem; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
+.cmp:last-child { border-bottom: 0; }
+.cmp-name { font-weight: 650; text-decoration: none; color: var(--accent-strong, var(--accent)); }
+.cmp-meta { display: inline-flex; align-items: center; gap: 0.5rem; justify-self: end; }
+.cmp-outcome { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
+.cmp-reasons { grid-column: 1 / -1; font-size: 0.82rem; }
+
+/* Deal-outcome capture (docs/09 moat #1) */
+.outcome-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }
+.outcome-grid label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+.outcome-grid input, .outcome-grid select { padding: 0.4rem 0.5rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem; }
+.outcome-retrade { flex-direction: row !important; align-items: center; gap: 0.4rem !important; align-self: end; }
+.outcome-risks-label { font-size: 0.82rem; font-weight: 650; color: var(--text-secondary); }
+.outcome-risks { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.outcome-risk { font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+.outcome-risk.on { border-color: var(--accent); background: var(--accent-wash, var(--chip-good-bg)); color: var(--text-primary); }
+.outcome-risk input { margin: 0; }

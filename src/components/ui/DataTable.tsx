@@ -60,7 +60,7 @@ export function DataTable<Row>({
   }
   if (error) {
     return (
-      <EmptyState icon="⚠" title="Couldn’t load this">
+      <EmptyState icon="warning" title="Couldn’t load this">
         {error}
       </EmptyState>
     );

@@ -186,6 +186,34 @@ async function main() {
        values ($1, $2, $3, 'document')`,
       [ids.firm_b, assessmentBId, questionId],
     );
+    // Immutability fixtures: Firm A's completed assessment plus one scored child
+    // of each kind, so the freeze triggers (migration 20260718000200) have real
+    // rows to guard. Inserted while completed — inserts are never frozen.
+    const assessmentACompleted = (
+      await db.query(
+        `select id from assessments where firm_id = $1 and status = 'completed' limit 1`,
+        [ids.firm_a],
+      )
+    ).rows[0].id;
+    const subScoreId = (
+      await db.query(
+        `insert into sub_scores (dimension_id, code, name, weight, formula_type, input_question_codes)
+         values ($1, 'RLS-SS1', 'RLS Sub', 1, 'band_gte', 'RLS-Q1') returning id`,
+        [dimId],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb)`,
+      [assessmentACompleted, questionId],
+    );
+    await db.query(
+      `insert into sub_score_results (assessment_id, sub_score_id, points) values ($1, $2, 1)`,
+      [assessmentACompleted, subScoreId],
+    );
+    await db.query(
+      `insert into dimension_scores (assessment_id, dimension_id, score) values ($1, $2, 1)`,
+      [assessmentACompleted, dimId],
+    );
     // Firm B ledger connection + its OAuth secrets for the isolation checks.
     const ledgerB = (
       await db.query(
@@ -226,6 +254,11 @@ async function main() {
     await db.query(
       `insert into engagement_data_room_items (firm_id, engagement_id, item_code, readiness_state)
        values ($1, $2, 'FIN-STMTS', 'ready')`,
+      [ids.firm_b, engagementB],
+    );
+    // Firm B engagement-log entry for the institutional-memory isolation checks.
+    await db.query(
+      `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'decision', 'Secret rationale')`,
       [ids.firm_b, engagementB],
     );
     // Firm B document + extracted field for the R3 isolation checks.
@@ -340,6 +373,46 @@ async function main() {
     }
     check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
 
+    // Completed-assessment immutability (migration 20260718000200; docs/23).
+    // Advisor A holds role `authenticated` here (asUser), the untrusted path the
+    // freeze triggers constrain: a completed snapshot and its scored children
+    // cannot be altered or deleted through an end-user JWT — not the score, not
+    // the answers, and not even the supersede bookkeeping (corrections are
+    // orchestrated server-side as service_role, never by a client write). Each
+    // attempt runs in its own savepoint since the trigger RAISEs (aborting to
+    // that savepoint).
+    const expectFrozen = async (label: string, sql: string, params: unknown[]) => {
+      let blocked = false;
+      try {
+        await db.query(`savepoint imm`);
+        await db.query(sql, params);
+        await db.query(`rollback to savepoint imm`); // succeeded (wrongly) — undo
+      } catch {
+        blocked = true;
+        await db.query(`rollback to savepoint imm`);
+      }
+      check(label, blocked);
+    };
+    await expectFrozen(
+      'cannot edit the score of a completed assessment',
+      `update assessments set drs_score = 1 where id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      'cannot delete a completed assessment',
+      `delete from assessments where id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot edit a completed assessment's sub_score_results",
+      `update sub_score_results set points = 0 where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot delete a completed assessment's dimension_scores",
+      `delete from dimension_scores where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      "cannot delete a completed assessment's answers",
+      `delete from answers where assessment_id = $1`, [assessmentACompleted]);
+    await expectFrozen(
+      'cannot supersede a completed assessment via a client write (server-side only)',
+      `update assessments set record_status = 'superseded', supersede_reason = 'rls-test' where id = $1`,
+      [assessmentACompleted]);
+
     // agreement_versions + engagement_agreements: firm isolation (beta R1)
     const avA = await db.query('select version_label from agreement_versions');
     check('sees only own firm agreement_versions',
@@ -435,6 +508,29 @@ async function main() {
       [ids.firm_a, engagementA],
     );
     check('can set own firm data room state', drOwnWrite.rowCount === 1);
+
+    // Engagement log (institutional memory): firm isolation, staff-only.
+    const elogA = await db.query('select id from engagement_log');
+    check('sees no firm B engagement log', elogA.rows.length === 0, `saw ${elogA.rows.length}`);
+    const logOwnWrite = await db.query(
+      `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'meeting', 'Kickoff') returning id`,
+      [ids.firm_a, engagementA],
+    );
+    check('can write own firm engagement log', logOwnWrite.rowCount === 1);
+    let logBWriteBlocked = false;
+    try {
+      await db.query('savepoint elog');
+      const ins = await db.query(
+        `insert into engagement_log (firm_id, engagement_id, kind, title) values ($1, $2, 'note', 'sneak')`,
+        [ids.firm_b, engagementB],
+      );
+      logBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint elog');
+    } catch {
+      logBWriteBlocked = true;
+      await db.query('rollback to savepoint elog');
+    }
+    check('cannot insert an engagement log entry into firm B', logBWriteBlocked);
 
     // Sell-side intelligence substrate: firm isolation (graph, reconciliation,
     // findings, jobs, review queue, LLM cost ledger).
@@ -668,6 +764,9 @@ async function main() {
       [engagementA],
     );
     check('owner can update their company data room', ownerDrWrite.rowCount === 1);
+    // Engagement log is internal advisory reasoning — owners must not see it.
+    const ownerLog = await db.query('select id from engagement_log');
+    check('owner sees no engagement log (staff-only)', ownerLog.rows.length === 0, `saw ${ownerLog.rows.length}`);
     const ownerBranding = await db.query('select display_name from firm_branding');
     check(
       'owner reads only their firm branding',

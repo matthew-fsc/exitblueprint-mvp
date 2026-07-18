@@ -221,7 +221,7 @@ export default function VerificationPage() {
         {reconQ.isLoading ? (
           <SkeletonLines lines={3} />
         ) : recon.length === 0 ? (
-          <EmptyState title="Nothing reconciled yet" icon="◇">
+          <EmptyState title="Nothing reconciled yet" icon="empty">
             Upload source documents, then run verification to compare them against the questionnaire.
           </EmptyState>
         ) : (
@@ -265,7 +265,7 @@ export default function VerificationPage() {
         {findingsQ.isLoading ? (
           <SkeletonLines lines={2} />
         ) : findings.length === 0 ? (
-          <EmptyState title="No findings" icon="✓">
+          <EmptyState title="No findings" icon="check">
             No diligence patterns matched. Run verification after uploading documents.
           </EmptyState>
         ) : (
@@ -299,7 +299,7 @@ export default function VerificationPage() {
         {reviewQ.isLoading ? (
           <SkeletonLines lines={2} />
         ) : reviews.length === 0 ? (
-          <EmptyState title="Queue is clear" icon="✓">
+          <EmptyState title="Queue is clear" icon="check">
             Nothing awaiting review for this engagement.
           </EmptyState>
         ) : (
