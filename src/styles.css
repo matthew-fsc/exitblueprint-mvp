@@ -73,6 +73,29 @@
 
   --radius: 12px;
   --radius-sm: 8px;
+
+  /* ---- spacing scale (single source of vertical + horizontal rhythm) ----
+     A 4px grid. Every layout primitive spaces off these steps so the app reads
+     as one system instead of ~40 hand-picked rem values. Semantic aliases below
+     name the three rhythms an advisor actually perceives moving through a page:
+     tight (within a component), block (between blocks in a stack), and section
+     (between major regions of a page). */
+  --space-1: 0.25rem;   /* 4px  — hairline gaps, chip internals */
+  --space-2: 0.5rem;    /* 8px  — default small gap */
+  --space-3: 0.75rem;   /* 12px — compact padding, list rows */
+  --space-4: 1rem;      /* 16px — standard gap, card-grid gutter */
+  --space-5: 1.25rem;   /* 20px — header-to-content */
+  --space-6: 1.5rem;    /* 24px — card padding, stack rhythm */
+  --space-7: 2rem;      /* 32px — section separation */
+  --space-8: 2.5rem;    /* 40px — major section separation */
+  --space-9: 4rem;      /* 64px — page floor */
+
+  /* semantic rhythms */
+  --gap-tight: var(--space-2);
+  --gap-block: var(--space-6);
+  --gap-section: var(--space-7);
+  --pad-card: var(--space-6);
+  --pad-page-x: var(--space-6);
 }
 
 :root[data-theme='dark'] {
@@ -215,7 +238,7 @@ a {
 .page {
   max-width: 1140px;
   margin: 0 auto;
-  padding: 1.75rem 1.5rem 4rem;
+  padding: var(--space-7) var(--pad-page-x) var(--space-9);
 }
 
 h1, h2, h3, h4 {
@@ -237,7 +260,7 @@ h1, h2, h3, h4 {
 
 .page-header .subtitle,
 .login-subtitle {
-  margin: 0.25rem 0 0;
+  margin: var(--space-1) 0 0;
   color: var(--text-secondary);
 }
 
@@ -245,26 +268,26 @@ h1, h2, h3, h4 {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .page-title-row h2 {
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--space-3);
   font-size: 1.3rem;
 }
 
 .section-heading {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   font-size: 1.15rem;
   color: var(--brand);
-  margin: 2rem 0 0.35rem;
+  margin: var(--gap-section) 0 var(--space-1);
 }
 
 .section-sub {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-4);
   font-size: 0.88rem;
 }
 
@@ -2308,9 +2331,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 1.15rem 1.3rem;
+  padding: var(--space-5) var(--pad-card);
 }
-.ui-card-pad-lg { padding: 1.5rem 1.75rem; }
+.ui-card-pad-lg { padding: var(--pad-card) var(--space-7); }
 .ui-card-flush { padding: 0; overflow: hidden; }
 
 /* ---- PageHeader ---- */
@@ -2318,40 +2341,40 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--space-5);
 }
 .ui-pageheader-titles { min-width: 0; }
 .ui-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
   font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--space-1);
   flex-wrap: wrap;
 }
 .ui-breadcrumb a { text-decoration: none; }
 .ui-breadcrumb-sep { color: var(--text-muted); }
 .ui-pageheader h1, .ui-pageheader h2 { margin: 0; font-size: 1.4rem; }
-.ui-pageheader-sub { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.9rem; }
-.ui-pageheader-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.ui-pageheader-sub { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: 0.9rem; }
+.ui-pageheader-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 
 /* ---- StatBlock ---- */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 .stat-block {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.9rem 1.1rem;
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 .stat-block-label {
   font-size: 0.72rem;
@@ -2624,11 +2647,11 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .filter-row {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  margin: 1.25rem 0 0.9rem;
+  margin: var(--space-5) 0 var(--space-4);
 }
-.filter-control { display: flex; flex-direction: column; gap: 0.3rem; }
+.filter-control { display: flex; flex-direction: column; gap: var(--space-1); }
 .filter-label {
   font-size: 0.72rem;
   font-weight: 700;
@@ -2680,11 +2703,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 /* ---- engagement sub-navigation (tab bar shared across engagement pages) ---- */
+/* The engagement tab bar is chrome that belongs with the page header, so it
+   sits tight beneath it (see the .ui-pageheader + .eng-nav rule) and takes a
+   full section break before the working content below. */
 .eng-nav {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.5rem 0;
+  gap: var(--space-2) 0;
   border-bottom: 1px solid var(--border);
 }
 .eng-nav-group {
@@ -2692,7 +2718,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   flex-direction: column;
 }
 .eng-nav-group + .eng-nav-group {
-  padding-left: 1.4rem;
+  padding-left: var(--space-5);
   border-left: 1px solid var(--border-subtle, var(--border));
 }
 .eng-nav-group-label {
@@ -2702,15 +2728,15 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   letter-spacing: 0.09em;
   color: var(--text-secondary);
   opacity: 0.75;
-  padding: 0 0.85rem;
-  margin-bottom: 1px;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-1);
 }
 .eng-nav-links {
   display: flex;
-  gap: 0.1rem;
+  gap: var(--space-1);
 }
 .eng-nav-link {
-  padding: 0.5rem 0.85rem;
+  padding: var(--space-2) var(--space-3);
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -2731,14 +2757,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ws-rail {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 .ws-chip {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.75rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-left: 3px solid var(--status-neutral);
@@ -2803,19 +2829,19 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.9rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 .section-card-titles { min-width: 0; }
-.section-card-sub { margin: 0.25rem 0 0; font-size: 0.88rem; }
+.section-card-sub { margin: var(--space-1) 0 0; font-size: 0.88rem; }
 .section-card-action { flex-shrink: 0; }
 
 /* ---- engagement command view (F3) ---- */
 .eng-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 /* When paired cards hold unrelated content of different lengths, let each take
    its natural height instead of stretching the shorter one (which leaves dead
@@ -2914,16 +2940,16 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   max-width: 1140px;
   margin: 0 auto;
   height: 60px;
-  padding: 0 1.5rem;
+  padding: 0 var(--pad-page-x);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 .app-bar-left {
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: var(--space-4);
   min-width: 0;
 }
 .app-bar-left .firm-mark-name {
@@ -2968,7 +2994,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .app-bar-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-shrink: 0;
 }
 .app-bar .dev-badge {
@@ -3306,7 +3332,7 @@ textarea:focus {
 .rm-check-done { background: var(--status-good); border-color: var(--status-good); }
 
 /* ---- Advisory Library (buyer lens + catalog) ---------------------------- */
-.stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
+.stack-lg { display: flex; flex-direction: column; gap: var(--gap-block); }
 /* The gap is the single, uniform spacer between top-level blocks: neutralize the
    ad-hoc margins that would otherwise add to it (page header, grids, headings). */
 .stack-lg > * { margin-top: 0; margin-bottom: 0; }
@@ -3315,6 +3341,10 @@ textarea:focus {
 /* Section headings that sit at the top of a grid cell shouldn't add their
    section-break margin (the grid is already a spaced block). */
 .stack-lg .eng-grid .section-heading { margin-top: 0; }
+/* The tab bar reads as an extension of the page header, not a peer block in the
+   stack: pull it up so header + nav form one "where am I / where can I go"
+   cluster, then the full stack gap resumes before the working content. */
+.stack-lg > .ui-pageheader + .eng-nav { margin-top: calc(var(--space-2) - var(--gap-block)); }
 
 .advisory-summary {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
