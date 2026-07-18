@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
@@ -6,7 +6,7 @@ import { qk, useLatestReport } from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Collapsible, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { fmtDate } from '../lib/format';
 
 // Minimal inline renderer for the report markdown.
@@ -69,6 +69,7 @@ export default function ReportPage() {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoTried = useRef(false);
 
   useEffect(() => {
     setDraft(doc?.content_md ?? '');
@@ -87,6 +88,24 @@ export default function ReportPage() {
       setError((err as Error).message);
     }
     setBusy(false);
+  };
+
+  // Auto-generate on first visit so the advisor lands on a finished document, not
+  // an empty page with a button. Fires once, only when no report exists yet.
+  useEffect(() => {
+    if (reportQ.isLoading || doc || !assessmentId || autoTried.current || busy) return;
+    autoTried.current = true; // synchronous guard — no double-fire under StrictMode
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportQ.isLoading, doc, assessmentId]);
+
+  const copySource = async () => {
+    try {
+      await navigator.clipboard.writeText(draft);
+      toast.show('Markdown copied', 'good');
+    } catch {
+      setError('Could not copy to clipboard.');
+    }
   };
 
   const saveDraft = async () => {
@@ -118,6 +137,12 @@ export default function ReportPage() {
     setBusy(true);
     setError(null);
     try {
+      // The PDF renders from the saved content, so flush any unsaved edits first
+      // — the download always matches the polished doc on screen.
+      if (doc && !doc.finalized_at && draft !== doc.content_md) {
+        await supabase.from('generated_documents').update({ content_md: draft }).eq('id', doc.id);
+        refresh();
+      }
       const blob = await invokeFunctionBlob('render-owner-pdf', { assessment_id: assessmentId });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -143,6 +168,7 @@ export default function ReportPage() {
   if (reportQ.isLoading) return <SkeletonLines lines={6} />;
 
   const ruleBased = (doc?.model ?? '').startsWith('rule-based');
+  const finalized = !!doc?.finalized_at;
 
   return (
     <div className="report">
@@ -158,75 +184,85 @@ export default function ReportPage() {
       {error && <p className="form-error no-print">{error}</p>}
 
       {!doc ? (
-        <div className="no-print">
-          <p className="muted">
-            No report yet. The report is built server-side from this assessment’s scores and flagged
-            gaps — every figure traces back to an answer, and no number is invented. If an AI writing
-            service is configured it drafts the prose from those same numbers; otherwise a
-            plain-language version is composed directly from the data.
-          </p>
-          <button onClick={generate} disabled={busy}>
-            {busy ? 'Generating…' : 'Generate owner report'}
-          </button>
+        <div className="report-generating no-print">
+          {busy ? (
+            <>
+              <div className="report-spinner" aria-hidden />
+              <p className="muted">Composing the report from this assessment’s scores and flagged gaps…</p>
+            </>
+          ) : (
+            <>
+              <p className="muted">
+                The report is built server-side from this assessment’s scores and flagged gaps — every
+                figure traces back to an answer, and no number is invented.
+              </p>
+              <button onClick={generate}>Generate owner report</button>
+            </>
+          )}
         </div>
       ) : (
         <>
-          <div className="report-meta no-print">
-            <span className={`status-chip status-${doc.finalized_at ? 'good' : 'warning'}`}>
-              {doc.finalized_at
-                ? `Finalized ${fmtDate(doc.finalized_at)}`
-                : ruleBased
-                  ? 'Draft built from your assessment data — review and edit before finalizing'
-                  : 'AI-drafted from your assessment data — review and edit before finalizing'}
-            </span>
-            <span className="muted">
-              {ruleBased ? 'Composed from your scores and flagged gaps' : `Drafted by ${doc.model}`} ·
-              generated {new Date(doc.created_at).toLocaleString()}
-            </span>
-          </div>
-
-          {!doc.finalized_at ? (
-            <>
-              <textarea
-                className="report-editor no-print"
-                rows={24}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              <div className="report-actions no-print">
-                <button className="linkish" onClick={generate} disabled={busy}>
-                  Regenerate
+          <div className="report-toolbar no-print">
+            <div className="report-toolbar-status">
+              <span className={`status-chip status-${finalized ? 'good' : 'warning'}`}>
+                {finalized ? `Finalized ${fmtDate(doc.finalized_at)}` : ruleBased ? 'Draft' : 'AI draft'}
+              </span>
+              <span className="muted report-toolbar-meta">
+                {ruleBased ? 'Composed from your scores and flagged gaps' : `Drafted by ${doc.model}`} ·
+                generated {new Date(doc.created_at).toLocaleString()}
+              </span>
+            </div>
+            <div className="report-toolbar-actions">
+              <button className="button-secondary" onClick={generate} disabled={busy}>
+                {busy ? 'Working…' : 'Regenerate'}
+              </button>
+              {!finalized && (
+                <button className="button-secondary" onClick={finalize} disabled={busy}>
+                  Finalize
                 </button>
-                <span>
-                  <button className="linkish" onClick={saveDraft} disabled={busy}>
-                    Save draft
-                  </button>{' '}
-                  <button onClick={finalize} disabled={busy}>
-                    Finalize
-                  </button>
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="report-actions no-print">
+              )}
               <button onClick={downloadPdf} disabled={busy}>
                 {busy ? 'Preparing…' : 'Download branded PDF'}
               </button>
             </div>
+          </div>
+
+          {/* The raw Markdown source, tucked into an expand bar above the polished
+              document so it never competes with it — open it to tweak or copy. */}
+          {!finalized && (
+            <Collapsible title="Edit source" hint="raw Markdown — tweak the wording or copy it out">
+              <textarea
+                className="report-editor"
+                rows={18}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <div className="report-source-actions">
+                <button className="linkish" onClick={copySource}>
+                  Copy Markdown
+                </button>
+                <button className="button-secondary" onClick={saveDraft} disabled={busy}>
+                  Save changes
+                </button>
+              </div>
+            </Collapsible>
           )}
 
-          {/* print view (and read view once finalized) — firm-branded */}
-          <article className={`report-body ${doc.finalized_at ? '' : 'print-only'}`}>
-            <div className="report-brandbar">
-              <FirmMark brand={brand} />
-              {branding?.report_from_line && <span className="muted">{branding.report_from_line}</span>}
-            </div>
-            {renderMarkdown(doc.finalized_at ? doc.content_md : draft)}
-            {branding?.footer_disclosure_md && (
-              <p className="report-disclosure">{branding.footer_disclosure_md}</p>
-            )}
-            <p className="powered-by report-poweredby">Powered by Exit Blueprint</p>
-          </article>
+          {/* The polished document — the primary view, always visible, firm-branded.
+              Live-previews the draft while editing; the saved copy once finalized. */}
+          <div className="report-sheet-wrap">
+            <article className="report-body">
+              <div className="report-brandbar">
+                <FirmMark brand={brand} />
+                {branding?.report_from_line && <span className="muted">{branding.report_from_line}</span>}
+              </div>
+              {renderMarkdown(finalized ? doc.content_md : draft)}
+              {branding?.footer_disclosure_md && (
+                <p className="report-disclosure">{branding.footer_disclosure_md}</p>
+              )}
+              <p className="powered-by report-poweredby">Powered by Exit Blueprint</p>
+            </article>
+          </div>
         </>
       )}
     </div>
