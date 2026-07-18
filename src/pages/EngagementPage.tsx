@@ -6,6 +6,7 @@ import { loadActiveRubricVersion } from '../lib/rubric';
 import { supabase } from '../lib/supabase';
 import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
 import { rollUpCapitals } from '../lib/practitioner';
+import { buildEngagementKnowledge } from '../lib/knowledge';
 import {
   qk,
   useAssessmentsByEngagement,
@@ -19,6 +20,7 @@ import {
   useValuation,
   useEngagementLog,
   type EngagementLogRow,
+  useTasks,
   useEngagementOutcome,
   useExplain,
   type AssessmentRow,
@@ -96,6 +98,7 @@ export default function EngagementPage() {
   const explainQ = useExplain(latest?.id);
   const valuationQ = useValuation(engagementId);
   const logQ = useEngagementLog(engagementId);
+  const tasksQ = useTasks(engagementId);
   const [logKind, setLogKind] = useState<EngagementLogRow['kind']>('meeting');
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [logTitle, setLogTitle] = useState('');
@@ -500,6 +503,61 @@ export default function EngagementPage() {
               </form>
             </div>
           </Collapsible>
+
+          {/* how the plan connects — the engagement knowledge chain */}
+          {(gapsQ.data ?? []).length > 0 && (() => {
+            const knowledge = buildEngagementKnowledge({
+              gaps: (gapsQ.data ?? []).map((g) => ({
+                id: g.id, name: g.name, severity: g.severity, status: g.status, playbookName: g.playbookName,
+              })),
+              tasks: (tasksQ.data ?? []).map((t) => ({ gap_id: t.gap_id, status: t.status })),
+              log: (logQ.data ?? []).map((l) => ({
+                id: l.id, kind: l.kind, title: l.title, occurred_on: l.occurred_on, gap_id: l.gap_id,
+              })),
+            });
+            return (
+              <Collapsible
+                title="How the plan connects"
+                hint="Each risk → its recommendation → the advisor's reasoning → progress"
+              >
+                <p className="muted" style={{ marginTop: 0 }}>
+                  The engagement's connected record: {knowledge.connectedPct}% of logged reasoning is tied to a
+                  specific recommendation.
+                </p>
+                <ul className="chain-list">
+                  {knowledge.chains.map((c) => (
+                    <li key={c.gapId} className="chain">
+                      <div className="chain-head">
+                        <GapSeverityChip severity={c.severity} />
+                        <strong>{c.gapName}</strong>
+                        {c.status !== 'open' && <span className="chain-status">{c.status}</span>}
+                        <span className="chain-progress muted">
+                          {c.total > 0 ? `${c.done}/${c.total} tasks` : 'no tasks yet'}
+                        </span>
+                      </div>
+                      <div className="chain-flow">
+                        <span className="chain-node">Risk</span>
+                        <span className="chain-arrow">→</span>
+                        <span className={`chain-node ${c.recommendation ? '' : 'chain-node-missing'}`}>
+                          {c.recommendation ?? 'no recommendation'}
+                        </span>
+                        <span className="chain-arrow">→</span>
+                        <span className={`chain-node ${c.reasoning.length ? '' : 'chain-node-missing'}`}>
+                          {c.reasoning.length ? `${c.reasoning.length} rationale` : 'no rationale logged'}
+                        </span>
+                      </div>
+                      {c.reasoning.map((r) => (
+                        <div key={r.id} className="chain-reason">
+                          <span className={`log-kind log-kind-${r.kind}`}>{r.kind}</span>
+                          {r.title} <span className="muted">· {fmtDate(r.occurred_on)}</span>
+                        </div>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </Collapsible>
+            );
+          })()}
 
           {/* compare any two — power tool, folded away */}
           {completed.length > 1 && (

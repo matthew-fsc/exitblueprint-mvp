@@ -3780,3 +3780,18 @@ textarea:focus {
 .log-gap { display: inline-block; margin-top: 0.3rem; font-size: 0.76rem; font-weight: 600; color: var(--accent-strong, var(--accent)); }
 .log-form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .log-form-row select, .log-form-row input { flex: 1; min-width: 130px; }
+
+/* Engagement knowledge chain — "how the plan connects" (docs/21 Category B) */
+.chain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.chain { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; }
+.chain-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.chain-status { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--status-good); }
+.chain-progress { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.chain-flow { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.chain-node {
+  font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 5px;
+  background: var(--surface-2, var(--chip-neutral-bg)); border: 1px solid var(--border);
+}
+.chain-node-missing { color: var(--text-secondary); border-style: dashed; font-weight: 500; }
+.chain-arrow { color: var(--text-secondary); }
+.chain-reason { font-size: 0.82rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }

@@ -102,13 +102,16 @@ Category B knowledge-graph and rationale-capture work. This supersedes the earli
 
 Reading the roadmap through docs/20's decision framework:
 
-1. **Highest leverage (B):** connect the **Institutional Knowledge Graph** end to
-   end — the substrate exists (`graph_nodes/edges/findings`); wire
-   characteristics → gaps → recommendations → evidence → actions → outcomes so the
-   system can begin answering "which preparation strategies lead to stronger
-   outcomes."
+1. **Connect the chain (B) — DONE (v1):** the "How the plan connects" read
+   assembles gap → recommendation → the advisor's reasoning (`engagement_log`) →
+   progress (`tasks`) into one connected view (`buildEngagementKnowledge`,
+   `src/lib/knowledge.ts`), surfaced on the engagement Overview. Design choice:
+   assembled **deterministically over source tables**, not duplicated into the
+   document-verified `graph_nodes/edges` (which stay for extracted facts) — same
+   information, no sync/staleness. Next: cross-engagement pattern lookup, then
+   connect outcomes onto the chain.
 2. ~~**New capture (B):** structured meeting outcomes + advisor rationale~~ —
-   **DONE (v1)** via `engagement_log`. Next: wire these into `graph_edges`.
+   **DONE (v1)** via `engagement_log`, now connected to recommendations (item 1).
 3. **Activate substrate (A→Outcome Intelligence):** surface the dormant
    `deal_outcomes` calibration UI (docs/09 moat 1) — start turning predictions into
    a calibrated score.

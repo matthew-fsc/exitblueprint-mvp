@@ -292,18 +292,22 @@ async function main() {
     // Engagement log (institutional memory): a couple of demo entries so the log
     // shows real advisor reasoning out of the box. Idempotent (clear then insert).
     await db.query(`delete from engagement_log where engagement_id = $1`, [engagementId]);
-    for (const [kind, daysAgo, title, detail] of [
-      ['meeting', 60, 'Kickoff — baseline review', 'Walked the owner through the baseline DRS and the top gaps. Owner aligned on a 24–36mo window.'],
-      ['rationale', 45, 'Prioritized owner-independence first', 'Sequenced management-depth work ahead of growth items because owner dependence caps the multiple more than growth upside adds.'],
-      ['decision', 20, 'Engaged a QoE-ready bookkeeper', 'Owner agreed to bring reconciliations monthly before going to market — de-risks the add-back conversation.'],
-    ] as [string, number, string, string][]) {
+    // gap_code links a rationale to the recommendation it explains, so the
+    // "how the plan connects" chain shows end-to-end in the demo.
+    for (const [kind, daysAgo, title, detail, gapCode] of [
+      ['meeting', 60, 'Kickoff — baseline review', 'Walked the owner through the baseline DRS and the top gaps. Owner aligned on a 24–36mo window.', null],
+      ['rationale', 45, 'Prioritized management depth first', 'Sequenced management-depth work ahead of growth items because owner/management dependence caps the multiple more than growth upside adds.', 'MGMT_DEPTH'],
+      ['decision', 20, 'Engaged a QoE-ready bookkeeper', 'Owner agreed to bring reconciliations monthly before going to market — de-risks the add-back conversation.', 'STMT_INCOMPLETE'],
+    ] as [string, number, string, string, string | null][]) {
       await db.query(
-        `insert into engagement_log (firm_id, engagement_id, kind, occurred_on, title, detail)
-         values ($1, $2, $3, current_date - $4::int, $5, $6)`,
-        [firmId, engagementId, kind, daysAgo, title, detail],
+        `insert into engagement_log (firm_id, engagement_id, kind, occurred_on, title, detail, gap_id)
+         values ($1, $2, $3, current_date - $4::int, $5, $6,
+           (select g.id from gaps g join gap_definitions gd on gd.id = g.gap_definition_id
+            where g.engagement_id = $2 and gd.code = $7 limit 1))`,
+        [firmId, engagementId, kind, daysAgo, title, detail, gapCode],
       );
     }
-    console.log('seed-demo: engagement log seeded — 3 entries');
+    console.log('seed-demo: engagement log seeded — 3 entries (2 tied to recommendations)');
 
     // Branded demo firm (F1): the advisor's firm is the face on client-facing
     // reports. Idempotent upsert on firm_id.
