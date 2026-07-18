@@ -392,7 +392,7 @@ export default function RoadmapPage() {
           )}
           <form className="inline-form rm-add-task" onSubmit={addTask} style={{ marginTop: '0.9rem' }}>
             <h3>Add a task</h3>
-            <p className="muted" style={{ margin: 0 }}>
+            <p className="muted m-0">
               Capture work underway or planned outside the generated playbooks; mark items done to
               reflect actual progress.
             </p>

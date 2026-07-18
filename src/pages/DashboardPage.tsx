@@ -56,7 +56,7 @@ export default function DashboardPage() {
       render: (r) => (
         <span>
           <strong>{r.companyName}</strong>
-          {r.industry && <span className="muted" style={{ display: 'block', fontSize: '0.78rem' }}>{r.industry}</span>}
+          {r.industry && <span className="muted text-sm" style={{ display: 'block' }}>{r.industry}</span>}
         </span>
       ),
     },

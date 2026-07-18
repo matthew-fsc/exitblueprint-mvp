@@ -101,7 +101,7 @@ export default function OwnerHomePage() {
               </div>
             )}
           </div>
-          <p className="muted" style={{ margin: '0.7rem 0 0', fontSize: '0.78rem', fontStyle: 'italic' }}>
+          <p className="muted text-sm" style={{ margin: '0.7rem 0 0', fontStyle: 'italic' }}>
             An estimate to guide planning — not an appraisal. Finishing your plan is worth about{' '}
             {fmtCurrencyCompact(val.value_creation_gap)} more in enterprise value.
           </p>

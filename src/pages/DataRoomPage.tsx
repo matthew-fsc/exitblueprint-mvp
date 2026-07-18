@@ -139,7 +139,7 @@ export default function DataRoomPage() {
       {engagementId && <EngagementNav engagementId={engagementId} />}
 
       <Card>
-        <p className="muted" style={{ marginTop: 0 }}>
+        <p className="muted mt-0">
           The request list a buyer will actually send, assembled ahead of time. Mark each item as you
           build the binder — items flagged <strong>Gap</strong> are where a deal gets repriced or
           stalled. Nothing here changes a readiness score.
@@ -167,9 +167,9 @@ export default function DataRoomPage() {
           if (items.length === 0) return null;
           return (
             <Card key={section.code}>
-              <h3 style={{ marginTop: 0 }}>{section.name}</h3>
+              <h3 className="mt-0">{section.name}</h3>
               {section.description && (
-                <p className="muted" style={{ marginTop: 0 }}>
+                <p className="muted mt-0">
                   {section.description}
                 </p>
               )}
