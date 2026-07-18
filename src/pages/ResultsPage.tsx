@@ -161,29 +161,32 @@ export default function ResultsPage() {
         </p>
       </div>
 
-      {/* Score summary */}
-      <section className="score-tiles">
-        <div className="tile score-tile" style={{ alignItems: 'center' }}>
+      {/* Score summary — the dial anchors the left; the two readings stack on the
+          right so they fill the dial's height rather than floating in tall tiles. */}
+      <section className="score-summary">
+        <div className="tile score-tile score-tile-dial">
           <span className="tile-label">Business readiness</span>
           <ScoreDial value={explain.drsScore} tier={explain.drsTier} />
           <TierBadge tier={explain.drsTier} />
           <span className="muted tile-note">Diligence Readiness Score, out of 100</span>
         </div>
-        <div className="tile score-tile">
-          <span className="tile-label">Owner readiness</span>
-          <span className="tile-value hero-tile-value">{fmtScore(explain.oriScore)}</span>
-          <span className="muted tile-note">
-            The owner’s personal and financial readiness, scored on its own — never blended into the
-            business score.
-          </span>
-        </div>
-        <div className={`tile score-tile ${divergent ? 'tile-flag' : ''}`}>
-          <span className="tile-label">Reading the two together</span>
-          <span className="tile-narrative">
-            {divergent
-              ? 'The business and the owner are at different stages of readiness. That gap is a finding in itself: the plan should move both forward, not just one.'
-              : 'The business and the owner are broadly aligned in readiness.'}
-          </span>
+        <div className="score-summary-side">
+          <div className="tile score-tile">
+            <span className="tile-label">Owner readiness</span>
+            <span className="tile-value hero-tile-value">{fmtScore(explain.oriScore)}</span>
+            <span className="muted tile-note">
+              The owner’s personal and financial readiness, scored on its own — never blended into
+              the business score.
+            </span>
+          </div>
+          <div className={`tile score-tile ${divergent ? 'tile-flag' : ''}`}>
+            <span className="tile-label">Reading the two together</span>
+            <span className="tile-narrative">
+              {divergent
+                ? 'The business and the owner are at different stages of readiness. That gap is a finding in itself: the plan should move both forward, not just one.'
+                : 'The business and the owner are broadly aligned in readiness.'}
+            </span>
+          </div>
         </div>
       </section>
 
