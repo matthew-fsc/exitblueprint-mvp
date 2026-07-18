@@ -138,7 +138,7 @@ export default function DocumentsPage() {
           <SkeletonLines lines={4} />
         </Card>
       ) : docs.length === 0 ? (
-        <EmptyState title="No documents yet" icon="◇">
+        <EmptyState title="No documents yet" icon="empty">
           Upload financial statements, contracts, or org charts to begin building verified facts.
         </EmptyState>
       ) : (

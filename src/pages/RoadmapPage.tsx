@@ -266,7 +266,7 @@ export default function RoadmapPage() {
       <PageHeader
         title="Roadmap"
         crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
-        subtitle="Remediation work and milestones on one timeline — business readiness and the owner’s personal plan."
+        subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
         actions={
           <div className="roadmap-controls">
             <label className="roadmap-startdate">
@@ -284,7 +284,7 @@ export default function RoadmapPage() {
 
       {ganttItems.length === 0 ? (
         <EmptyState
-          icon="◷"
+          icon="clock"
           title="No roadmap yet"
           action={<button onClick={generate} disabled={busy}>Build roadmap from gaps</button>}
         >
@@ -302,7 +302,7 @@ export default function RoadmapPage() {
       {roleGroups.length > 0 && (
         <Collapsible
           title="By responsible party"
-          hint="Who owns the remaining work — advisor, owner, and deal team"
+          hint="Remaining work by responsible party: advisor, owner, and deal team"
         >
           <div className="handoff">
             {roleGroups.map((g) => {
@@ -331,7 +331,7 @@ export default function RoadmapPage() {
       <div className="eng-grid">
         <div>
           <h3 className="section-heading">Milestones</h3>
-          {milestones.length === 0 && <p className="muted">No milestones yet — add the owner’s personal and business targets below.</p>}
+          {milestones.length === 0 && <p className="muted">No milestones yet. Add the owner’s personal and business targets below.</p>}
           <ul className="assessment-list">
             {milestones.map((m) => (
               <li key={m.id} className="assessment-card">
@@ -363,7 +363,7 @@ export default function RoadmapPage() {
             Remediation tasks <span className="count-pill">{openTasks.length}</span>
           </h3>
           <p className="muted rm-sprint-note" style={{ marginTop: 0 }}>
-            Grouped into 90-day sprints — the Prepare-gate cadence advisors execute against.
+            Grouped into 90-day sprints, the execution cadence for the Prepare phase.
           </p>
           {tasks.length === 0 ? (
             <p className="muted">Build the roadmap to generate tasks from the open gaps.</p>
@@ -390,8 +390,8 @@ export default function RoadmapPage() {
           <form className="inline-form rm-add-task" onSubmit={addTask} style={{ marginTop: '0.9rem' }}>
             <h3>Add a task</h3>
             <p className="muted" style={{ margin: 0 }}>
-              Capture work already underway or planned outside the generated playbooks — mark it done
-              to reflect what’s finished.
+              Capture work underway or planned outside the generated playbooks; mark items done to
+              reflect actual progress.
             </p>
             <input
               placeholder="e.g. QoE engagement letter signed"

@@ -360,7 +360,7 @@ export default function EngagementPage() {
                 <div className="legs-head">
                   <div>
                     <h3 className="legs-title">Three legs of the stool</h3>
-                    <p className="legs-sub">Business, personal, and financial readiness have to balance for a clean exit — a short leg wobbles the whole plan.</p>
+                    <p className="legs-sub">Business, personal, and financial readiness must balance for a clean exit. The shortest leg constrains the plan.</p>
                   </div>
                   <span className={`legs-gate legs-gate-${alignment.gate.toLowerCase()}`} title={alignment.gateHint}>
                     {alignment.gate} gate
@@ -429,7 +429,7 @@ export default function EngagementPage() {
                 </SectionCard>
                 <SectionCard
                   title="Business vs. owner readiness"
-                  subtitle="The DRS and the Owner Readiness Index on one scale — their gap is a finding in itself."
+                  subtitle="The DRS and Owner Readiness Index on one scale; the gap between them is itself a finding."
                 >
                   <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
                 </SectionCard>
@@ -464,7 +464,7 @@ export default function EngagementPage() {
                 )}
               </>
             }
-            hint="Meetings, decisions & the rationale behind recommendations"
+            hint="Meetings, decisions, and the rationale behind recommendations"
           >
             <div className="stack-lg">
               <ul className="log-list">
@@ -544,7 +544,7 @@ export default function EngagementPage() {
             return (
               <Collapsible
                 title="How the plan connects"
-                hint="Each risk → its recommendation → the advisor's reasoning → progress"
+                hint="From each gap to its recommendation, rationale, and progress"
               >
                 <p className="muted" style={{ marginTop: 0 }}>
                   The engagement's connected record: {knowledge.connectedPct}% of logged reasoning is tied to a
@@ -588,7 +588,7 @@ export default function EngagementPage() {
           {/* deal outcome — record what actually happened (calibration substrate) */}
           <Collapsible
             title="Deal outcome"
-            hint="Record what actually happened at close — the calibration record"
+            hint="Record the result at close to calibrate future predictions"
           >
             <DealOutcomeCapture
               engagementId={engagementId!}
@@ -606,7 +606,7 @@ export default function EngagementPage() {
                   <span className="count-pill">{comparablesQ.data!.length}</span>
                 </>
               }
-              hint="Similar prior engagements in your book — by industry, size, and shared gaps"
+              hint="Comparable prior engagements in your firm, by industry, size, and shared gaps"
             >
               <ul className="cmp-list">
                 {comparablesQ.data!.map((c) => (
@@ -640,7 +640,7 @@ export default function EngagementPage() {
             <div className="stack-lg">
               <SectionCard
                 title="Engagement timeline"
-                subtitle="Started working with this owner before now? Set the real start date and target window so the trajectory, sprints, and exit pace match the actual engagement."
+                subtitle="Set the actual start date and target window so the trajectory, sprints, and exit pace reflect the real engagement."
               >
                 <div className="eng-timeline-form">
                   <label>
@@ -702,7 +702,7 @@ export default function EngagementPage() {
       <section>
         <h3 className="section-heading">Documents</h3>
         {documents.length === 0 ? (
-          <EmptyState icon="▤" title="No documents yet">
+          <EmptyState icon="documents" title="No documents yet">
             Generate an owner report or a branded delta report from an assessment.
           </EmptyState>
         ) : (

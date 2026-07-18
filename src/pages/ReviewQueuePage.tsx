@@ -39,7 +39,7 @@ export default function ReviewQueuePage() {
       ) : queueQ.error ? (
         <p className="form-error">{(queueQ.error as Error).message}</p>
       ) : items.length === 0 ? (
-        <EmptyState title="Queue is clear" icon="✓">
+        <EmptyState title="Queue is clear" icon="check">
           Nothing awaiting review. Uploaded documents appear here for confirmation.
         </EmptyState>
       ) : (

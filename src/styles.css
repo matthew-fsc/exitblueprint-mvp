@@ -358,9 +358,72 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* Native date inputs: style the browser chrome so they read as designed
+   controls, consistent with text inputs rather than default OS widgets. */
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 2.4rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+input[type='date']::-webkit-datetime-edit { padding: 0; }
+input[type='date']::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input[type='date']:required:invalid::-webkit-datetime-edit { color: var(--text-secondary); }
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
+:root[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+  }
+}
+
 .form-error {
   color: var(--status-critical);
   font-size: 0.85rem;
+}
+
+/* Money field: a currency prefix fused to a grouped-thousands input. */
+.money-input {
+  display: inline-flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  overflow: hidden;
+}
+.money-input:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.money-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.55rem;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-right: 1px solid var(--input-border);
+  font-variant-numeric: tabular-nums;
+}
+.money-input input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.money-input input:focus {
+  outline: none;
 }
 
 /* ---- status chips + quality colors (shared) ---- */
@@ -3111,7 +3174,7 @@ textarea:focus {
 /* ============================================================
    Gantt roadmap (F5)
    ============================================================ */
-.gantt { --gantt-label: 200px; }
+.gantt { --gantt-label: 244px; }
 .gantt-scroll { overflow-x: auto; }
 .gantt-inner {
   position: relative;
@@ -3150,21 +3213,24 @@ textarea:focus {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.gantt-row { min-height: 34px; border-bottom: 1px solid var(--surface-2); }
+.gantt-row { min-height: 40px; border-bottom: 1px solid var(--surface-2); }
 .gantt-row:last-child { border-bottom: none; }
 .gantt-rowlabel {
   padding: 0.3rem 0.85rem;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 1px;
   overflow: hidden;
 }
 .gantt-rowlabel-title {
   font-size: 0.8rem;
   font-weight: 600;
-  white-space: nowrap;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .gantt-rowlabel-sub { font-size: 0.68rem; color: var(--text-muted); }
 .gantt-bar {

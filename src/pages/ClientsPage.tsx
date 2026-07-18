@@ -122,7 +122,7 @@ export default function ClientsPage() {
           <SkeletonLines lines={4} />
         </Card>
       ) : companies.length === 0 ? (
-        <EmptyState title="No companies yet" icon="◇">
+        <EmptyState title="No companies yet" icon="empty">
           Add your first client below, then open a readiness engagement for it.
         </EmptyState>
       ) : (
