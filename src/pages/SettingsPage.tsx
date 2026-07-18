@@ -3,10 +3,64 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { qk, useBranding } from '../lib/queries';
-import { Card, FirmMark, PageHeader, TierBadge, useToast } from '../components/ui';
+import { Card, FirmMark, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
+import { resolveEntitlement, type EntitlementReason } from '../../shared/entitlements';
 
 // Validate a CSS hex color (#rgb or #rrggbb).
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+// Read-only billing/access status. During the beta, firms are comped, so this
+// reassures a tester they have full access; post-beta it shows the live plan.
+// Manage-billing (Stripe portal) is wired in the Stripe checkout slice.
+const REASON_LABEL: Record<EntitlementReason, { label: string; cls: string }> = {
+  comp: { label: 'Beta access — complimentary', cls: 'status-good' },
+  active: { label: 'Active', cls: 'status-good' },
+  trialing: { label: 'Trial', cls: 'status-ok' },
+  past_due_grace: { label: 'Payment past due', cls: 'status-warning' },
+  none: { label: 'No plan', cls: 'status-neutral' },
+  inactive: { label: 'Inactive', cls: 'status-neutral' },
+};
+
+function BillingCard({ firmId }: { firmId?: string }) {
+  const [state, setState] = useState<{ reason: EntitlementReason; planName: string | null; seatLimit: number | null } | null>(null);
+  useEffect(() => {
+    if (!firmId) return;
+    let alive = true;
+    (async () => {
+      const [{ data: sub }, { data: plans }] = await Promise.all([
+        supabase.from('firm_subscriptions').select('plan_code,status,seats,comp').eq('firm_id', firmId).maybeSingle(),
+        supabase.from('plans').select('code,name,seat_limit,engagement_limit,features').eq('active', true),
+      ]);
+      if (!alive) return;
+      const plan = (plans ?? []).find((p) => p.code === sub?.plan_code) ?? null;
+      const ent = resolveEntitlement(
+        sub ? { plan_code: sub.plan_code, status: sub.status, seats: sub.seats, comp: sub.comp } : null,
+        plan ? { code: plan.code, name: plan.name, seat_limit: plan.seat_limit, engagement_limit: plan.engagement_limit, features: plan.features ?? [] } : null,
+      );
+      setState({ reason: ent.reason, planName: ent.planName, seatLimit: ent.seatLimit });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [firmId]);
+
+  const meta = state ? REASON_LABEL[state.reason] : null;
+  return (
+    <SectionCard title="Billing & access" subtitle="Your firm's plan and access status.">
+      {!state ? (
+        <p className="muted">Loading…</p>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <span className={`status-chip ${meta!.cls}`}>{meta!.label}</span>
+          <span className="muted">
+            {state.planName ? `${state.planName} plan` : 'No plan attached'}
+            {state.seatLimit != null ? ` · ${state.seatLimit} seat${state.seatLimit === 1 ? '' : 's'}` : ''}
+          </span>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
 
 export default function SettingsPage() {
   const { profile, firmName } = useAuth();
@@ -97,6 +151,8 @@ export default function SettingsPage() {
       />
 
       {error && <p className="form-error">{error}</p>}
+
+      <BillingCard firmId={firmId} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,20rem)', gap: '1.25rem', alignItems: 'start' }} className="settings-grid">
         <Card pad="lg">
