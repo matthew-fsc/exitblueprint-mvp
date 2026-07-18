@@ -110,7 +110,7 @@ export default function ClientsPage() {
 
       {!agreementsQ.isLoading && !agreement && (
         <Card>
-          <p className="form-error" style={{ margin: 0 }}>
+          <p className="form-error m-0">
             Your firm has no active engagement agreement, so new engagements can’t be started yet.
             An admin can add one with <code>npm run admin -- create-agreement-version</code>.
           </p>
