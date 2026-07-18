@@ -42,6 +42,7 @@ import {
   type ResolveInput,
 } from './review-queue';
 import { logAccess } from './audit';
+import { entitlementGate } from './entitlements';
 import {
   renderDeltaReportHtml,
   renderOwnerReportHtml,
@@ -503,6 +504,10 @@ export async function handleFunctionCall(
 ): Promise<FunctionResult> {
   const authz = await authorize(name, body, ctx);
   if ('error' in authz) return authz.error;
+  // Billing gate: refuse gated actions for an unentitled firm. No-op unless
+  // BILLING_ENFORCED is on (so the current app + a comped beta are unaffected).
+  const gateMsg = await entitlementGate(name, authz.firmId, ctx.service);
+  if (gateMsg) return err(402, gateMsg);
   try {
     return await dispatch(name, body, ctx.service, authz.firmId, ctx.userId);
   } catch (e) {
