@@ -7,6 +7,7 @@ import { invokeFunction, supabase } from '../lib/supabase';
 import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
 import { rollUpCapitals } from '../lib/practitioner';
 import { buildEngagementKnowledge } from '../lib/knowledge';
+import { buildWorkstreamProgress } from '../lib/workstreams';
 import {
   qk,
   useAssessmentsByEngagement,
@@ -35,6 +36,7 @@ import {
   DimensionBars,
   EmptyState,
   EngagementNav,
+  WorkstreamRail,
   GapSeverityChip,
   PageHeader,
   SectionCard,
@@ -211,6 +213,22 @@ export default function EngagementPage() {
   const outcomeStatus = outcomeQ.data?.process_status ?? null;
   const documents = documentsQ.data ?? [];
 
+  // The five work streams as a progress rail (docs/17 follow-up; docs/22): where
+  // the engagement stands in each core workflow, from the data already loaded.
+  const workstreams = buildWorkstreamProgress({
+    assessed: completed.length > 0,
+    inProgress: !!inProgress,
+    drsScore: latest?.drs_score != null ? Number(latest.drs_score) : null,
+    openGapCount: gapsQ.data?.length ?? 0,
+    tasksTotal: tasksQ.data?.length ?? 0,
+    tasksDone: (tasksQ.data ?? []).filter((t) => t.status === 'done').length,
+    verifiedPct: verifQ.data?.pct ?? null,
+    valuationSet: !!valuationQ.data?.has_recast,
+    valueGap: valuationQ.data?.value_creation_gap ?? null,
+    reportDraftCount: documents.filter((d) => !d.finalized_at).length,
+    reportFinalCount: documents.filter((d) => d.finalized_at).length,
+  });
+
   return (
     <div className="stack-lg">
       <PageHeader
@@ -242,6 +260,10 @@ export default function EngagementPage() {
 
       {completed.length > 0 ? (
         <>
+          {/* work-stream progress rail — where the engagement stands across the five
+              core workflows, and the way into each (docs/17 follow-up; docs/22) */}
+          <WorkstreamRail streams={workstreams} engagementId={engagementId!} />
+
           {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
           <div className="eng-grid eng-grid-top">
             <SectionCard

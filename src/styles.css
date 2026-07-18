@@ -2662,6 +2662,79 @@ textarea:focus {
   border-bottom-color: var(--accent);
 }
 
+/* ---- work-stream progress rail (docs/22) ----
+   The five preparation work streams as a left-to-right arc on the Overview, each
+   chip showing where the engagement stands and linking into that stream's tab. */
+.ws-rail {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.ws-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-neutral);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ws-chip:hover { background: var(--surface-2); }
+.ws-chip.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ws-chip-step {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+.ws-chip-body { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.ws-chip-top { display: flex; align-items: center; gap: 0.4rem; }
+.ws-chip-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.ws-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ws-chip-headline {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* state colours: done → good, active → warning, todo → neutral, blocked → muted */
+.ws-state-done { border-left-color: var(--status-good); }
+.ws-state-active { border-left-color: var(--status-warning); }
+.ws-state-todo { border-left-color: var(--status-neutral); }
+.ws-state-blocked { border-left-color: var(--border); opacity: 0.72; }
+.ws-dot-done { background: var(--status-good); }
+.ws-dot-active { background: var(--status-warning); }
+.ws-dot-todo { background: var(--status-neutral); }
+.ws-dot-blocked { background: var(--border-strong, var(--status-neutral)); }
+.ws-state-done .ws-chip-step { color: var(--chip-good-fg); background: var(--chip-good-bg); }
+.ws-state-active .ws-chip-step { color: var(--chip-warn-fg); background: var(--chip-warn-bg); }
+@media (max-width: 900px) {
+  .ws-rail { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .ws-rail { grid-template-columns: 1fr; }
+}
+
 /* ---- SectionCard header ---- */
 .section-card-head {
   display: flex;

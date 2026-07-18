@@ -142,7 +142,7 @@ routes change; this is pure information architecture.
 - **Future headroom:** with the five work streams named in the UI, the next step is a
   per-work-stream progress indicator on the Overview (e.g., "Evidence: 12/37 items
   verified") so the owner sees the arc, not a checklist of tabs. Specced here, not
-  built in this pass.
+  built in this pass. **Built in docs/22** — the work-stream progress rail.
 
 ## Non-goals for this pass
 
