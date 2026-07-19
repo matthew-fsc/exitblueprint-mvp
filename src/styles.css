@@ -3557,6 +3557,10 @@ textarea:focus {
   padding: 0.05rem 0.4rem;
 }
 .advisory-tag-firm { color: var(--accent-strong); border-color: var(--accent); }
+.advisory-tag-inactive { color: var(--status-neutral); border-color: var(--border-strong); }
+/* A deactivated firm item stays visible (so it can be reactivated) but reads as
+   retired — dimmed, not gone. */
+.advisory-item-inactive { opacity: 0.55; }
 
 .advisory-item-toggle {
   margin-top: 0.5rem; background: none; border: none; color: var(--accent);
@@ -3572,7 +3576,7 @@ textarea:focus {
   font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
   color: var(--status-neutral);
 }
-.advisory-item-actions { margin-top: 0.5rem; }
+.advisory-item-actions { margin-top: 0.5rem; display: flex; gap: 0.9rem; align-items: center; }
 .button-danger-link {
   background: none; border: none; color: var(--status-critical); cursor: pointer;
   font-size: 0.82rem; font-weight: 600; padding: 0;
@@ -3595,6 +3599,8 @@ textarea:focus {
 }
 .advisory-form textarea { resize: vertical; }
 .advisory-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+.advisory-form-head { display: flex; flex-direction: column; gap: 0.2rem; }
+.advisory-form-actions { display: flex; gap: 0.6rem; align-items: center; }
 
 /* ---- Header action links render as buttons, not bare text -------------- */
 /* Any link placed in a PageHeader's actions area looks like a secondary
