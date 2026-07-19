@@ -18,15 +18,18 @@
   --surface-1: #ffffff;
   --surface-2: #f3f5f2;
   --surface-3: #e8ece8;
-  --border: #dde3dd;
-  --border-strong: #c6d0c8;
-  --shadow: 0 1px 2px rgba(18, 40, 30, 0.05), 0 6px 20px rgba(18, 40, 30, 0.06);
-  --shadow-sm: 0 1px 2px rgba(18, 40, 30, 0.06);
+  --border: #dadfda;
+  --border-strong: #bfc8c0;
+  /* elevation is border + tonal step; shadow is a whisper. --shadow-lift is the
+     one deliberate raise (hover, popovers), never the resting state of a card. */
+  --shadow: 0 1px 2px rgba(18, 40, 30, 0.05);
+  --shadow-sm: 0 1px 1.5px rgba(18, 40, 30, 0.05);
+  --shadow-lift: 0 2px 4px rgba(18, 40, 30, 0.07), 0 10px 28px rgba(18, 40, 30, 0.07);
 
   /* ink */
   --text-primary: #14251d;
-  --text-secondary: #566257;
-  --text-muted: #86928a;
+  --text-secondary: #4c574f;
+  --text-muted: #7a857c;
 
   /* brand + interactive (forest) */
   --brand: #16352a;         /* headings, emphasis, primary surfaces */
@@ -71,8 +74,14 @@
   --font-display: 'Inter Tight Variable', 'Inter Variable', 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  /* tighter geometry — crisp institutional surfaces, not consumer-rounded */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  /* the institutional numeral: tabular columns + slashed zero. Applied wherever
+     figures are read or compared (stat values, table numerics, deltas). */
+  --num: 'tnum' 1, 'zero' 1;
 
   /* ---- spacing scale (single source of vertical + horizontal rhythm) ----
      A 4px grid. Every layout primitive spaces off these steps so the app reads
@@ -119,10 +128,11 @@
   --surface-1: #141c17;
   --surface-2: #1a241d;
   --surface-3: #223026;
-  --border: #29372d;
-  --border-strong: #3a4c40;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --border: #26332a;
+  --border-strong: #3c4e42;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 1.5px rgba(0, 0, 0, 0.45);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
 
   --text-primary: #e7efe9;
   --text-secondary: #a6b5aa;
@@ -169,10 +179,11 @@
     --surface-1: #141c17;
     --surface-2: #1a241d;
     --surface-3: #223026;
-    --border: #29372d;
-    --border-strong: #3a4c40;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --border: #26332a;
+    --border-strong: #3c4e42;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 1.5px rgba(0, 0, 0, 0.45);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
     --text-primary: #e7efe9;
     --text-secondary: #a6b5aa;
     --text-muted: #6f8175;
@@ -4097,3 +4108,79 @@ textarea:focus {
 .outcome-risk { font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
 .outcome-risk.on { border-color: var(--accent); background: var(--accent-wash, var(--chip-good-bg)); color: var(--text-primary); }
 .outcome-risk input { margin: 0; }
+
+/* ============================================================
+   Institutional register pass — the details that separate this
+   from a generic build: engineered numerals, denser border-framed
+   data surfaces, crisp geometry, tactile controls. Everything reads
+   from tokens (geometry/shadow/neutrals were tightened above).
+   ============================================================ */
+
+/* engineered numerals — tabular + slashed zero — wherever figures are
+   read or compared. The single clearest "financial software" typographic tell. */
+.stat-block-value,
+.ui-table td.num,
+.ui-table th.num,
+.delta,
+.tnum,
+.count-pill,
+.hero-tile-value,
+.tile-value,
+.dim-value,
+.factor-score,
+.wb-score-value,
+.wb-dimrow-val,
+.trajectory-val {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: var(--num);
+}
+
+/* display headings: optical sizing + a touch tighter tracking at scale */
+h1, h2, h3, h4 { font-optical-sizing: auto; }
+.page-header h1 { letter-spacing: -0.022em; }
+.stat-block-value { letter-spacing: -0.02em; }
+
+/* cards are crisp bordered surfaces — the border frames them, not a drop shadow */
+.stat-block { box-shadow: none; }
+.stat-block:hover { box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
+
+/* data table: denser rows, a stronger header rule, engineered header type,
+   and a whisper-tint row hover. The table is the institutional hero surface. */
+.ui-table-wrap { box-shadow: none; }
+.ui-table { font-size: 0.84rem; }
+.ui-table th, .ui-table td { padding: 0.5rem 0.85rem; }
+.ui-table thead th {
+  background: var(--surface-1);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-strong);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+.ui-table tbody tr.clickable:hover {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-1));
+}
+
+/* controls: crisp geometry + a tactile primary and a refined focus ring */
+button {
+  letter-spacing: -0.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1.5px rgba(18, 40, 30, 0.12);
+}
+button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.04));
+}
+.btn-secondary, .btn-ghost, .linkish { box-shadow: none; background-image: none; }
+
+/* status/tier chips: rounded-rect (not pill) + medium weight reads institutional,
+   less shouty. Squared corners align with the tightened surface geometry. */
+.status-chip { border-radius: 6px; font-weight: 650; }
+.tier-badge { border-radius: 6px; }
+.tier-badge-sm { border-radius: 5px; }
+
+/* the small tells of a crafted app: tinted selection + a subtle scrollbar */
+::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }

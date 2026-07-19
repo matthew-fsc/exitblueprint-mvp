@@ -58,3 +58,30 @@ Light/dark via `:root[data-theme]` + `prefers-color-scheme`. Every color is a
 semantic token (`--surface-*`, `--text-*`, `--border*`, `--status-*`, `--chip-*`,
 `--tier-*`); per-firm branding overrides `--accent` only. Never a raw hex in a
 component.
+
+## Institutional register — the craft bar
+The app should read like software a billion-dollar firm runs on, not a generic
+build. Five rules carry that, all token-driven (see the "Institutional register
+pass" section at the foot of `styles.css`):
+
+1. **Crisp geometry.** Surfaces are `--radius` **8px**, controls `--radius-sm`
+   **6px**, `--radius-lg` **12px** for hero surfaces only. Status/tier chips are
+   rounded-rects (6px), not pills. Tighter than consumer-SaaS on purpose.
+2. **Border-defined elevation.** A surface is framed by its 1px border and a
+   tonal step, not a drop shadow. `--shadow`/`--shadow-sm` are whispers;
+   `--shadow-lift` is the *one* deliberate raise (hover, popovers) — never a
+   card's resting state.
+3. **Engineered numerals.** Every figure that is read or compared uses
+   `font-variant-numeric: tabular-nums slashed-zero` via the `--num` token
+   (`'tnum' 1, 'zero' 1`). This is the clearest "financial software" tell. Any
+   new numeric class joins the `--num` selector list.
+4. **Neutrals are neutral.** The accent is spent, not smeared: greys carry only a
+   whisper of green. Don't tint borders/labels/hints with the brand.
+5. **Data surfaces are the hero.** The `DataTable` is dense, border-framed, with
+   an engineered uppercase header rule and a whisper-tint row hover; sparklines
+   render as charts (area fill + endpoint dot), never stray lines.
+
+The details that signal craft — tinted `::selection`, a styled scrollbar, a
+tactile primary button, a refined 2px focus ring — live in that same section.
+When adding UI, match this bar; don't reintroduce soft radii, drop-shadowed
+cards, or lining/proportional figures in a data context.
