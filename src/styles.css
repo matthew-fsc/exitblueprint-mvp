@@ -2819,23 +2819,16 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 /* The engagement tab bar is chrome that belongs with the page header, so it
    sits tight beneath it (see the .ui-pageheader + .eng-nav rule) and takes a
    full section break before the working content below. */
+/* One flat, evenly-spaced row. Work-stream grouping is not drawn here — the
+   WorkstreamRail on the Overview is the single place that carries it (see
+   EngagementNav.tsx). Tabs are navigation; the rail carries workflow state. */
 .eng-nav {
   display: flex;
   align-items: stretch;
   flex-wrap: wrap;
+  column-gap: var(--space-2);
   row-gap: var(--space-2);
   border-bottom: 1px solid var(--border);
-}
-/* Tabs sit in their work-stream groups, but the grouping is expressed only as a
-   subtle divider + a little breathing room — no labels (those live on the rail). */
-.eng-nav-group {
-  display: flex;
-  align-items: stretch;
-}
-.eng-nav-group + .eng-nav-group {
-  margin-left: var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--border);
 }
 .eng-nav-link {
   display: inline-flex;
@@ -2850,7 +2843,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   white-space: nowrap;
   transition: color 0.14s ease, border-color 0.14s ease;
 }
-.eng-nav-link + .eng-nav-link { margin-left: var(--space-1); }
 .eng-nav-link:hover { color: var(--text-primary); }
 .eng-nav-link.active {
   color: var(--accent-strong);
