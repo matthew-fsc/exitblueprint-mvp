@@ -1,4 +1,4 @@
-// The three-legs-of-the-stool alignment logic (src/lib/alignment.ts). Pure, no
+// The readiness-alignment logic (src/lib/alignment.ts). Pure, no
 // DB — mirrors the buildPortfolioRows unit-test pattern.
 import { describe, expect, it } from 'vitest';
 import { buildAlignment, fmtUsdShort, type AlignmentInput } from '../src/lib/alignment';
@@ -50,10 +50,10 @@ describe('buildAlignment', () => {
     expect(leg(a, 'financial').band).toBe('attention');
     expect(a.shortest).toBe('financial');
     expect(a.balanced).toBe(false);
-    expect(a.verdict).toMatch(/financial leg/i);
+    expect(a.verdict).toMatch(/financial readiness is the constraint/i);
     expect(a.verdict).toMatch(/wealth gap|\$2/i);
     expect(a.gate).toBe('Prepare');
-    expect(a.gateHint).toMatch(/financial leg/i);
+    expect(a.gateHint).toMatch(/financial readiness/i);
   });
 
   it('a small wealth gap relative to target is "building", not "attention"', () => {
@@ -115,7 +115,7 @@ describe('buildAlignment', () => {
     });
     expect(leg(a, 'business').band).toBe('attention');
     expect(a.shortest).toBe('business');
-    expect(a.verdict).toMatch(/business leg/i);
+    expect(a.verdict).toMatch(/business readiness is the constraint/i);
   });
 
   it('all legs weak but moving together → balanced, Prepare', () => {

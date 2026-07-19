@@ -182,7 +182,7 @@ export default function ValuationPage() {
                       <span className="val-gap-label">Wealth gap</span>
                       <span className="muted">
                         Set the owner's wealth goal — the number they need from the sale to fund their next
-                        chapter — to size the gap and light up the financial leg.
+                        chapter — to size the gap and complete the financial readiness picture.
                       </span>
                       <form
                         className="val-goal-form"

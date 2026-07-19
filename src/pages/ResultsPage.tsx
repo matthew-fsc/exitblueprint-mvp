@@ -268,8 +268,8 @@ export default function ResultsPage() {
       </section>
 
       <Collapsible
-        title="The owner’s side"
-        hint="Owner readiness — scored separately from the business"
+        title="Owner readiness"
+        hint="Scored separately from the business"
       >
         <p className="section-sub muted" style={{ marginTop: 0 }}>
           A ready business and an unready owner is a common — and important — mismatch.
@@ -299,7 +299,7 @@ export default function ResultsPage() {
       <h3 className="section-heading">
         What buyers would flag <span className="count-pill">{explain.firedGaps.length}</span>
       </h3>
-      {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged — a clean assessment.</p>}
+      {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged.</p>}
       <ul className="gap-detail-list">
         {[...explain.firedGaps]
           .sort(bySeverity)

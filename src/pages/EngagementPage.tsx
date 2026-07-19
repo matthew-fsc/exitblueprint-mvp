@@ -317,7 +317,7 @@ export default function EngagementPage() {
                 {gapsQ.isLoading ? (
                   <SkeletonLines lines={4} />
                 ) : (gapsQ.data ?? []).length === 0 ? (
-                  <p className="gap-none">No open gaps — a clean book.</p>
+                  <p className="gap-none">No open gaps.</p>
                 ) : (
                   <ul className="eng-gap-list">
                     {(gapsQ.data ?? []).map((g) => (
@@ -344,7 +344,7 @@ export default function EngagementPage() {
             </SectionCard>
           </div>
 
-          {/* three legs of the stool — the CEPA alignment frame (docs/18) */}
+          {/* readiness alignment — the CEPA three-dimension frame (docs/18) */}
           {explain && (() => {
             const v = valuationQ.data;
             const alignment = buildAlignment({
@@ -364,8 +364,8 @@ export default function EngagementPage() {
               <Card>
                 <div className="legs-head">
                   <div>
-                    <h3 className="legs-title">Three legs of the stool</h3>
-                    <p className="legs-sub">Business, personal, and financial readiness must balance for a clean exit. The shortest leg constrains the plan.</p>
+                    <h3 className="legs-title">Readiness alignment</h3>
+                    <p className="legs-sub">Business, personal, and financial readiness must be aligned for a clean exit. The weakest dimension sets the ceiling.</p>
                   </div>
                   <span className={`legs-gate legs-gate-${alignment.gate.toLowerCase()}`} title={alignment.gateHint}>
                     {alignment.gate} gate
