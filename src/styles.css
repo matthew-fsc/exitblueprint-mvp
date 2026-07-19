@@ -4184,3 +4184,63 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
+
+/* ============================================================
+   Composition system — a reading path, not a flat stack.
+   Pages compose from: a masthead band (where am I), then major
+   regions (page-section) each introduced by a quiet eyebrow +
+   hairline rule and separated by section space. See docs/26
+   "Page composition". Gutters share the block rhythm so grids
+   line up on one system.
+   ============================================================ */
+.page-shell { display: flex; flex-direction: column; }
+
+/* MASTHEAD — page header + any tab bar read as ONE "where am I" band,
+   then a clean break to the working content. */
+.page-masthead { margin-bottom: var(--space-7); }
+.page-masthead .ui-pageheader { margin-bottom: var(--space-4); }
+.page-masthead .eng-nav { margin-top: 0; }
+
+/* SECTION — a major region, introduced by a quiet eyebrow + hairline rule
+   and separated by section space. Turns a flat card-stack into a composed page. */
+.page-section + .page-section { margin-top: var(--space-8); }
+.page-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+.page-section-title {
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  text-transform: uppercase;
+  letter-spacing: var(--eyebrow-tracking);
+  color: var(--text-secondary);
+}
+.page-section-note { font-size: var(--text-sm); color: var(--text-muted); text-align: right; }
+
+/* aligned gutters — every multi-card row shares the block rhythm as its gutter,
+   so grids across the app line up on one system instead of ad-hoc gaps. */
+.eng-grid, .owner-grid, .roadmap-cols, .card-grid { gap: var(--gap-block); }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--col-min, 340px), 1fr));
+  align-items: start;
+}
+
+/* MAIN + RAIL — a reusable primary/secondary composition primitive for pages
+   with a clear lead column and a supporting rail. */
+.layout-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail, 340px);
+  gap: var(--space-7);
+  align-items: start;
+}
+@media (max-width: 900px) { .layout-rail { grid-template-columns: 1fr; } }
+/* legacy per-element top-margins are neutralized inside a composed stack so the
+   stack's gap is the single source of rhythm within a region. */
+.page-section .stack-lg > .ws-rail,
+.page-section .stack-lg > .eng-grid { margin-top: 0; }

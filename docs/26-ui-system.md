@@ -85,3 +85,35 @@ The details that signal craft — tinted `::selection`, a styled scrollbar, a
 tactile primary button, a refined 2px focus ring — live in that same section.
 When adding UI, match this bar; don't reintroduce soft radii, drop-shadowed
 cards, or lining/proportional figures in a data context.
+
+## Page composition — a reading path, not a flat stack
+A page is composed, not just a `stack-lg` of equal-weight cards. Every primary
+page follows the same spine so the eye always knows where it is and what's
+primary vs. secondary (see the "Composition system" section in `styles.css`):
+
+1. **A `page-shell`** wraps the page body (`display:flex; column`).
+2. **A `page-masthead`** leads: the `PageHeader` (+ any tab bar like
+   `EngagementNav`) read as *one* "where am I" band, divided from the content by
+   section space. Don't let the tabs float as a separate stacked peer.
+3. **`PageSection`s** group the content into major regions. Each is introduced by
+   a quiet eyebrow **title** + optional right-aligned **note** and a hairline
+   rule, and sits on the page's section rhythm (`--space-8` between regions).
+   This is the move that turns a flat card-stack into a composed page.
+
+```tsx
+<div className="page-shell">
+  <header className="page-masthead"><PageHeader … /><EngagementNav … /></header>
+  <PageSection title="Readiness at a glance" note="Where the engagement stands today">
+    <div className="stack-lg">{/* primary cards */}</div>
+  </PageSection>
+  <PageSection title="Analysis & detail" note="Folded away — open what you need">…</PageSection>
+  <PageSection title="Record">…</PageSection>
+</div>
+```
+
+**Gutters share the block rhythm.** `card-grid` (and the legacy `eng-grid` /
+`owner-grid` / `roadmap-cols`) all gutter on `--gap-block`, so grids line up on
+one system. Use `card-grid` (`--col-min` tunes the wrap width) for new
+multi-card rows. **`layout-rail`** is the primary+rail primitive (`minmax(0,1fr)`
++ a fixed rail) for pages with a clear lead column. `EngagementPage` is the
+reference implementation; adopt the same spine on other primary pages.

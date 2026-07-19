@@ -14,6 +14,7 @@ export { FirmMark, type FirmBrand } from './FirmMark';
 export { GapSeverityChip } from './GapSeverityChip';
 export { SectionCard } from './SectionCard';
 export { PageHeader, type Crumb } from './PageHeader';
+export { PageSection } from './PageSection';
 export { ScoreDial } from './ScoreDial';
 export { Skeleton, SkeletonLines } from './Skeleton';
 export { Sparkline } from './Sparkline';

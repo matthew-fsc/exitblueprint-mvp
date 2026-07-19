@@ -39,6 +39,7 @@ import {
   WorkstreamRail,
   GapSeverityChip,
   PageHeader,
+  PageSection,
   SectionCard,
   ScoreDial,
   SkeletonLines,
@@ -230,7 +231,8 @@ export default function EngagementPage() {
   });
 
   return (
-    <div className="stack-lg">
+    <div className="page-shell">
+      <header className="page-masthead">
       <PageHeader
         title={companyName}
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName }]}
@@ -256,10 +258,13 @@ export default function EngagementPage() {
         }
       />
       <EngagementNav engagementId={engagementId!} />
+      </header>
       {error && <p className="form-error">{error}</p>}
 
       {completed.length > 0 ? (
         <>
+          <PageSection title="Readiness at a glance" note="Where the engagement stands today">
+          <div className="stack-lg">
           {/* work-stream progress rail — where the engagement stands across the five
               core workflows, and the way into each (docs/17 follow-up; docs/22) */}
           <WorkstreamRail streams={workstreams} engagementId={engagementId!} />
@@ -413,7 +418,11 @@ export default function EngagementPage() {
               />
             </div>
           </Card>
+          </div>
+          </PageSection>
 
+          <PageSection title="Analysis & detail" note="Folded away — open what you need">
+          <div className="stack-lg" style={{ gap: 'var(--space-3)' }}>
           {/* score detail — analytical depth, folded away so the default view stays simple */}
           {explain && (
             <Collapsible
@@ -678,6 +687,8 @@ export default function EngagementPage() {
               {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
             </div>
           </Collapsible>
+          </div>
+          </PageSection>
         </>
       ) : (
         <EmptyState
@@ -688,6 +699,8 @@ export default function EngagementPage() {
         </EmptyState>
       )}
 
+      <PageSection title="Record" note="Assessment history & documents">
+      <div className="stack-lg">
       {/* assessments list */}
       <section>
         <h3 className="section-heading">Assessments</h3>
@@ -721,6 +734,8 @@ export default function EngagementPage() {
           </ul>
         )}
       </section>
+      </div>
+      </PageSection>
     </div>
   );
 }
