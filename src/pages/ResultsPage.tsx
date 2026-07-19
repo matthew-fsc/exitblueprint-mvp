@@ -14,6 +14,7 @@ import {
 import {
   Card,
   Collapsible,
+  PageSection,
   EmptyState,
   GapSeverityChip,
   PageHeader,
@@ -115,7 +116,8 @@ export default function ResultsPage() {
     .filter((g) => g.subs.length > 0);
 
   return (
-    <div className="results stack-lg">
+    <div className="results page-shell">
+      <header className="page-masthead">
       <PageHeader
         title={
           <>
@@ -144,7 +146,10 @@ export default function ResultsPage() {
           </>
         }
       />
+      </header>
 
+      <PageSection title="Readiness" note="Business and owner readiness, scored separately">
+      <div className="stack-lg">
       {/* Consensus — the synthesized bottom line */}
       <div className="consensus-callout">
         <span className="consensus-label">Bottom line</span>
@@ -216,12 +221,10 @@ export default function ResultsPage() {
           </div>
         </div>
       </Collapsible>
+      </div>
+      </PageSection>
 
-      <section>
-      <h3 className="section-heading">The six business areas</h3>
-      <p className="section-sub muted">
-        Open any area to see, in plain terms, what it measures and what your answers showed.
-      </p>
+      <PageSection title="The six business areas" note="What each measures, and what your answers showed">
       <div className="dimension-list">
         {explain.dimensions.map((d) => {
           const readings = explain.subScores
@@ -265,12 +268,9 @@ export default function ResultsPage() {
           );
         })}
       </div>
-      </section>
+      </PageSection>
 
-      <Collapsible
-        title="Owner readiness"
-        hint="Scored separately from the business"
-      >
+      <PageSection title="Owner readiness" note="Scored separately from the business">
         <p className="section-sub muted" style={{ marginTop: 0 }}>
           A ready business and an unready owner is a common — and important — mismatch.
         </p>
@@ -293,12 +293,12 @@ export default function ResultsPage() {
             </div>
           ))}
         </div>
-      </Collapsible>
+      </PageSection>
 
-      <section>
-      <h3 className="section-heading">
-        What buyers would flag <span className="count-pill">{explain.firedGaps.length}</span>
-      </h3>
+      <PageSection
+        title="What buyers would flag"
+        note={explain.firedGaps.length > 0 ? `${explain.firedGaps.length} flagged` : 'None flagged'}
+      >
       {explain.firedGaps.length === 0 && <p className="gap-none">No gaps flagged.</p>}
       <ul className="gap-detail-list">
         {[...explain.firedGaps]
@@ -322,7 +322,7 @@ export default function ResultsPage() {
           </li>
         ))}
       </ul>
-      </section>
+      </PageSection>
     </div>
   );
 }
