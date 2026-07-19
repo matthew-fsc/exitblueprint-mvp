@@ -112,7 +112,7 @@ export default function OwnerHomePage() {
         <Card>
           <span className="stat-block-label">What we're focused on</span>
           {topGaps.length === 0 ? (
-            <p className="muted" style={{ marginTop: '0.6rem' }}>No open priorities right now — nicely done.</p>
+            <p className="muted" style={{ marginTop: '0.6rem' }}>No open priorities right now.</p>
           ) : (
             <ul className="owner-priorities">
               {topGaps.map((g) => (

@@ -35,7 +35,7 @@ export default function OwnerLearnPage() {
       {loading || eduQ.isLoading ? (
         <Card><SkeletonLines lines={6} /></Card>
       ) : modules.length === 0 ? (
-        <EmptyState title="Guides are on the way">
+        <EmptyState title="Guides coming soon">
           Educational content will appear here as your engagement progresses.
         </EmptyState>
       ) : (

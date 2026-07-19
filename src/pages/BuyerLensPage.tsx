@@ -123,8 +123,8 @@ export default function BuyerLensPage() {
       )}
 
       {result && result.assessment_id !== null && result.items.length === 0 && (
-        <EmptyState title="Nothing is firing">
-          No catalog item's trigger is met at the current scores — a strong signal of readiness.
+        <EmptyState title="No active triggers">
+          No risk trigger is met at the current scores — a strong signal of readiness.
         </EmptyState>
       )}
 

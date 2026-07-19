@@ -230,7 +230,7 @@ export default function ReportPage() {
           {/* The raw Markdown source, tucked into an expand bar above the polished
               document so it never competes with it — open it to tweak or copy. */}
           {!finalized && (
-            <Collapsible title="Edit source" hint="raw Markdown — tweak the wording or copy it out">
+            <Collapsible title="Edit source" hint="Raw Markdown — edit the wording or copy it out">
               <textarea
                 className="report-editor"
                 rows={18}

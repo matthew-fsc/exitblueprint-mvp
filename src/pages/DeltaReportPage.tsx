@@ -241,7 +241,7 @@ export default function DeltaReportPage() {
           {/* The editable narrative source, tucked into an expand bar above the
               polished document. The figures below are fixed from the scoring engine. */}
           {!doc.finalized_at && (
-            <Collapsible title="Edit narrative" hint="raw Markdown — the figures stay fixed from the scoring engine">
+            <Collapsible title="Edit narrative" hint="Raw Markdown — the figures stay fixed by the scoring engine">
               <textarea className="report-editor" rows={14} value={draft} onChange={(e) => setDraft(e.target.value)} />
               <div className="report-source-actions">
                 <button className="linkish" onClick={copySource}>Copy Markdown</button>

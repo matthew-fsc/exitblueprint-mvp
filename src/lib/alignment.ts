@@ -1,10 +1,10 @@
-// The "three legs of the stool" — the CEPA Discover-gate frame. A successful
-// exit needs the BUSINESS leg (transferable value), the PERSONAL leg (the
-// owner's post-exit vision and plan — the most overlooked leg), and the
-// FINANCIAL leg (does a sale actually fund the owner's goal?) to be balanced.
-// If one leg is short, the stool wobbles. This assembles the three from data
-// the platform already produces (DRS/tier, ORI, and the valuation's wealth gap)
-// into the single aligned readout a CEPA leads an engagement with.
+// Readiness alignment — the CEPA Discover-gate frame across three dimensions.
+// A successful exit needs BUSINESS readiness (transferable value), PERSONAL
+// readiness (the owner's post-exit vision and plan — the most overlooked
+// dimension), and FINANCIAL readiness (does a sale actually fund the owner's
+// goal?) to be aligned. The weakest dimension sets the ceiling. This assembles
+// the three from data the platform already produces (DRS/tier, ORI, and the
+// valuation's wealth gap) into the single aligned readout a CEPA leads with.
 //
 // Pure and deterministic — no engine, no LLM, no network. Unit-tested in
 // tests/alignment.test.ts.
@@ -23,9 +23,9 @@ export interface AlignmentLeg {
 
 export interface Alignment {
   legs: AlignmentLeg[];
-  /** The shortest known leg — where value acceleration should focus first. */
+  /** The weakest known dimension — where value acceleration should focus first. */
   shortest: LegKey | null;
-  /** True when every known leg sits within one band of the others. */
+  /** True when every known dimension sits within one band of the others. */
   balanced: boolean;
   verdict: string;
   /** Which Value Acceleration gate the engagement is effectively at. */
@@ -95,7 +95,7 @@ function personalLeg(input: AlignmentInput): AlignmentLeg {
       : band === 'building'
         ? 'Goals are forming; firm up the post-exit vision and the owner’s next chapter.'
         : band === 'attention'
-          ? 'The most overlooked leg — the owner’s post-exit identity and plan need work.'
+          ? 'The most overlooked dimension — the owner’s post-exit identity and plan need work.'
           : 'Capture the owner’s goals, timeline, and post-exit vision.';
   return { key: 'personal', label: 'Personal', band, headline, detail };
 }
@@ -165,19 +165,19 @@ export function buildAlignment(input: AlignmentInput): Alignment {
   let verdict: string;
   if (anyUnknown && known.length < 3) {
     verdict =
-      'The picture is incomplete — finish the assessment and capture financials so all three legs can be aligned.';
+      'The picture is incomplete — finish the assessment and capture financials so all three dimensions can be aligned.';
   } else if (allStrong) {
-    verdict = 'The three legs are aligned and strong. This owner can weigh holding versus a transaction from a position of strength.';
+    verdict = 'All three dimensions are aligned and strong. This owner can weigh holding versus a transaction from a position of strength.';
   } else if (balanced) {
-    verdict = 'The three legs move together but none is yet strong — early in the arc. Prioritize the action plan across all three.';
+    verdict = 'The three dimensions move together but none is yet strong — early in the arc. Prioritize the action plan across all three.';
   } else if (shortLeg?.key === 'financial') {
-    verdict = `The financial leg is the short one: ${shortLeg.headline.toLowerCase().includes('gap') ? `a ${shortLeg.headline}` : shortLeg.headline}. A sale won’t fund the owner’s goal yet — value acceleration must close it before a triggering event.`;
+    verdict = `Financial readiness is the constraint: ${shortLeg.headline.toLowerCase().includes('gap') ? `a ${shortLeg.headline}` : shortLeg.headline}. A sale won’t fund the owner’s goal yet — value acceleration must close it before a triggering event.`;
   } else if (shortLeg?.key === 'personal') {
-    verdict = 'The personal leg is the short one — the business may be sellable, but the owner’s post-exit plan isn’t ready. Align it before going to market.';
+    verdict = 'Personal readiness is the constraint — the business may be sellable, but the owner’s post-exit plan isn’t ready. Align it before going to market.';
   } else if (shortLeg?.key === 'business') {
-    verdict = 'The business leg is the short one — build transferable value before the owner’s timeline or a life event forces a sale.';
+    verdict = 'Business readiness is the constraint — build transferable value before the owner’s timeline or a life event forces a sale.';
   } else {
-    verdict = 'Keep the three legs moving together toward a balanced, sale-ready position.';
+    verdict = 'Keep all three dimensions moving together toward a balanced, sale-ready position.';
   }
 
   // Value Acceleration gate the engagement is effectively at.
@@ -192,7 +192,7 @@ export function buildAlignment(input: AlignmentInput): Alignment {
   } else {
     gate = 'Prepare';
     gateHint = anyAttention
-      ? `Prepare gate — run 90-day sprints on the ${shortLeg?.label.toLowerCase() ?? 'short'} leg first.`
+      ? `Prepare gate — run 90-day sprints on ${shortLeg?.label.toLowerCase() ?? 'the weakest'} readiness first.`
       : 'Prepare gate — execute the plan on parallel paths (business + personal-financial).';
   }
 

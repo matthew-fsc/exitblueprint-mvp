@@ -58,3 +58,62 @@ Light/dark via `:root[data-theme]` + `prefers-color-scheme`. Every color is a
 semantic token (`--surface-*`, `--text-*`, `--border*`, `--status-*`, `--chip-*`,
 `--tier-*`); per-firm branding overrides `--accent` only. Never a raw hex in a
 component.
+
+## Institutional register — the craft bar
+The app should read like software a billion-dollar firm runs on, not a generic
+build. Five rules carry that, all token-driven (see the "Institutional register
+pass" section at the foot of `styles.css`):
+
+1. **Crisp geometry.** Surfaces are `--radius` **8px**, controls `--radius-sm`
+   **6px**, `--radius-lg` **12px** for hero surfaces only. Status/tier chips are
+   rounded-rects (6px), not pills. Tighter than consumer-SaaS on purpose.
+2. **Border-defined elevation.** A surface is framed by its 1px border and a
+   tonal step, not a drop shadow. `--shadow`/`--shadow-sm` are whispers;
+   `--shadow-lift` is the *one* deliberate raise (hover, popovers) — never a
+   card's resting state.
+3. **Engineered numerals.** Every figure that is read or compared uses
+   `font-variant-numeric: tabular-nums slashed-zero` via the `--num` token
+   (`'tnum' 1, 'zero' 1`). This is the clearest "financial software" tell. Any
+   new numeric class joins the `--num` selector list.
+4. **Neutrals are neutral.** The accent is spent, not smeared: greys carry only a
+   whisper of green. Don't tint borders/labels/hints with the brand.
+5. **Data surfaces are the hero.** The `DataTable` is dense, border-framed, with
+   an engineered uppercase header rule and a whisper-tint row hover; sparklines
+   render as charts (area fill + endpoint dot), never stray lines.
+
+The details that signal craft — tinted `::selection`, a styled scrollbar, a
+tactile primary button, a refined 2px focus ring — live in that same section.
+When adding UI, match this bar; don't reintroduce soft radii, drop-shadowed
+cards, or lining/proportional figures in a data context.
+
+## Page composition — a reading path, not a flat stack
+A page is composed, not just a `stack-lg` of equal-weight cards. Every primary
+page follows the same spine so the eye always knows where it is and what's
+primary vs. secondary (see the "Composition system" section in `styles.css`):
+
+1. **A `page-shell`** wraps the page body (`display:flex; column`).
+2. **A `page-masthead`** leads: the `PageHeader` (+ any tab bar like
+   `EngagementNav`) read as *one* "where am I" band, divided from the content by
+   section space. Don't let the tabs float as a separate stacked peer.
+3. **`PageSection`s** group the content into major regions. Each is introduced by
+   a quiet eyebrow **title** + optional right-aligned **note** and a hairline
+   rule, and sits on the page's section rhythm (`--space-8` between regions).
+   This is the move that turns a flat card-stack into a composed page.
+
+```tsx
+<div className="page-shell">
+  <header className="page-masthead"><PageHeader … /><EngagementNav … /></header>
+  <PageSection title="Readiness at a glance" note="Where the engagement stands today">
+    <div className="stack-lg">{/* primary cards */}</div>
+  </PageSection>
+  <PageSection title="Analysis & detail" note="Folded away — open what you need">…</PageSection>
+  <PageSection title="Record">…</PageSection>
+</div>
+```
+
+**Gutters share the block rhythm.** `card-grid` (and the legacy `eng-grid` /
+`owner-grid` / `roadmap-cols`) all gutter on `--gap-block`, so grids line up on
+one system. Use `card-grid` (`--col-min` tunes the wrap width) for new
+multi-card rows. **`layout-rail`** is the primary+rail primitive (`minmax(0,1fr)`
++ a fixed rail) for pages with a clear lead column. `EngagementPage` is the
+reference implementation; adopt the same spine on other primary pages.

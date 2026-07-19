@@ -207,10 +207,10 @@ export default function VerificationPage() {
           <StatBlock
             label="Automated"
             value={m ? `${Math.round(m.automation_ratio * 100)}%` : '—'}
-            hint="verified without a human"
+            hint="verified without review"
           />
-          <StatBlock label="Auto-verified" value={m ? m.auto_resolved : '—'} hint="no human needed" />
-          <StatBlock label="Needs review" value={m ? m.human_required : '—'} hint="awaiting a human" />
+          <StatBlock label="Auto-verified" value={m ? m.auto_resolved : '—'} hint="no review needed" />
+          <StatBlock label="Needs review" value={m ? m.human_required : '—'} hint="awaiting review" />
           <StatBlock label="Findings" value={findings.length} hint="buy-side patterns" />
         </StatRow>
       </SectionCard>
