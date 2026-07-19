@@ -28,7 +28,9 @@ import { fmtDate, fmtScore } from '../lib/format';
 import {
   consensus,
   gapReason,
+  gapToTarget,
   interpretSubScore,
+  subScoreGaps,
 } from '../../shared/scoring/interpret';
 
 
@@ -115,6 +117,17 @@ export default function ResultsPage() {
       subs: ownerSubs.filter((s) => s.dimensionCode === code),
     }))
     .filter((g) => g.subs.length > 0);
+
+  // Path to 100: the whole gap from today's DRS to a perfect score, decomposed
+  // across the six dimensions and ranked by how many points each holds. Every
+  // figure traces to the same weights the engine used (see gapToTarget).
+  const gap = gapToTarget(explain.drsScore, explain.dimensions);
+  const dimStatusFor = (score: number): 'good' | 'ok' | 'warning' | 'critical' =>
+    score >= 75 ? 'good' : score >= 55 ? 'ok' : score >= 40 ? 'warning' : 'critical';
+  // The next tier up — so the gap reads as "N points to the next rung", not only
+  // to an abstract 100.
+  const nextTier = [...TIERS].reverse().find((t) => t.floor > explain.drsScore);
+  const roadmapTo = `/engagement/${assessment.engagement_id}/roadmap`;
 
   return (
     <div className="results page-shell">
@@ -226,50 +239,130 @@ export default function ResultsPage() {
       </div>
       </PageSection>
 
-      <PageSection title="The six business areas" note="What each measures, and what your answers showed">
-      <div className="dimension-list">
-        {explain.dimensions.map((d) => {
-          const readings = explain.subScores
-            .filter((s) => s.dimensionCode === d.code)
-            .map(interpretSubScore)
-            .sort((a, b) => a.points - b.points);
-          const dimStatus =
-            d.score >= 75 ? 'good' : d.score >= 55 ? 'ok' : d.score >= 40 ? 'warning' : 'critical';
-          return (
-            <details key={d.code} className="dim-card">
-              <summary>
-                <span className="dim-head">
-                  <span className="dim-name">{d.name}</span>
-                  <span className="dim-track">
-                    <span className={`dim-fill dim-fill-${dimStatus}`} style={{ width: `${d.score}%` }} />
-                  </span>
-                  <span className="dim-value">{fmtScore(d.score)}</span>
-                </span>
-                <span className="dim-expand">details</span>
-              </summary>
-              <div className="dim-body">
-                <p className="dim-contrib muted">
-                  This area is worth {Math.round(d.drsWeight * 100)}% of the business score, so it adds{' '}
-                  {d.contributionToDrs} of the {explain.drsScore} points overall.
-                </p>
-                <ul className="factor-list">
-                  {readings.map((r) => (
-                    <li key={r.code} className="factor">
-                      <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
-                      <span className="factor-text">
-                        <strong>{r.name}</strong> — {r.measures}.
-                        <span className="factor-reading"> {r.reading}</span>
-                        <span className="factor-benchmark muted"> Target: {r.benchmark}.</span>
+      <PageSection
+        title="Path to 100"
+        note={gap.totalGap > 0 ? `${fmtScore(gap.totalGap)} points to recover` : 'At a perfect score'}
+      >
+      {gap.totalGap <= 0 ? (
+        <p className="gap-none">Business readiness is at a perfect 100 — every point is captured.</p>
+      ) : (
+        <div className="stack-lg">
+          {/* The whole gap, in one view: how much of a perfect 100 is captured
+              today, and how the missing points split across the six areas. */}
+          <div className="gap-summary">
+            <div className="gap-summary-head">
+              <span className="gap-summary-figures">
+                <span className="gap-current">{fmtScore(explain.drsScore)}</span>
+                <span className="gap-arrow" aria-hidden>→</span>
+                <span className="gap-target">100</span>
+              </span>
+              <p className="gap-summary-caption muted">
+                <strong>{fmtScore(gap.totalGap)} points</strong> stand between today’s business
+                readiness and a perfect score
+                {nextTier ? (
+                  <>
+                    {' '}— {fmtScore(nextTier.floor - explain.drsScore)} of them reach the{' '}
+                    <strong>{nextTier.label}</strong> tier.
+                  </>
+                ) : (
+                  '.'
+                )}
+              </p>
+            </div>
+            {/* Composition bar: the captured score, then a segment per dimension
+                sized to the points it holds, worst areas coloured to draw the eye. */}
+            <div
+              className="gap-bar"
+              role="img"
+              aria-label={`${fmtScore(explain.drsScore)} of 100 captured; ${fmtScore(gap.totalGap)} points open across the business areas`}
+            >
+              <span
+                className="gap-seg gap-seg-captured"
+                style={{ width: `${explain.drsScore}%` }}
+                title={`Captured today: ${fmtScore(explain.drsScore)} points`}
+              />
+              {gap.dimensions
+                .filter((d) => d.recoverablePoints > 0)
+                .map((d) => (
+                  <span
+                    key={d.code}
+                    className={`gap-seg gap-seg-${dimStatusFor(d.score)}`}
+                    style={{ width: `${d.recoverablePoints}%` }}
+                    title={`${d.name}: ${fmtScore(d.recoverablePoints)} points open`}
+                  />
+                ))}
+            </div>
+          </div>
+
+          {/* Ranked breakdown: biggest opportunity first, each expanding to the
+              specific measures behind it and what each is worth in DRS points. */}
+          <div className="dimension-list">
+            {gap.dimensions.map((d, i) => {
+              const subs = explain.subScores.filter((s) => s.dimensionCode === d.code);
+              const readings = subScoreGaps(subs, d.drsWeight);
+              const dimStatus = dimStatusFor(d.score);
+              const captured = d.maxContributionToDrs > 0
+                ? (d.contributionToDrs / d.maxContributionToDrs) * 100
+                : 100;
+              return (
+                <details key={d.code} className="dim-card" open={i === 0 && d.recoverablePoints > 0}>
+                  <summary>
+                    <span className="dim-head dim-head-gap">
+                      <span className="dim-name">
+                        <span className="dim-rank" aria-hidden>{i + 1}</span>
+                        {d.name}
                       </span>
-                      <span className="factor-score">{r.points}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </details>
-          );
-        })}
-      </div>
+                      <span className="dim-track" title={`${fmtScore(d.contributionToDrs)} of ${fmtScore(d.maxContributionToDrs)} DRS points captured`}>
+                        <span className={`dim-fill dim-fill-${dimStatus}`} style={{ width: `${captured}%` }} />
+                      </span>
+                      <span className={`gap-open-chip gap-open-${dimStatus}`}>
+                        {d.recoverablePoints > 0 ? `+${fmtScore(d.recoverablePoints)} open` : 'maxed'}
+                      </span>
+                    </span>
+                    <span className="dim-expand">details</span>
+                  </summary>
+                  <div className="dim-body">
+                    <p className="dim-contrib muted">
+                      Worth {Math.round(d.drsWeight * 100)}% of the business score. It adds{' '}
+                      {fmtScore(d.contributionToDrs)} of a possible {fmtScore(d.maxContributionToDrs)}{' '}
+                      DRS points today — <strong>{fmtScore(d.recoverablePoints)} still on the table.</strong>
+                    </p>
+                    <ul className="factor-list">
+                      {readings.map((r) => (
+                        <li key={r.code} className="factor">
+                          <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
+                          <span className="factor-text">
+                            <strong>{r.name}</strong> — {r.measures}.
+                            <span className="factor-reading"> {r.reading}</span>
+                            <span className="factor-benchmark muted"> Target: {r.benchmark}.</span>
+                          </span>
+                          <span className="factor-opp" title="DRS points recovering this to full marks would add">
+                            {r.recoverableDrsPoints > 0 ? `+${fmtScore(r.recoverableDrsPoints)}` : '—'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+
+          {/* The gap view lands on the next action: turn it into a plan. */}
+          <div className="remediation-cta">
+            <div className="remediation-cta-body">
+              <span className="remediation-cta-label">Close the gap</span>
+              <p>
+                These are the raw material for remediation. The roadmap sequences them — most
+                valuable points first — into tasks for the owner and deal team.
+              </p>
+            </div>
+            <Link className="button-link button-primary" to={roadmapTo}>
+              Build the remediation roadmap →
+            </Link>
+          </div>
+        </div>
+      )}
       </PageSection>
 
       <PageSection title="Owner readiness" note="Scored separately from the business">

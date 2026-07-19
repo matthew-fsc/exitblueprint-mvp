@@ -1200,6 +1200,173 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   font-weight: 600;
 }
 
+/* ---- Path to 100: gap summary + composition bar ---- */
+.gap-summary {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.2rem 1.4rem;
+}
+
+.gap-summary-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.gap-summary-figures {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gap-current {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--brand);
+  line-height: 1;
+}
+
+.gap-arrow {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.gap-target {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gap-summary-caption {
+  flex: 1;
+  min-width: 16rem;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.gap-summary-caption strong {
+  color: var(--text-primary);
+}
+
+/* Segmented bar: captured score + one segment per dimension's open points.
+   Segments abut so the whole bar reads as one 0–100 scale. */
+.gap-bar {
+  display: flex;
+  height: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.gap-seg {
+  height: 100%;
+}
+
+.gap-seg + .gap-seg {
+  box-shadow: inset 1px 0 0 var(--surface-1);
+}
+
+.gap-seg-captured { background: var(--brand); }
+.gap-seg-good { background: color-mix(in srgb, var(--status-good) 55%, var(--surface-3)); }
+.gap-seg-ok { background: color-mix(in srgb, var(--status-ok) 45%, var(--surface-3)); }
+.gap-seg-warning { background: color-mix(in srgb, var(--status-warning) 60%, var(--surface-3)); }
+.gap-seg-critical { background: color-mix(in srgb, var(--status-critical) 60%, var(--surface-3)); }
+
+/* Ranked dimension header: rank badge + open-points chip. */
+.dim-head-gap {
+  grid-template-columns: minmax(150px, 240px) 1fr auto;
+}
+
+.dim-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-right: 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.gap-open-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.gap-open-good { background: var(--chip-good-bg); color: var(--chip-good-fg); }
+.gap-open-ok { background: var(--chip-ok-bg); color: var(--chip-ok-fg); }
+.gap-open-warning { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+.gap-open-critical { background: var(--chip-critical-bg); color: var(--chip-critical-fg); }
+
+/* Per-measure opportunity: DRS points recovering it to full marks would add. */
+.factor-opp {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--status-ok);
+  white-space: nowrap;
+}
+
+/* Remediation hand-off: the gap view lands on the next action. */
+.remediation-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  padding: 1.1rem 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.remediation-cta-body {
+  flex: 1;
+  min-width: 18rem;
+}
+
+.remediation-cta-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.remediation-cta-body p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.button-primary {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--radius-sm);
+}
+
+.button-primary:hover {
+  background: var(--btn-bg-hover);
+  color: var(--btn-fg);
+}
+
 /* ============================================================
    Owner report
    ============================================================ */

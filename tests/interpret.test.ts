@@ -4,7 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   consensus,
+  gapToTarget,
   interpretSubScore,
+  subScoreGaps,
   type SubScoreExplainLike,
 } from '../shared/scoring/interpret';
 
@@ -64,5 +66,58 @@ describe('consensus synthesis', () => {
     const c = consensus({ ...base, oriScore: 30 });
     expect(c.divergent).toBe(true);
     expect(c.bottomLine).toContain('far apart');
+  });
+});
+
+describe('gapToTarget — path to 100', () => {
+  // Two dimensions whose weights sum to 1, so drs = weighted mean of scores.
+  const dims = [
+    { code: 'FIN', name: 'Financial Integrity', score: 90, drsWeight: 0.6, contributionToDrs: 54 },
+    { code: 'GRW', name: 'Growth Drivers', score: 40, drsWeight: 0.4, contributionToDrs: 16 },
+  ];
+  const drs = 70; // 54 + 16
+
+  it('total gap is the distance from the DRS to a perfect 100', () => {
+    const g = gapToTarget(drs, dims);
+    expect(g.target).toBe(100);
+    expect(g.totalGap).toBe(30);
+  });
+
+  it('recoverable points per dimension sum to the total gap', () => {
+    const g = gapToTarget(drs, dims);
+    const sum = g.dimensions.reduce((a, d) => a + d.recoverablePoints, 0);
+    expect(sum).toBeCloseTo(g.totalGap, 6);
+  });
+
+  it('ranks dimensions by recoverable points, largest first', () => {
+    const g = gapToTarget(drs, dims);
+    // GRW: 0.4*(100-40)=24 open; FIN: 0.6*(100-90)=6 open.
+    expect(g.dimensions.map((d) => d.code)).toEqual(['GRW', 'FIN']);
+    expect(g.dimensions[0].recoverablePoints).toBeCloseTo(24, 6);
+    expect(g.dimensions[1].recoverablePoints).toBeCloseTo(6, 6);
+    expect(g.dimensions[0].shareOfGap).toBeCloseTo(24 / 30, 6);
+  });
+
+  it('reports no gap when already at 100', () => {
+    const g = gapToTarget(100, [
+      { code: 'FIN', name: 'Financial Integrity', score: 100, drsWeight: 1, contributionToDrs: 100 },
+    ]);
+    expect(g.totalGap).toBe(0);
+    expect(g.dimensions[0].recoverablePoints).toBe(0);
+  });
+});
+
+describe('subScoreGaps — measures ranked by DRS points on the table', () => {
+  const subs: SubScoreExplainLike[] = [
+    { ...sub('A', 20, 'x'), weight: 0.5 }, // 0.5*(100-20)=40 dim pts
+    { ...sub('B', 80, 'x'), weight: 0.5 }, // 0.5*(100-80)=10 dim pts
+  ];
+
+  it('weights each measure into DRS points via its dimension weight', () => {
+    const gaps = subScoreGaps(subs, 0.3); // dimension is 30% of the DRS
+    expect(gaps.map((g) => g.code)).toEqual(['A', 'B']);
+    expect(gaps[0].recoverableDimPoints).toBeCloseTo(40, 6);
+    expect(gaps[0].recoverableDrsPoints).toBeCloseTo(0.3 * 40, 6); // 12
+    expect(gaps[1].recoverableDrsPoints).toBeCloseTo(0.3 * 10, 6); // 3
   });
 });

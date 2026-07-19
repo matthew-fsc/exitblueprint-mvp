@@ -407,6 +407,100 @@ export function consensus(input: ConsensusInput): Consensus {
   };
 }
 
+// --- Path to 100: gap decomposition ------------------------------------------
+// The distance from the current DRS to a perfect 100, decomposed across the six
+// business dimensions and — within a dimension — across its sub-scores. Every
+// figure is derived from the same weights and points the engine already
+// produced (drsWeight, dimension score, sub-score weight/points): this adds NO
+// new numbers and makes NO scoring decisions. It exists so an advisor can see
+// exactly where the missing points sit, ranked by how many DRS points each is
+// worth, and move straight from the gap to the remediation plan.
+//
+// The identity that makes this defensible: a dimension currently contributes
+// `drsWeight * score` DRS points and could contribute at most `drsWeight * 100`,
+// so its recoverable points are `drsWeight * (100 - score)`. Summed across the
+// six business dimensions these equal exactly `100 - drsScore`.
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+export interface DimensionGap {
+  code: string;
+  name: string;
+  score: number; // current dimension score, 0-100
+  drsWeight: number;
+  contributionToDrs: number; // DRS points this dimension currently adds
+  maxContributionToDrs: number; // most it could add: drsWeight * 100
+  recoverablePoints: number; // DRS points still on the table: drsWeight * (100 - score)
+  shareOfGap: number; // this dimension's share of the whole gap, 0-1
+}
+
+export interface GapToTarget {
+  target: number; // always 100 — a perfect score
+  current: number; // the current DRS
+  totalGap: number; // target - current
+  dimensions: DimensionGap[]; // sorted by recoverablePoints, largest opportunity first
+}
+
+export function gapToTarget(
+  drsScore: number,
+  dimensions: {
+    code: string;
+    name: string;
+    score: number;
+    drsWeight: number;
+    contributionToDrs: number;
+  }[],
+): GapToTarget {
+  const target = 100;
+  const totalGap = round1(Math.max(0, target - drsScore));
+  const dims: DimensionGap[] = dimensions
+    .map((d) => {
+      const maxContributionToDrs = round2(d.drsWeight * target);
+      const recoverablePoints = round2(Math.max(0, d.drsWeight * (target - d.score)));
+      return {
+        code: d.code,
+        name: d.name,
+        score: d.score,
+        drsWeight: d.drsWeight,
+        contributionToDrs: d.contributionToDrs,
+        maxContributionToDrs,
+        recoverablePoints,
+        shareOfGap: totalGap > 0 ? recoverablePoints / totalGap : 0,
+      };
+    })
+    .sort((a, b) => b.recoverablePoints - a.recoverablePoints);
+  return { target, current: drsScore, totalGap, dimensions: dims };
+}
+
+export interface SubScoreGap extends SubScoreReading {
+  // Points this measure would add to its own dimension at full marks:
+  // weight * (100 - points).
+  recoverableDimPoints: number;
+  // DRS points recovering it to full marks would add, through its dimension:
+  // drsWeight * weight * (100 - points).
+  recoverableDrsPoints: number;
+}
+
+// The sub-scores inside one dimension, ranked by how many DRS points bringing
+// each to full marks would recover — the specific fixes behind a dimension gap.
+export function subScoreGaps(
+  subScores: SubScoreExplainLike[],
+  drsWeight: number,
+): SubScoreGap[] {
+  return subScores
+    .map((s) => {
+      const reading = interpretSubScore(s);
+      const recoverableDimPoints = round2(s.weight * (100 - s.points));
+      return {
+        ...reading,
+        recoverableDimPoints,
+        recoverableDrsPoints: round2(drsWeight * s.weight * (100 - s.points)),
+      };
+    })
+    .sort((a, b) => b.recoverableDrsPoints - a.recoverableDrsPoints);
+}
+
 export function tierMeaning(tier: string): string {
   switch (tier) {
     case 'Institutional Grade':
