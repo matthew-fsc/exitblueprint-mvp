@@ -26,9 +26,7 @@ const WORK_STREAMS: WorkStream[] = [
     { to: '/roadmap', label: 'Roadmap' },
   ] },
   { stream: 'Evidence', tabs: [
-    { to: '/data-room', label: 'Data room' },
-    { to: '/documents', label: 'Documents' },
-    { to: '/verification', label: 'Verification' },
+    { to: '/evidence', label: 'Evidence' },
   ] },
   { stream: 'Value', tabs: [
     { to: '/valuation', label: 'Valuation' },

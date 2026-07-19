@@ -2,10 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
-import { qk, useEngagement, useCompany } from '../lib/queries';
+import { qk } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Card, EmptyState, EngagementNav, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, SkeletonLines, useToast } from '../components/ui';
 
 interface DocumentRow {
   id: string;
@@ -51,13 +51,11 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: 'Rejected',
 };
 
-export default function DocumentsPage() {
+export function DocumentsPanel() {
   const { engagementId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
   const { profile } = useAuth();
-  const engagementQ = useEngagement(engagementId);
-  const companyQ = useCompany(engagementQ.data?.company_id);
   const docsQ = useEngagementSourceDocs(engagementId);
 
   const [file, setFile] = useState<File | null>(null);
@@ -104,12 +102,6 @@ export default function DocumentsPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader
-        title="Documents"
-        subtitle={companyQ.data ? `Source documents for ${companyQ.data.name}` : 'Source documents'}
-      />
-      {engagementId && <EngagementNav engagementId={engagementId} />}
-
       <form className="inline-form doc-upload" onSubmit={upload}>
         <h3>Upload a document</h3>
         <p className="muted m-0">

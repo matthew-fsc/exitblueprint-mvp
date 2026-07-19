@@ -72,7 +72,7 @@ function remediation(i: WorkstreamInput): WorkstreamStatus {
 
 // The proof layer: how much of the self-reported story is document-verified?
 function evidence(i: WorkstreamInput): WorkstreamStatus {
-  const base = { key: 'evidence' as const, label: 'Evidence', to: '/data-room' };
+  const base = { key: 'evidence' as const, label: 'Evidence', to: '/evidence' };
   if (!i.assessed) return { ...base, state: 'blocked', headline: 'Awaiting assessment', detail: 'Inputs are verified against a scored assessment.' };
   const pct = i.verifiedPct ?? 0;
   if (pct >= EVIDENCE_DONE_PCT) return { ...base, state: 'done', headline: `${pct}% verified`, detail: 'The diligence binder is substantially proven.' };

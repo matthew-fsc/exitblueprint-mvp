@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
-import { qk, useLatestReport } from '../lib/queries';
+import { qk, useLatestReport, useActiveAssessment, useEngagement, useCompany } from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Collapsible, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Collapsible, EngagementNav, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { fmtDate } from '../lib/format';
 
 // Minimal inline renderer for the report markdown.
@@ -66,6 +66,13 @@ export default function ReportPage() {
   const { brand, branding } = useBrand();
   const reportQ = useLatestReport(assessmentId);
   const doc = reportQ.data ?? null;
+  // Keep the engagement frame around the report (docs/22 F3): load the chain to
+  // the owning engagement so the masthead breadcrumbs and tab bar stay present.
+  const assessmentQ = useActiveAssessment(assessmentId);
+  const engagementId = assessmentQ.data?.engagement_id;
+  const engagementQ = useEngagement(engagementId);
+  const companyQ = useCompany(engagementQ.data?.company_id);
+  const companyName = companyQ.data?.name ?? '';
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,15 +179,24 @@ export default function ReportPage() {
 
   return (
     <div className="report">
+      <header className="page-masthead no-print">
       <PageHeader
         title="Owner report"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Owner report' }]}
+        crumbs={[
+          { label: 'Portfolio', to: '/' },
+          ...(engagementId
+            ? [{ label: companyName || 'Engagement', to: `/engagement/${engagementId}` }]
+            : []),
+          { label: 'Owner report' },
+        ]}
         actions={
           <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
             ← results
           </Link>
         }
       />
+      {engagementId && <EngagementNav engagementId={engagementId} />}
+      </header>
       {error && <p className="form-error no-print">{error}</p>}
 
       {!doc ? (

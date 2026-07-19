@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction } from '../lib/supabase';
-import { qk, useEngagement, useCompany } from '../lib/queries';
-import { Card, EngagementNav, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { qk } from '../lib/queries';
+import { Card, SkeletonLines, useToast } from '../components/ui';
 
 const toBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -77,12 +77,10 @@ function useDataRoom(engagementId: string | undefined): UseQueryResult<DataRoomV
   });
 }
 
-export default function DataRoomPage() {
+export function DataRoomPanel() {
   const { engagementId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
-  const engagementQ = useEngagement(engagementId);
-  const companyQ = useCompany(engagementQ.data?.company_id);
   const dataRoomQ = useDataRoom(engagementId);
   const [saving, setSaving] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -128,16 +126,6 @@ export default function DataRoomPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader
-        title="Data room"
-        subtitle={
-          companyQ.data
-            ? `Diligence readiness for ${companyQ.data.name}`
-            : 'Diligence readiness checklist'
-        }
-      />
-      {engagementId && <EngagementNav engagementId={engagementId} />}
-
       <Card>
         <p className="muted mt-0">
           The request list a buyer will actually send, assembled ahead of time. Mark each item as you

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { loadRubric, type QuestionRow, type RubricData } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
@@ -18,7 +18,7 @@ import {
   type ExplainResult,
   type Rubric,
 } from '../lib/scoringClient';
-import { GapSeverityChip } from '../components/ui';
+import { EngagementNav, GapSeverityChip, PageHeader } from '../components/ui';
 import { tierStatusOf } from '../lib/tokens';
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
@@ -295,22 +295,23 @@ export default function WorkbenchPage() {
 
   return (
     <div className="workbench">
-      <div className="page-title-row">
-        <h2>
-          {meta.company} <span className="muted">· scenario workbench</span>
-        </h2>
-        <span className="muted wb-links">
-          from assessment #{meta.sequence} · {meta.version}
-          {' · '}
-          <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
-            results →
-          </Link>
-          {' · '}
-          <Link className="button-link" to={`/engagement/${meta.engagementId}`}>
-            engagement →
-          </Link>
-        </span>
-      </div>
+      <header className="page-masthead">
+        <PageHeader
+          title={
+            <>
+              {meta.company} <span className="muted">· scenario workbench</span>
+            </>
+          }
+          crumbs={[
+            { label: 'Portfolio', to: '/' },
+            { label: meta.company, to: `/engagement/${meta.engagementId}` },
+            { label: `Assessment #${meta.sequence}`, to: `/assessment/${assessmentId}/results` },
+            { label: 'What-if' },
+          ]}
+          subtitle={`from assessment #${meta.sequence} · ${meta.version}`}
+        />
+        <EngagementNav engagementId={meta.engagementId} />
+      </header>
 
       <p className="wb-explainer">
         Change any answer and every score updates instantly. Nothing here is saved until you choose{' '}

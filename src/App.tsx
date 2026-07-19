@@ -1,4 +1,4 @@
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
@@ -26,9 +26,7 @@ import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
-import DocumentsPage from './pages/DocumentsPage';
-import DataRoomPage from './pages/DataRoomPage';
-import VerificationPage from './pages/VerificationPage';
+import EvidencePage from './pages/EvidencePage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import SecurityPage from './pages/SecurityPage';
@@ -123,6 +121,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (loading) return <p className="muted page">Loading…</p>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   return <>{children}</>;
+}
+
+// The three Evidence surfaces were merged into one tabbed page (docs/22 F2).
+// Old per-surface routes redirect into the corresponding sub-tab so existing
+// links keep working.
+function RedirectToEvidence({ section }: { section: string }) {
+  const { engagementId } = useParams();
+  return <Navigate to={`/engagement/${engagementId}/evidence/${section}`} replace />;
 }
 
 function userInitials(email?: string | null): string {
@@ -327,36 +333,33 @@ export default function App() {
               </RequireAdvisor>
             }
           />
+          {/* Evidence: Data room · Documents · Verification merged into one
+              tabbed surface (docs/22 F2). The :section param drives the sub-tab. */}
           <Route
-            path="/engagement/:engagementId/documents"
+            path="/engagement/:engagementId/evidence"
             element={
               <RequireAdvisor>
                 <Shell>
-                  <DocumentsPage />
+                  <EvidencePage />
                 </Shell>
               </RequireAdvisor>
             }
           />
           <Route
-            path="/engagement/:engagementId/data-room"
+            path="/engagement/:engagementId/evidence/:section"
             element={
               <RequireAdvisor>
                 <Shell>
-                  <DataRoomPage />
+                  <EvidencePage />
                 </Shell>
               </RequireAdvisor>
             }
           />
-          <Route
-            path="/engagement/:engagementId/verification"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <VerificationPage />
-                </Shell>
-              </RequireAdvisor>
-            }
-          />
+          {/* Redirects: the three surfaces used to be their own routes. Keep old
+              links (bookmarks, prior sessions) working by folding them in. */}
+          <Route path="/engagement/:engagementId/data-room" element={<RedirectToEvidence section="data-room" />} />
+          <Route path="/engagement/:engagementId/documents" element={<RedirectToEvidence section="documents" />} />
+          <Route path="/engagement/:engagementId/verification" element={<RedirectToEvidence section="verification" />} />
           <Route
             path="/review"
             element={

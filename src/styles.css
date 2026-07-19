@@ -2857,6 +2857,66 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border-bottom-color: var(--accent);
 }
 
+/* ---- sub-tabs (in-page panel switcher) ----
+   A segmented control for switching between related views inside one surface —
+   the merged Evidence tabs and the Overview analysis section. Reads as a pill
+   group so it's clearly distinct from the engagement tab bar (.eng-nav) above
+   it: tabs are navigation, sub-tabs switch a panel in place. */
+.subtabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+.subtab:hover {
+  color: var(--text-primary);
+}
+.subtab-active {
+  color: var(--accent-strong);
+  background: var(--surface-1);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.subtab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-3);
+  border-radius: 999px;
+}
+.subtab-active .subtab-badge {
+  color: var(--accent-strong);
+}
+/* The panel below the sub-tabs gets a little air so the switch reads cleanly. */
+.subtabs-panel {
+  margin-top: var(--space-4);
+}
+
 /* ---- work-stream progress rail (docs/22) ----
    The five preparation work streams as a left-to-right arc on the Overview, each
    chip showing where the engagement stands and linking into that stream's tab. */
