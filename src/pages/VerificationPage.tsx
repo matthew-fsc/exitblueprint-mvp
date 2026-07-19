@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
-import { qk, useEngagement, useCompany } from '../lib/queries';
+import { qk } from '../lib/queries';
 import { humanizeKey, formatFieldValue } from '../lib/format';
 import {
   Card,
   EmptyState,
-  EngagementNav,
   GapSeverityChip,
-  PageHeader,
   SectionCard,
   SkeletonLines,
   StatBlock,
@@ -128,12 +126,10 @@ function show(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export default function VerificationPage() {
+export function VerificationPanel() {
   const { engagementId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
-  const engagementQ = useEngagement(engagementId);
-  const companyQ = useCompany(engagementQ.data?.company_id);
   const reconQ = useReconciliation(engagementId);
   const findingsQ = useFindings(engagementId);
   const reviewQ = useReviewItems(engagementId);
@@ -184,16 +180,6 @@ export default function VerificationPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader
-        title="Verification"
-        subtitle={
-          companyQ.data
-            ? `Document-verified intelligence for ${companyQ.data.name}`
-            : 'Document-verified intelligence'
-        }
-      />
-      {engagementId && <EngagementNav engagementId={engagementId} />}
-
       <SectionCard
         title="Run verification"
         subtitle="Parses uploaded documents, builds the knowledge graph, reconciles values, and runs the buy-side finding patterns."

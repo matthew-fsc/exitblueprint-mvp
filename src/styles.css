@@ -2819,23 +2819,16 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 /* The engagement tab bar is chrome that belongs with the page header, so it
    sits tight beneath it (see the .ui-pageheader + .eng-nav rule) and takes a
    full section break before the working content below. */
+/* One flat, evenly-spaced row. Work-stream grouping is not drawn here — the
+   WorkstreamRail on the Overview is the single place that carries it (see
+   EngagementNav.tsx). Tabs are navigation; the rail carries workflow state. */
 .eng-nav {
   display: flex;
   align-items: stretch;
   flex-wrap: wrap;
+  column-gap: var(--space-2);
   row-gap: var(--space-2);
   border-bottom: 1px solid var(--border);
-}
-/* Tabs sit in their work-stream groups, but the grouping is expressed only as a
-   subtle divider + a little breathing room — no labels (those live on the rail). */
-.eng-nav-group {
-  display: flex;
-  align-items: stretch;
-}
-.eng-nav-group + .eng-nav-group {
-  margin-left: var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--border);
 }
 .eng-nav-link {
   display: inline-flex;
@@ -2850,11 +2843,70 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   white-space: nowrap;
   transition: color 0.14s ease, border-color 0.14s ease;
 }
-.eng-nav-link + .eng-nav-link { margin-left: var(--space-1); }
 .eng-nav-link:hover { color: var(--text-primary); }
 .eng-nav-link.active {
   color: var(--accent-strong);
   border-bottom-color: var(--accent);
+}
+
+/* ---- sub-tabs (in-page panel switcher) ----
+   A segmented control for switching between related views inside one surface —
+   the merged Evidence tabs and the Overview analysis section. Reads as a pill
+   group so it's clearly distinct from the engagement tab bar (.eng-nav) above
+   it: tabs are navigation, sub-tabs switch a panel in place. */
+.subtabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+.subtab:hover {
+  color: var(--text-primary);
+}
+.subtab-active {
+  color: var(--accent-strong);
+  background: var(--surface-1);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.subtab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-3);
+  border-radius: 999px;
+}
+.subtab-active .subtab-badge {
+  color: var(--accent-strong);
+}
+/* The panel below the sub-tabs gets a little air so the switch reads cleanly. */
+.subtabs-panel {
+  margin-top: var(--space-4);
 }
 
 /* ---- work-stream progress rail (docs/22) ----
@@ -3497,6 +3549,10 @@ textarea:focus {
   padding: 0.05rem 0.4rem;
 }
 .advisory-tag-firm { color: var(--accent-strong); border-color: var(--accent); }
+.advisory-tag-inactive { color: var(--status-neutral); border-color: var(--border-strong); }
+/* A deactivated firm item stays visible (so it can be reactivated) but reads as
+   retired — dimmed, not gone. */
+.advisory-item-inactive { opacity: 0.55; }
 
 .advisory-item-toggle {
   margin-top: 0.5rem; background: none; border: none; color: var(--accent);
@@ -3512,7 +3568,7 @@ textarea:focus {
   font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
   color: var(--status-neutral);
 }
-.advisory-item-actions { margin-top: 0.5rem; }
+.advisory-item-actions { margin-top: 0.5rem; display: flex; gap: 0.9rem; align-items: center; }
 .button-danger-link {
   background: none; border: none; color: var(--status-critical); cursor: pointer;
   font-size: 0.82rem; font-weight: 600; padding: 0;
@@ -3535,6 +3591,8 @@ textarea:focus {
 }
 .advisory-form textarea { resize: vertical; }
 .advisory-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+.advisory-form-head { display: flex; flex-direction: column; gap: 0.2rem; }
+.advisory-form-actions { display: flex; gap: 0.6rem; align-items: center; }
 
 /* ---- Header action links render as buttons, not bare text -------------- */
 /* Any link placed in a PageHeader's actions area looks like a secondary

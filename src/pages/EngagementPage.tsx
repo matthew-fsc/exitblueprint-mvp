@@ -43,6 +43,7 @@ import {
   SectionCard,
   ScoreDial,
   SkeletonLines,
+  SubTabs,
   TierBadge,
   ExitPaceChart,
   ContributionBars,
@@ -51,6 +52,7 @@ import {
   useToast,
   type Column,
   type PacePoint,
+  type SubTab,
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
@@ -111,6 +113,7 @@ export default function EngagementPage() {
   const [logTitle, setLogTitle] = useState('');
   const [logDetail, setLogDetail] = useState('');
   const [logGap, setLogGap] = useState('');
+  const [analysisTab, setAnalysisTab] = useState('score');
 
   const startAssessment = async () => {
     setError(null);
@@ -229,6 +232,27 @@ export default function EngagementPage() {
     reportDraftCount: documents.filter((d) => !d.finalized_at).length,
     reportFinalCount: documents.filter((d) => d.finalized_at).length,
   });
+
+  // Deeper analysis lives in a single sub-tabbed panel rather than a deep stack
+  // of collapsibles (docs/22 F4): one view at a time, chosen deliberately. The
+  // tabs are built from what this engagement actually has.
+  const analysisTabs: SubTab[] = [];
+  if (explain) analysisTabs.push({ key: 'score', label: 'Score detail' });
+  analysisTabs.push({
+    key: 'log',
+    label: 'Engagement log',
+    badge: (logQ.data?.length ?? 0) || undefined,
+  });
+  if ((gapsQ.data ?? []).length > 0)
+    analysisTabs.push({ key: 'connections', label: 'How the plan connects' });
+  analysisTabs.push({ key: 'outcome', label: 'Deal outcome' });
+  if ((comparablesQ.data ?? []).length > 0)
+    analysisTabs.push({ key: 'comparables', label: 'Comparables', badge: comparablesQ.data!.length });
+  if (completed.length > 1) analysisTabs.push({ key: 'compare', label: 'Compare' });
+  analysisTabs.push({ key: 'setup', label: 'Setup & admin' });
+  const activeAnalysis = analysisTabs.some((t) => t.key === analysisTab)
+    ? analysisTab
+    : (analysisTabs[0]?.key ?? 'log');
 
   return (
     <div className="page-shell">
@@ -421,14 +445,17 @@ export default function EngagementPage() {
           </div>
           </PageSection>
 
-          <PageSection title="Analysis & detail" note="Folded away — open what you need">
-          <div className="stack-lg" style={{ gap: 'var(--space-3)' }}>
-          {/* score detail — analytical depth, folded away so the default view stays simple */}
-          {explain && (
-            <Collapsible
-              title="Score detail"
-              hint="What's driving the DRS · business vs. owner readiness"
-            >
+          <PageSection title="Analysis & detail" note="Deeper analysis — pick a view">
+          <SubTabs
+            tabs={analysisTabs}
+            activeKey={activeAnalysis}
+            ariaLabel="Analysis sections"
+            onSelect={setAnalysisTab}
+          />
+          <div className="subtabs-panel stack-lg" style={{ gap: 'var(--space-3)' }}>
+          {/* score detail — analytical depth */}
+          {activeAnalysis === 'score' && explain && (
+            <>
               <div className="eng-grid" style={{ marginTop: 0 }}>
                 <SectionCard
                   title="What's driving the score"
@@ -460,21 +487,11 @@ export default function EngagementPage() {
                   ))}
                 </div>
               </div>
-            </Collapsible>
+            </>
           )}
 
           {/* engagement log — institutional memory: meetings, decisions, rationale */}
-          <Collapsible
-            title={
-              <>
-                Engagement log{' '}
-                {logQ.data && logQ.data.length > 0 && (
-                  <span className="count-pill">{logQ.data.length}</span>
-                )}
-              </>
-            }
-            hint="Meetings, decisions, and the rationale behind recommendations"
-          >
+          {activeAnalysis === 'log' && (
             <div className="stack-lg">
               <ul className="log-list">
                 {(logQ.data ?? []).length === 0 && (
@@ -537,10 +554,10 @@ export default function EngagementPage() {
                 <button type="submit">Add entry</button>
               </form>
             </div>
-          </Collapsible>
+          )}
 
           {/* how the plan connects — the engagement knowledge chain */}
-          {(gapsQ.data ?? []).length > 0 && (() => {
+          {activeAnalysis === 'connections' && (gapsQ.data ?? []).length > 0 && (() => {
             const knowledge = buildEngagementKnowledge({
               gaps: (gapsQ.data ?? []).map((g) => ({
                 id: g.id, name: g.name, severity: g.severity, status: g.status, playbookName: g.playbookName,
@@ -551,10 +568,7 @@ export default function EngagementPage() {
               })),
             });
             return (
-              <Collapsible
-                title="How the plan connects"
-                hint="From each gap to its recommendation, rationale, and progress"
-              >
+              <>
                 <p className="muted mt-0">
                   The engagement's connected record: {knowledge.connectedPct}% of logged reasoning is tied to a
                   specific recommendation.
@@ -590,33 +604,21 @@ export default function EngagementPage() {
                     </li>
                   ))}
                 </ul>
-              </Collapsible>
+              </>
             );
           })()}
 
           {/* deal outcome — record what actually happened (calibration substrate) */}
-          <Collapsible
-            title="Deal outcome"
-            hint="Record the result at close to calibrate future predictions"
-          >
+          {activeAnalysis === 'outcome' && (
             <DealOutcomeCapture
               engagementId={engagementId!}
               firmId={engagement.firm_id}
               gaps={(gapsQ.data ?? []).map((g) => ({ code: g.code, name: g.name }))}
             />
-          </Collapsible>
+          )}
 
           {/* comparable engagements — learn from the firm's own book */}
-          {(comparablesQ.data ?? []).length > 0 && (
-            <Collapsible
-              title={
-                <>
-                  Comparable engagements{' '}
-                  <span className="count-pill">{comparablesQ.data!.length}</span>
-                </>
-              }
-              hint="Comparable prior engagements in your firm, by industry, size, and shared gaps"
-            >
+          {activeAnalysis === 'comparables' && (comparablesQ.data ?? []).length > 0 && (
               <ul className="cmp-list">
                 {comparablesQ.data!.map((c) => (
                   <li key={c.engagementId} className="cmp">
@@ -631,21 +633,15 @@ export default function EngagementPage() {
                   </li>
                 ))}
               </ul>
-            </Collapsible>
           )}
 
-          {/* compare any two — power tool, folded away */}
-          {completed.length > 1 && (
-            <Collapsible title="Compare two assessments" hint="See what changed between any two">
+          {/* compare any two — power tool */}
+          {activeAnalysis === 'compare' && completed.length > 1 && (
               <ComparePanel assessments={completed} embedded />
-            </Collapsible>
           )}
 
-          {/* setup & admin — connections and record-keeping, folded away by default */}
-          <Collapsible
-            title="Engagement setup & admin"
-            hint="Owner access · accounting · verification"
-          >
+          {/* setup & admin — connections and record-keeping */}
+          {activeAnalysis === 'setup' && (
             <div className="stack-lg">
               <SectionCard
                 title="Engagement timeline"
@@ -686,7 +682,7 @@ export default function EngagementPage() {
               </div>
               {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
             </div>
-          </Collapsible>
+          )}
           </div>
           </PageSection>
         </>

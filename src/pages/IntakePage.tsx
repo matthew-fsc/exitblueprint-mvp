@@ -9,11 +9,12 @@ import {
   useActiveAssessment,
   useAnswers,
   useAnswerProvenance,
+  useCompany,
   useEngagement,
   useLedgerConnections,
   useRubric,
 } from '../lib/queries';
-import { SkeletonLines } from '../components/ui';
+import { EngagementNav, PageHeader, SkeletonLines } from '../components/ui';
 import {
   QuestionControl,
   draftFromValue,
@@ -35,6 +36,8 @@ export default function IntakePage() {
   const answersQ = useAnswers(assessmentId);
   const engagementQ = useEngagement(assessment?.engagement_id);
   const companyId = engagementQ.data?.company_id;
+  const companyQ = useCompany(companyId);
+  const companyName = companyQ.data?.name ?? '';
   const connQ = useLedgerConnections(companyId);
   const provenanceQ = useAnswerProvenance(assessmentId);
   const provenance = provenanceQ.data ?? {};
@@ -222,12 +225,24 @@ export default function IntakePage() {
 
   return (
     <div className="intake">
-      <div className="page-title-row">
-        <h2>Assessment intake</h2>
-        <button className="linkish" onClick={() => navigate(`/engagement/${engagementId}`)}>
-          Save &amp; exit
-        </button>
-      </div>
+      <header className="page-masthead">
+        <PageHeader
+          title="Assessment intake"
+          crumbs={[
+            { label: 'Portfolio', to: '/' },
+            ...(engagementId
+              ? [{ label: companyName || 'Engagement', to: `/engagement/${engagementId}` }]
+              : []),
+            { label: 'Assessment intake' },
+          ]}
+          actions={
+            <button className="linkish" onClick={() => navigate(`/engagement/${engagementId}`)}>
+              Save &amp; exit
+            </button>
+          }
+        />
+        {engagementId && <EngagementNav engagementId={engagementId} />}
+      </header>
 
       <div className="intake-progress">
         <div className="intake-progress-track">

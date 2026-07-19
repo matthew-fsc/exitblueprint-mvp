@@ -14,6 +14,7 @@ import {
 import {
   Card,
   Collapsible,
+  EngagementNav,
   PageSection,
   EmptyState,
   GapSeverityChip,
@@ -146,6 +147,7 @@ export default function ResultsPage() {
           </>
         }
       />
+      <EngagementNav engagementId={assessment.engagement_id} />
       </header>
 
       <PageSection title="Readiness" note="Business and owner readiness, scored separately">
