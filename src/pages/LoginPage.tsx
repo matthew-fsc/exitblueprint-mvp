@@ -30,7 +30,7 @@ export default function LoginPage() {
       </div>
       <form className="login-card" onSubmit={submit}>
         <h1>Exit Blueprint</h1>
-        <p className="login-subtitle">Advisor workspace</p>
+        <p className="login-subtitle">Sign in to your exit-readiness workspace</p>
         <label>
           Email
           <input

@@ -251,12 +251,27 @@ const META: Record<string, Meta> = {
   'ORI-OUTSIDE': {
     measures: 'whether the owner has assets outside the business to retire on',
     benchmark: 'sufficient outside assets to retire',
-    reading: (s) => `Outside assets sufficient to retire: ${selectLabel(s.computed.value)}.`,
+    reading: (s) =>
+      ({
+        yes: 'The owner has enough assets outside the business to retire on.',
+        mostly: 'The owner has most of what they would need outside the business to retire on.',
+        partially: 'The owner has only part of what they would need outside the business to retire on.',
+        no: 'The owner has little outside the business to retire on — the sale would have to carry most of it.',
+      })[String(s.computed.value)] ??
+      `Outside assets to retire on: ${selectLabel(s.computed.value)}.`,
   },
   'ORI-DEBT': {
     measures: 'whether personal obligations line up with the exit timeline',
     benchmark: 'personal debt and guarantees aligned with the timeline',
-    reading: (s) => `Personal obligations align with the timeline: ${selectLabel(s.computed.value)}.`,
+    reading: (s) =>
+      ({
+        yes: 'Personal debt, guarantees, and lifestyle costs line up with the exit timeline.',
+        minor_issues:
+          'Personal debt, guarantees, and lifestyle costs mostly line up with the timeline, with a few items to clean up.',
+        significant_issues:
+          'Personal debt, guarantees, or lifestyle costs conflict with the exit timeline and need to be addressed first.',
+      })[String(s.computed.value)] ??
+      `Personal obligations vs. the timeline: ${selectLabel(s.computed.value)}.`,
   },
   'ORI-LASTVAL': {
     measures: 'how current the owner’s sense of value is',
@@ -271,7 +286,13 @@ const META: Record<string, Meta> = {
   'ORI-SEP': {
     measures: 'how cleanly personal and business finances are separated',
     benchmark: 'personal and business finances fully separated',
-    reading: (s) => `Personal and business finances are ${selectLabel(s.computed.value)}.`,
+    reading: (s) =>
+      ({
+        fully: 'Personal and business finances are fully separated.',
+        mostly: 'Personal and business finances are mostly separated, with some commingling left to clean up.',
+        mixed: 'Personal and business finances are still commingled.',
+      })[String(s.computed.value)] ??
+      `Personal and business finances: ${selectLabel(s.computed.value)}.`,
   },
 };
 
