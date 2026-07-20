@@ -93,11 +93,40 @@ the advisor edits and finalizes, and the result is a professional report the own
 market receives — plus the quarterly delta report that shows movement and keeps the
 advisor relationship warm.
 
-- **Core concept:** the narrative artifacts handed to the owner and, eventually, the
-  market.
-- **Surfaces today:** Owner report, Advisor brief, **Delta report**.
+- **Core concept:** the narrative artifacts handed to the owner and the market.
+- **Surfaces today:** Owner report, Advisor brief, **Delta report**, and the
+  **CIM** (Confidential Information Memorandum) — the market-facing deliverable.
 - **Sequence:** last in each cycle — it packages everything the other four produced.
 - **Done when:** a finalized report exists for the current assessment.
+
+#### The CIM — packaging Evidence into the market document
+
+The CIM is where the Evidence work stream lands: the collected, verified diligence
+binder, packaged into the buyer-facing marketing document. Two connected pieces:
+
+- **Posture (CIM readiness).** The CIM's eight buyer-facing sections (Investment
+  Highlights, Company Overview, Products & Services, Market & Growth Opportunity,
+  Customers & Revenue, Operations & Organization, Financial Overview, The
+  Opportunity) map onto the **same seven data-room sections** the Evidence work
+  stream already collects — one taxonomy, not a second checklist (docs/15
+  decision 4). The CIM page leads with a readiness panel that rolls up per-section
+  evidence coverage (Ready / verified / missing) and routes the advisor back into
+  Evidence to collect what's still missing. This is what gives evidence collection
+  a visible destination.
+- **Generation.** The CIM is auto-drafted the same way every other document is:
+  prose composed FROM structured data (company profile, the assessment's strengths
+  as investment highlights, adjusted EBITDA, and the verified-evidence list),
+  never computing a score. Because it is buyer-facing marketing, the payload
+  carries **strengths and verified facts only** — no gaps, no weaknesses, no
+  internal DRS score, and never an asking price or valuation. It generates → edits
+  → finalizes → exports as a branded PDF, exactly like the owner report, and is a
+  clearly-labeled draft the advisor reviews before any buyer sees it. Staff-only
+  (never surfaced in the owner portal).
+
+The methodology (the section set and its evidence mapping) lives in
+`shared/cim/template.ts`; the coverage rollup and the generation payload/composer
+live in `server/cim.ts`. A DB-backed, firm-editable CIM template is a follow-up if
+firms need to customise the section set.
 
 ## Consolidated information architecture
 

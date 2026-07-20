@@ -33,6 +33,7 @@ import {
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
 import { attachDataRoomDocument, listDataRoom, setDataRoomItem } from './data-room';
+import { buildCimCoverage, buildCimPayload } from './cim';
 import { engagementComparables } from './comparables';
 import {
   claimReviewItem,
@@ -44,6 +45,7 @@ import {
 import { logAccess } from './audit';
 import { entitlementGate } from './entitlements';
 import {
+  renderCimReportHtml,
   renderDeltaReportHtml,
   renderOwnerReportHtml,
   renderReportPdf,
@@ -297,6 +299,36 @@ async function deltaReportPdf(service: pg.ClientBase, assessmentId: string): Pro
   return { kind: 'pdf', filename: 'delta-report.pdf', buffer: pdf };
 }
 
+async function cimReportPdf(service: pg.ClientBase, assessmentId: string): Promise<FunctionResult> {
+  const payload = await buildCimPayload(service, assessmentId);
+  const doc = (
+    await service.query(
+      `select gd.content_md, e.firm_id, a.completed_at
+       from generated_documents gd
+       join engagements e on e.id = gd.engagement_id
+       join assessments a on a.id = gd.assessment_id
+       where gd.assessment_id = $1 and gd.doc_type = 'cim'
+       order by gd.created_at desc limit 1`,
+      [assessmentId],
+    )
+  ).rows[0];
+  if (!doc) return err(404, 'no CIM generated for this assessment yet');
+  const branding = (
+    await service.query(
+      `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
+       from firm_branding where firm_id = $1`,
+      [doc.firm_id],
+    )
+  ).rows[0] as ReportBranding | undefined;
+  const html = renderCimReportHtml(
+    { companyName: payload.company.name, industry: payload.company.industry, date: doc.completed_at },
+    doc.content_md,
+    branding ?? null,
+  );
+  const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
+  return { kind: 'pdf', filename: 'confidential-information-memorandum.pdf', buffer: pdf };
+}
+
 // Dispatch an already-authorized call with the service-role client.
 async function dispatch(
   name: string,
@@ -424,6 +456,10 @@ async function dispatch(
       // Authorized via the generic engagement path (staff by firm, owner by
       // company). Read-only view of the template + this engagement's states.
       return ok(await listDataRoom(service, body.engagement_id as string));
+    case 'cim-coverage':
+      // Read-only: which CIM sections are backed by Ready/verified evidence.
+      // Authorized via the generic engagement path; viewing is never gated.
+      return ok(await buildCimCoverage(service, body.engagement_id as string));
     case 'set-data-room-item': {
       // The caller's profile records who last touched the item (provenance);
       // owners have no firm_id, so resolve by user_id alone (role-agnostic).
@@ -489,6 +525,8 @@ async function dispatch(
       return ownerReportPdf(service, assessmentId);
     case 'render-delta-pdf':
       return deltaReportPdf(service, assessmentId);
+    case 'render-cim-pdf':
+      return cimReportPdf(service, assessmentId);
     default:
       return err(404, `unknown function '${name}'`);
   }

@@ -277,6 +277,62 @@ export function useLatestReport(
   });
 }
 
+// Latest generated document of a given type for an assessment. Generalizes
+// useLatestReport (owner_report) so the CIM deliverable page can reuse the same
+// generate → edit → finalize flow.
+export function useLatestDoc(
+  assessmentId: string | undefined,
+  docType: string,
+): UseQueryResult<GeneratedDocumentRow | null> {
+  return useQuery({
+    queryKey: qk.latestDoc(assessmentId ?? '', docType),
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('generated_documents')
+        .select('*')
+        .eq('assessment_id', assessmentId!)
+        .eq('doc_type', docType)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return ((data?.[0] as GeneratedDocumentRow) ?? null) || null;
+    },
+  });
+}
+
+// CIM evidence coverage: which CIM sections are backed by Ready/verified
+// data-room evidence, and what is still missing. Read-only; drives the CIM
+// readiness panel that postures evidence collection toward the memorandum.
+export interface CimSectionCoverageShape {
+  code: string;
+  name: string;
+  narrative: boolean;
+  itemsTotal: number;
+  itemsReady: number;
+  itemsVerified: number;
+  pct: number;
+  missing: { item_code: string; label: string; section_code: string; readiness_state: string }[];
+}
+export interface CimCoverageShape {
+  sections: CimSectionCoverageShape[];
+  summary: {
+    evidenceSections: number;
+    itemsTotal: number;
+    itemsReady: number;
+    itemsVerified: number;
+    pct: number;
+  };
+}
+
+export function useCimCoverage(engagementId: string | undefined): UseQueryResult<CimCoverageShape> {
+  return useQuery({
+    queryKey: ['cimCoverage', engagementId ?? ''],
+    enabled: !!engagementId,
+    queryFn: () => invokeFunction<CimCoverageShape>('cim-coverage', { engagement_id: engagementId }),
+  });
+}
+
 export interface AnswerRowRaw {
   question_id: string;
   value: unknown;

@@ -157,6 +157,9 @@ export default function ResultsPage() {
             <Link className="button-link" to={`/assessment/${assessment.id}/report`}>
               Owner report →
             </Link>
+            <Link className="button-link" to={`/assessment/${assessment.id}/cim`}>
+              CIM →
+            </Link>
           </>
         }
       />

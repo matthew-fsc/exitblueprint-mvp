@@ -388,6 +388,49 @@ export function renderOwnerReportHtml(
   return docShell(accent, cover + body);
 }
 
+// ---- CIM (Confidential Information Memorandum) -------------------------------
+
+export interface CimReportData {
+  companyName: string;
+  industry: string | null;
+  date: string | null;
+}
+
+// Buyer-facing marketing document. The narrative markdown already carries the
+// full sectioned body (Investment Highlights … The Opportunity); the PDF wraps
+// it in the same institutional cover + footer as the other reports, with a
+// confidential kicker. No score ring or gap tables — this is not a diagnostic.
+export function renderCimReportHtml(
+  data: CimReportData,
+  narrativeMd: string,
+  branding: ReportBranding | null,
+): string {
+  const firmName = branding?.display_name || 'Exit Blueprint';
+  const accent = branding?.accent_color || '#1f7a52';
+
+  const cover = coverBand({
+    firmName,
+    accent,
+    logo: logoHtml(branding, firmName, accent),
+    fromLine: branding?.report_from_line || '',
+    kicker: 'Confidential Information Memorandum',
+    title: data.companyName,
+    meta: `${esc(data.industry || '')}${data.date ? ` &middot; ${fmtDate(data.date)}` : ''}`,
+  });
+
+  const disclosure = branding?.footer_disclosure_md
+    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
+    : '';
+
+  const body = `
+  <div class="pad">
+    <div class="narrative">${mdToHtml(narrativeMd)}</div>
+    ${disclosure}
+  </div>`;
+
+  return docShell(accent, cover + body);
+}
+
 // ---- renderer ---------------------------------------------------------------
 
 // Scan one Playwright browser-cache dir for a Chromium binary, newest revision
