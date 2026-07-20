@@ -8,23 +8,15 @@
 // is turned on for GA. Even then, comped firms pass (resolveEntitlement).
 import type pg from 'pg';
 import { resolveEntitlement, type Entitlement } from '../shared/entitlements';
+import { gatedFunctionNames } from './registry';
 
 export type { Entitlement };
 
-// The paid actions (Combo C, docs/24 §5.3). Viewing existing data is never gated —
-// a firm never loses read access to its own records. Only actions that produce new
-// work / deliverables are here.
-export const GATED_FNS = new Set<string>([
-  'create-engagement',
-  'score-assessment',
-  'compute-valuation',
-  'generate-roadmap',
-  'generate-document',
-  'render-owner-pdf',
-  'render-delta-pdf',
-  'render-cim-pdf',
-  'invite-owner',
-]);
+// The paid actions (Combo C, docs/24 §5.3), derived from the single source of
+// truth — each function that produces new work / deliverables declares `gated:
+// true` in server/registry.ts next to its engine and scope. Viewing existing data
+// is never gated: a firm never loses read access to its own records.
+export const GATED_FNS = new Set<string>(gatedFunctionNames());
 
 export function billingEnforced(): boolean {
   return process.env.BILLING_ENFORCED === 'true';

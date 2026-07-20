@@ -69,13 +69,19 @@ sequenceDiagram
   B->>H: POST /functions/v1/{name} (Bearer JWT, body)
   H->>H: verify JWT (HS256 or JWKS) → Claims{sub, role}
   H->>R: handleFunctionCall(name, body, ctx)
-  R->>DB: authorize() — resolve firm_id from profile (asUser)
+  R->>R: REGISTRY[name] — look up engine, scope, gate, handler
+  R->>DB: authorize(scope) — resolve firm_id from profile (asUser)
   Note over R: firm_id comes from the profile,<br/>never from the body
   R->>R: entitlementGate() — refuse if BILLING_ENFORCED & not entitled
-  R->>DB: dispatch() → handler(service, firmId, body)
+  R->>DB: spec.handler({ service, firmId, body, userId })
   DB-->>R: rows (RLS-scoped to the firm)
   R-->>B: JSON result (or 402/403/404)
 ```
+
+`server/functions.ts` is the **gateway**; `server/registry.ts` is the declarative
+table of every endpoint (`{ engine, scope, gated?, handler }`). Adding a function
+is one registry entry — the gateway is never edited — and it is impossible to add
+one without assigning it an engine and an explicit, auditable auth scope. See §6.
 
 ---
 
@@ -137,7 +143,8 @@ flowchart TB
     A["App.tsx — routes + RequireAdvisor/Staff/Owner guards"]
   end
   subgraph BE["Backend  (server/)"]
-    F["functions.ts — the router (authorize/dispatch)"]
+    F["functions.ts — the gateway (authorize by scope)"]
+    REG["registry.ts — six-engine function table<br/>{ engine, scope, gated, handler }"]
     HTTP["http.ts — prod Node host  ·  auth-jwt.ts"]
     D["domain: scoring, valuation, roadmap, narrative,<br/>pdf, documents/, ledger*, verification, entitlements"]
   end
@@ -156,10 +163,48 @@ flowchart TB
   end
 
   P --> C --> L --> F
-  F --> D --> SC
+  F --> REG --> D --> SC
   D --> MIG
   SC --> SEED
 ```
+
+---
+
+## 6. The six engines — one codebase, read six ways
+
+The platform is a small number of **durable engines** (capabilities many features
+draw on), not a pile of independent screens (`ExitBlueprintPlatformArchitecture`
+§01). The engines are **not services** — they are a way of reading one codebase —
+and `server/registry.ts` makes them structural: every compute endpoint is tagged
+with the engine it belongs to, so the map below is *derived from code*, not prose
+that can drift.
+
+```mermaid
+flowchart LR
+  ENG["engagement<br/>(the primary object)"]
+  subgraph Engines["The six engines"]
+    ID["Identity — who & what<br/>authn · authz · tenancy · audit<br/><i>the gateway itself: functions.ts + RLS</i>"]
+    KN["Knowledge — what we know<br/>assessments · evidence · financials · outcomes"]
+    WF["Workflow — what happens next<br/>engagement lifecycle & progression"]
+    RU["Rules — the facts<br/>scoring · valuation · roadmap · calibration"]
+    RE["Reasoning — the explanation<br/>AI narratives & assembled docs (draft-only)"]
+    CO["Collaboration — who participates<br/>invites · review queue · verification"]
+  end
+  ID --- ENG
+  KN --- ENG
+  WF --- ENG
+  RU --- ENG
+  RE --- ENG
+  CO --- ENG
+```
+
+Each `REGISTRY` entry declares `engine` (one of the six) and `scope` (its auth
+gate). `identity` owns **zero** endpoints on purpose: it is the authorize + RLS
+layer (`functions.ts` + Postgres) that every call passes through, not a feature
+set. `tests/registry.test.ts` holds these invariants — valid engine + scope on
+every function, the billing gate reads the registry, and identity stays the
+gateway. Rules never let AI compute a score; Reasoning only ever explains
+(CLAUDE.md rules 1–2), and the registry's engine tags make that boundary legible.
 
 ---
 
