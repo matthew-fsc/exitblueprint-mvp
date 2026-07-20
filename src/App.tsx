@@ -14,6 +14,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { getMfaState, type MfaState } from './lib/mfa';
 import { LegalFooter } from './components/LegalFooter';
 import LoginPage from './pages/LoginPage';
+import SignUpPage from './pages/SignUpPage';
 
 // Route-level code-splitting (frontend audit / docs/32): every page except the
 // login screen (first paint) is loaded on demand, so the initial bundle is the
@@ -30,7 +31,6 @@ const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
 const OwnerLearnPage = lazy(() => import('./pages/owner/OwnerLearnPage'));
 const OwnerDocumentsPage = lazy(() => import('./pages/owner/OwnerDocumentsPage'));
-const OwnerConnectPage = lazy(() => import('./pages/owner/OwnerConnectPage'));
 const LedgerCallbackPage = lazy(() => import('./pages/LedgerCallbackPage'));
 const IntakePage = lazy(() => import('./pages/IntakePage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
@@ -232,9 +232,11 @@ function AppBar() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <BrandingProvider>
-      <AppBar />
-      <main className="page">{children}</main>
-      <LegalFooter />
+      <div className="app-shell">
+        <AppBar />
+        <main className="page">{children}</main>
+        <LegalFooter />
+      </div>
     </BrandingProvider>
   );
 }
@@ -253,7 +255,6 @@ function OwnerAppBar() {
             <NavLink to="/portal/plan" className="app-nav-link">Your plan</NavLink>
             <NavLink to="/portal/learn" className="app-nav-link">Learn</NavLink>
             <NavLink to="/portal/documents" className="app-nav-link">Documents</NavLink>
-            <NavLink to="/portal/connect" className="app-nav-link">Connect</NavLink>
           </nav>
         </div>
         <div className="app-bar-right">
@@ -280,9 +281,11 @@ function OwnerAppBar() {
 function OwnerShell({ children }: { children: ReactNode }) {
   return (
     <BrandingProvider>
-      <OwnerAppBar />
-      <main className="page">{children}</main>
-      <LegalFooter />
+      <div className="app-shell">
+        <OwnerAppBar />
+        <main className="page">{children}</main>
+        <LegalFooter />
+      </div>
     </BrandingProvider>
   );
 }
@@ -298,6 +301,7 @@ export default function App() {
               <Suspense fallback={<main className="page"><LoadingState variant="page" /></main>}>
               <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/sign-up" element={<SignUpPage />} />
           <Route path="/health" element={<main className="page"><HealthPage /></main>} />
           {/* Public legal/trust pages (draft, pending counsel) — render their own
               page shell, no auth. Above the catch-all so they aren't swallowed. */}
@@ -438,7 +442,10 @@ export default function App() {
           <Route path="/portal/plan" element={<RequireOwner><OwnerShell><OwnerPlanPage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/learn" element={<RequireOwner><OwnerShell><OwnerLearnPage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/documents" element={<RequireOwner><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequireOwner>} />
-          <Route path="/portal/connect" element={<RequireOwner><OwnerShell><OwnerConnectPage /></OwnerShell></RequireOwner>} />
+          {/* Accounting integration (QuickBooks/Xero) is not offered yet — the
+              connect surface is hidden and the old route folds back to the portal
+              home so any stale link stays harmless. */}
+          <Route path="/portal/connect" element={<Navigate to="/portal" replace />} />
           <Route path="/ledger/callback" element={<RequireAuth><LedgerCallbackPage /></RequireAuth>} />
           <Route
             path="/assessment/:assessmentId/intake"

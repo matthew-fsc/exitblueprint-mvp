@@ -3,44 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { SignIn } from '@clerk/react';
 import { isClerkStack, isDevStack, requiresClerkConfig, supabase } from '../lib/supabase';
 import { ErrorState } from '../components/ui';
-import { ThemeToggle, useTheme } from '../lib/theme';
+import { ThemeToggle } from '../lib/theme';
+import { useClerkAppearance } from '../lib/clerkAppearance';
 import { clearSignoutReason, peekSignoutReason } from '../lib/sessionExpiry';
-
-// Read the app's own CSS tokens for the current theme and hand them to Clerk's
-// <SignIn> as appearance variables, so the hosted widget matches the app chrome
-// (and follows the dark/light toggle) instead of dropping a default-light card
-// into a dark page. Element overrides use live var() so they track the theme too.
-function clerkAppearance() {
-  const css = getComputedStyle(document.documentElement);
-  const v = (name: string) => css.getPropertyValue(name).trim();
-  return {
-    variables: {
-      colorPrimary: v('--accent'),
-      colorBackground: v('--surface-1'),
-      colorText: v('--text-primary'),
-      colorTextSecondary: v('--text-secondary'),
-      colorInputBackground: v('--input-bg'),
-      colorInputText: v('--text-primary'),
-      colorNeutral: v('--text-primary'),
-      borderRadius: v('--radius'),
-    },
-    elements: {
-      card: {
-        background: 'var(--surface-1)',
-        border: '1px solid var(--border-strong)',
-        boxShadow: 'var(--shadow-lift)',
-      },
-      headerTitle: { color: 'var(--text-primary)' },
-      headerSubtitle: { color: 'var(--text-secondary)' },
-      formFieldInput: {
-        background: 'var(--input-bg)',
-        borderColor: 'var(--input-border)',
-        color: 'var(--text-primary)',
-      },
-      footerActionLink: { color: 'var(--accent)' },
-    },
-  };
-}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -49,7 +14,6 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme } = useTheme();
 
   // Where to send the user after sign-in: the protected URL they were bounced
   // from (the route gates stash it in location.state.from), else the app root.
@@ -67,13 +31,7 @@ export default function LoginPage() {
     return () => clearTimeout(id);
   }, []);
 
-  // Recompute Clerk's appearance after the theme attribute is applied. A rAF
-  // ensures we read the tokens once the new data-theme has committed to the DOM.
-  const [appearance, setAppearance] = useState(clerkAppearance);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setAppearance(clerkAppearance()));
-    return () => cancelAnimationFrame(id);
-  }, [theme]);
+  const appearance = useClerkAppearance();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,7 +64,7 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
         {notice}
-        <SignIn routing="hash" forceRedirectUrl={returnTo} appearance={appearance} />
+        <SignIn routing="hash" signUpUrl="/sign-up" forceRedirectUrl={returnTo} appearance={appearance} />
       </main>
     );
   }
