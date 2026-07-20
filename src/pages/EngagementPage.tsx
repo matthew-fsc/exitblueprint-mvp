@@ -4,8 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
-import { buildAlignment, type AlignmentLeg } from '../lib/alignment';
-import { rollUpCapitals } from '../lib/practitioner';
 import { buildEngagementKnowledge } from '../lib/knowledge';
 import { buildWorkstreamProgress } from '../lib/workstreams';
 import {
@@ -64,6 +62,11 @@ import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
 // the aspiration line on the trajectory.
 const TARGET_DRS = 85;
+
+// The overview shows a preview of the open gaps, not the full list; the Buyer
+// lens tab is the place to work the complete set. Cap the snapshot so the block
+// stays a glanceable summary next to Current readiness.
+const GAP_PREVIEW = 5;
 
 // Turn a target-exit window ("24-36 months", "under 12 months") into a concrete
 // date: engagement start + the earliest month in the window (the "ready by"
@@ -331,7 +334,7 @@ export default function EngagementPage() {
 
       {completed.length > 0 ? (
         <>
-          <PageSection title="Readiness at a glance" note="Where the engagement stands today">
+          <section className="page-section">
           <div className="stack-lg">
           {/* work-stream progress rail — where the engagement stands across the five
               core workflows, and the way into each (docs/17 follow-up; docs/22) */}
@@ -380,6 +383,11 @@ export default function EngagementPage() {
                   {gapsQ.data && <span className="count-pill">{gapsQ.data.length}</span>}
                 </>
               }
+              action={
+                <Link className="button-link" to={`/engagement/${engagementId}/buyer-lens`}>
+                  Buyer lens →
+                </Link>
+              }
             >
               <div>
                 {gapsQ.isLoading ? (
@@ -387,19 +395,26 @@ export default function EngagementPage() {
                 ) : (gapsQ.data ?? []).length === 0 ? (
                   <p className="gap-none">No open gaps.</p>
                 ) : (
-                  <ul className="eng-gap-list">
-                    {(gapsQ.data ?? []).map((g) => (
-                      <li key={g.id}>
-                        <GapSeverityChip severity={g.severity} />
-                        <span className="eng-gap-text">
-                          <strong>{g.name}</strong>
-                          {g.playbookName && (
-                            <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="eng-gap-list">
+                      {(gapsQ.data ?? []).slice(0, GAP_PREVIEW).map((g) => (
+                        <li key={g.id}>
+                          <GapSeverityChip severity={g.severity} />
+                          <span className="eng-gap-text">
+                            <strong>{g.name}</strong>
+                            {g.playbookName && (
+                              <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {(gapsQ.data ?? []).length > GAP_PREVIEW && (
+                      <Link className="eng-gap-more" to={`/engagement/${engagementId}/buyer-lens`}>
+                        +{(gapsQ.data ?? []).length - GAP_PREVIEW} more in the Buyer lens →
+                      </Link>
+                    )}
+                  </>
                 )}
               </div>
               {completed.length > 1 && (burndownQ.data ?? []).length > 1 && (
@@ -411,57 +426,6 @@ export default function EngagementPage() {
               )}
             </SectionCard>
           </div>
-
-          {/* readiness alignment — the CEPA three-dimension frame (docs/18) */}
-          {explain && (() => {
-            const v = valuationQ.data;
-            const alignment = buildAlignment({
-              drs: explain.drsScore,
-              tier: explain.drsTier,
-              ori: explain.oriScore,
-              hasValuation: !!v?.has_recast,
-              wealthGap: v?.wealth_gap ?? null,
-              netProceeds: v?.net_proceeds ?? null,
-              ownerWealthTarget: v?.owner_wealth_target ?? null,
-              openGapCodes: (gapsQ.data ?? []).map((g) => g.code),
-            });
-            const bandLabel: Record<AlignmentLeg['band'], string> = {
-              strong: 'On track', building: 'Building', attention: 'Needs work', unknown: 'Not sized',
-            };
-            return (
-              <Card>
-                <div className="legs-head">
-                  <div>
-                    <h3 className="legs-title">Readiness alignment</h3>
-                    <p className="legs-sub">Business, personal, and financial readiness must be aligned for a clean exit. The weakest dimension sets the ceiling.</p>
-                  </div>
-                  <span className={`legs-gate legs-gate-${alignment.gate.toLowerCase()}`} title={alignment.gateHint}>
-                    {alignment.gate} gate
-                  </span>
-                </div>
-                <div className="legs-grid">
-                  {alignment.legs.map((l) => (
-                    <div key={l.key} data-leg={l.key} className={`leg leg-${l.band}`}>
-                      <div className="leg-top">
-                        <span className="leg-label">{l.label}</span>
-                        <span className={`leg-chip leg-chip-${l.band}`}>{bandLabel[l.band]}</span>
-                      </div>
-                      <div className="leg-headline">{l.headline}</div>
-                      <p className="leg-detail">{l.detail}</p>
-                      {l.key === 'financial' && l.band === 'unknown' && (
-                        <Link className="leg-cta" to={`/engagement/${engagementId}/valuation`}>
-                          Size it in Valuation →
-                        </Link>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <p className={`legs-verdict${alignment.balanced ? '' : ' legs-verdict-alert'}`}>
-                  {alignment.verdict}
-                </p>
-              </Card>
-            );
-          })()}
 
           {/* trajectory against the exit window */}
           <Card>
@@ -487,7 +451,7 @@ export default function EngagementPage() {
             </div>
           </Card>
           </div>
-          </PageSection>
+          </section>
 
           <PageSection title="Analysis & detail" note="Deeper analysis — pick a view">
           <SubTabs
@@ -499,39 +463,20 @@ export default function EngagementPage() {
           <div className="subtabs-panel stack-lg" style={{ gap: 'var(--space-3)' }}>
           {/* score detail — analytical depth */}
           {activeAnalysis === 'score' && explain && (
-            <>
-              <div className="eng-grid" style={{ marginTop: 0 }}>
-                <SectionCard
-                  title="What's driving the score"
-                  subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
-                >
-                  <ContributionBars dimensions={explain.dimensions} />
-                </SectionCard>
-                <SectionCard
-                  title="Business vs. owner readiness"
-                  subtitle="The DRS and Owner Readiness Index on one scale; the gap between them is itself a finding."
-                >
-                  <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
-                </SectionCard>
-              </div>
-              <div className="capitals-lens">
-                <p className="capitals-head">
-                  Four intangible capitals{' '}
-                  <span className="muted">— the CEPA lens: where the transferable value lives</span>
-                </p>
-                <div className="capitals-grid">
-                  {rollUpCapitals(explain.dimensions).map((c) => (
-                    <div key={c.key} className="capital">
-                      <div className="capital-top">
-                        <span className="capital-label">{c.label}</span>
-                        <span className="capital-score">{c.score != null ? Math.round(c.score) : '—'}</span>
-                      </div>
-                      <p className="capital-blurb">{c.blurb}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
+            <div className="eng-grid" style={{ marginTop: 0 }}>
+              <SectionCard
+                title="What's driving the score"
+                subtitle="Each bar's width is the dimension's weight in the DRS; the fill is what it contributes today. Biggest shortfall first."
+              >
+                <ContributionBars dimensions={explain.dimensions} />
+              </SectionCard>
+              <SectionCard
+                title="Business vs. owner readiness"
+                subtitle="The DRS and Owner Readiness Index on one scale; the gap between them is itself a finding."
+              >
+                <DivergenceMeter drs={explain.drsScore} ori={explain.oriScore} />
+              </SectionCard>
+            </div>
           )}
 
           {/* engagement log — institutional memory: meetings, decisions, rationale */}
