@@ -2801,7 +2801,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .ui-table thead th {
   position: sticky;
-  top: var(--app-bar-h);
+  /* The wrap sets overflow-x: auto, which (per the CSS overflow spec) promotes
+     overflow-y to auto as well, making .ui-table-wrap the sticky scroll
+     container. The header therefore pins relative to the wrap, not the viewport,
+     so it must offset from the wrap's top (0) — not the app bar. Using
+     var(--app-bar-h) here pushed the header 60px down over the first data rows. */
+  top: 0;
   background: var(--surface-2);
   color: var(--text-secondary);
   font-weight: var(--eyebrow-weight);
