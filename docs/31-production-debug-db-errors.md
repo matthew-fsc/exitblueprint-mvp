@@ -42,9 +42,16 @@ and checks:
 - **Token expiry** — a stale token reads as "not signed in" to Supabase.
 - **Authenticated read** — actually reads the methodology tables (a
   `to authenticated using (true)` policy). Green proves token → Supabase → RLS
-  end to end.
+  end to end. Note: this passes on the `role` claim alone, so it stays green even
+  when the profile linkage below is broken.
+- **Profile linkage** — reads your own `public.profiles` row **by the Clerk
+  `sub`**. ❌ when no row is keyed to your `sub` — the second failure mode (see
+  below). Shows your `role`/`firm_id`/`company_id` when found.
+- **Firm-scoped read** — a real `companies` read under your firm scope, proving
+  role/firm resolution actually resolves.
 
-If "RLS role claim" is ❌, do the fix above — that is the database-error cause.
+If "RLS role claim" is ❌, do the config fix above. If it's ✅ but "Profile
+linkage" is ❌, it's the identity-mapping problem below.
 
 ## Code hardening shipped alongside this note
 
@@ -57,13 +64,43 @@ If "RLS role claim" is ❌, do the fix above — that is the database-error caus
   RLS/permission-shaped failure shows the same config hint as above rather than a
   scary SQL message. See docs/26 §Loading & error states.
 
-## If `/health` shows the role claim IS present but reads still fail
+## Second failure mode: the profile isn't keyed to the Clerk `sub`
 
-Then it's not the claim. Check, in order:
+Clerk and Supabase are two separate user systems. Clerk owns identity; Supabase
+RLS resolves your role/firm/company by joining the token's `sub` to
+**`public.profiles.user_id`** (`app.user_role()` / `app.user_firm_id()` /
+`app.user_company_id()`, all `where user_id = auth.jwt() ->> 'sub'`). Nothing
+enforces that join at write time — it's a string convention.
+
+So a token can be fully valid (`role: authenticated` present, third-party auth
+working) and *still* read nothing firm-scoped, because there is **no `profiles`
+row whose `user_id` equals your Clerk `sub`** (`user_2…`). The common cause: the
+profile was created with a **UUID** `user_id` — by a seed script or the dev path
+(`admin.ts` `provisionDevAdvisor` → `gen_random_uuid()`) — while your Clerk `sub`
+is `user_2…`. Different id spaces, no match → `app.user_*` return NULL → every
+firm-scoped policy denies. Only `scripts/admin.ts create-advisor` in **Clerk mode**
+(or the provisioning webhook) keys the profile to the Clerk id.
+
+`/health` → **Profile linkage** flags this directly. To confirm and fix:
+
+```sql
+-- Compare user_id to the `sub` shown on /health (Session token line).
+select user_id, email, role, firm_id, company_id from public.profiles;
+```
+
+- **Re-key an existing, otherwise-correct profile** (right firm/role, wrong id):
+  ```sql
+  update public.profiles set user_id = 'user_2…'  -- the sub from /health
+  where email = 'you@yourfirm.com';
+  ```
+- **Or re-provision cleanly** (Clerk mode, `CLERK_SECRET_KEY` set):
+  ```
+  npm run admin -- create-advisor --firm "Your Firm" --email you@yourfirm.com --role admin
+  ```
+
+Also confirm:
 
 - **Third-party auth provider** actually added in Supabase (step 2) — without it
   Supabase rejects the token signature even with the right claim.
-- **`profiles` row exists** for your Clerk `sub` (provisioning webhook ran) — RLS
-  helpers resolve `firm_id`/`role` from it; no row → no firm scope → 0 rows. The
-  Clerk webhook (`docs/30 §5`) writes it; `scripts/admin.ts` is the manual path.
-- **`firms.clerk_org_id`** links your Clerk org to the firm.
+- **`firms.clerk_org_id`** links your Clerk org to the firm — the webhook resolves
+  `firm_id` through it, so a missing link means no firm scope even with a profile.
