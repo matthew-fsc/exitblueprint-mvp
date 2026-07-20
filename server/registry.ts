@@ -32,6 +32,7 @@ import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './out
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { createEngagementWithAgreement } from './agreements';
+import { deleteEngagement } from './engagements';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -87,6 +88,7 @@ export type Engine = (typeof ENGINES)[number];
 export type AuthScope =
   | 'firm' // firm-scoped readout; firm resolved from the advisor/admin profile
   | 'create-engagement' // advisor firm + the target company visible under RLS
+  | 'delete-engagement' // advisor/admin firm + the target engagement visible under RLS
   | 'document-upload' // staff (advisor+reviewer); engagement id visible under RLS
   | 'review-queue' // staff; firm-scoped, no id (the queue is the whole firm)
   | 'document' // staff; the referenced document is visible under RLS
@@ -350,6 +352,16 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body, firmId, userId }) =>
       createEngagementWithAgreement(service, userId, firmId as string, body).then(ok),
+  },
+  // Hard-delete an engagement and its entire subtree. Deliberately NOT gated:
+  // removing data (or undoing a mis-created engagement) must never be blocked by
+  // a lapsed subscription. Restricted to advisor/admin by the delete-engagement
+  // scope — owners and reviewers can see an engagement but must not delete it.
+  'delete-engagement': {
+    engine: 'workflow',
+    scope: 'delete-engagement',
+    handler: ({ service, body, firmId, userId }) =>
+      deleteEngagement(service, firmId as string, userId, body.engagement_id as string).then(ok),
   },
 
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)

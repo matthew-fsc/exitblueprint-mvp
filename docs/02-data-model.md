@@ -22,6 +22,19 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 **engagements** - the unit of work; a company's readiness journey
 - firm_id, company_id, advisor_id (fk profiles), status (active|paused|exited|churned)
 - target_exit_window (text), started_at
+- Lifecycle: `status` is the SOFT path — active/paused are working states, exited/churned
+  are terminal — moved by a plain firm-scoped UPDATE (advisor RLS) on the engagement's
+  Setup & admin tab. The HARD path is deletion: the `delete-engagement` function
+  (server/engagements.ts) permanently removes the engagement and its entire subtree in
+  one service-role transaction. This is intentionally the ONLY deletion path — the
+  engagement's child foreign keys are deliberately NOT `on delete cascade` (nothing but
+  this teardown may remove client history), and the completed-assessment immutability
+  triggers exempt only service_role, so no advisor JWT can tear an engagement down. The
+  teardown deletes children FK-safe-ordered, asserts no orphans remain (dynamically, over
+  every public table carrying an engagement_id), and audits the removal into
+  data_access_log (engagement_id null; the deleted ids live in `detail`). It is a true
+  hard delete, not an archive — for undoing a mis-created engagement or honouring a
+  "remove our data" request; the UI gates it behind a typed confirmation.
 
 ## Data-rights capture (beta Requirement 1)
 
