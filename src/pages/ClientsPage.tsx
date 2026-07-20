@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction, supabase } from '../lib/supabase';
@@ -15,6 +15,7 @@ import { track } from '../lib/analytics';
 
 export default function ClientsPage() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
   const companiesQ = useCompanies();
@@ -41,9 +42,11 @@ export default function ClientsPage() {
   const createCompany = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    const { error } = await supabase
+    const { data: created, error } = await supabase
       .from('companies')
-      .insert([{ firm_id: profile!.firm_id, name, industry: industry || null }]);
+      .insert([{ firm_id: profile!.firm_id, name, industry: industry || null }])
+      .select('id, name')
+      .single();
     if (error) {
       setError(error.message);
       return;
@@ -52,6 +55,11 @@ export default function ClientsPage() {
     setIndustry('');
     qc.invalidateQueries({ queryKey: qk.companies() });
     toast.show('Company added', 'good');
+    // Carry the advisor forward: you add a company because you're about to work
+    // with it, so open the Start-engagement flow for the one just created rather
+    // than parking on the list to re-find it (docs/34 C2). If the firm has no
+    // agreement yet, the flow is blocked anyway — leave them on the list.
+    if (created && agreement) openAgreement(created.id, created.name);
   };
 
   const openAgreement = (companyId: string, companyName: string) => {
@@ -97,6 +105,10 @@ export default function ClientsPage() {
       setPending(null);
       qc.invalidateQueries({ queryKey: qk.engagements() });
       toast.show('Agreement recorded — engagement started', 'good');
+      // Land the advisor inside the new engagement, where "Start baseline
+      // assessment" is the one waiting action — instead of parking on the list
+      // to re-find the row they just created (docs/34 C2).
+      navigate(`/engagement/${created.engagement_id}`);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -116,13 +128,23 @@ export default function ClientsPage() {
         />
       )}
 
+      {/* The most common action sits where the eye lands — directly under the
+          header — not buried below an unbounded client list (docs/34 H1). Adding
+          a company flows straight into Start engagement (docs/34 C2). */}
+      <form className="inline-form" onSubmit={createCompany}>
+        <h3>New company</h3>
+        <input placeholder="Company name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <input placeholder="Industry (optional)" value={industry} onChange={(e) => setIndustry(e.target.value)} />
+        <button type="submit">Add company</button>
+      </form>
+
       {companiesQ.isLoading ? (
         <Card>
           <SkeletonLines lines={4} />
         </Card>
       ) : companies.length === 0 ? (
         <EmptyState title="No companies yet" icon="empty">
-          Add your first client below, then open a readiness engagement for it.
+          Add your first client above — you’ll go straight into starting its readiness engagement.
         </EmptyState>
       ) : (
         <ul className="client-list">
@@ -150,13 +172,6 @@ export default function ClientsPage() {
           })}
         </ul>
       )}
-
-      <form className="inline-form" onSubmit={createCompany}>
-        <h3>New company</h3>
-        <input placeholder="Company name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <input placeholder="Industry (optional)" value={industry} onChange={(e) => setIndustry(e.target.value)} />
-        <button type="submit">Add company</button>
-      </form>
 
       <ConfirmDialog
         open={!!pending && !!agreement}

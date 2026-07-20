@@ -253,6 +253,22 @@ export default function IntakePage() {
         </span>
       </div>
 
+      {/* Carried forward from the prior assessment (docs/34 C1): re-assessments
+          seed last quarter's answers so the advisor edits deltas, not the whole
+          rubric. Make that explicit rather than silently pre-filling. */}
+      {assessment && assessment.sequence_number > 1 && answeredCount > 0 && (
+        <div className="ledger-import">
+          <div>
+            <strong>Starting from your last assessment.</strong>{' '}
+            <span className="muted">
+              These answers carried forward from assessment #{assessment.sequence_number - 1} —
+              review each one and update what’s changed this quarter. Financial figures revert to
+              self-reported until re-verified.
+            </span>
+          </div>
+        </div>
+      )}
+
       {connectedProvider && (
         <div className="ledger-import">
           <div>
