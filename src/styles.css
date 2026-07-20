@@ -3009,6 +3009,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .agreement-consents legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
 .agreement-consents label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; padding: 0.2rem 0; }
 .agreement-consents input { width: auto; }
+/* New-company inline inputs inside the Add-engagement dialog (docs/34). */
+.add-eng-newco { display: flex; flex-direction: column; gap: 0.5rem; }
+.add-eng-newco input { width: 100%; }
 
 /* ---- Documents + review queue (beta R3) ---- */
 .doc-upload input[type='file'] { font-size: 0.9rem; }

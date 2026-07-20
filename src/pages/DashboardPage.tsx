@@ -1,18 +1,35 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
+  ConfirmDialog,
   DataTable,
   DeltaChip,
   EmptyState,
+  ErrorState,
   PageHeader,
   PageSection,
   Sparkline,
   StatBlock,
   StatRow,
   TierBadge,
+  useToast,
   type Column,
 } from '../components/ui';
-import { usePortfolio, type PortfolioRow } from '../lib/queries';
+import {
+  qk,
+  useActiveAgreementVersions,
+  useCompanies,
+  useEngagements,
+  usePortfolio,
+  type AgreementVersionRow,
+  type CompanyRow,
+  type EngagementRow,
+  type PortfolioRow,
+} from '../lib/queries';
+import { useAuth } from '../lib/auth';
+import { invokeFunction, supabase } from '../lib/supabase';
+import { track } from '../lib/analytics';
 import { TIER_ORDER } from '../lib/tokens';
 import { daysSince, fmtScore } from '../lib/format';
 
@@ -25,8 +42,13 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const portfolioQ = usePortfolio();
   const rows = portfolioQ.data ?? [];
+  const companiesQ = useCompanies();
+  const engagementsQ = useEngagements();
+  const agreementsQ = useActiveAgreementVersions();
+  const agreement: AgreementVersionRow | undefined = agreementsQ.data?.[0];
   const [tier, setTier] = useState<TierFilter>('all');
   const [move, setMove] = useState<MoveFilter>('all');
+  const [adding, setAdding] = useState(false);
 
   const assessed = rows.filter((r) => r.latestDrs != null);
   const avgDrs = assessed.length
@@ -146,9 +168,13 @@ export default function DashboardPage() {
   ) : (
     <EmptyState
       title="No engagements yet"
-      action={<button onClick={() => navigate('/clients')}>Add your first client</button>}
+      action={
+        <button onClick={() => setAdding(true)} disabled={!agreement}>
+          Add engagement
+        </button>
+      }
     >
-      Add a company and open a readiness engagement to start tracking it here.
+      Start a readiness engagement for a client to begin tracking it here.
     </EmptyState>
   );
 
@@ -156,10 +182,27 @@ export default function DashboardPage() {
     <div className="page-shell">
       <header className="page-masthead">
         <PageHeader
-          title="Portfolio"
+          title="Engagements"
           subtitle="Exit-readiness engagements across your book, ordered by attention needed."
+          actions={
+            <button
+              onClick={() => setAdding(true)}
+              disabled={!agreement}
+              title={agreement ? undefined : 'Your firm has no active engagement agreement yet'}
+            >
+              Add engagement
+            </button>
+          }
         />
       </header>
+
+      {!agreementsQ.isLoading && !agreement && (
+        <ErrorState
+          variant="section"
+          title="No engagement agreement"
+          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are seeded with a default agreement automatically; if you’re seeing this, an admin can add one with “npm run admin -- create-agreement-version”."
+        />
+      )}
 
       <PageSection title="Book at a glance" note="Where the engagement stands today">
         <StatRow>
@@ -212,6 +255,209 @@ export default function DashboardPage() {
           empty={emptyNode}
         />
       </PageSection>
+
+      {/* Add-engagement flow (merged from the former Clients tab): pick an
+          existing client without an engagement or add a new company, record the
+          agreement acceptance, and land inside the new engagement. Mounted only
+          while open so its form state is fresh each time. */}
+      {adding && (
+        <AddEngagementDialog
+          agreement={agreement}
+          companies={companiesQ.data ?? []}
+          engagements={engagementsQ.data ?? []}
+          onClose={() => setAdding(false)}
+          onCreated={(engagementId) => {
+            setAdding(false);
+            navigate(`/engagement/${engagementId}`);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+const NEW_COMPANY = '__new__';
+
+function AddEngagementDialog({
+  agreement,
+  companies,
+  engagements,
+  onClose,
+  onCreated,
+}: {
+  agreement: AgreementVersionRow | undefined;
+  companies: CompanyRow[];
+  engagements: EngagementRow[];
+  onClose: () => void;
+  onCreated: (engagementId: string) => void;
+}) {
+  const { profile } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+
+  // A company can hold one engagement, so only clients without one are eligible;
+  // everything else is created fresh.
+  const eligible = companies.filter((c) => !engagements.some((e) => e.company_id === c.id));
+
+  const [companyId, setCompanyId] = useState<string>(NEW_COMPANY);
+  const [newName, setNewName] = useState('');
+  const [newIndustry, setNewIndustry] = useState('');
+  const [signer, setSigner] = useState('');
+  const [consentBenchmarking, setConsentBenchmarking] = useState(false);
+  const [consentAggregation, setConsentAggregation] = useState(false);
+  const [consentOutcome, setConsentOutcome] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isNew = companyId === NEW_COMPANY;
+
+  const confirm = async () => {
+    if (!agreement) return;
+    setError(null);
+    if (isNew && !newName.trim()) {
+      setError('Enter a company name.');
+      return;
+    }
+    if (!signer.trim()) {
+      setError('Enter who accepted the agreement on the client’s behalf.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      let cid = companyId;
+      if (isNew) {
+        const { data: created, error: cErr } = await supabase
+          .from('companies')
+          .insert([{ firm_id: profile!.firm_id, name: newName.trim(), industry: newIndustry.trim() || null }])
+          .select('id')
+          .single();
+        if (cErr) throw new Error(cErr.message);
+        cid = created.id;
+        qc.invalidateQueries({ queryKey: qk.companies() });
+      }
+      const createdEng = await invokeFunction<{ engagement_id: string }>('create-engagement', {
+        company_id: cid,
+        agreement_version_id: agreement.id,
+        signer_name: signer.trim(),
+        consent: {
+          benchmarking: consentBenchmarking,
+          anonymized_aggregation: consentAggregation,
+          outcome_tracking: consentOutcome,
+        },
+      });
+      track({
+        type: 'onboarding',
+        name: 'engagement_started',
+        firmId: profile?.firm_id,
+        profileId: profile?.id,
+        engagementId: createdEng.engagement_id,
+        properties: {
+          consent_benchmarking: consentBenchmarking,
+          consent_anonymized_aggregation: consentAggregation,
+          consent_outcome_tracking: consentOutcome,
+        },
+      });
+      qc.invalidateQueries({ queryKey: qk.engagements() });
+      qc.invalidateQueries({ queryKey: qk.portfolio() });
+      toast.show('Agreement recorded — engagement started', 'good');
+      onCreated(createdEng.engagement_id);
+    } catch (err) {
+      setError((err as Error).message);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      open
+      title="New engagement"
+      confirmLabel="Record acceptance & start"
+      cancelLabel="Cancel"
+      busy={submitting}
+      onCancel={() => (submitting ? undefined : onClose())}
+      onConfirm={confirm}
+    >
+      {!agreement ? (
+        <ErrorState
+          variant="inline"
+          title="No engagement agreement"
+          message="Your firm has no active engagement agreement, so new engagements can’t be started yet."
+        />
+      ) : (
+        <div className="agreement-accept">
+          <label className="agreement-signer">
+            <span>Client</span>
+            <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+              <option value={NEW_COMPANY}>＋ Add a new company…</option>
+              {eligible.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.industry ? ` · ${c.industry}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {isNew && (
+            <div className="add-eng-newco">
+              <input
+                placeholder="Company name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <input
+                placeholder="Industry (optional)"
+                value={newIndustry}
+                onChange={(e) => setNewIndustry(e.target.value)}
+              />
+            </div>
+          )}
+
+          <p className="muted agreement-version">
+            {agreement.title} · version {agreement.version_label}
+          </p>
+          <div className="agreement-body">{agreement.body_md}</div>
+
+          <label className="agreement-signer">
+            <span>Client signatory (who accepted)</span>
+            <input
+              value={signer}
+              onChange={(e) => setSigner(e.target.value)}
+              placeholder="e.g. Jane Owner, CEO"
+            />
+          </label>
+
+          <fieldset className="agreement-consents">
+            <legend>Data-use consent (as authorized by the client)</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={consentBenchmarking}
+                onChange={(e) => setConsentBenchmarking(e.target.checked)}
+              />
+              Benchmarking use
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={consentAggregation}
+                onChange={(e) => setConsentAggregation(e.target.checked)}
+              />
+              Anonymized aggregation
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={consentOutcome}
+                onChange={(e) => setConsentOutcome(e.target.checked)}
+              />
+              Outcome tracking
+            </label>
+          </fieldset>
+
+          {error && <ErrorState variant="inline" error={error} />}
+        </div>
+      )}
+    </ConfirmDialog>
   );
 }

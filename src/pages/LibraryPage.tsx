@@ -299,7 +299,7 @@ export default function LibraryPage() {
     <div className="stack-lg">
       <PageHeader
         title="Advisory library"
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Advisory library' }]}
+        crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Advisory library' }]}
         subtitle="The catalog of buyer questions, value initiatives, and diligence risk flags. System items are shared methodology; your firm authors and maintains its own. Each item fires on an engagement when its DRS trigger is met."
         actions={
           canAuthor && (

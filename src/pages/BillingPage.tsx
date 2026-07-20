@@ -124,7 +124,7 @@ export default function BillingPage() {
     <PageHeader
       title="Billing"
       subtitle="Your firm's subscription, seats, and invoices — managed securely through Stripe."
-      crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Settings', to: '/settings' }, { label: 'Billing' }]}
+      crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Settings', to: '/settings' }, { label: 'Billing' }]}
     />
   );
 

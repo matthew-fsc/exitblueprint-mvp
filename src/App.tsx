@@ -17,7 +17,6 @@ import LoginPage from './pages/LoginPage';
 // shell + login rather than all ~30 route modules. <Suspense> (below) streams a
 // page loading state while each chunk downloads.
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ClientsPage = lazy(() => import('./pages/ClientsPage'));
 const EngagementPage = lazy(() => import('./pages/EngagementPage'));
 const DeltaReportPage = lazy(() => import('./pages/DeltaReportPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
@@ -169,10 +168,7 @@ function AppBar() {
           <span className="app-bar-divider" aria-hidden />
           <nav className="app-nav" aria-label="Primary">
             <NavLink to="/" end className="app-nav-link">
-              Portfolio
-            </NavLink>
-            <NavLink to="/clients" className="app-nav-link">
-              Clients
+              Engagements
             </NavLink>
             <NavLink to="/review" className="app-nav-link">
               Review
@@ -306,16 +302,8 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          <Route
-            path="/clients"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <ClientsPage />
-                </Shell>
-              </RequireAdvisor>
-            }
-          />
+          {/* Clients merged into the Engagements tab (docs/34): old links redirect. */}
+          <Route path="/clients" element={<Navigate to="/" replace />} />
           <Route
             path="/engagement/:engagementId"
             element={

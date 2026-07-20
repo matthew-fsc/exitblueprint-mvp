@@ -140,6 +140,37 @@ export default function EngagementPage() {
         .select()
         .single();
       if (error) throw new Error(error.message);
+
+      // Carry forward: a re-assessment starts from the last scored assessment's
+      // answers so the advisor updates what changed instead of re-entering the
+      // whole rubric each quarter (docs/34 C1). Only when the prior assessment
+      // used the same rubric version — a new methodology changes the question
+      // set, so it must start blank. This creates a NEW immutable assessment
+      // seeded with a draft; it never edits the prior one (CLAUDE.md rule 4).
+      // Provenance is intentionally NOT copied: a carried figure is a draft, not
+      // a re-verified fact, so it reverts to self-reported until re-checked.
+      // A copy hiccup must never block starting the assessment.
+      if (latest && latest.rubric_version_id === rubricVersion.id) {
+        try {
+          const { data: prior } = await supabase
+            .from('answers')
+            .select('question_id, value')
+            .eq('assessment_id', latest.id);
+          if (prior && prior.length > 0) {
+            await supabase.from('answers').insert(
+              prior.map((p) => ({
+                assessment_id: data.id,
+                question_id: p.question_id,
+                value: p.value,
+                answered_by: profile?.id ?? null,
+              })),
+            );
+          }
+        } catch {
+          /* start blank rather than fail the whole action */
+        }
+      }
+
       qc.invalidateQueries({ queryKey: qk.assessmentsByEngagement(engagementId!) });
       navigate(`/assessment/${data.id}/intake`);
     } catch (err) {
@@ -260,7 +291,7 @@ export default function EngagementPage() {
       <header className="page-masthead">
       <PageHeader
         title={companyName}
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: companyName }]}
+        crumbs={[{ label: 'Engagements', to: '/' }, { label: companyName }]}
         subtitle={
           <>
             Engagement {engagement.status}

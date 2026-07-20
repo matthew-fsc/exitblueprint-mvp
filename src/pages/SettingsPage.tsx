@@ -151,7 +151,7 @@ export default function SettingsPage() {
       <PageHeader
         title="Firm settings"
         subtitle="Your plan, and how your firm appears on every client-facing report and portal — Exit Blueprint stays in the background."
-        crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Settings' }]}
+        crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Settings' }]}
       />
 
       {error && <ErrorState variant="inline" error={error} />}
