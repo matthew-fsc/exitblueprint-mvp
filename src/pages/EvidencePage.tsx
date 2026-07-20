@@ -10,6 +10,71 @@ import { DataRoomPanel } from './DataRoomPage';
 import { DocumentsPanel } from './DocumentsPage';
 import { VerificationPanel } from './VerificationPage';
 
+// The binder never explains itself: an advisor lands on a big checklist and a
+// verification % with no sense of how the two connect or how to move the number.
+// This strip lays out the 0→100 path once, at the top, and names the review
+// queue as the step that turns an uploaded file into a verified fact — the
+// hand-off that was previously invisible.
+function EvidenceGuide({ active }: { active: Section }) {
+  const steps: { key: Section | 'cim'; n: number; title: string; body: string; to?: string }[] = [
+    {
+      key: 'data-room',
+      n: 1,
+      title: 'Build the data room',
+      body: "Work the buyer's request list — set each item's readiness and upload the source file.",
+    },
+    {
+      key: 'documents',
+      n: 2,
+      title: 'Uploads go to review',
+      body: 'Every upload lands in the Review queue, where a reviewer confirms the extracted figures.',
+      to: '/review',
+    },
+    {
+      key: 'verification',
+      n: 3,
+      title: 'Facts get verified',
+      body: 'Confirmed values become verified facts — the proof behind the score and the % above.',
+    },
+    {
+      key: 'cim',
+      n: 4,
+      title: 'Package into CIM',
+      body: 'Once the binder is ready, assemble the buyer-facing book from what you have proven.',
+    },
+  ];
+  return (
+    <ol className="evidence-guide" aria-label="How the diligence binder reaches 100%">
+      {steps.map((s) => {
+        const isActive = s.key === active;
+        const inner = (
+          <>
+            <span className="evidence-guide-n" aria-hidden>{s.n}</span>
+            <span className="evidence-guide-text">
+              <span className="evidence-guide-title">
+                {s.title}
+                {s.to && <span className="evidence-guide-link" aria-hidden> →</span>}
+              </span>
+              <span className="evidence-guide-body">{s.body}</span>
+            </span>
+          </>
+        );
+        return (
+          <li key={s.key} className={`evidence-guide-step ${isActive ? 'is-active' : ''}`}>
+            {s.to ? (
+              <Link className="evidence-guide-hit" to={s.to}>
+                {inner}
+              </Link>
+            ) : (
+              <span className="evidence-guide-hit">{inner}</span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 // Evidence is one job — building the diligence binder — that used to read as
 // three separate tools (Data room · Documents · Verification), each its own tab
 // and page (docs/22 F2). This folds them into a single Evidence surface: one
@@ -58,12 +123,11 @@ export default function EvidencePage() {
           ]}
           subtitle={
             <>
-              The diligence binder for {companyName || 'this engagement'} — the buyer's request
-              list, source documents, and what's proven.
+              The diligence binder — request list, source documents, and what's proven.
               {pct != null && (
                 <>
                   {' '}
-                  <strong>{pct}% of financial inputs verified.</strong>
+                  <strong>{pct}% verified.</strong>
                 </>
               )}
             </>
@@ -78,6 +142,8 @@ export default function EvidencePage() {
         />
         {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
+
+      <EvidenceGuide active={active} />
 
       <SubTabs
         tabs={TABS}
