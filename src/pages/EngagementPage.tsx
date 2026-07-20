@@ -711,7 +711,17 @@ export default function EngagementPage() {
       <section>
         <h3 className="section-heading">Documents</h3>
         {documents.length === 0 ? (
-          <EmptyState icon="documents" title="No documents yet">
+          <EmptyState
+            icon="documents"
+            title="No documents yet"
+            action={
+              latest && (
+                <Link className="button-link button-primary" to={`/assessment/${latest.id}/report`}>
+                  Generate the owner report →
+                </Link>
+              )
+            }
+          >
             Generate an owner report or a branded delta report from an assessment.
           </EmptyState>
         ) : (

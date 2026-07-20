@@ -3,14 +3,32 @@ import { useOwnerContext } from '../../lib/owner';
 import { useEducationModules, type EducationLibraryModule } from '../../lib/queries';
 import { Card, EmptyState, PageHeader, SkeletonLines } from '../../components/ui';
 
+// The nine canonical rubric dimension codes → the plain names an owner reads.
+// Owners never see raw codes like "FIN" (docs/26 UI system, machine-artifact
+// rule); the code stays for authoring and the advisor Library.
+const DIMENSION_LABELS: Record<string, string> = {
+  REV: 'Revenue Quality',
+  FIN: 'Financial Integrity',
+  OPS: 'Operational Independence',
+  CUS: 'Customer Risk',
+  MGT: 'Management and Team',
+  GRW: 'Growth Drivers',
+  GOL: 'Exit Goals and Timing',
+  PFN: 'Personal Financial Readiness',
+  VAL: 'Value Confidence',
+};
+
 function ModuleCard({ m }: { m: EducationLibraryModule }) {
   const [open, setOpen] = useState(false);
+  const dimLabel = m.dimension_code
+    ? (DIMENSION_LABELS[m.dimension_code] ?? null)
+    : null;
   return (
     <div className={`learn-item ${m.recommended ? 'learn-item-rec' : ''}`}>
       <button className="learn-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="learn-titles">
           <span className="learn-title">{m.title}</span>
-          {m.dimension_code && <span className="learn-dim">{m.dimension_code}</span>}
+          {dimLabel && <span className="learn-dim">{dimLabel}</span>}
         </span>
         <span className="learn-toggle">{open ? '−' : '+'}</span>
       </button>
