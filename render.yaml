@@ -24,6 +24,12 @@ services:
       # `connect ENETUNREACH` and DB-backed routes (webhook, functions) 5xx.
       - key: DATABASE_URL
         sync: false
+      # Optional: PEM of the Supabase CA cert (dashboard → Database → SSL
+      # configuration). Set it to verify the DB server certificate (verify-full).
+      # Unset → the pooler connection is still TLS-encrypted but unverified (the
+      # pooler cert chains to Supabase's private CA, not Node's trust store).
+      - key: DATABASE_CA_CERT
+        sync: false
       # Token verification. Clerk is the standard identity provider, so CLERK_JWKS_URL
       # below is what verifies production session tokens (docs/30). SUPABASE_URL /
       # FUNCTIONS_JWT_SECRET remain optional for non-Clerk token verification (e.g. a

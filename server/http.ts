@@ -21,6 +21,7 @@ import { verifyDocumentToken } from './documents/signed-url';
 import { getDocumentBytes } from './documents/pipeline';
 import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
+import { resolveDbConnection } from './db-ssl';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // Verify access tokens against whichever signing regime the project uses. A
@@ -94,12 +95,24 @@ if (process.env.NODE_ENV === 'production' && !process.env.EB_DOCUMENT_KEY) {
   );
 }
 
+// Resolve TLS for the DB connection (server/db-ssl.ts). Supabase's pooler needs
+// TLS but presents a cert chaining to Supabase's private CA; this connects
+// correctly (full verification when a CA is provided, else encrypted-unverified).
+const db = resolveDbConnection(DATABASE_URL);
+if (db.tls && !db.verified && process.env.NODE_ENV === 'production') {
+  console.warn(
+    'WARNING: Postgres TLS is enabled but the server certificate is NOT verified. ' +
+      'Set DATABASE_CA_CERT (Supabase dashboard → Database → SSL configuration) to enable full verification.',
+  );
+}
+
 // connectionTimeoutMillis is essential for the deploy health check: without it,
 // a slow/unreachable DB makes a query hang indefinitely (pg has no default
 // connect timeout). That is what previously hung /health and made Render time
 // the whole deploy out. Bound it so any DB call fails fast instead.
 const pool = new pg.Pool({
-  connectionString: DATABASE_URL,
+  connectionString: db.connectionString,
+  ssl: db.ssl,
   max: 10,
   connectionTimeoutMillis: 10_000,
 });
