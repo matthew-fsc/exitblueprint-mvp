@@ -85,6 +85,7 @@ export interface EngagementRow {
   advisor_id: string | null;
   status: string;
   target_exit_window: string | null;
+  target_close_date: string | null;
   started_at: string;
 }
 export interface AssessmentRow {
@@ -747,6 +748,7 @@ export interface TaskRow {
   status: 'todo' | 'doing' | 'done' | 'blocked';
   due_date: string | null;
   sequence: number | null;
+  display_order: number | null;
 }
 export interface MilestoneRow {
   id: string;

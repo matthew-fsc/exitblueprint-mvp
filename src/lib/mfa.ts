@@ -2,7 +2,7 @@
 // via Supabase Auth's TOTP factors + authenticator assurance level (AAL). The dev
 // emulator has no MFA endpoint, so enforcement is bypassed on the dev stack; on a
 // real Supabase project the gate (RequireAdvisor) sends un-enrolled/unverified
-// staff to /security before they can use the workspace.
+// staff to /settings (which hosts MFA setup) before they can use the workspace.
 import { isClerkStack, isDevStack, supabase } from './supabase';
 
 export type MfaState = 'satisfied' | 'needs_enroll' | 'needs_verify';

@@ -1533,6 +1533,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   button:active:not(:disabled) { transform: none; }
 }
 
+/* The report page stacked its blocks with ad-hoc per-child margins, so the gaps
+   between masthead, toolbar, source editor, and the sheet never matched. Give the
+   container one uniform rhythm and neutralise the old margins that fought it. */
+.report { display: flex; flex-direction: column; gap: var(--space-5); }
+.report > .page-masthead { margin-bottom: 0; }
+
 /* Toolbar: status on the left, the document actions on the right. */
 .report-toolbar {
   display: flex;
@@ -1540,7 +1546,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: var(--space-4);
 }
 .report-toolbar-status {
   display: flex;
@@ -1571,11 +1576,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   margin-top: var(--space-3);
 }
 
-/* The polished document reads as a sheet of paper centered on the desk. */
+/* The polished document reads as a sheet of paper centered on the desk. The
+   container's flex gap handles the space above; only pad the bottom. */
 .report-sheet-wrap {
   display: flex;
   justify-content: center;
-  padding: var(--space-2) 0 var(--space-5);
+  padding: 0 0 var(--space-5);
 }
 
 .report-body {
@@ -3595,6 +3601,23 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   color: var(--accent-strong);
   background: var(--brand-tint);
 }
+/* Pending-work badge on the Review nav link. */
+.nav-count {
+  margin-left: 0.4rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+  background: var(--accent-strong);
+}
 .app-bar-right {
   display: flex;
   align-items: center;
@@ -4002,8 +4025,7 @@ textarea:focus {
 /* task list on the roadmap */
 .rm-tasklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .rm-task {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  display: flex;
   align-items: center;
   gap: 0.75rem;
   background: var(--surface-1);
@@ -4011,6 +4033,16 @@ textarea:focus {
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.9rem;
 }
+.rm-task-body { flex: 1 1 auto; min-width: 0; }
+.rm-move { display: inline-flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.rm-move-btn {
+  width: 1.15rem; height: 0.95rem; padding: 0; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface-1); color: var(--text-secondary); box-shadow: none;
+}
+.rm-move-btn:hover:not(:disabled) { color: var(--text-primary); border-color: var(--border-strong); }
+.rm-move-btn:disabled { opacity: 0.3; cursor: default; }
 .rm-task-done { opacity: 0.6; }
 .rm-task-done .rm-task-title { text-decoration: line-through; }
 .rm-task-title { font-size: 0.9rem; font-weight: 600; }
@@ -4229,6 +4261,27 @@ textarea:focus {
 .diverge-marker-ori { background: var(--status-serious); }
 .diverge-note { font-size: 0.82rem; color: var(--text-secondary); margin: 0; line-height: 1.45; }
 .diverge-note-alert { color: var(--status-serious); font-weight: 500; }
+
+/* ---- Next up by party: each responsible party's next move --------------- */
+.nextup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-3);
+}
+.nextup-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.nextup-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.nextup-count { font-size: 0.8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nextup-count strong { font-weight: 700; }
+.nextup-task { margin: 0; font-size: 0.85rem; font-weight: 600; line-height: 1.35; }
+.nextup-task.muted { font-weight: 400; }
 
 /* ---- Deal-team handoff: tasks by responsible party ---------------------- */
 .handoff { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -4514,6 +4567,63 @@ textarea:focus {
   white-space: nowrap;
   border: 0;
 }
+/* Evidence "how it works" stepper — the 0→100 path, shown once above the tabs. */
+.evidence-guide {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+@media (max-width: 820px) {
+  .evidence-guide { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .evidence-guide { grid-template-columns: 1fr; }
+}
+.evidence-guide-step { display: flex; }
+.evidence-guide-hit {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  text-decoration: none;
+  color: inherit;
+}
+a.evidence-guide-hit:hover { border-color: var(--accent); }
+.evidence-guide-step.is-active .evidence-guide-hit {
+  border-color: var(--accent);
+  background: var(--accent-wash, var(--surface-2));
+}
+.evidence-guide-n {
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-strong, var(--accent));
+  background: var(--accent-wash, var(--surface-2));
+  border: 1px solid var(--accent);
+}
+.evidence-guide-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.evidence-guide-title {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.evidence-guide-link { color: var(--accent-strong, var(--accent)); font-weight: 700; }
+.evidence-guide-body { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.35; }
+
 .dr-summary { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
 .dr-summary-pct {
   font-family: var(--font-display, inherit);
@@ -4662,6 +4772,35 @@ textarea:focus {
 }
 
 /* Danger zone — the irreversible delete-engagement escape hatch */
+/* ---- Billing plan cards (pricing table) --------------------------------- */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.plan-card.is-current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.plan-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.plan-card-name { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); }
+.plan-card-limits { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
+.plan-features { list-style: none; margin: 0; padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 auto; border-top: 1px solid var(--border); }
+.plan-feature { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 0.85rem; color: var(--text-primary); line-height: 1.3; }
+.plan-feature-check { flex: 0 0 auto; color: var(--accent-strong); margin-top: 1px; }
+.plan-card-cta { margin-top: auto; }
+.plan-card-cta button { width: 100%; }
+
 .danger-zone {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   padding: 0.9rem 1rem; border: 1px solid var(--status-critical);
