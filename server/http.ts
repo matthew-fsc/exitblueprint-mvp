@@ -20,6 +20,7 @@ import { makeVerifyToken, type Claims } from './auth-jwt';
 import { verifyDocumentToken } from './documents/signed-url';
 import { getDocumentBytes } from './documents/pipeline';
 import { logAccess } from './audit';
+import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // Verify access tokens against whichever signing regime the project uses. A
@@ -74,6 +75,14 @@ if (!DATABASE_URL) {
 }
 // Comma-separated allowed origins for CORS; '*' by default (tighten in prod).
 const ALLOWED_ORIGIN = process.env.FUNCTIONS_ALLOWED_ORIGIN ?? '*';
+
+// Clerk webhook signing secret (Svix `whsec_...`, from the Clerk dashboard).
+// Set to enable POST /webhooks/clerk (automatic firm/advisor/owner provisioning,
+// docs/30 §5). Unset → the endpoint replies 503 and provisioning stays manual
+// (scripts/admin.ts).
+const CLERK_WEBHOOK_SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET?.trim();
+// Reject webhooks whose signed timestamp is older than this (replay defense).
+const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
 // Document encryption at rest falls back to a weak dev key if EB_DOCUMENT_KEY is
 // unset — safe for dev, not for production. Warn loudly rather than silently
@@ -216,6 +225,47 @@ const server = createServer(async (req, res) => {
       res.setHeader('content-type', d.mime || 'application/octet-stream');
       res.setHeader('content-disposition', `inline; filename="${d.filename}"`);
       return res.end(Buffer.from(d.bytes));
+    } finally {
+      c.release();
+    }
+  }
+
+  // Clerk webhook (Svix-signed) — automatic provisioning (docs/30 §5). Verified
+  // against the raw body, then handled with the service role (a trusted system
+  // caller, RLS-bypass like scripts/admin.ts). Returns 2xx on handled/duplicate,
+  // 400 on a bad signature, 5xx on a transient failure so Svix retries.
+  if (req.method === 'POST' && url.pathname === '/webhooks/clerk') {
+    if (!CLERK_WEBHOOK_SIGNING_SECRET) return json(res, 503, { message: 'clerk webhook not configured' });
+    const raw = await readBody(req);
+    const header = (name: string): string | undefined => {
+      const v = req.headers[name];
+      return Array.isArray(v) ? v[0] : v;
+    };
+    const svixTimestamp = header('svix-timestamp');
+    const ts = Number(svixTimestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > WEBHOOK_TOLERANCE_SECONDS) {
+      return json(res, 400, { message: 'stale or missing webhook timestamp' });
+    }
+    const ok = verifyClerkWebhook(
+      CLERK_WEBHOOK_SIGNING_SECRET,
+      { svixId: header('svix-id'), svixTimestamp, svixSignature: header('svix-signature') },
+      raw,
+    );
+    if (!ok) return json(res, 400, { message: 'invalid webhook signature' });
+
+    let event: ClerkEvent;
+    try {
+      event = JSON.parse(raw) as ClerkEvent;
+    } catch {
+      return json(res, 400, { message: 'invalid JSON body' });
+    }
+    const c = await pool.connect();
+    try {
+      const result = await handleClerkEvent(c, event);
+      return json(res, 200, { ok: true, ...result });
+    } catch (e) {
+      // 5xx so Svix retries (e.g. the firm's organization.created hasn't landed).
+      return json(res, 500, { message: (e as Error).message });
     } finally {
       c.release();
     }

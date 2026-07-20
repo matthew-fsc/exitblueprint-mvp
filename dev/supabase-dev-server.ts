@@ -18,6 +18,7 @@ import { handleFunctionCall } from '../server/functions';
 import { verifyDocumentToken } from '../server/documents/signed-url';
 import { getDocumentBytes } from '../server/documents/pipeline';
 import { logAccess } from '../server/audit';
+import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from '../server/clerk-webhook';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -291,6 +292,40 @@ export function supabaseDevServer(): Plugin {
     }
   }
 
+  // Clerk webhook (docs/30 §5) — same handler as the compute service, so local
+  // `clerk webhooks listen --forward-to .../webhooks/clerk` provisions against the
+  // dev db. Needs CLERK_WEBHOOK_SIGNING_SECRET (the tunnel's signing secret).
+  async function handleClerkWebhook(req: Connect.IncomingMessage, res: ServerResponse, _url: URL) {
+    const secret = process.env.CLERK_WEBHOOK_SIGNING_SECRET?.trim();
+    if (!secret) return json(res, 503, { message: 'clerk webhook not configured (set CLERK_WEBHOOK_SIGNING_SECRET)' });
+    const raw = await readBody(req);
+    const header = (name: string): string | undefined => {
+      const v = req.headers[name];
+      return Array.isArray(v) ? v[0] : v;
+    };
+    const ok = verifyClerkWebhook(
+      secret,
+      { svixId: header('svix-id'), svixTimestamp: header('svix-timestamp'), svixSignature: header('svix-signature') },
+      raw,
+    );
+    if (!ok) return json(res, 400, { message: 'invalid webhook signature' });
+    let event: ClerkEvent;
+    try {
+      event = JSON.parse(raw) as ClerkEvent;
+    } catch {
+      return json(res, 400, { message: 'invalid JSON body' });
+    }
+    const c = await pool.connect();
+    try {
+      const result = await handleClerkEvent(c, event);
+      return json(res, 200, { ok: true, ...result });
+    } catch (e) {
+      return json(res, 500, { message: (e as Error).message });
+    } finally {
+      c.release();
+    }
+  }
+
   async function handleFunctions(req: Connect.IncomingMessage, res: ServerResponse, url: URL) {
     const claims = bearerClaims(req);
     if (!claims) return json(res, 401, { message: 'JWT required' });
@@ -343,7 +378,9 @@ export function supabaseDevServer(): Plugin {
               ? handleFunctions
               : url.pathname === '/documents/download'
                 ? handleDocumentDownload
-                : null;
+                : url.pathname === '/webhooks/clerk'
+                  ? handleClerkWebhook
+                  : null;
         if (!route) return next();
         route(req, res, url).catch((err) => json(res, 500, { message: String(err) }));
       });

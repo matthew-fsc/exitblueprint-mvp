@@ -74,11 +74,10 @@ These can't be built/verified without a live Clerk app; steps below:
 1. Create the Clerk application, enable Organizations, set roles.
 2. Configure Supabase **third-party auth** to trust Clerk.
 3. Set the env vars on Vercel + Render.
-4. **Owner-invite webhook (optional)** — advisors and firms are provisioned by
-   `admin.ts`, but *owner* self-serve invites (sent from the advisor UI via a
-   Clerk organization invitation) create the Clerk user only on acceptance. To
-   provision that owner's profile automatically, add the membership webhook
-   (spec in §5). Until then, provision owners with `scripts/admin.ts` too.
+4. **Add the provisioning webhook** — point a Clerk webhook at
+   `POST /webhooks/clerk` and set `CLERK_WEBHOOK_SIGNING_SECRET` so firms,
+   advisors, and owners are provisioned automatically on Clerk events (built;
+   see §5). `scripts/admin.ts` stays available for operator/one-off provisioning.
 
 ---
 
@@ -109,8 +108,9 @@ legacy template integration was deprecated in 2025).
 | Var | Set on | Value |
 |---|---|---|
 | `VITE_CLERK_PUBLISHABLE_KEY` | Vercel | `pk_…` (flips the frontend to Clerk) |
-| `CLERK_JWKS_URL` | Render | `https://<clerk-domain>/.well-known/jwks.json` |
+| `CLERK_JWKS_URL` | Render | `https://<clerk-domain>/.well-known/jwks.json` (pinned in `render.yaml`) |
 | `CLERK_SECRET_KEY` | Render | `sk_…` (enables org invitations) |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Render | `whsec_…` (enables auto-provisioning, §5) |
 | `OWNER_INVITE_REDIRECT_URL` | Render | optional; defaults to `FUNCTIONS_ALLOWED_ORIGIN` |
 
 Keep `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (REST still goes to Supabase).
@@ -123,25 +123,37 @@ service. Login now goes through Clerk.
 
 ---
 
-## Step 5 — Profile-provisioning webhook (remaining server code)
+## Step 5 — Automatic provisioning webhook (built)
 
-Because a Clerk user id doesn't exist until the owner accepts the invitation, the
-profile row is created on membership, not at invite time. Add a Clerk webhook
-(Clerk dashboard → Webhooks) → a new unauthenticated endpoint that:
+Provisioning is hands-off — no one runs `scripts/admin.ts` for day-to-day
+onboarding. `server/clerk-webhook.ts` is mounted at **`POST /webhooks/clerk`** on
+the compute service (and the dev emulator). It:
 
-1. **Verifies the Svix signature** (`CLERK_WEBHOOK_SECRET`) on the raw body.
-2. On `organizationMembership.created`, reads `public_metadata`
-   (`app_role`, `company_id`, `firm_id`) and the Clerk `user_id` + email, then:
-   ```sql
-   insert into profiles (user_id, firm_id, role, company_id, full_name, email)
-   values ($clerk_user_id, $firm_id, $app_role, $company_id, $full_name, $email)
-   on conflict (user_id) do nothing;
-   ```
-3. Returns 200 on handled/duplicate.
+1. **Verifies the Svix signature** (`CLERK_WEBHOOK_SIGNING_SECRET`) against the
+   raw body, and rejects a stale timestamp (5-min tolerance) — see
+   `verifyClerkWebhook`, unit-tested against Svix's published test vector.
+2. **`organization.created`** → upserts the `firms` row and links
+   `firms.clerk_org_id` (so a firm created in Clerk auto-appears; idempotent with
+   `admin.ts create-firm`, which may have inserted it already).
+3. **`organizationMembership.created`** → inserts the `profiles` row (idempotent
+   `on conflict (user_id) do nothing`), resolving `firm_id` from
+   `firms.clerk_org_id`. The app role + `company_id` come from the membership's
+   `public_metadata` — which Clerk **copies from the accepted organization
+   invitation** (`server/invite.ts` sets `app_role`/`company_id`/`firm_id`/
+   `full_name`). With no metadata (a member added straight in Clerk) the app role
+   is derived from the Clerk org role (`org:admin` → `admin`, else `advisor`).
+4. Returns **200** on handled/duplicate, **400** on a bad signature/timestamp, and
+   **5xx** on a transient miss (e.g. the firm's `organization.created` hasn't been
+   processed yet) so Svix retries.
 
-This mirrors the Stripe-webhook pattern already specced in `docs/24` §5.2 (raw
-body, signature verify, idempotent). Until it's live, provision owner profiles
-with `scripts/admin.ts`.
+**Wire it up:** Clerk dashboard → **Webhooks** → add endpoint
+`https://api.exitblueprint.net/webhooks/clerk`, subscribe to `organization.created`
+and `organizationMembership.created`, and paste the signing secret into
+`CLERK_WEBHOOK_SIGNING_SECRET` on Render. Local testing:
+`clerk webhooks listen --forward-to http://localhost:5173/webhooks/clerk`.
+
+`scripts/admin.ts` remains for one-off/operator provisioning (and works without
+the webhook); the webhook is what makes ongoing onboarding automatic.
 
 ---
 
