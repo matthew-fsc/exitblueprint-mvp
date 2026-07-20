@@ -104,3 +104,20 @@ Also confirm:
   Supabase rejects the token signature even with the right claim.
 - **`firms.clerk_org_id`** links your Clerk org to the firm — the webhook resolves
   `firm_id` through it, so a missing link means no firm scope even with a profile.
+
+## Third failure mode: role is `admin` (fixed in-repo)
+
+If `/health` → **Profile linkage** shows `role admin` and **Firm-scoped read**
+shows 0 while the linkage is otherwise fine, this was the cause: every firm-scoped
+RLS policy used to gate on `advisor` (or `advisor`/`reviewer`) only, so an admin
+admitted to the workspace by the frontend could read/write nothing firm-scoped.
+
+`20260720000100_admin_firm_access.sql` fixes it: admins now get the same
+firm-scoped access as advisors (additive `admin_*` policies, firm isolation
+preserved — rls-test covers it). After deploying that migration an admin works
+without changing their role. On a database that predates the migration, the
+interim workaround is to set the profile to `advisor`:
+
+```sql
+update public.profiles set role = 'advisor' where user_id = 'user_2…';
+```

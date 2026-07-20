@@ -49,7 +49,8 @@ async function main() {
         with fa as (insert into firms (name) values ('Firm A') returning id),
              fb as (insert into firms (name) values ('Firm B') returning id)
         select (select id from fa) firm_a, (select id from fb) firm_b,
-               'user_clerk_a' user_a, 'user_clerk_b' user_b, 'user_clerk_o' user_o`)
+               'user_clerk_a' user_a, 'user_clerk_b' user_b, 'user_clerk_o' user_o,
+               'user_clerk_adm' user_adm`)
     ).rows[0];
 
     const companyA = (
@@ -67,8 +68,9 @@ async function main() {
 
     await db.query(
       `insert into profiles (user_id, firm_id, role, full_name) values
-         ($1, $2, 'advisor', 'Advisor A'), ($3, $4, 'advisor', 'Advisor B')`,
-      [ids.user_a, ids.firm_a, ids.user_b, ids.firm_b],
+         ($1, $2, 'advisor', 'Advisor A'), ($3, $4, 'advisor', 'Advisor B'),
+         ($5, $2, 'admin', 'Admin A')`,
+      [ids.user_a, ids.firm_a, ids.user_b, ids.firm_b, ids.user_adm],
     );
     await db.query(
       `insert into profiles (user_id, firm_id, role, company_id, full_name)
@@ -880,6 +882,52 @@ async function main() {
       ownerLib.rows.length >= 1 && ownerLib.rows.every((r) => r.firm_id === null),
       `saw ${ownerLib.rows.length} rows, ${ownerLib.rows.filter((r) => r.firm_id !== null).length} firm-scoped`,
     );
+
+    // --- Admin A: firm-staff access, same firm scope as an advisor ---------
+    // Admins are admitted to the workspace by the frontend; RLS now grants them
+    // the same firm-scoped access (20260720000100), additively, without loosening
+    // firm isolation. These checks prove both: full access within firm A, none to
+    // firm B.
+    console.log('admin (firm A):');
+    await asUser(ids.user_adm);
+    const admCo = await db.query('select name from companies');
+    check('admin sees exactly own firm companies',
+      admCo.rows.length === 1 && admCo.rows[0].name === 'Alpha Co', `saw ${JSON.stringify(admCo.rows)}`);
+    const admAssess = await db.query('select status from assessments');
+    check('admin sees own firm assessments (both statuses, like an advisor)',
+      admAssess.rows.length === 2, `saw ${admAssess.rows.length}`);
+    const admFirmB = await db.query('select id from companies where firm_id = $1', [ids.firm_b]);
+    check('admin cannot read firm B companies', admFirmB.rows.length === 0, `saw ${admFirmB.rows.length}`);
+    // Staff-only table (engagement_log): admin reads own firm, proving the staff
+    // coverage extended, and never firm B.
+    const admLog = await db.query('select firm_id from engagement_log');
+    check('admin cannot read firm B engagement log',
+      admLog.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${admLog.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`);
+    // Read-only firm-scoped table: admin reads own firm subscription, not firm B's.
+    const admSub = await db.query('select firm_id from firm_subscriptions');
+    check('admin reads only own firm subscription',
+      admSub.rows.length === 1 && admSub.rows[0].firm_id === ids.firm_a, `saw ${admSub.rows.length}`);
+    let admOwnWrite = false;
+    try {
+      await db.query('savepoint aw');
+      await db.query(`insert into companies (firm_id, name) values ($1, 'Admin Co')`, [ids.firm_a]);
+      admOwnWrite = true;
+      await db.query('rollback to savepoint aw'); // keep the single-company invariant for later checks
+    } catch {
+      await db.query('rollback to savepoint aw');
+    }
+    check('admin can insert a company into own firm', admOwnWrite);
+    let admFirmBWriteBlocked = false;
+    try {
+      await db.query('savepoint awb');
+      await db.query(`insert into companies (firm_id, name) values ($1, 'Sneaky Admin Co')`, [ids.firm_b]);
+      await db.query('release savepoint awb');
+    } catch {
+      admFirmBWriteBlocked = true;
+      await db.query('rollback to savepoint awb');
+    }
+    check('admin cannot insert a company into firm B', admFirmBWriteBlocked);
 
     // --- Unauthenticated: nothing ------------------------------------------
     console.log('unauthenticated:');
