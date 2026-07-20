@@ -20,13 +20,36 @@ const anonKey = env(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 // always go through the supabase client above; only functions are redirected.
 const functionsUrl = env(import.meta.env.VITE_FUNCTIONS_URL as string | undefined) || url;
 
-export const supabase = createClient(url, anonKey);
+// Clerk is the identity provider when a publishable key is present (the auth
+// cutover, docs/30). Unset → the app keeps its Supabase-Auth / dev-emulator path
+// unchanged, so local dev, CI, and the current beta are untouched. Turning Clerk
+// on is a build-time config flip, exactly like isDevStack below.
+export const clerkPublishableKey = env(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined);
+export const isClerkStack = !!clerkPublishableKey;
 
-export const isDevStack = !env(import.meta.env.VITE_SUPABASE_URL as string | undefined);
+// Pluggable access-token source. Under Clerk, ClerkAuthProvider registers a
+// getter returning Clerk's session JWT — trusted by Supabase (third-party auth)
+// and verified by our compute service via Clerk's JWKS. Otherwise we read the
+// Supabase session token. One helper feeds both supabase-js and /functions/*.
+let clerkTokenGetter: (() => Promise<string | null>) | null = null;
+export function registerClerkToken(getter: (() => Promise<string | null>) | null): void {
+  clerkTokenGetter = getter;
+}
+async function currentAccessToken(): Promise<string | null> {
+  if (clerkTokenGetter) return clerkTokenGetter();
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+// Under Clerk, hand supabase-js our token source (third-party auth) so REST +
+// RLS see the Clerk subject; without it, supabase-js manages its own session.
+export const supabase = createClient(url, anonKey, isClerkStack ? { accessToken: () => currentAccessToken() } : undefined);
+
+export const isDevStack = !env(import.meta.env.VITE_SUPABASE_URL as string | undefined) && !isClerkStack;
 
 async function functionEndpoint(name: string): Promise<{ endpoint: string; token: string }> {
-  const { data } = await supabase.auth.getSession();
-  return { endpoint: `${functionsUrl}/functions/v1/${name}`, token: data.session?.access_token ?? anonKey };
+  const token = (await currentAccessToken()) ?? anonKey;
+  return { endpoint: `${functionsUrl}/functions/v1/${name}`, token };
 }
 
 // The GET route that serves a source document for a short-expiry signed token

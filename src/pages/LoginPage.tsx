@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isDevStack, supabase } from '../lib/supabase';
+import { SignIn } from '@clerk/react';
+import { isClerkStack, isDevStack, supabase } from '../lib/supabase';
 import { ThemeToggle } from '../lib/theme';
 
 export default function LoginPage() {
@@ -22,6 +23,19 @@ export default function LoginPage() {
     }
     navigate('/');
   };
+
+  // Under Clerk, sign-in / sign-up / reset / MFA are all handled by Clerk's
+  // hosted component; the route gates redirect to the app once a session exists.
+  if (isClerkStack) {
+    return (
+      <main className="login-page">
+        <div className="login-topline">
+          <ThemeToggle />
+        </div>
+        <SignIn routing="hash" />
+      </main>
+    );
+  }
 
   return (
     <main className="login-page">

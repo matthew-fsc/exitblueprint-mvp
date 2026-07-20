@@ -27,13 +27,22 @@ const PORT = Number(process.env.PORT ?? 8787);
 // signing keys sets SUPABASE_URL so tokens verify against its JWKS. Setting
 // both is fine (and correct mid-rotation) — the token's `alg` picks the path.
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, '');
-if (!process.env.FUNCTIONS_JWT_SECRET && !SUPABASE_URL) {
-  console.error('Set FUNCTIONS_JWT_SECRET (legacy HS256) or SUPABASE_URL (asymmetric JWKS) to verify tokens');
+// Clerk cutover (docs/30): once the app authenticates via Clerk, tokens are Clerk
+// session JWTs. Point the JWKS at Clerk's key set to verify them. CLERK_JWKS_URL
+// wins over the Supabase JWKS when set (both are asymmetric, so one key set is
+// used at a time); FUNCTIONS_JWT_SECRET (HS256) still works alongside for dev/CI.
+const CLERK_JWKS_URL = process.env.CLERK_JWKS_URL?.replace(/\/$/, '');
+const jwksUrl =
+  CLERK_JWKS_URL ?? (SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` : undefined);
+if (!process.env.FUNCTIONS_JWT_SECRET && !jwksUrl) {
+  console.error(
+    'Set FUNCTIONS_JWT_SECRET (legacy HS256), SUPABASE_URL (Supabase JWKS), or CLERK_JWKS_URL (Clerk JWKS) to verify tokens',
+  );
   process.exit(1);
 }
 const verifyToken = makeVerifyToken({
   hsSecret: process.env.FUNCTIONS_JWT_SECRET,
-  jwksUrl: SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` : undefined,
+  jwksUrl,
 });
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {

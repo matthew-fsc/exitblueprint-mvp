@@ -25,14 +25,30 @@ services:
       #   SUPABASE_URL          https://<ref>.supabase.co, for asymmetric (JWKS) tokens
       #   FUNCTIONS_JWT_SECRET  legacy HS256 shared secret
       # Set at least one; both is fine mid-rotation. The service refuses to boot
-      # with neither.
+      # with neither. SUPABASE_URL is also reused by the owner-invite email path.
       - key: SUPABASE_URL
         sync: false
       - key: FUNCTIONS_JWT_SECRET
         sync: false
-      # CORS allow-list — set to your Vercel frontend origin (no trailing slash),
-      # e.g. https://exitblueprint-mvp.vercel.app.
+      # CORS allow-list — the deployed frontend origin (no trailing slash). This
+      # is the go-live domain from docs/29; change it if the app moves.
       - key: FUNCTIONS_ALLOWED_ORIGIN
+        value: https://app.exitblueprint.net
+      # Document encryption at rest. REQUIRED in production — without it uploaded
+      # client documents fall back to a publicly-known dev key. Generate with:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: EB_DOCUMENT_KEY
+        sync: false
+      # Service-role key (Settings → API → service_role). Enables real owner-invite
+      # emails via Supabase Auth admin (server/invite.ts). Omit to skip email sends.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Clerk auth cutover (docs/30). CLERK_JWKS_URL points token verification at
+      # Clerk's key set; CLERK_SECRET_KEY enables Clerk organization invitations for
+      # owners. Set both once the app authenticates via Clerk; omit before then.
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
         sync: false
       # Optional: turns on real Claude narrative in reports. Omit to ship without it.
       - key: ANTHROPIC_API_KEY

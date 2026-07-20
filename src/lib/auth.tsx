@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { useAuth as useClerkAuth } from '@clerk/react';
+import { isClerkStack, registerClerkToken, supabase } from './supabase';
 
 // Idle-session timeout: sign out after this long with no user activity. A
 // vendor-DD control ("automatic shutdown of inactive sessions"). 30 minutes.
@@ -16,8 +17,16 @@ export interface Profile {
   company_id: string | null;
 }
 
+// A signed-in subject. Under Clerk this is the Clerk user id; under Supabase Auth
+// the Supabase uuid — both live in profiles.user_id (text since the identity
+// migration). Consumers only check truthiness + read the id, so one shape serves
+// both providers and the rest of the app is identity-provider agnostic.
+export interface AuthSession {
+  userId: string;
+}
+
 interface AuthState {
-  session: Session | null;
+  session: AuthSession | null;
   profile: Profile | null;
   firmName: string | null;
   loading: boolean;
@@ -32,69 +41,56 @@ const AuthContext = createContext<AuthState>({
   signOut: async () => {},
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+// Load the profile + firm-name for a signed-in subject. Shared by both providers;
+// the `profiles`/`firms` lookups are identical regardless of who issued the token
+// (RLS resolves the caller from the verified JWT subject either way).
+function useProfile(userId: string | null): {
+  profile: Profile | null;
+  firmName: string | null;
+  profileLoading: boolean;
+} {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [firmName, setFirmName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (!data.session) setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-      if (!next) {
-        setProfile(null);
-        setFirmName(null);
-        setLoading(false);
-      }
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!session) return;
+    if (!userId) {
+      setProfile(null);
+      setFirmName(null);
+      setProfileLoading(false);
+      return;
+    }
     let cancelled = false;
+    setProfileLoading(true);
     (async () => {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
+      const { data: prof } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
       if (cancelled) return;
       setProfile((prof as Profile) ?? null);
       if (prof?.firm_id) {
-        const { data: firm } = await supabase
-          .from('firms')
-          .select('*')
-          .eq('id', prof.firm_id)
-          .single();
+        const { data: firm } = await supabase.from('firms').select('*').eq('id', prof.firm_id).single();
         if (!cancelled) setFirmName(firm?.name ?? null);
+      } else {
+        setFirmName(null);
       }
-      setLoading(false);
+      if (!cancelled) setProfileLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [userId]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  return { profile, firmName, profileLoading };
+}
 
-  // Automatic shutdown of inactive sessions (vendor-DD control): sign out after
-  // IDLE_TIMEOUT_MS with no user activity. Only armed while signed in; any
-  // pointer/key/scroll/visibility activity resets the timer.
+// Automatic shutdown of inactive sessions (vendor-DD control): call `onIdle`
+// after IDLE_TIMEOUT_MS with no activity. Only armed while signed in.
+function useIdleTimeout(active: boolean, onIdle: () => void): void {
   useEffect(() => {
-    if (!session) return;
+    if (!active) return;
     let timer: ReturnType<typeof setTimeout>;
     const reset = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        void supabase.auth.signOut();
-      }, IDLE_TIMEOUT_MS);
+      timer = setTimeout(onIdle, IDLE_TIMEOUT_MS);
     };
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'visibilitychange'] as const;
     for (const e of events) window.addEventListener(e, reset, { passive: true });
@@ -103,13 +99,99 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       for (const e of events) window.removeEventListener(e, reset);
     };
-  }, [session]);
+    // onIdle is stable per provider; deps intentionally limited to `active`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+}
+
+// ── Supabase Auth provider (dev emulator + Supabase-Auth production) ──────────
+// Unchanged behavior from before the Clerk cutover: session/token come from
+// supabase.auth. Active whenever Clerk is not configured.
+function SupabaseAuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (!data.session) setAuthLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+      if (!next) setAuthLoading(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const userId = session?.user.id ?? null;
+  const { profile, firmName, profileLoading } = useProfile(userId);
+
+  useEffect(() => {
+    if (session && !profileLoading) setAuthLoading(false);
+  }, [session, profileLoading]);
+
+  useIdleTimeout(!!session, () => {
+    void supabase.auth.signOut();
+  });
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <AuthContext.Provider value={{ session, profile, firmName, loading, signOut }}>
+    <AuthContext.Provider
+      value={{ session: userId ? { userId } : null, profile, firmName, loading: authLoading, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
+
+// ── Clerk provider (production identity, docs/30) ─────────────────────────────
+// Session + JWT come from Clerk; the token is registered as supabase-js's access
+// token (third-party auth) and used as the Bearer for /functions/*. The profile
+// lookup is unchanged. Only mounted when VITE_CLERK_PUBLISHABLE_KEY is set, so
+// its Clerk hooks always run inside <ClerkProvider> (wired in main.tsx).
+function ClerkAuthProvider({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn, userId, getToken, signOut: clerkSignOut } = useClerkAuth();
+
+  // Hand Clerk's session token to supabase.ts so REST/RLS and /functions/* are
+  // authenticated as the Clerk subject. Cleared on unmount.
+  useEffect(() => {
+    registerClerkToken(() => getToken());
+    return () => registerClerkToken(null);
+  }, [getToken]);
+
+  const activeUserId = isSignedIn ? (userId ?? null) : null;
+  const { profile, firmName, profileLoading } = useProfile(activeUserId);
+
+  useIdleTimeout(!!activeUserId, () => {
+    void clerkSignOut();
+  });
+
+  const signOut = async () => {
+    await clerkSignOut();
+  };
+
+  const loading = !isLoaded || (!!activeUserId && profileLoading);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        session: activeUserId ? { userId: activeUserId } : null,
+        profile,
+        firmName,
+        loading,
+        signOut,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// The active provider is fixed at build time by whether Clerk is configured, so
+// each provider consistently calls its own hooks (no conditional-hook hazard).
+export const AuthProvider = isClerkStack ? ClerkAuthProvider : SupabaseAuthProvider;
 
 export const useAuth = () => useContext(AuthContext);
