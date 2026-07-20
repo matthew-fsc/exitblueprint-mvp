@@ -17,7 +17,6 @@ export function LegalFooter() {
     <footer
       style={{
         borderTop: '1px solid var(--border)',
-        marginTop: 'var(--space-8)',
         padding: 'var(--space-6) var(--pad-page-x)',
         display: 'flex',
         flexWrap: 'wrap',

@@ -265,6 +265,18 @@ a {
 }
 
 /* ---- layout ---- */
+/* App chrome column: header, page, footer stacked full-height so the legal
+   footer sits at the bottom of the viewport on short pages instead of creeping
+   up under the content. The page grows to absorb the leftover height. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.app-shell > .page {
+  flex: 1 0 auto;
+}
+
 .page {
   max-width: 1140px;
   margin: 0 auto;

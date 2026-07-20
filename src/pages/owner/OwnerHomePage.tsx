@@ -153,10 +153,6 @@ export default function OwnerHomePage() {
               <span className="owner-link-title">Documents</span>
               <span className="owner-link-sub">Your readiness reports</span>
             </Link>
-            <Link className="owner-link" to="/portal/connect">
-              <span className="owner-link-title">Connect accounting</span>
-              <span className="owner-link-sub">Link your books to verify your financials</span>
-            </Link>
           </div>
         </Card>
       </div>

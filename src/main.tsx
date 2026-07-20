@@ -40,7 +40,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MonitoringErrorBoundary fallback={errorFallback}>
       {isClerkStack ? (
-        <ClerkProvider publishableKey={clerkPublishableKey!} afterSignOutUrl="/login">
+        <ClerkProvider
+          publishableKey={clerkPublishableKey!}
+          afterSignOutUrl="/login"
+          signInUrl="/login"
+          signUpUrl="/sign-up"
+        >
           {app}
         </ClerkProvider>
       ) : (

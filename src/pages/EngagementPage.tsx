@@ -56,7 +56,6 @@ import {
   type SubTab,
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
-import { AccountingCard } from '../components/AccountingCard';
 import { OwnerAccessCard } from '../components/OwnerAccessCard';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
@@ -681,11 +680,6 @@ export default function EngagementPage() {
               </SectionCard>
               <div className="eng-grid" style={{ marginTop: 0 }}>
                 <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
-                <AccountingCard
-                  companyId={engagement.company_id}
-                  companyName={companyName}
-                  firmId={engagement.firm_id}
-                />
               </div>
               {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
               <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
