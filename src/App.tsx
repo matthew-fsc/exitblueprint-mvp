@@ -26,6 +26,7 @@ import IntakePage from './pages/IntakePage';
 import ResultsPage from './pages/ResultsPage';
 import WorkbenchPage from './pages/WorkbenchPage';
 import ReportPage from './pages/ReportPage';
+import CimPage from './pages/CimPage';
 import EvidencePage from './pages/EvidencePage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
@@ -442,6 +443,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <ReportPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/assessment/:assessmentId/cim"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <CimPage />
                 </Shell>
               </RequireAdvisor>
             }

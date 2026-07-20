@@ -1214,6 +1214,108 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 /* Auto-generate state: a centered, calm placeholder while the report composes. */
+/* CIM readiness — evidence coverage per memorandum section (postures evidence
+   collection toward the CIM). */
+.cim-readiness {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.1rem 1.3rem;
+  margin-bottom: var(--space-4);
+}
+.cim-readiness-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.cim-readiness-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.cim-readiness-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  max-width: 40rem;
+}
+.cim-readiness-figure {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cim-readiness-pct {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cim-readiness-figure .muted { font-size: 0.78rem; }
+.cim-section-grid {
+  display: grid;
+  gap: 0.4rem 1.4rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) {
+  .cim-section-grid { grid-template-columns: 1fr 1fr; }
+}
+.cim-section-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 0;
+}
+.cim-section-narrative { grid-template-columns: minmax(120px, 1fr) auto; }
+.cim-section-name { font-size: 0.86rem; font-weight: 600; }
+.cim-section-tag { font-size: 0.76rem; justify-self: end; }
+.cim-section-track {
+  height: 7px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.cim-section-fill { display: block; height: 100%; border-radius: 999px; }
+.cim-section-fill.is-full { background: var(--status-good); }
+.cim-section-fill.is-partial { background: var(--status-warning); }
+.cim-section-fill.is-empty { background: var(--status-critical); }
+.cim-section-count {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cim-verified { color: var(--status-good); }
+.cim-missing-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cim-missing-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  font-size: 0.85rem;
+}
+.cim-missing-section {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  min-width: 9rem;
+}
+.cim-missing-label { flex: 1; }
+
 .report-generating {
   display: flex;
   flex-direction: column;

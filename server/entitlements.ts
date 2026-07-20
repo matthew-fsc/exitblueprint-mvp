@@ -22,6 +22,7 @@ export const GATED_FNS = new Set<string>([
   'generate-document',
   'render-owner-pdf',
   'render-delta-pdf',
+  'render-cim-pdf',
   'invite-owner',
 ]);
 

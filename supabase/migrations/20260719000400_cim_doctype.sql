@@ -1,0 +1,12 @@
+-- CIM (Confidential Information Memorandum): the market-facing deliverable that
+-- packages the collected, verified evidence into the buyer's marketing document.
+-- Additive — extends the doc_type enum; no data change, no new table. The CIM
+-- reuses generated_documents, so the existing RLS applies unchanged:
+--   * advisor_firm_all grants staff full CRUD on their firm's rows (a CIM is a
+--     staff/advisor deliverable), and
+--   * owner_report_read restricts owners to doc_type = 'owner_report' only, so a
+--     CIM is never readable in the owner portal — which is what we want for a
+--     market document the advisor controls.
+-- (PG12+ permits ADD VALUE inside a transaction, which is how scripts/migrate.ts
+-- applies each migration.)
+alter type doc_type add value if not exists 'cim';
