@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { qk } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
+import { humanizeKey, fmtDate } from '../lib/format';
 import { Card, EmptyState, ErrorState, SkeletonLines, useToast } from '../components/ui';
 
 interface DocumentRow {
@@ -49,6 +50,20 @@ const STATUS_LABEL: Record<string, string> = {
   in_review: 'In review',
   verified: 'Verified',
   rejected: 'Rejected',
+};
+
+// Tone per status so the chip distinguishes "failed" (rejected) from "in
+// progress" (pipeline) from "done" (verified) — not everything-non-verified as
+// amber, which hid rejections.
+const STATUS_TONE: Record<string, string> = {
+  verified: 'good',
+  rejected: 'critical',
+  in_review: 'warning',
+  uploaded: 'neutral',
+  scanning: 'neutral',
+  scanned: 'neutral',
+  classified: 'neutral',
+  extracting: 'neutral',
 };
 
 export function DocumentsPanel() {
@@ -139,11 +154,18 @@ export function DocumentsPanel() {
             <li key={d.id} className="doc-row">
               <div>
                 <span className="doc-name">{d.original_filename}</span>
-                <span className="doc-meta">{d.category || 'Uncategorized'}</span>
+                <span className="doc-meta">
+                  {d.category || 'Uncategorized'} · {fmtDate(d.created_at)}
+                </span>
               </div>
-              <span className={`status-chip status-${d.status === 'verified' ? 'good' : 'warning'}`}>
-                {STATUS_LABEL[d.status] ?? d.status}
-              </span>
+              <div className="row-gap">
+                <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
+                  {STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
+                </span>
+                <Link className="button-link" to={`/review/${d.id}`}>
+                  Review →
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

@@ -4648,6 +4648,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 /* status/tier chips: rounded-rect (not pill) + medium weight reads institutional,
    less shouty. Squared corners align with the tightened surface geometry. */
 .status-chip { border-radius: 6px; font-weight: 650; }
+.review-queue-flag { margin-left: var(--space-2); }
 .tier-badge { border-radius: 6px; }
 .tier-badge-sm { border-radius: 5px; }
 
