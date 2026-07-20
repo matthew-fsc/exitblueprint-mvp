@@ -59,6 +59,33 @@ interface BillingData {
 // Staff roles occupy a seat; owners (clients) do not.
 const STAFF_ROLES = ['advisor', 'reviewer', 'admin'];
 
+// Capability keys (plans.features) → the human labels shown on the pricing cards.
+// Keys with no entry fall back to a humanised form so a new capability still
+// renders rather than vanishing.
+const FEATURE_LABEL: Record<string, string> = {
+  assessment: 'Readiness assessments (DRS)',
+  roadmap: 'Remediation roadmap',
+  owner_portal: 'Owner portal',
+  valuation: 'Valuation & EBITDA recast',
+  buyer_lens: 'Buyer lens',
+  data_room: 'Data room',
+  documents: 'Document management',
+  verification: 'Financial verification',
+  delta_report: 'Delta reports',
+  branding: 'Firm branding',
+  priority_support: 'Priority support',
+};
+const featureLabel = (key: string) =>
+  FEATURE_LABEL[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+function CheckIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 function useBilling(firmId: string | undefined) {
   return useQuery<BillingData>({
     queryKey: ['billing', firmId ?? ''],
@@ -227,43 +254,50 @@ export default function BillingPage() {
       )}
 
       {/* Plan picker. Choosing a plan opens Stripe Checkout; the current plan is
-          marked and its button disabled. */}
+          marked and its button disabled. Pricing-table layout so the tiers read
+          at a glance. */}
       <SectionCard title="Plans" subtitle="Select a plan to start or change your subscription.">
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))',
-            gap: '1rem',
-            marginTop: '0.5rem',
-          }}
-        >
+        <div className="plan-grid">
           {plans.map((plan) => {
             const isCurrent = plan.code === sub?.plan_code && ent.entitled;
             return (
-              <Card key={plan.code} pad="lg">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', height: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '0.5rem' }}>
-                    <span className="stat-block-label">{plan.name}</span>
-                    {isCurrent && <span className="status-chip status-good">Current</span>}
-                  </div>
-                  <p className="muted" style={{ margin: 0 }}>
-                    {plan.seat_limit == null ? 'Unlimited seats' : `Up to ${plan.seat_limit} seat${plan.seat_limit === 1 ? '' : 's'}`}
-                    {plan.engagement_limit != null && ` · ${plan.engagement_limit} engagements`}
-                  </p>
-                  <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
-                    <button
-                      onClick={() => startCheckout(plan.code)}
-                      disabled={busy || isCurrent}
-                      title={isCurrent ? 'This is your current plan' : undefined}
-                    >
-                      {isCurrent ? 'Current plan' : hasSubscription ? 'Switch to this plan' : 'Choose plan'}
-                    </button>
-                  </div>
+              <div key={plan.code} className={`plan-card ${isCurrent ? 'is-current' : ''}`}>
+                <div className="plan-card-head">
+                  <span className="plan-card-name">{plan.name}</span>
+                  {isCurrent && <span className="status-chip status-good">Current</span>}
                 </div>
-              </Card>
+                <p className="plan-card-limits">
+                  {plan.seat_limit == null ? 'Unlimited seats' : `Up to ${plan.seat_limit} seat${plan.seat_limit === 1 ? '' : 's'}`}
+                  {plan.engagement_limit != null
+                    ? ` · ${plan.engagement_limit} engagements`
+                    : ' · Unlimited engagements'}
+                </p>
+                <ul className="plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f} className="plan-feature">
+                      <span className="plan-feature-check"><CheckIcon /></span>
+                      {featureLabel(f)}
+                    </li>
+                  ))}
+                </ul>
+                <div className="plan-card-cta">
+                  <button
+                    className={isCurrent ? 'button-secondary' : undefined}
+                    onClick={() => startCheckout(plan.code)}
+                    disabled={busy || isCurrent}
+                    title={isCurrent ? 'This is your current plan' : undefined}
+                  >
+                    {isCurrent ? 'Current plan' : hasSubscription ? 'Switch to this plan' : 'Choose plan'}
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
+        <p className="muted text-sm" style={{ marginTop: 'var(--space-3)' }}>
+          Prices are shown at checkout. Billing is handled securely by Stripe — we never see or store
+          your card details.
+        </p>
       </SectionCard>
     </div>
   );

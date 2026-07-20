@@ -150,9 +150,7 @@ export default function BuyerLensPage() {
                 <h3 className="section-heading">
                   {s.label} <span className="muted">· {items.length}</span>
                 </h3>
-                <p className="muted" style={{ marginTop: '-0.35rem' }}>
-                  {s.blurb}
-                </p>
+                <p className="muted section-sub">{s.blurb}</p>
                 <Card>
                   <div className="advisory-list">
                     {items.map((it) => (
