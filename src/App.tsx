@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack } from './lib/supabase';
 import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
+import { UserMenu } from './components/UserMenu';
 import { BrandingProvider, useBrand } from './lib/branding';
 import { Analytics } from '@vercel/analytics/react';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
@@ -188,9 +189,6 @@ function AppBar() {
             <NavLink to="/library" className="app-nav-link">
               Library
             </NavLink>
-            <NavLink to="/security" className="app-nav-link">
-              Security
-            </NavLink>
             <NavLink to="/settings" className="app-nav-link">
               Settings
             </NavLink>
@@ -200,21 +198,11 @@ function AppBar() {
           {isDevStack && <span className="dev-badge">Dev</span>}
           <ThemeToggle />
           <span className="app-bar-divider" aria-hidden />
-          <div className="user-chip">
-            <span className="user-avatar" aria-hidden>
-              {userInitials(profile?.email)}
-            </span>
-            <span className="user-email" title={profile?.email ?? undefined}>
-              {profile?.email}
-            </span>
-            <button className="user-signout" onClick={signOut} title="Sign out" aria-label="Sign out">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
-          </div>
+          <UserMenu
+            email={profile?.email}
+            links={[{ to: '/security', label: 'Security' }]}
+            onSignOut={signOut}
+          />
         </div>
       </div>
     </header>

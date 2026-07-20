@@ -3607,6 +3607,63 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   color: var(--status-critical);
   border-color: var(--border);
 }
+
+/* Account menu (docs/34): folds Security + Sign out out of the primary nav. */
+.user-menu { position: relative; }
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+}
+.user-menu-trigger:hover { background: var(--surface-2); border-color: var(--border); }
+.user-menu-caret { color: var(--text-muted); flex-shrink: 0; }
+.user-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 13rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+}
+.user-menu-header {
+  padding: 0.4rem 0.6rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.25rem;
+}
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.user-menu-item:hover,
+.user-menu-item:focus-visible { background: var(--surface-2); }
+.user-menu-item-danger { color: var(--status-critical); }
+.user-menu-item-danger:hover,
+.user-menu-item-danger:focus-visible { background: var(--surface-2); color: var(--status-critical); }
 @media (max-width: 760px) {
   .user-email { display: none; }
   .app-bar-left .app-bar-divider { display: none; }
