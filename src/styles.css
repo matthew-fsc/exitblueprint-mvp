@@ -84,6 +84,12 @@
      it. Mirrors .app-bar-inner height. */
   --app-bar-h: 60px;
 
+  /* Width of the centered app column (content + app bar + footer all track this
+     one value). Sized for a data-dense advisor workspace on a normal laptop/desktop
+     — wide enough that pages fill the screen like a standard SaaS tool instead of
+     floating in a narrow band. */
+  --page-max: 1320px;
+
   /* the institutional numeral: tabular columns + slashed zero. Applied wherever
      figures are read or compared (stat values, table numerics, deltas). */
   --num: 'tnum' 1, 'zero' 1;
@@ -109,7 +115,7 @@
   --gap-block: var(--space-6);
   --gap-section: var(--space-7);
   --pad-card: var(--space-6);
-  --pad-page-x: var(--space-6);
+  --pad-page-x: var(--space-7);
 
   /* ---- type scale (single source for the small-text sizes the UI repeats) ----
      Prose is 15px (body). These name the sub-body sizes that were previously
@@ -278,7 +284,13 @@ a {
 }
 
 .page {
-  max-width: 1140px;
+  /* width:100% is load-bearing: .page is a flex child (of .app-shell) with auto
+     side margins, which otherwise shrink-wraps it to its content width — so pages
+     whose content is intrinsically narrow (the book table, list views) rendered
+     in a cramped column well inside the viewport regardless of max-width. Filling
+     to 100% and capping with max-width makes every page use the same full column. */
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-7) var(--pad-page-x) var(--space-9);
 }
@@ -3559,7 +3571,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   box-shadow: 0 1px 0 rgba(18, 40, 30, 0.02), 0 2px 8px rgba(18, 40, 30, 0.03);
 }
 .app-bar-inner {
-  max-width: 1140px;
+  max-width: var(--page-max);
   margin: 0 auto;
   height: 60px;
   padding: 0 var(--pad-page-x);
