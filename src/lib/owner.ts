@@ -15,6 +15,11 @@ export interface OwnerContext {
   completed: AssessmentRow[];
   latest: AssessmentRow | null;
   loading: boolean;
+  // A failed load must never be silently indistinguishable from "no data yet" —
+  // every owner page branches on this before falling through to an empty state.
+  isError: boolean;
+  error: unknown;
+  refetch: () => void;
 }
 
 // Resolves the signed-in owner's single engagement and its assessments. Every
@@ -34,5 +39,12 @@ export function useOwnerContext(): OwnerContext {
     completed,
     latest: completed[completed.length - 1] ?? null,
     loading: engagementQ.isLoading || (!!engagement && assessmentsQ.isLoading),
+    isError: companyQ.isError || engagementQ.isError || assessmentsQ.isError,
+    error: engagementQ.error ?? assessmentsQ.error ?? companyQ.error,
+    refetch: () => {
+      companyQ.refetch();
+      engagementQ.refetch();
+      assessmentsQ.refetch();
+    },
   };
 }

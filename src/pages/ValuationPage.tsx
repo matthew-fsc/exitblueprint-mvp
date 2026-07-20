@@ -115,13 +115,15 @@ export default function ValuationPage() {
   if (!engagement) return <ErrorState variant="section" title="Engagement not found" message="This engagement doesn’t exist or you don’t have access to it." />;
 
   return (
-    <div className="stack-lg">
-      <PageHeader
-        title="Valuation"
-        crumbs={engagementCrumbs(engagementId, companyName, 'Valuation')}
-        subtitle="Current enterprise value, the value of completing the roadmap, and the owner's net proceeds."
-      />
-      <EngagementNav engagementId={engagementId!} />
+    <div className="page-shell stack-lg">
+      <header className="page-masthead">
+        <PageHeader
+          title="Valuation"
+          crumbs={engagementCrumbs(engagementId, companyName, 'Valuation')}
+          subtitle="Current enterprise value, the value of completing the roadmap, and the owner's net proceeds."
+        />
+        <EngagementNav engagementId={engagementId!} />
+      </header>
 
       {!recast ? (
         <Card>

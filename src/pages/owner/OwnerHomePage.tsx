@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useOwnerContext } from '../../lib/owner';
 import { useExplain, useEngagementGaps, useValuation, useVerification } from '../../lib/queries';
-import { Card, EmptyState, GapSeverityChip, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
+import { Card, EmptyState, ErrorState, GapSeverityChip, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
 import { fmtCurrencyCompact, fmtScore } from '../../lib/format';
 
 const TIER_PLAIN: Record<string, string> = {
@@ -13,7 +13,7 @@ const TIER_PLAIN: Record<string, string> = {
 };
 
 export default function OwnerHomePage() {
-  const { company, engagement, latest, loading } = useOwnerContext();
+  const { company, engagement, latest, loading, isError, error, refetch } = useOwnerContext();
   const explainQ = useExplain(latest?.id);
   const gapsQ = useEngagementGaps(engagement?.id, latest?.rubric_version_id);
   const verifQ = useVerification(latest?.id);
@@ -22,6 +22,16 @@ export default function OwnerHomePage() {
   const val = valuationQ.data;
 
   if (loading) return <Card><SkeletonLines lines={6} /></Card>;
+
+  // A failed load must not read as "your assessment is being prepared".
+  if (isError) {
+    return (
+      <>
+        <PageHeader title={company?.name ?? 'Welcome'} subtitle="Your exit-readiness workspace" />
+        <ErrorState variant="section" error={error} onRetry={refetch} />
+      </>
+    );
+  }
 
   if (!engagement || !latest) {
     return (
@@ -46,7 +56,9 @@ export default function OwnerHomePage() {
 
       <div className="owner-hero">
         <Card>
-          {!explain ? (
+          {explainQ.isError ? (
+            <ErrorState variant="section" error={explainQ.error} onRetry={explainQ.refetch} />
+          ) : !explain ? (
             <SkeletonLines lines={5} />
           ) : (
             <div className="owner-hero-inner">

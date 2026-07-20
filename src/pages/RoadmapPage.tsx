@@ -24,7 +24,7 @@ import {
   useToast,
   type GanttItem,
 } from '../components/ui';
-import { fmtDate } from '../lib/format';
+import { fmtDate, humanizeKey } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
 import { groupIntoSprints } from '../lib/practitioner';
 
@@ -150,7 +150,7 @@ export default function RoadmapPage() {
           />
         )}
       </span>
-      <span className="rm-role">{t.owner_role}</span>
+      <span className="rm-role">{ROLE_LABEL[t.owner_role] ?? humanizeKey(t.owner_role)}</span>
       {t.status !== 'done' && (
         <button
           className="linkish"
@@ -263,13 +263,15 @@ export default function RoadmapPage() {
   }).filter((g) => g.total > 0);
 
   return (
-    <div className="stack-lg">
-      <PageHeader
-        title="Roadmap"
-        crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
-        subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
-      />
-      <EngagementNav engagementId={engagementId!} />
+    <div className="page-shell stack-lg">
+      <header className="page-masthead">
+        <PageHeader
+          title="Roadmap"
+          crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
+          subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
+        />
+        <EngagementNav engagementId={engagementId!} />
+      </header>
       {error && <ErrorState variant="inline" error={error} />}
 
       {ganttItems.length === 0 ? (
@@ -339,7 +341,7 @@ export default function RoadmapPage() {
           <ul className="assessment-list">
             {milestones.map((m) => (
               <li key={m.id} className="assessment-card">
-                <span className={`rm-role`}>{m.track}</span>
+                <span className={`rm-role`}>{humanizeKey(m.track)}</span>
                 <span className="assessment-score">
                   <strong>{m.title}</strong>
                   {m.target_date && <span className="muted"> · {fmtDate(m.target_date)}</span>}

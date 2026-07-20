@@ -79,6 +79,11 @@
   --radius-sm: 6px;
   --radius-lg: 12px;
 
+  /* height of the global sticky app bar — sticky children (table headers, the
+     workbench scoreboard) offset from this so they pin below the bar, not under
+     it. Mirrors .app-bar-inner height. */
+  --app-bar-h: 60px;
+
   /* the institutional numeral: tabular columns + slashed zero. Applied wherever
      figures are read or compared (stat values, table numerics, deltas). */
   --num: 'tnum' 1, 'zero' 1;
@@ -1504,6 +1509,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 @keyframes report-spin {
   to { transform: rotate(360deg); }
 }
+/* slow (not stop) the spinner for reduced-motion, matching .ui-spinner, so it
+   still reads as "working" during a multi-second AI generation */
+@media (prefers-reduced-motion: reduce) {
+  .report-spinner { animation-duration: 1.8s; }
+  button:active:not(:disabled) { transform: none; }
+}
 
 /* Toolbar: status on the left, the document actions on the right. */
 .report-toolbar {
@@ -2390,10 +2401,11 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 /* sticky scoreboard */
 .wb-board {
   position: sticky;
-  top: 1rem;
+  top: calc(var(--app-bar-h) + var(--space-2));
   /* Cap to the viewport so a tall board scrolls inside itself instead of
-     having its lower half clipped off-screen (sticky can't be scrolled past). */
-  max-height: calc(100vh - 2rem);
+     having its lower half clipped off-screen (sticky can't be scrolled past).
+     Account for the app bar so the top of a tall board isn't hidden by it. */
+  max-height: calc(100vh - var(--app-bar-h) - var(--space-4));
 }
 .wb-board-inner {
   background: var(--surface-1);
@@ -2789,7 +2801,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .ui-table thead th {
   position: sticky;
-  top: 0;
+  top: var(--app-bar-h);
   background: var(--surface-2);
   color: var(--text-secondary);
   font-weight: var(--eyebrow-weight);
@@ -2802,6 +2814,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ui-table tbody tr:last-child td { border-bottom: none; }
 .ui-table tbody tr.clickable { cursor: pointer; }
 .ui-table tbody tr.clickable:hover { background: var(--surface-2); }
+/* keyboard focus on a clickable row — inset so overflow-x on the wrap can't clip it */
+.ui-table tbody tr.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface-1));
+}
 .ui-table-sort {
   background: none; border: none; padding: 0; color: inherit; font: inherit;
   font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.74rem;
@@ -2968,7 +2986,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .ui-modal {
   background: var(--surface-1); border: 1px solid var(--border-strong);
-  border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem;
+  border-radius: var(--radius); box-shadow: var(--shadow-lift); padding: 1.5rem;
   max-width: 26rem; width: 100%; display: flex; flex-direction: column; gap: 0.9rem;
 }
 .ui-modal h3 { margin: 0; }
@@ -3032,7 +3050,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ui-toast {
   background: var(--surface-1); border: 1px solid var(--border-strong);
   border-left: 4px solid var(--accent); border-radius: var(--radius-sm);
-  box-shadow: var(--shadow); padding: 0.7rem 1rem; font-size: 0.88rem; max-width: 22rem;
+  box-shadow: var(--shadow-lift); padding: 0.7rem 1rem; font-size: 0.88rem; max-width: 22rem;
   animation: toast-in 0.18s ease;
 }
 .ui-toast-good { border-left-color: var(--status-good); }
@@ -3586,10 +3604,44 @@ button:active:not(:disabled) {
 button:focus-visible,
 a:focus-visible,
 select:focus-visible,
+summary:focus-visible,
 .app-nav-link:focus-visible,
 .linkish:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+/* disclosure summaries live inside bordered/overflow-hidden cards, so the ring
+   is inset to sit cleanly on the summary rather than clipping on the card edge */
+.ui-collapsible-summary:focus-visible,
+.dim-card > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* text-style buttons (transparent, no fill) must not carry the tactile
+   raised-button shadow/gradient or the press-nudge meant for solid buttons */
+.ui-table-sort,
+.comparison-toggle,
+.advisory-item-toggle,
+.button-danger-link,
+.learn-head {
+  box-shadow: none;
+  background-image: none;
+}
+.ui-table-sort:active:not(:disabled),
+.comparison-toggle:active:not(:disabled),
+.advisory-item-toggle:active:not(:disabled),
+.button-danger-link:active:not(:disabled),
+.learn-head:active:not(:disabled) {
+  transform: none;
+}
+/* destructive confirm/action button — a class, so it keeps hover feedback
+   (an inline background would defeat the :hover rule) */
+.btn-danger {
+  background: var(--status-critical);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--status-critical) 88%, black);
 }
 /* secondary / outline action */
 .btn-secondary {
@@ -4168,8 +4220,20 @@ textarea:focus {
 .owner-doc:last-child { border-bottom: none; }
 .owner-doc-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .owner-doc-actions { display: flex; gap: 0.5rem; }
-.owner-doc-body { margin-top: 0.8rem; padding: 0.9rem; background: var(--surface-2); border-radius: var(--radius-sm);
-  font-size: 0.88rem; line-height: 1.55; white-space: pre-wrap; color: var(--text-secondary); max-height: 24rem; overflow-y: auto; }
+.owner-doc-body { margin-top: 0.8rem; padding: 0.9rem 1.1rem; background: var(--surface-2); border-radius: var(--radius-sm);
+  font-size: 0.9rem; line-height: 1.6; color: var(--text-primary); max-height: 24rem; overflow-y: auto; }
+/* rendered-markdown body (owner report inline view) — compact heading/list
+   rhythm, matching the advisor .report-body treatment at a smaller scale */
+.md-body > :first-child { margin-top: 0; }
+.md-body h1 { font-size: 1.15rem; color: var(--brand); margin: 0 0 var(--space-2); }
+.md-body h2 { font-size: 1rem; margin: var(--space-5) 0 var(--space-1); padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.md-body h3 { font-size: 0.92rem; margin: var(--space-4) 0 var(--space-1); }
+.md-body p { margin: 0 0 var(--space-2); }
+.md-body ul { margin: var(--space-1) 0 var(--space-3); padding-left: var(--space-5); }
+.md-body li { margin-bottom: var(--space-1); }
+.md-body em { color: var(--text-secondary); }
+.md-body .report-gap { height: var(--space-2); }
 
 .connect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
 @media (max-width: 620px) { .connect-grid { grid-template-columns: 1fr; } }
@@ -4584,6 +4648,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 /* status/tier chips: rounded-rect (not pill) + medium weight reads institutional,
    less shouty. Squared corners align with the tightened surface geometry. */
 .status-chip { border-radius: 6px; font-weight: 650; }
+.review-queue-flag { margin-left: var(--space-2); }
 .tier-badge { border-radius: 6px; }
 .tier-badge-sm { border-radius: 5px; }
 

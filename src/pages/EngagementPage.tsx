@@ -58,7 +58,7 @@ import {
 import { VerificationCard } from '../components/VerificationCard';
 import { AccountingCard } from '../components/AccountingCard';
 import { OwnerAccessCard } from '../components/OwnerAccessCard';
-import { fmtDate, fmtScore } from '../lib/format';
+import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
 // the aspiration line on the trajectory.
@@ -628,7 +628,7 @@ export default function EngagementPage() {
                     </Link>
                     <span className="cmp-meta">
                       {c.tier ? <TierBadge tier={c.tier} /> : <span className="muted">not yet scored</span>}
-                      {c.outcomeStatus && <span className="cmp-outcome">{c.outcomeStatus.replace(/_/g, ' ')}</span>}
+                      {c.outcomeStatus && <span className="cmp-outcome">{humanizeKey(c.outcomeStatus)}</span>}
                     </span>
                     <span className="cmp-reasons muted">{c.reasons.join(' · ')}</span>
                   </li>
@@ -729,7 +729,7 @@ export default function EngagementPage() {
           <ul className="assessment-list">
             {documents.map((d) => (
               <li key={d.id} className="assessment-card">
-                <span className="assessment-seq">{d.doc_type.replace('_', ' ')}</span>
+                <span className="assessment-seq">{humanizeKey(d.doc_type)}</span>
                 <span className="assessment-score muted">
                   {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
                 </span>
@@ -882,13 +882,13 @@ function DealOutcomeCapture({
         <label>Buyer type
           <select value={f.buyer_type} onChange={(e) => set('buyer_type', e.target.value)}>
             <option value="">—</option>
-            {BUYER_TYPES.map((b) => <option key={b} value={b}>{b}</option>)}
+            {BUYER_TYPES.map((b) => <option key={b} value={b}>{humanizeKey(b)}</option>)}
           </select>
         </label>
         <label>Structure
           <select value={f.structure} onChange={(e) => set('structure', e.target.value)}>
             <option value="">—</option>
-            {STRUCTURES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+            {STRUCTURES.map((s) => <option key={s} value={s}>{humanizeKey(s)}</option>)}
           </select>
         </label>
         <label className="outcome-retrade">

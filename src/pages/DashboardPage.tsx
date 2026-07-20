@@ -5,6 +5,7 @@ import {
   DeltaChip,
   EmptyState,
   PageHeader,
+  PageSection,
   Sparkline,
   StatBlock,
   StatRow,
@@ -119,64 +120,98 @@ export default function DashboardPage() {
     },
   ];
 
+  const isLoading = portfolioQ.isLoading;
+  const filtersActive = tier !== 'all' || move !== 'all';
+  // Two distinct empty states: a genuinely empty book vs. filters that excluded
+  // everything — telling a user with a full book to "add your first client"
+  // would be a misleading dead end.
+  const emptyNode = filtersActive ? (
+    <EmptyState
+      icon="search"
+      title="No engagements match these filters"
+      action={
+        <button
+          className="btn-secondary"
+          onClick={() => {
+            setTier('all');
+            setMove('all');
+          }}
+        >
+          Clear filters
+        </button>
+      }
+    >
+      No engagement in your book matches the current tier and movement filters.
+    </EmptyState>
+  ) : (
+    <EmptyState
+      title="No engagements yet"
+      action={<button onClick={() => navigate('/clients')}>Add your first client</button>}
+    >
+      Add a company and open a readiness engagement to start tracking it here.
+    </EmptyState>
+  );
+
   return (
-    <div className="stack-lg">
-      <PageHeader
-        title="Portfolio"
-        subtitle="Exit-readiness engagements across your book, ordered by attention needed."
-      />
-
-      <StatRow>
-        <StatBlock label="Engagements" value={rows.length} hint="active in your book" />
-        <StatBlock label="Average DRS" value={avgDrs ?? '—'} hint="across the book" />
-        <StatBlock label="Movers this quarter" value={movers} hint="up ≥ 3 points vs prior" />
-        <StatBlock
-          label="Stale ≥ 90 days"
-          value={staleCount}
-          hint={staleCount > 0 ? 'need a reassessment' : 'all current'}
+    <div className="page-shell">
+      <header className="page-masthead">
+        <PageHeader
+          title="Portfolio"
+          subtitle="Exit-readiness engagements across your book, ordered by attention needed."
         />
-      </StatRow>
+      </header>
 
-      <div className="filter-row">
-        <label className="filter-control">
-          <span className="filter-label">Tier</span>
-          <select value={tier} onChange={(e) => setTier(e.target.value as TierFilter)}>
-            <option value="all">All tiers</option>
-            {TIER_ORDER.slice().reverse().map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter-control">
-          <span className="filter-label">Show</span>
-          <select value={move} onChange={(e) => setMove(e.target.value as MoveFilter)}>
-            <option value="all">Everything</option>
-            <option value="up">Improving</option>
-            <option value="down">Declining</option>
-            <option value="stale">Stale (≥ 90 days)</option>
-          </select>
-        </label>
-        <span className="filter-count muted">
-          {filtered.length} of {rows.length}
-        </span>
-      </div>
+      <PageSection title="Book at a glance" note="Where the engagement stands today">
+        <StatRow>
+          <StatBlock label="Engagements" value={isLoading ? '—' : rows.length} hint="active in your book" />
+          <StatBlock label="Average DRS" value={isLoading ? '—' : avgDrs ?? '—'} hint="across the book" />
+          <StatBlock label="Movers this quarter" value={isLoading ? '—' : movers} hint="up ≥ 3 points vs prior" />
+          <StatBlock
+            label="Stale ≥ 90 days"
+            value={isLoading ? '—' : staleCount}
+            hint={isLoading ? 'across the book' : staleCount > 0 ? 'need a reassessment' : 'all current'}
+          />
+        </StatRow>
+      </PageSection>
 
-      <DataTable
-        columns={columns}
-        rows={filtered}
-        keyFor={(r) => r.engagementId}
-        onRowClick={(r) => navigate(`/engagement/${r.engagementId}`)}
-        loading={portfolioQ.isLoading}
-        error={portfolioQ.error?.message ?? null}
-        initialSort={{ key: 'stale', dir: 'desc' }}
-        empty={
-          <EmptyState title="No engagements yet" action={<button onClick={() => navigate('/clients')}>Add your first client</button>}>
-            Add a company and open a readiness engagement to start tracking it here.
-          </EmptyState>
-        }
-      />
+      <PageSection
+        title="Engagements"
+        note={!isLoading && rows.length > 0 ? `${filtered.length} of ${rows.length} shown` : undefined}
+      >
+        <div className="filter-row">
+          <label className="filter-control">
+            <span className="filter-label">Tier</span>
+            <select value={tier} onChange={(e) => setTier(e.target.value as TierFilter)}>
+              <option value="all">All tiers</option>
+              {TIER_ORDER.slice().reverse().map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-control">
+            <span className="filter-label">Show</span>
+            <select value={move} onChange={(e) => setMove(e.target.value as MoveFilter)}>
+              <option value="all">Everything</option>
+              <option value="up">Improving</option>
+              <option value="down">Declining</option>
+              <option value="stale">Stale (≥ 90 days)</option>
+            </select>
+          </label>
+        </div>
+
+        <DataTable
+          columns={columns}
+          rows={filtered}
+          keyFor={(r) => r.engagementId}
+          onRowClick={(r) => navigate(`/engagement/${r.engagementId}`)}
+          loading={isLoading}
+          error={portfolioQ.error?.message ?? null}
+          initialSort={{ key: 'stale', dir: 'desc' }}
+          empty={emptyNode}
+        />
+      </PageSection>
     </div>
   );
 }

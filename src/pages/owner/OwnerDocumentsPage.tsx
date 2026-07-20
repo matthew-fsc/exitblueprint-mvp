@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useOwnerContext } from '../../lib/owner';
 import { useEngagementDocuments } from '../../lib/queries';
 import { invokeFunctionBlob } from '../../lib/supabase';
-import { Card, EmptyState, PageHeader, SkeletonLines, useToast } from '../../components/ui';
+import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
+import { renderMarkdown } from '../../lib/markdown';
 
 export default function OwnerDocumentsPage() {
-  const { engagement, loading } = useOwnerContext();
+  const { engagement, loading, isError, error, refetch } = useOwnerContext();
   const docsQ = useEngagementDocuments(engagement?.id);
   const docs = docsQ.data ?? [];
   const toast = useToast();
@@ -34,6 +35,8 @@ export default function OwnerDocumentsPage() {
       <PageHeader title="Documents" subtitle="The readiness reports your advisor has prepared for you." />
       {loading || docsQ.isLoading ? (
         <Card><SkeletonLines lines={5} /></Card>
+      ) : isError || docsQ.isError ? (
+        <ErrorState variant="section" error={error ?? docsQ.error} onRetry={refetch} />
       ) : docs.length === 0 ? (
         <EmptyState title="No reports yet">
           Your advisor hasn't shared a report yet. When they do, you'll be able to read and download it here.
@@ -57,7 +60,9 @@ export default function OwnerDocumentsPage() {
                     </button>
                   </span>
                 </div>
-                {openId === d.id && <div className="owner-doc-body">{d.content_md}</div>}
+                {openId === d.id && (
+                  <div className="owner-doc-body md-body">{renderMarkdown(d.content_md)}</div>
+                )}
               </li>
             ))}
           </ul>

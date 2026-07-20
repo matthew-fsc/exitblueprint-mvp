@@ -5,7 +5,7 @@ import {
   useEngagement,
   useVerification,
 } from '../lib/queries';
-import { EngagementNav, PageHeader, SubTabs, type SubTab } from '../components/ui';
+import { EngagementNav, PageHeader, SubTabs, subTabId, subTabPanelId, type SubTab } from '../components/ui';
 import { DataRoomPanel } from './DataRoomPage';
 import { DocumentsPanel } from './DocumentsPage';
 import { VerificationPanel } from './VerificationPage';
@@ -86,7 +86,13 @@ export default function EvidencePage() {
         onSelect={(key) => navigate(`/engagement/${engagementId}/evidence/${key}`)}
       />
 
-      <div className="subtabs-panel">
+      <div
+        className="subtabs-panel"
+        role="tabpanel"
+        id={subTabPanelId(active)}
+        aria-labelledby={subTabId(active)}
+        tabIndex={0}
+      >
         {active === 'data-room' && <DataRoomPanel />}
         {active === 'documents' && <DocumentsPanel />}
         {active === 'verification' && <VerificationPanel />}

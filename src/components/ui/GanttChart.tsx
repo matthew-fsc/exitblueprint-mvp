@@ -19,6 +19,14 @@ const TRACK_LABEL: Record<GanttItem['track'], string> = {
   personal: 'Personal & wealth planning',
 };
 
+const STATUS_WORD: Record<NonNullable<GanttItem['status']>, string> = {
+  todo: 'not started',
+  doing: 'in progress',
+  done: 'done',
+  blocked: 'blocked',
+  reached: 'reached',
+};
+
 // A lightweight HTML/CSS Gantt: two swimlanes, month grid, task bars, milestone
 // diamonds, and a "today" marker. Positions are percentages across the domain.
 export function GanttChart({ items, today = new Date() }: { items: GanttItem[]; today?: Date }) {
@@ -105,12 +113,16 @@ export function GanttChart({ items, today = new Date() }: { items: GanttItem[]; 
                             left: `${pct(toDate(it.start ?? it.end).getTime())}%`,
                             width: `${Math.max(1.5, pct(toDate(it.end).getTime()) - pct(toDate(it.start ?? it.end).getTime()))}%`,
                           }}
+                          role="img"
+                          aria-label={`${it.label} — ${STATUS_WORD[it.status ?? 'todo']}, due ${toDate(it.end).toLocaleDateString()}`}
                           title={`${it.label} — due ${toDate(it.end).toLocaleDateString()}`}
                         />
                       ) : (
                         <span
                           className={`gantt-diamond ${it.status === 'reached' ? 'gantt-done' : ''}`}
                           style={{ left: `${pct(toDate(it.end).getTime())}%` }}
+                          role="img"
+                          aria-label={`Milestone: ${it.label} — ${it.status === 'reached' ? 'reached' : 'target'} ${toDate(it.end).toLocaleDateString()}`}
                           title={`${it.label} — ${toDate(it.end).toLocaleDateString()}`}
                         />
                       )}

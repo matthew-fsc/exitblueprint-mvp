@@ -19,7 +19,7 @@ export { SectionCard } from './SectionCard';
 export { PageHeader, type Crumb } from './PageHeader';
 export { PageSection } from './PageSection';
 export { ScoreDial } from './ScoreDial';
-export { SubTabs, type SubTab } from './SubTabs';
+export { SubTabs, subTabId, subTabPanelId, type SubTab } from './SubTabs';
 export { Skeleton, SkeletonLines } from './Skeleton';
 export { Sparkline } from './Sparkline';
 export { StatBlock, StatRow } from './StatBlock';

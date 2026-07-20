@@ -15,6 +15,11 @@ export interface SubTab {
   badge?: ReactNode;
 }
 
+// Id helpers so a consumer can wire the visible panel back to its tab:
+//   <div role="tabpanel" id={subTabPanelId(key)} aria-labelledby={subTabId(key)} />
+export const subTabId = (key: string) => `subtab-${key}`;
+export const subTabPanelId = (key: string) => `subtabpanel-${key}`;
+
 export function SubTabs({
   tabs,
   activeKey,
@@ -26,16 +31,34 @@ export function SubTabs({
   onSelect: (key: string) => void;
   ariaLabel?: string;
 }) {
+  // Left/Right/Home/End move between tabs (the ARIA tabs keyboard contract);
+  // only the active tab is in the tab order (roving tabindex).
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const idx = tabs.findIndex((t) => t.key === activeKey);
+    if (idx < 0) return;
+    let next = idx;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    onSelect(tabs[next].key);
+  };
+
   return (
-    <div className="subtabs" role="tablist" aria-label={ariaLabel}>
+    <div className="subtabs" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
       {tabs.map((t) => {
         const active = t.key === activeKey;
         return (
           <button
             key={t.key}
+            id={subTabId(t.key)}
             type="button"
             role="tab"
             aria-selected={active}
+            aria-controls={subTabPanelId(t.key)}
+            tabIndex={active ? 0 : -1}
             className={`subtab ${active ? 'subtab-active' : ''}`}
             onClick={() => onSelect(t.key)}
           >

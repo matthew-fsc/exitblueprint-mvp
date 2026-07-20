@@ -5,6 +5,8 @@ import { invokeFunction, supabase } from '../lib/supabase';
 import { qk } from '../lib/queries';
 import { humanizeKey, formatFieldValue } from '../lib/format';
 import {
+  ConfirmDialog,
+  DataTable,
   EmptyState,
   ErrorState,
   GapSeverityChip,
@@ -13,6 +15,7 @@ import {
   StatBlock,
   StatRow,
   useToast,
+  type Column,
 } from '../components/ui';
 
 // Document-verified intelligence for one engagement. The advisor runs the
@@ -136,6 +139,10 @@ export function VerificationPanel() {
   const metricsQ = useMetrics(engagementId);
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // the review item whose action is in flight (disables just that row's buttons)
+  const [actingId, setActingId] = useState<string | null>(null);
+  // a finding queued for reject confirmation (rejection is a decision of record)
+  const [rejectId, setRejectId] = useState<string | null>(null);
 
   const refresh = () => {
     if (!engagementId) return;
@@ -163,13 +170,16 @@ export function VerificationPanel() {
     setBusy(false);
   };
 
-  const act = async (fn: string, body: Record<string, unknown>, ok: string) => {
+  const act = async (id: string, fn: string, body: Record<string, unknown>, ok: string) => {
+    setActingId(id);
     try {
       await invokeFunction(fn, body);
       toast.show(ok, 'good');
       refresh();
     } catch (err) {
       toast.show((err as Error).message, 'error');
+    } finally {
+      setActingId(null);
     }
   };
 
@@ -177,6 +187,36 @@ export function VerificationPanel() {
   const recon = reconQ.data ?? [];
   const findings = findingsQ.data ?? [];
   const reviews = reviewQ.data ?? [];
+
+  // Reconciliation is tabular data — the hero data surface — so it rides
+  // DataTable (sticky header, sortable, built-in state ladder) rather than a
+  // hand-rolled <table>. Sorted low-confidence first to surface conflicts.
+  const reconCols: Column<ReconRow>[] = [
+    { key: 'field', header: 'Field', sortValue: (r) => humanizeKey(r.field_key), render: (r) => humanizeKey(r.field_key) },
+    { key: 'self', header: 'Self-reported', render: (r) => formatFieldValue(r.field_key, r.self_reported_value) },
+    { key: 'verified', header: 'Verified', render: (r) => formatFieldValue(r.field_key, r.verified_value) },
+    {
+      key: 'confidence',
+      header: 'Confidence',
+      numeric: true,
+      sortValue: (r) => (r.confidence === null ? -1 : Number(r.confidence)),
+      render: (r) => (r.confidence === null ? '—' : `${Math.round(Number(r.confidence) * 100)}%`),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortValue: (r) => SOURCE_LABEL[r.source]?.text ?? r.source,
+      render: (r) => {
+        const s = SOURCE_LABEL[r.source] ?? { text: humanizeKey(r.source), cls: 'neutral' };
+        return (
+          <>
+            <span className={`status-chip status-${s.cls}`}>{s.text}</span>
+            {r.resolved_by && <span className="doc-meta"> · by reviewer</span>}
+          </>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="stack-lg">
@@ -205,44 +245,19 @@ export function VerificationPanel() {
         title="Reconciliation"
         subtitle="Self-reported answers checked against document-verified values."
       >
-        {reconQ.isLoading ? (
-          <SkeletonLines lines={3} />
-        ) : recon.length === 0 ? (
-          <EmptyState title="Nothing reconciled yet" icon="empty">
-            Upload source documents, then run verification to compare them against the questionnaire.
-          </EmptyState>
-        ) : (
-          <div className="ui-table-wrap">
-          <table className="ui-table">
-            <thead>
-              <tr>
-                <th>Field</th>
-                <th>Self-reported</th>
-                <th>Verified</th>
-                <th>Confidence</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recon.map((r) => {
-                const s = SOURCE_LABEL[r.source] ?? { text: r.source, cls: 'neutral' };
-                return (
-                  <tr key={r.id}>
-                    <td>{humanizeKey(r.field_key)}</td>
-                    <td>{formatFieldValue(r.field_key, r.self_reported_value)}</td>
-                    <td>{formatFieldValue(r.field_key, r.verified_value)}</td>
-                    <td>{r.confidence === null ? '—' : `${Math.round(Number(r.confidence) * 100)}%`}</td>
-                    <td>
-                      <span className={`status-chip status-${s.cls}`}>{s.text}</span>
-                      {r.resolved_by && <span className="doc-meta"> · by reviewer</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        )}
+        <DataTable
+          columns={reconCols}
+          rows={recon}
+          keyFor={(r) => r.id}
+          loading={reconQ.isLoading}
+          error={reconQ.error ? (reconQ.error as Error).message : null}
+          initialSort={{ key: 'confidence', dir: 'asc' }}
+          empty={
+            <EmptyState title="Nothing reconciled yet" icon="empty">
+              Upload source documents, then run verification to compare them against the questionnaire.
+            </EmptyState>
+          }
+        />
       </SectionCard>
 
       <SectionCard
@@ -270,7 +285,7 @@ export function VerificationPanel() {
                 <div className="row-gap">
                   <GapSeverityChip severity={f.severity} />
                   <span className={`status-chip status-${f.status === 'approved' ? 'good' : 'neutral'}`}>
-                    {f.status}
+                    {humanizeKey(f.status)}
                   </span>
                 </div>
               </li>
@@ -295,14 +310,15 @@ export function VerificationPanel() {
               const isRecon = it.type === 'conflict' || it.type === 'low_confidence_extraction';
               const isFinding = it.type === 'finding_approval';
               const draftKey = it.id;
+              const acting = actingId === it.id;
               return (
                 <li key={it.id} className="review-queue-row">
                   <div className="review-queue-main">
                     <span className="doc-name">
-                      {TYPE_LABEL[it.type] ?? it.type}
+                      {TYPE_LABEL[it.type] ?? humanizeKey(it.type)}
                       {it.status === 'escalated' && (
-                        <span className="status-chip status-warning" style={{ marginLeft: 8 }}>
-                          escalated
+                        <span className="status-chip status-warning review-queue-flag">
+                          Escalated
                         </span>
                       )}
                     </span>
@@ -312,7 +328,9 @@ export function VerificationPanel() {
                             it.payload.field_key as string,
                             it.payload.self_reported,
                           )} vs document ${formatFieldValue(it.payload.field_key as string, it.payload.verified)}`
-                        : `${humanizeKey(it.payload.pattern_key as string)} · ${show(it.payload.severity)}`}
+                        : `${humanizeKey(it.payload.pattern_key as string)} · ${
+                            it.payload.severity ? humanizeKey(show(it.payload.severity)) : '—'
+                          }`}
                     </span>
                   </div>
                   <div className="row-gap">
@@ -323,10 +341,13 @@ export function VerificationPanel() {
                           value={drafts[draftKey] ?? String(it.payload.verified ?? '')}
                           onChange={(e) => setDrafts((d) => ({ ...d, [draftKey]: e.target.value }))}
                           aria-label="Verified value"
+                          disabled={acting}
                         />
                         <button
+                          disabled={acting}
                           onClick={() =>
                             act(
+                              it.id,
                               'resolve-review-item',
                               {
                                 review_item_id: it.id,
@@ -336,32 +357,29 @@ export function VerificationPanel() {
                             )
                           }
                         >
-                          Confirm
+                          {acting ? 'Confirming…' : 'Confirm'}
                         </button>
                       </>
                     )}
                     {isFinding && (
                       <>
                         <button
+                          disabled={acting}
                           onClick={() =>
                             act(
+                              it.id,
                               'resolve-review-item',
                               { review_item_id: it.id, resolution: { approve: true } },
                               'Finding approved',
                             )
                           }
                         >
-                          Approve
+                          {acting ? 'Approving…' : 'Approve'}
                         </button>
                         <button
                           className="button-secondary"
-                          onClick={() =>
-                            act(
-                              'resolve-review-item',
-                              { review_item_id: it.id, resolution: { approve: false } },
-                              'Finding rejected',
-                            )
-                          }
+                          disabled={acting}
+                          onClick={() => setRejectId(it.id)}
                         >
                           Reject
                         </button>
@@ -370,12 +388,13 @@ export function VerificationPanel() {
                     {it.status !== 'escalated' && (
                       <button
                         className="button-secondary"
+                        disabled={acting}
                         onClick={() =>
-                          act('escalate-review-item', { review_item_id: it.id }, 'Escalated')
+                          act(it.id, 'escalate-review-item', { review_item_id: it.id }, 'Escalated')
                         }
                         title="Escalate to a senior reviewer"
                       >
-                        Escalate
+                        {acting ? 'Escalating…' : 'Escalate'}
                       </button>
                     )}
                   </div>
@@ -389,6 +408,26 @@ export function VerificationPanel() {
       {(reconQ.error || findingsQ.error || reviewQ.error) && (
         <ErrorState variant="section" error={reconQ.error || findingsQ.error || reviewQ.error} />
       )}
+
+      <ConfirmDialog
+        open={rejectId != null}
+        title="Reject this finding?"
+        danger
+        busy={actingId != null && actingId === rejectId}
+        confirmLabel="Reject finding"
+        onConfirm={async () => {
+          const id = rejectId;
+          if (!id) return;
+          await act(id, 'resolve-review-item', { review_item_id: id, resolution: { approve: false } }, 'Finding rejected');
+          setRejectId(null);
+        }}
+        onCancel={() => setRejectId(null)}
+      >
+        <p className="m-0">
+          Rejecting removes this finding from the engagement. This is a decision of record — it won't
+          appear in reports or the buy-side view.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

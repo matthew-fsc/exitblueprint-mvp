@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   useCompany,
@@ -7,7 +7,7 @@ import {
   type AdvisoryItemType,
   type FiredAdvisoryItem,
 } from '../lib/queries';
-import { Card, EmptyState, EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, Collapsible, EmptyState, EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 
@@ -32,7 +32,6 @@ const SECTIONS: { type: AdvisoryItemType; label: string; blurb: string }[] = [
 ];
 
 function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
-  const [open, setOpen] = useState(false);
   const hasDetail = !!(item.response_framework || item.data_needed);
   return (
     <div className={`advisory-item ${advisorySevClass(item.severity)}`}>
@@ -48,31 +47,28 @@ function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
         </span>
       </div>
       {hasDetail && (
-        <button className="advisory-item-toggle" onClick={() => setOpen((o) => !o)}>
-          {open ? 'Hide preparation' : 'Show preparation'}
-        </button>
-      )}
-      {open && (
-        <div className="advisory-item-detail">
-          {item.response_framework && (
-            <div>
-              <span className="advisory-detail-label">
-                {item.item_type === 'buyer_question'
-                  ? 'How to answer'
-                  : item.item_type === 'risk_flag'
-                    ? 'How to get ahead of it'
-                    : 'How to run it'}
-              </span>
-              <p>{item.response_framework}</p>
-            </div>
-          )}
-          {item.data_needed && (
-            <div>
-              <span className="advisory-detail-label">Documentation to have ready</span>
-              <p>{item.data_needed}</p>
-            </div>
-          )}
-        </div>
+        <Collapsible title="Preparation" hint="How to prepare and what to have ready">
+          <div className="advisory-item-detail">
+            {item.response_framework && (
+              <div>
+                <span className="advisory-detail-label">
+                  {item.item_type === 'buyer_question'
+                    ? 'How to answer'
+                    : item.item_type === 'risk_flag'
+                      ? 'How to get ahead of it'
+                      : 'How to run it'}
+                </span>
+                <p>{item.response_framework}</p>
+              </div>
+            )}
+            {item.data_needed && (
+              <div>
+                <span className="advisory-detail-label">Documentation to have ready</span>
+                <p>{item.data_needed}</p>
+              </div>
+            )}
+          </div>
+        </Collapsible>
       )}
     </div>
   );
@@ -99,18 +95,20 @@ export default function BuyerLensPage() {
   }, [result]);
 
   return (
-    <div className="stack-lg">
-      <PageHeader
-        title="Buyer lens"
-        crumbs={engagementCrumbs(engagementId, companyName, 'Buyer lens')}
-        subtitle="Buyer-facing risks derived from the latest assessment, most critical first."
-        actions={
-          <Link className="button-link" to="/library">
-            Advisory library →
-          </Link>
-        }
-      />
-      <EngagementNav engagementId={engagementId!} />
+    <div className="page-shell stack-lg">
+      <header className="page-masthead">
+        <PageHeader
+          title="Buyer lens"
+          crumbs={engagementCrumbs(engagementId, companyName, 'Buyer lens')}
+          subtitle="Buyer-facing risks derived from the latest assessment, most critical first."
+          actions={
+            <Link className="button-link" to="/library">
+              Advisory library →
+            </Link>
+          }
+        />
+        <EngagementNav engagementId={engagementId!} />
+      </header>
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
       {firedQ.isError && <ErrorState variant="inline" error={firedQ.error} />}

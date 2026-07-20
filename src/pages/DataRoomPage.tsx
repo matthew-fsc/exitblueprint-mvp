@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction } from '../lib/supabase';
 import { qk } from '../lib/queries';
-import { Card, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, ErrorState, SkeletonLines, useToast } from '../components/ui';
+import { humanizeKey } from '../lib/format';
 
 const toBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -147,8 +148,12 @@ export function DataRoomPanel() {
         <Card>
           <SkeletonLines lines={6} />
         </Card>
+      ) : dataRoomQ.isError ? (
+        <ErrorState variant="section" error={dataRoomQ.error} onRetry={() => dataRoomQ.refetch()} />
       ) : !view ? (
-        <Card>Could not load the data room.</Card>
+        <EmptyState title="No data room yet" icon="documents">
+          The diligence checklist will appear here once this engagement is set up.
+        </EmptyState>
       ) : (
         view.sections.map((section) => {
           const items = view.items.filter((i) => i.section_code === section.code);
@@ -188,7 +193,7 @@ export function DataRoomPanel() {
                           <span className="dr-doc-linked" title={`Status: ${item.document_status ?? 'uploaded'}`}>
                             ◆ {item.document_filename ?? 'Document attached'}
                             {item.document_status && item.document_status !== 'verified' && (
-                              <span className="dr-doc-status"> · {item.document_status.replace('_', ' ')}</span>
+                              <span className="dr-doc-status"> · {humanizeKey(item.document_status)}</span>
                             )}
                           </span>
                         ) : (
