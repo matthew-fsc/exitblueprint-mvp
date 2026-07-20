@@ -3119,6 +3119,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .field-hint { font-size: 0.76rem; color: var(--text-muted); }
 @media (max-width: 760px) {
   .settings-grid { grid-template-columns: 1fr !important; }
+  .team-invite-row { grid-template-columns: 1fr !important; }
 }
 
 /* Preserve fixed tier + status colors when printing client-facing artifacts */

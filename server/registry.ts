@@ -31,6 +31,7 @@ import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
+import { inviteAdvisor } from './invite-advisor';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import {
@@ -502,6 +503,23 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body }) =>
       inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string).then(ok),
+  },
+  // Firm-staff invitation (self-serve team management, docs/35 #1). Scope 'firm'
+  // resolves the caller's own firm from their advisor/admin profile — a firm can
+  // only grow its own team. NOT entitlement-gated: managing your team is never
+  // blocked by billing state (seats are enforced inside the handler when billing
+  // is on); the seat *usage* is always returned for the UI.
+  'invite-advisor': {
+    engine: 'collaboration',
+    scope: 'firm',
+    handler: ({ service, body, firmId }) =>
+      inviteAdvisor(
+        service,
+        firmId as string,
+        body.email as string,
+        (body.full_name as string) ?? null,
+        (body.role as string) ?? 'advisor',
+      ).then(ok),
   },
   'run-verification': {
     engine: 'collaboration',
