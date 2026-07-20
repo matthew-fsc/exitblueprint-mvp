@@ -18,7 +18,7 @@ export default function ReportPage() {
   const { brand, branding } = useBrand();
   const reportQ = useLatestReport(assessmentId);
   const doc = reportQ.data ?? null;
-  // Keep the engagement frame around the report (docs/22 F3): load the chain to
+  // Keep the engagement frame around the report (docs/archive/22 F3): load the chain to
   // the owning engagement so the masthead breadcrumbs and tab bar stay present.
   const assessmentQ = useActiveAssessment(assessmentId);
   const engagementId = assessmentQ.data?.engagement_id;

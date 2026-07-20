@@ -5,7 +5,7 @@ product against a real deployment, with their own logins and no faked steps. Bet
 testers are **comped** — billing must never block them.
 
 This is the credential/infra checklist that turns the code (which is beta-ready)
-into a running beta. It sits on top of `docs/10` (compute layer — done) and
+into a running beta. It sits on top of `docs/archive/10` (compute layer — done) and
 `docs/24` (Clerk + Stripe plan). Items marked **[you]** need an account/secret only
 Matthew can provision; **[code]** is already built and verified.
 

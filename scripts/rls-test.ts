@@ -431,7 +431,7 @@ async function main() {
     }
     check('cannot delete outcome_events (append-only)', eventDeleteBlocked);
 
-    // Completed-assessment immutability (migration 20260718000200; docs/23).
+    // Completed-assessment immutability (migration 20260718000200; docs/archive/23).
     // Advisor A holds role `authenticated` here (asUser), the untrusted path the
     // freeze triggers constrain: a completed snapshot and its scored children
     // cannot be altered or deleted through an end-user JWT — not the score, not

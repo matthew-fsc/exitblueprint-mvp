@@ -8,7 +8,7 @@ frame around them.
 
 > **Strategic frame:** the apex strategy is **docs/20 (Strategic Positioning)** —
 > "the institutional intelligence platform for business-owner advisory" — with the
-> current-MVP classification in **docs/21 (MVP Strategic Audit)**. This doc is the
+> current-MVP classification in **docs/archive/21 (MVP Strategic Audit)**. This doc is the
 > operational work-streams/UX layer beneath that strategy.
 
 ---

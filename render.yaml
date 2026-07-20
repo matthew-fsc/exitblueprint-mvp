@@ -1,6 +1,6 @@
 # Render Blueprint for the compute service (server/http.ts) — the piece that
 # serves every /functions/v1/* call, including PDF rendering via Chromium.
-# See docs/12-vercel-supabase-setup.md §2 for the full walkthrough.
+# See docs/archive/12-vercel-supabase-setup.md §2 for the full walkthrough.
 #
 # Deploy: Render dashboard → New → Blueprint → pick this repo. Render reads this
 # file, builds server/Dockerfile, and prompts for the secret env values below.

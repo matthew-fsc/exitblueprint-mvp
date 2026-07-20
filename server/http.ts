@@ -1,5 +1,5 @@
 // Production compute service — the single Node deployable that serves every
-// `/functions/v1/<name>` call for real (docs/10-production-readiness.md, Phase 1,
+// `/functions/v1/<name>` call for real (docs/archive/10-production-readiness.md, Phase 1,
 // "one Node service" runtime). It mounts the same server/functions.ts router the
 // dev emulator uses; the difference is only the transport and the JWT source:
 //

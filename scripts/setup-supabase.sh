@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-command production database stand-up (docs/10-production-readiness.md, Phase 1;
-# docs/11-deploy-runbook.md). Applies the migrations, proves firm isolation (RLS),
+# One-command production database stand-up (docs/archive/10-production-readiness.md, Phase 1;
+# docs/archive/11-deploy-runbook.md). Applies the migrations, proves firm isolation (RLS),
 # and seeds the methodology against DATABASE_URL — the same sequence CI runs, and
 # the same one rehearsed against a fresh database.
 #
@@ -16,7 +16,7 @@ set -euo pipefail
 
 if [ -z "${DATABASE_URL:-}" ]; then
   echo "ERROR: DATABASE_URL is not set. Export the target connection string first." >&2
-  echo "See docs/11-deploy-runbook.md." >&2
+  echo "See docs/archive/11-deploy-runbook.md." >&2
   exit 1
 fi
 

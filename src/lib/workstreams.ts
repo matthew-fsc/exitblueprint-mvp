@@ -1,4 +1,4 @@
-// Work-stream progress model (docs/17 follow-up; docs/22). The engagement
+// Work-stream progress model (docs/17 follow-up; docs/archive/22). The engagement
 // navigation already groups every surface under the five sell-side preparation
 // work streams — Readiness → Remediation → Evidence → Value → Deliverables. This
 // turns those five tabs into a first-class progress rail on the Overview so an

@@ -81,5 +81,5 @@ scripts/             migrate / seed / RLS test / dev db
 supabase/migrations/ schema + RLS (the only way schema changes happen)
 db/supabase-shim.sql plain-Postgres stand-in for Supabase auth schema/roles
 seed/                rubric, gap definitions, playbooks, fixtures (source of truth)
-docs/                specs; build plan in docs/05-build-plan.md
+docs/                specs; start at docs/README.md (index) — roadmap in docs/05-build-plan.md
 ```

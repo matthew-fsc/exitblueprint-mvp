@@ -21,6 +21,7 @@ Exit readiness platform for lower middle market business owners, distributed thr
 
 ## Working agreements for Claude Code sessions
 
+- **Docs index: docs/README.md** — start there to find the right doc; it labels each as Canonical / Reference / Strategy / Runbook / Log and lists what's been archived.
 - Build only the slice defined in the current session prompt from docs/05-build-plan.md. Do not scaffold ahead.
 - **Follow the established patterns.** Before adding a table, function, hook, module, or page, read docs/27-engineering-patterns.md and copy the matching skeleton from templates/. UI follows docs/26-ui-system.md (tokens/components/format helpers — never raw snake_case, raw integers, ad-hoc labels, or hand-rolled tables).
 - Read docs/02-data-model.md before touching schema. Schema changes require a migration file, never manual edits.

@@ -1,6 +1,6 @@
 -- Enforce assessment immutability at the database level (CLAUDE.md rule 4;
 -- docs/20 "defensible evidence — immutable history … records that withstand
--- institutional diligence"; docs/23).
+-- institutional diligence"; docs/archive/23).
 --
 -- Until now, "assessments are immutable snapshots; never update a completed
 -- assessment, create a new one" was enforced only by convention in the server

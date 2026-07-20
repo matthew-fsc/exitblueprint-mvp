@@ -138,7 +138,7 @@ brand-new advisor, and desktop-first density on some engagement tables.
 | Authorization / tenancy | **Solid** | Per-scope `authorize()` gateway; RLS on every domain table; `scripts/rls-test.ts` (70+ assertions) is the regression gate; firm resolved from profile. |
 | Data integrity | **Solid** | Immutable snapshots (triggers), rubric-in-data, `rubric_version`/`prompt_version`/`playbook_version`, reference-scorer parity in CI. |
 | Billing | **Adequate** | Signature-verified webhook, entitlement resolver; **enforcement default-off** — correct for comped beta, unproven under real dunning. |
-| Config / deploy | **Adequate** | `render.yaml` + `vercel.json` + `docs/11-14`; three runtime pieces (Vercel/Supabase/Render); env matrix documented; `EB_DOCUMENT_KEY` prod warning. |
+| Config / deploy | **Adequate** | `render.yaml` + `vercel.json` + `docs/archive/11-14`; three runtime pieces (Vercel/Supabase/Render); env matrix documented; `EB_DOCUMENT_KEY` prod warning. |
 | Observability / audit | **Adequate** | Sentry wiring, `/health`, append-only `data_access_log`. |
 | Recovery / backup / scale | **Weak/Unproven** | Relies on Supabase managed backups; no documented restore drill; no load test; synchronous compute path untested at volume. |
 
@@ -219,6 +219,6 @@ vendor-operated comped pilot.
 5. **Ops hardening** (#6, #7) — pin/repair Stripe+Sentry deps; restore drill; a basic load test;
    move PDF/LLM off the request path (queue) if p95 warrants. *[M]*
 6. **Document extraction** (#4) — a real `ParserAdapter` once manual-review volume justifies it. *[XL]*
-7. **Package the pilot** — controlled-beta runbook (`docs/25`) + in-repo n8n flow definitions (#9). *[S]*
+7. **Package the pilot** — controlled-beta runbook (`docs/archive/25`) + in-repo n8n flow definitions (#9). *[S]*
 
 Items 1–2 unblock a credible **customer** beta; 3–5 make it dependable for daily use; 6–7 scale it.

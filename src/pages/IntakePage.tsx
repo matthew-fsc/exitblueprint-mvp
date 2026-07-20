@@ -253,7 +253,7 @@ export default function IntakePage() {
         </span>
       </div>
 
-      {/* Carried forward from the prior assessment (docs/34 C1): re-assessments
+      {/* Carried forward from the prior assessment (docs/archive/34 C1): re-assessments
           seed last quarter's answers so the advisor edits deltas, not the whole
           rubric. Make that explicit rather than silently pre-filling. */}
       {assessment && assessment.sequence_number > 1 && answeredCount > 0 && (

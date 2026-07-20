@@ -1,4 +1,4 @@
-# Production compute service (docs/10-production-readiness.md, Phase 1).
+# Production compute service (docs/archive/10-production-readiness.md, Phase 1).
 # Serves /functions/v1/* including PDF rendering, so the image needs a real
 # Chromium — the Playwright base image ships browsers + their OS deps.
 #

@@ -1,4 +1,4 @@
--- Beta comp path (docs/25). A firm can be granted full access without a paid
+-- Beta comp path (docs/archive/25). A firm can be granted full access without a paid
 -- Stripe subscription — this is how a beta test group gets in. The entitlement
 -- resolver treats comp = entitled, so the (flag-gated) feature gate never blocks
 -- a comped firm even before any Stripe wiring exists.

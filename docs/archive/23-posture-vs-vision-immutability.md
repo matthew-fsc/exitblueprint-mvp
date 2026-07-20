@@ -5,7 +5,7 @@ history," "records that withstand institutional diligence," "multi-tenant RLS
 everywhere," "deterministic scoring." This is an honest audit of each load-bearing
 claim against what the **infrastructure actually enforces**, and a build where the
 gap between claim and guarantee was real. The lens is deliberately not features
-(docs/21 covers those) — it is: *if a buyer's technical diligence or a security
+(docs/archive/21 covers those) — it is: *if a buyer's technical diligence or a security
 reviewer probed this pillar, would it hold?*
 
 ## Posture read — claim vs. guarantee
@@ -16,7 +16,7 @@ reviewer probed this pillar, would it hold?*
 | **Multi-tenant isolation** (rule 5) | Per-table RLS policies; `rls-test` exercises firm isolation across every domain table (77 checks) | **Strong** — real, regression-tested |
 | **Audit history** | `logAccess` writes `data_access_log` on function-call access (server/http.ts); `usage_events` captured client-side | **Adequate** — wired, not decorative |
 | **Defensible evidence / immutable history** (rule 4) | *Was* convention only — see below | **Was the thin spot → now enforced** |
-| **Institutional knowledge graph** | `graph_nodes/edges` are substrate; the connected chain is assembled deterministically over source tables (docs/21 choice), not materialized | **Intentionally thin** — fine for now |
+| **Institutional knowledge graph** | `graph_nodes/edges` are substrate; the connected chain is assembled deterministically over source tables (docs/archive/21 choice), not materialized | **Intentionally thin** — fine for now |
 | **Outcome calibration** | Substrate + capture built (deal_outcomes, prediction snapshot); aggregate read not yet | **Progressing** |
 | **AI as institutional reviewer** | Narrative generation only; the reviewer that surfaces blind spots is not built | **Deferred** (phase 4) |
 
@@ -85,7 +85,7 @@ server-side supersede bookkeeping update still lands.
 - **Aggregate outcome-calibration read** — the payoff of the capture substrate.
 - **AI institutional reviewer** — the phase-4 pillar; still narrative-only.
 - **Knowledge graph materialization** — deliberately deferred; the deterministic
-  chain (docs/21) is the current, lower-risk substitute.
+  chain (docs/archive/21) is the current, lower-risk substitute.
 
 These are depth on pillars that already hold. Immutability was the one where the
 claim outran the guarantee — so that is where the strength was built.

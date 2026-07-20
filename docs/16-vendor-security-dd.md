@@ -126,7 +126,7 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
   from source.
 - **Availability:** Vercel provides redundant, multi-region edge hosting for the
   frontend; the compute layer is stateless and horizontally redeployable behind the
-  `FunctionContext` seam (docs/10) — a host change requires no code change.
+  `FunctionContext` seam (docs/archive/10) — a host change requires no code change.
 - **Recovery:** RTO/RPO targets are documented here; recovery is: restore Supabase
   to a point in time, redeploy from git, re-point DNS. 🟡 a scheduled DR *test* with
   a recorded last-tested date is the next step (the packet asks for test cadence).

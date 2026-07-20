@@ -369,7 +369,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body, firmId, userId }) =>
       deleteEngagement(service, firmId as string, userId, body.engagement_id as string).then(ok),
   },
-  // Read-only, full data export of an engagement (docs/35 Phase 9). Deliberately
+  // Read-only, full data export of an engagement (docs/archive/35 Phase 9). Deliberately
   // NOT gated: a firm taking a copy of its own data out must never be blocked by a
   // lapsed subscription (same posture as delete-engagement).
   'export-engagement': {
@@ -378,7 +378,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body, firmId }) =>
       exportEngagement(service, firmId as string, body.engagement_id as string).then(ok),
   },
-  // In-app "Needs attention" worklist for the caller's firm (docs/35 Phase 9).
+  // In-app "Needs attention" worklist for the caller's firm (docs/archive/35 Phase 9).
   // Read-only firm-scoped readout; not gated (viewing your own worklist is free).
   'firm-attention': {
     engine: 'workflow',
@@ -554,7 +554,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body, firmId }) =>
       revokeCollaborator(service, firmId as string, body.collaborator_id as string).then(ok),
   },
-  // Firm-staff invitation (self-serve team management, docs/35 #1). Scope 'firm'
+  // Firm-staff invitation (self-serve team management, docs/archive/35 #1). Scope 'firm'
   // resolves the caller's own firm from their advisor/admin profile — a firm can
   // only grow its own team. NOT entitlement-gated: managing your team is never
   // blocked by billing state (seats are enforced inside the handler when billing

@@ -1,15 +1,26 @@
 # 01 - Architecture
 
+> **Current-state note (2026-07).** This doc captures the original layer intent;
+> the visual, up-to-date companion is `docs/28-architecture-map.md`. Two things
+> have changed since it was written: **identity is Clerk** (RLS validates Clerk
+> JWTs via JWKS — the hosted Supabase-Auth login was removed, `docs/30`), and the
+> server functions run behind a single **compute router** (`server/functions.ts`
+> → `server/http.ts` on Render) rather than per-function edge functions. **Stripe**
+> billing is also live (`docs/24`).
+
 ## Layers
 
 ```
-React (advisor workspace, later owner portal)
+React (advisor workspace + owner portal)
         |
-Supabase (Postgres + RLS, Auth, Storage) <--- single source of truth
+Clerk (identity: login, MFA, Organizations = firms) --- JWKS --> RLS
         |
-Edge/server functions:
+Supabase (Postgres + RLS + Storage) <--- single source of truth for data
+        |
+Compute router (server/functions.ts, hosted by server/http.ts):
   - scoring engine (deterministic, versioned)
   - narrative service (Claude API, server-side only)
+  - billing (Stripe), ledger OAuth, document verification
   - webhook endpoints for n8n
         |
 n8n (external): re-assessment reminders, stall alerts, content drip
@@ -24,7 +35,7 @@ n8n (external): re-assessment reminders, stall alerts, content drip
 - Pure function of stored data. Same input always produces same output. Unit-tested against hand-scored fixtures before anything is built on top of it.
 
 ### Narrative service
-- Input: assessment_id + document type (owner report | advisor brief)
+- Input: assessment_id + document type (owner report | delta report | CIM)
 - Reads: scores, gaps, playbook summaries, company context
 - Calls Claude with the prompt contract in docs/04-ai-layer-spec.md
 - Writes: generated_documents row (content, prompt_version, model, created_at)
@@ -41,7 +52,7 @@ n8n (external): re-assessment reminders, stall alerts, content drip
 
 - Local dev against Supabase local; migrations via supabase CLI, committed to repo.
 - Anthropic API key lives server-side only (edge function secret). The browser never sees it.
-- RLS: advisors scoped to their firm_id; owners scoped to their company_id; admin role bypass via service key on server only.
+- RLS: advisors scoped to their firm_id; owners scoped to their company_id; admin role bypass via service key on server only. RLS reads identity from validated Clerk JWT claims (`docs/30`).
 
 ## Explicit non-goals for v1
 

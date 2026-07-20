@@ -1,72 +1,120 @@
-# 05 - Build Plan (session-by-session)
+# 05 - Build Plan / Roadmap
 
-Rule: one session = one slice = one commit. Each session prompt below is written to be pasted into Claude Code mostly as-is. Do not start a session until the previous slice's acceptance criteria pass. If a slice balloons, split it and log why in 06-decisions.md.
+Rule: one session = one slice = one commit. Each slice ends with its acceptance
+criteria demonstrated and a one-line entry in `docs/06-decisions.md` if a decision
+was made. Do not scaffold ahead of the current slice.
 
-## Phase 1 - Foundation and scoring
+> **Status (2026-07):** Phases 1–4 (the original S1–S15 MVP) are **all shipped**,
+> and the product has moved well past the original plan — CIM generation, document
+> upload + verification/review queue, valuation & comparables, ledger OAuth, MFA,
+> external collaborators, entitlements, and observability all exist. The active
+> work is **production hardening and beta launch** (Phase 5 below). The historical
+> MVP slice list is kept at the bottom for provenance, corrected where the shipped
+> reality diverged from the original wording (auth is **Clerk**, not Supabase Auth;
+> the advisor brief shipped as **`delta_report.v1`**, not `advisor_brief.v1`).
 
-**S1. Repo + Supabase scaffold.**
-"Initialize the project: Vite React TS app, supabase CLI with local dev, folder structure per docs/01-architecture.md. Add CI step that runs migrations against a fresh local db. No UI beyond a health page."
-Accept: fresh clone -> `supabase start` + migrate + app boots.
+## Where the source of truth now lives
 
-**S2. Schema migration + RLS.**
-"Implement the full schema in docs/02-data-model.md as migrations, including enums, FKs, and RLS policies for admin/advisor/owner roles as specified. Write a policy test script that proves firm A advisor cannot read firm B rows."
-Accept: migrations clean; RLS test passes.
+The roadmap is no longer a greenfield S1→S15 walk. Current direction lives in the
+purpose-built docs; this file just orients and tracks the remaining slices.
 
-**S3. Seed pipeline.**
-"Build an idempotent seed script that loads /seed CSVs and playbook markdown into rubric_versions, dimensions, questions, gap_definitions, playbooks, playbook_task_templates, mapping tables, content_modules. Validate referential integrity and report row counts."
-Accept: seed runs twice with identical end state; counts match CSVs.
+| Concern | Authoritative doc |
+| --- | --- |
+| Identity / auth (Clerk) | `docs/30-clerk-cutover-runbook.md` |
+| Billing (Stripe) + production readiness plan | `docs/24-production-readiness-clerk-stripe.md` |
+| Live deployment (exitblueprint.net) | `docs/29-exitblueprint-net-golive.md` |
+| Environment variables | `.env.example` (canonical) + `docs/14-environment-keys.md` |
+| Observability | `docs/32-observability.md` |
+| Data model / scoring / methodology | `docs/02`, `docs/03`, `docs/07` |
+| How to add a feature | `docs/27-engineering-patterns.md` + `templates/` |
+| System at a glance | `docs/28-architecture-map.md` |
+| Beta readiness snapshot (2026-07) | `docs/archive/35-beta-readiness-assessment-2026-07.md` |
 
-**S4. Scoring engine + tests.**
-"Implement scoreAssessment and explainAssessment per docs/03-scoring-engine-spec.md as a server function. Port the logic from seed/fixtures/reference_scorer.py; unit tests must reproduce the three fixture expected outputs exactly, plus determinism, immutability, and band-boundary tests from docs/03."
-Accept: all fixture scores match hand-computed values exactly.
+## Phase 5 - Production hardening & beta launch (current)
 
-## Phase 2 - Intake and report (MVP)
+These are the remaining slices before a comped beta can run without developer
+involvement. They come from the open items surfaced in docs 24 / 29 / 32 and the
+`[ratify]` / "draft, pending counsel" markers still in the codebase.
 
-**S5. Auth + advisor shell.**
-"Supabase auth with email login; profiles with roles; minimal advisor layout: client list for their firm, create company, create engagement."
-S5 builds login and the advisor shell only; firm/user provisioning stays CLI (scripts/admin.ts, see docs/08-operations.md) until explicitly promoted to UI.
-Accept: two advisor accounts in different firms see only their own data. No admin panel or provisioning UI is scaffolded.
+**P5.1 Billing enforcement path.** Stripe checkout, billing portal, entitlements,
+and the gate all exist (`server/stripe.ts`, `server/entitlements.ts`) but run with
+`BILLING_ENFORCED` off (comped beta). Slice: verify the enforced path end to end
+(checkout → webhook → entitlement → gate refuses/permits) against a Stripe test
+account, and document the flip in `docs/24`.
+Accept: with `BILLING_ENFORCED=true` a non-entitled firm gets 402 on gated
+functions; an entitled/comped firm passes.
 
-**S6. Assessment intake flow.**
-"Build the intake: start assessment on an engagement (locks to active rubric_version), one dimension per step, all answer types from the schema, save-and-resume, completeness validation, submit triggers scoring."
-Accept: full walkthrough on fixture answers reproduces fixture scores in the UI.
+**P5.2 Backups & recovery.** Enable Supabase scheduled backups + PITR on the
+production project and write the restore runbook (the TODO in `docs/08` §Backups).
+Accept: a documented, tested restore procedure exists before the first live client.
 
-**S7. Score views.**
-"Assessment results page: overall score with band, dimension breakdown, flagged gaps with severity, and an explain drawer per dimension using explainAssessment. The two score groups display distinctly — business DRS rollup and ORI rollup — plus the combined composite, never a flattened single list of dimensions; dimensions group under the correct rollup. All score views read active assessments only (active_assessments view)."
-Accept: advisor can answer "why is this a 61" from the UI alone, AND can see business score, owner score, and composite as three separate figures and answer "the business is ready but the owner isn't" (or vice versa) from the UI alone.
+**P5.3 Legal & trust content sign-off.** The legal pages render "draft, pending
+counsel" and `docs/08`'s data-handling one-pager carries `[ratify]` markers.
+Slice (Matthew-owned): ratify the data-handling language and legal pages, then
+drop the draft banners.
+Accept: no user-facing page renders a "draft/pending counsel" banner in production.
 
-**S8. Narrative service + owner report.**
-"Implement generateDocument per docs/04-ai-layer-spec.md with owner_report.v1 prompt, the numeral post-check, and storage in generated_documents. Add report view with edit-before-finalize and clean print/PDF styling."
-Accept: fixture assessment produces a report using only supplied numbers; advisor can edit and export.
+**P5.4 Subprocessor & security-doc reconciliation.** The subprocessor register
+(`seed/subprocessors.csv`, surfaced by `docs/13` and `docs/16`) predates the Clerk
++ Stripe + Render migration: it still lists Supabase for "authentication" and
+Vercel for "compute," and omits **Clerk** (identity/MFA), **Render** (compute),
+and **Stripe** (billing). Slice (Matthew-owned, customer-facing): reconcile the
+register and the `docs/13`/`docs/16` security responses to the real vendor set.
+Accept: `docs/13`, `docs/16`, and `seed/subprocessors.csv` name the same,
+currently-accurate subprocessors.
 
-MVP checkpoint: run a real (or pilot) client end to end. Stop and gather advisor feedback before Phase 3.
-
-## Phase 3 - Roadmap and advisor workspace
-
-**S9. Roadmap generator + task board.**
-"From open gaps, instantiate mapped playbook task templates into tasks with sequencing and due dates from target_offset_days. Task board per engagement: status, owner_role, edit, add manual tasks."
-Accept: closing a gap's tasks and re-assessing shows gap resolution flow working.
-
-**S10. Advisor dashboard.**
-"Portfolio view: engagements with current score, delta vs prior assessment, open gap count, stalled tasks (no status change in 14 days), next re-assessment due. Reads active assessments only (active_assessments view). Deltas come from compareAssessments; when the prior assessment is on a different rubric_version, the delta column shows the incomparable state distinctly (e.g. 'new rubric'), never blank or zero."
-
-**S11. Advisor brief generation.**
-"Add advisor_brief.v1 per docs/04, generated on demand from the dashboard, including deltas and stalled tasks."
-
-**S12. n8n webhook endpoints.**
-"Authenticated endpoints per docs/01: stale-engagements, stalled-tasks, reassessment-due, engagement summary payloads. Document the n8n flows to build against them (n8n flows themselves are configured outside this repo)."
-
-## Phase 4 - Owner portal and education
-
-**S13. Owner auth + portal.**
-"Owner role login scoped to their company: current score, dimension summary, their roadmap tasks, finalized owner reports."
-
-**S14. Content drip.**
-"Content assignment from gap_content_map with drip_order; endpoint n8n calls to fetch/mark the next module per engagement; owner portal module view."
-
-**S15. Re-assessment + trend view.**
-"Start re-assessment (sequence_number increments, current rubric_version), and a score trend chart per engagement across assessments."
+**P5.5 Open security items.** Track the 🟡 items in `docs/16` to closure or an
+explicit "post-beta" decision: SOC 2 path, penetration test, BCP test cadence,
+breach-notification clause.
+Accept: each open item is either closed or has a dated owner + target in `docs/16`.
 
 ## Later (not scheduled)
 
-Benchmarking, firm admin console, white-label, billing, external data ingestion. Decision point on external engineering help (e.g. real-time analytics) sits after meaningful assessment volume exists.
+- **Accounting integration (owner self-serve).** Ledger OAuth is built server-side
+  (`server/ledger-oauth.ts`), but the owner `/portal/connect` route is deliberately
+  disabled (redirects to `/portal`) — "not offered yet." Promote when there's
+  demand.
+- Benchmarking analytics across firms, white-label theming, firm-admin console
+  beyond the current platform-admin surface, external financial-data ingestion.
+- Decision point on outside engineering help (e.g. real-time analytics) sits after
+  meaningful assessment volume exists.
+
+---
+
+## Appendix — original MVP slice list (S1–S15, all shipped)
+
+Kept for provenance. Every slice below is done; the "reality" column records where
+the shipped implementation diverged from the original wording.
+
+### Phase 1 — Foundation and scoring
+- **S1. Repo + Supabase scaffold** — done. Vite/React/TS, migrations, health page.
+- **S2. Schema migration + RLS** — done. Full schema + firm-isolation RLS test.
+- **S3. Seed pipeline** — done. Idempotent seed of rubric/playbooks/content.
+- **S4. Scoring engine + tests** — done. `shared/scoring/engine.ts` reproduces the
+  `reference_scorer.py` fixtures exactly.
+
+### Phase 2 — Intake and report (MVP)
+- **S5. Auth + advisor shell** — done. **Reality: identity is Clerk** (RLS validates
+  Clerk JWTs via JWKS), not the "Supabase auth email login" originally written, and
+  a platform-admin surface now exists (`server/platform-admin.ts`).
+- **S6. Assessment intake flow** — done.
+- **S7. Score views** — done. DRS + ORI + composite shown distinctly.
+- **S8. Narrative service + owner report** — done. `owner_report.v1`, numeral
+  post-check, edit-before-finalize, PDF export.
+
+### Phase 3 — Roadmap and advisor workspace
+- **S9. Roadmap generator + task board** — done.
+- **S10. Advisor dashboard** — done. Portfolio, deltas, stalled tasks.
+- **S11. Advisor brief generation** — done. **Reality: shipped as `delta_report.v1`**
+  (`prompts/delta_report.v1.md`, `DeltaReportPage.tsx`), not `advisor_brief.v1`.
+- **S12. n8n webhook endpoints** — done (`server/scheduled.ts`).
+
+### Phase 4 — Owner portal and education
+- **S13. Owner auth + portal** — done (`src/pages/owner/*`, `/portal/*`).
+- **S14. Content drip** — done. **Reality: shipped as "advisory education"**
+  (`server/advisory.ts`, `education-modules`), not the `gap_content_map`/`drip_order`
+  naming originally specced.
+- **S15. Re-assessment + trend view** — done.
+
+**MVP checkpoint (met):** an advisor can complete an intake and hand a client a
+scored readiness report the same day, with no developer involvement.

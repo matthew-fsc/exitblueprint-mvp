@@ -1,4 +1,4 @@
-// In-app "Needs attention" surface (docs/35 Phase 9 — "in-app scheduling/
+// In-app "Needs attention" surface (docs/archive/35 Phase 9 — "in-app scheduling/
 // notifications"). The continuous-evaluation analyzers in server/scheduled.ts
 // power external n8n nudges, but until now there was no IN-PRODUCT worklist: an
 // advisor had to wait for an email instead of opening the app and seeing what

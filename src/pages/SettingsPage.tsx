@@ -163,7 +163,7 @@ function MfaCard() {
   );
 }
 
-// ── Team management (self-serve advisor provisioning, docs/35 #1) ──────────────
+// ── Team management (self-serve advisor provisioning, docs/archive/35 #1) ──────────────
 // Advisors/admins invite firm staff without the CLI. Members are read directly
 // under RLS (advisor_firm_profiles_read / admin_firm_profiles_read); the invite
 // goes through the guarded invite-advisor function (Clerk org invite in prod, dev

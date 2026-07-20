@@ -1,6 +1,6 @@
 // Account menu in the app bar. Folds account-level concerns (Security / MFA
 // setup, Sign out) out of the primary navigation, which should carry only
-// daily-workflow destinations (docs/34 MEDIUM: "Security" was a once-only setup
+// daily-workflow destinations (docs/archive/34 MEDIUM: "Security" was a once-only setup
 // screen sitting as a peer of Engagements/Review/Library — Hick's Law load).
 //
 // Accessible menu button pattern (WAI-ARIA): the trigger has aria-haspopup +

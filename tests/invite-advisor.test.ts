@@ -1,4 +1,4 @@
-// Firm-staff invitation (self-serve team management, docs/35 #1). Requires a
+// Firm-staff invitation (self-serve team management, docs/archive/35 #1). Requires a
 // migrated database (DATABASE_URL); skipped otherwise. Proves the dev-path invite
 // creates a staff login + profile in the caller's firm, validates email/role, is
 // idempotent per email, and reports seat usage.

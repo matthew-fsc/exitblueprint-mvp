@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import type { WorkstreamStatus } from '../../lib/workstreams';
 
 // The five sell-side preparation work streams as a first-class progress rail on
-// the engagement Overview (docs/17 follow-up; docs/22). Each chip shows where the
+// the engagement Overview (docs/17 follow-up; docs/archive/22). Each chip shows where the
 // engagement stands in one core workflow and deep-links to that stream's tab.
 // Purely presentational — it renders the model buildWorkstreamProgress() returns.
 

@@ -16,7 +16,13 @@ One edge function `generateDocument(assessment_id, doc_type)`. API key is a func
 - Structure: what the score means; strengths (top 2 dimensions); priority issues (each gap: what it is, why buyers care, what the fix looks like at a high level); what happens next.
 - Hard rules in system prompt: use only the numbers provided; no valuation estimates or multiples; no legal/tax advice, refer to advisor; length 800-1200 words; no em dashes; plain direct sentences.
 
-### advisor_brief
+### advisor_brief → shipped as `delta_report.v1`
+> **Build note.** This document type shipped as **`prompts/delta_report.v1.md`**
+> (`DeltaReportPage.tsx`, `render-delta-pdf`), not `advisor_brief.v1`. A separate
+> **`prompts/cim.v1.md`** (Confidential Information Memorandum, `server/cim.ts`,
+> `render-cim-pdf`) was also added. The contract below still describes the
+> advisor-facing brief.
+
 - Audience: the advisor before a client meeting.
 - Inputs: same as above plus score deltas vs prior assessment, stalled tasks, gap status changes. Deltas come precomputed from compareAssessments (docs/03) when comparable; when the prior assessment is on a different rubric_version the payload carries the incomparable marker and the brief says so instead of citing a delta.
 - Structure: one-paragraph state of the engagement; what improved / what regressed with the specific driver from the explain trace; talking points (3-5); risks to the timeline; suggested next actions.

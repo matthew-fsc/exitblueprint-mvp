@@ -42,7 +42,7 @@ type MoveFilter = 'all' | 'up' | 'down' | 'stale';
 
 const ATTENTION_PREVIEW = 4; // rows shown per group before "+N more"
 
-// In-app "Needs attention" worklist (docs/35 Phase 9). Surfaces the same signals
+// In-app "Needs attention" worklist (docs/archive/35 Phase 9). Surfaces the same signals
 // the n8n continuous-eval webhooks compute — reassessment due, stalled tasks,
 // stale engagements — so an advisor sees what needs doing without an external
 // nudge. Hidden entirely when nothing is due (the stat band already shows the

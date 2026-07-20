@@ -17,11 +17,10 @@ Three Supabase projects:
 - `npm run seed:demo` (demo tenant) runs on staging/demo only by default. It is
   firm-scoped and idempotent, but production hosts no demo firm.
 
-## Provisioning (CLI-only through MVP)
+## Provisioning (CLI + Clerk webhook)
 
 Firms, advisors, and owner-company assignment are provisioned with
-`scripts/admin.ts` using the server-side database connection — there is no
-admin UI until explicitly promoted:
+`scripts/admin.ts` using the server-side database connection:
 
 ```sh
 npm run admin -- create-firm --name "Summit Exit Advisors"
@@ -29,8 +28,12 @@ npm run admin -- create-advisor --firm "Summit Exit Advisors" --email jo@summit.
 npm run admin -- assign-company --email owner@client.com --company "Client Co"
 ```
 
-`create-advisor` provisions the auth user + profile rows; login credentials are
-issued via the Supabase dashboard/auth invite (S5 wires the login flow).
+**Identity is Clerk** (`docs/30`). With `CLERK_SECRET_KEY` set, `create-firm`
+provisions a Clerk **Organization** and `create-advisor` provisions the Clerk
+**user + membership** alongside the profile rows; login/MFA/invites all run
+through Clerk. Firms and advisors can also self-provision via the Clerk webhook
+(`POST /webhooks/clerk`, `server/clerk-webhook.ts`) on Clerk events. Unset
+`CLERK_SECRET_KEY` selects the local dev path (`auth.users`) for seeding only.
 
 ## Secrets
 
@@ -38,7 +41,9 @@ issued via the Supabase dashboard/auth invite (S5 wires the login flow).
 - Deployed: the hosting provider's secret store (Supabase function secrets /
   platform env vars). Never committed.
 - The service-role key and `DATABASE_URL` are server-side only — never in the
-  client bundle. The browser sees only `VITE_SUPABASE_URL` + the anon key.
+  client bundle. The browser sees only `VITE_`-prefixed values (`VITE_SUPABASE_URL`
+  + anon key, `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_FUNCTIONS_URL`). Full env
+  catalog: `.env.example` and `docs/14-environment-keys.md`.
 - The Anthropic API key lives server-side only (edge function secret), per
   CLAUDE.md; the browser never sees it.
 
