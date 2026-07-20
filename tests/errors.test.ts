@@ -30,10 +30,21 @@ describe('describeError', () => {
     expect(describeError({ code: 'PGRST301', message: 'jwt error' }).kind).toBe('auth');
   });
 
-  it('treats fetch/TypeErrors as a retryable network problem', () => {
-    const d = describeError(new TypeError('Failed to fetch'));
-    expect(d.kind).toBe('network');
-    expect(d.retryable).toBe(true);
+  it('treats a fetch failure (any browser) as a retryable network problem', () => {
+    for (const msg of ['Failed to fetch', 'NetworkError when attempting to fetch resource', 'Load failed', 'fetch failed']) {
+      const d = describeError(new TypeError(msg));
+      expect(d.kind, msg).toBe('network');
+      expect(d.retryable, msg).toBe(true);
+    }
+  });
+
+  it('does NOT label a plain coding TypeError as a network problem', () => {
+    // A bug like this must surface as a real error, not be disguised as "we
+    // couldn't reach the server. Check your connection", which would be wrong
+    // and unactionable for the user and hide the bug from us.
+    const d = describeError(new TypeError("Cannot read properties of undefined (reading 'id')"));
+    expect(d.kind).not.toBe('network');
+    expect(d.message).not.toMatch(/couldn’t reach the server/);
   });
 
   it('maps a 0-row single() result to not-found', () => {

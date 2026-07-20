@@ -61,11 +61,15 @@ export function describeError(err: unknown): DescribedError {
   const code = errorCode(err);
   const lower = raw.toLowerCase();
 
-  // Network / transport: the request never got a real answer.
-  if (
-    err instanceof TypeError ||
-    has(lower, 'failed to fetch', 'networkerror', 'network request failed', 'load failed', 'fetch failed')
-  ) {
+  // Network / transport: the request never got a real answer. Match on the
+  // message shape — every browser's fetch failure is a TypeError with a
+  // recognizable message (Chrome "Failed to fetch", Firefox "NetworkError when
+  // attempting to fetch resource", Safari "Load failed", undici "fetch failed").
+  // We deliberately do NOT treat every `TypeError` as network: a plain coding
+  // TypeError (e.g. "Cannot read properties of undefined") is not a connectivity
+  // problem, and labeling it "we couldn't reach the server. Check your
+  // connection" hides a real bug behind a wrong, unactionable message.
+  if (has(lower, 'failed to fetch', 'networkerror', 'network request failed', 'load failed', 'fetch failed')) {
     return {
       kind: 'network',
       title: 'Connection problem',

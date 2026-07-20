@@ -4,6 +4,30 @@
 // persisted without its acceptance. The assessment-insert trigger is the DB
 // backstop; this is the sanctioned application path.
 import type pg from 'pg';
+import {
+  DEFAULT_AGREEMENT_BODY,
+  DEFAULT_AGREEMENT_LABEL,
+  DEFAULT_AGREEMENT_TITLE,
+} from '../shared/agreement-template';
+
+// Every firm needs at least one active engagement agreement before it can start
+// an engagement (createEngagementWithAgreement requires it, and the UI blocks on
+// it). Seed the default so a newly provisioned firm is never born in an
+// unreachable state — the advisor can start onboarding immediately and replace
+// the text later via `npm run admin -- create-agreement-version`. Idempotent on
+// (firm_id, version_label); runs with the service role (RLS-bypassing) exactly
+// like the rest of firm provisioning.
+export async function ensureDefaultAgreementVersion(
+  db: pg.ClientBase,
+  firmId: string,
+): Promise<void> {
+  await db.query(
+    `insert into agreement_versions (firm_id, version_label, title, body_md, status)
+     values ($1, $2, $3, $4, 'active')
+     on conflict (firm_id, version_label) do nothing`,
+    [firmId, DEFAULT_AGREEMENT_LABEL, DEFAULT_AGREEMENT_TITLE, DEFAULT_AGREEMENT_BODY],
+  );
+}
 
 export interface CreateEngagementInput {
   company_id: string;

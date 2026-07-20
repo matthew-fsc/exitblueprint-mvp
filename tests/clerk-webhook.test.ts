@@ -72,6 +72,11 @@ describe.skipIf(!url)('handleClerkEvent', () => {
   async function cleanup() {
     await db.query(`delete from profiles where user_id = any($1)`, [[advisorUser, ownerUser]]);
     await db.query(`delete from companies where name = 'Webhook Co'`);
+    // agreement_versions references firms with no cascade — remove it before the firm.
+    await db.query(
+      `delete from agreement_versions where firm_id in (select id from firms where clerk_org_id = $1 or name = 'Webhook Firm')`,
+      [orgId],
+    );
     await db.query(`delete from firms where clerk_org_id = $1 or name = 'Webhook Firm'`, [orgId]);
   }
 
@@ -80,6 +85,16 @@ describe.skipIf(!url)('handleClerkEvent', () => {
     expect(r.handled).toBe(true);
     const firm = (await db.query(`select id from firms where clerk_org_id = $1`, [orgId])).rows[0];
     expect(firm).toBeTruthy();
+    // Provisioning must seed the default active agreement so the firm can start
+    // an engagement immediately (no unreachable-blocker onboarding state).
+    const agreement = (
+      await db.query(
+        `select version_label, status from agreement_versions where firm_id = $1 and status = 'active'`,
+        [firm.id],
+      )
+    ).rows[0];
+    expect(agreement).toBeTruthy();
+    expect(agreement.version_label).toBe('EA-1.0');
     companyId = (
       await db.query(`insert into companies (firm_id, name) values ($1, 'Webhook Co') returning id`, [firm.id])
     ).rows[0].id;
