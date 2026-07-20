@@ -485,5 +485,5 @@ Derived from two supplied artifacts: `Primary_DD_List_Magic_Stairs.xlsx` (a live
 buy-side DD request list) and `LWG_Vendor_Due_Diligence_QuestionnaireL2.pdf` (an
 RIA vendor DD questionnaire). Analysis is advisor-verifiable fact from those files
 mapped against the in-repo rubric (`seed/drs-rubric-*.csv`, `seed/gap-definitions.csv`)
-and security posture (`docs/13`, `docs/10`). No score, rubric row, or engine
+and security posture (`docs/13`, `docs/archive/10`). No score, rubric row, or engine
 behavior was changed by this document.

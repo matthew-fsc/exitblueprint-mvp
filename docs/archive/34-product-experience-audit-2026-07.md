@@ -3,7 +3,7 @@
 A workflow/usability audit of the advisor workspace by a nine-lens panel (UX
 Architect, Workflow Designer, Human Factors, Enterprise Consultant, Customer
 Success, Power User, Accessibility, PM, AI-Product critic). **Not a visual
-redesign** — docs/26 tokens and docs/33's polish are the source of truth. This
+redesign** — docs/26 tokens and docs/archive/33's polish are the source of truth. This
 pass optimizes *workflow, efficiency, discoverability, and cognitive load*: make
 experienced advisors dramatically faster and first-time advisors dramatically
 more successful.
@@ -133,7 +133,7 @@ violation and needless Hick's-Law load in the primary nav).
 the masthead top-right. Add-engagement opens one dialog that absorbs the entire
 former Clients flow: pick an existing client without an engagement *or* add a new
 company inline, record the agreement acceptance (signer + consents, unchanged —
-beta Requirement 1), then land the advisor inside the new engagement (docs/34 C2).
+beta Requirement 1), then land the advisor inside the new engagement (docs/archive/34 C2).
 `/clients` redirects to `/`; the "Portfolio" breadcrumb root is relabeled
 "Engagements" app-wide. Primary nav drops from 6 items to 5.
 

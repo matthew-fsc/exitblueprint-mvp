@@ -255,7 +255,7 @@ describe('verifyWebhookSecret', () => {
   });
 });
 
-// Firm-scoped variants power the in-app "Needs attention" surface (docs/35 Phase
+// Firm-scoped variants power the in-app "Needs attention" surface (docs/archive/35 Phase
 // 9). Same analyzers, firm added to the WHERE and bound as $2.
 describe('firm-scoped analyzer variants', () => {
   function fake(rows: unknown[]) {

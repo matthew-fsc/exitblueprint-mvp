@@ -77,7 +77,7 @@ function EvidenceGuide({ active }: { active: Section }) {
 
 // Evidence is one job — building the diligence binder — that used to read as
 // three separate tools (Data room · Documents · Verification), each its own tab
-// and page (docs/22 F2). This folds them into a single Evidence surface: one
+// and page (docs/archive/22 F2). This folds them into a single Evidence surface: one
 // masthead with the single verification number the whole stream rolls up to, and
 // a sub-tab switcher for the three views. The three panels keep their own logic
 // (imported from the original files); only the chrome is consolidated.

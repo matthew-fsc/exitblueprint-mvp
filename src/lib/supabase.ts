@@ -14,7 +14,7 @@ const url = env(import.meta.env.VITE_SUPABASE_URL as string | undefined) || wind
 const anonKey = env(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'dev-anon-key';
 
 // The compute layer (/functions/v1/*) is served by our own Node service in
-// production (docs/10-production-readiness.md) — a separate deployable from the
+// production (docs/archive/10-production-readiness.md) — a separate deployable from the
 // Supabase project that handles auth + REST. VITE_FUNCTIONS_URL points at it;
 // unset (dev), functions are same-origin, i.e. the dev emulator. Auth and REST
 // always go through the supabase client above; only functions are redirected.

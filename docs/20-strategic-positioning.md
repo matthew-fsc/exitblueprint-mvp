@@ -138,7 +138,7 @@ Every feature must satisfy at least one strategic objective:
 
 If a feature contributes to none of these, it is not prioritized. The concrete
 A/B/C/D classification of the current MVP against this framework is in
-**docs/21-mvp-strategic-audit.md**.
+**docs/archive/21-mvp-strategic-audit.md**.
 
 ## Long-term vision
 

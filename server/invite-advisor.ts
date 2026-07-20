@@ -1,5 +1,5 @@
 // Firm-staff invitation — the self-serve counterpart to scripts/admin.ts
-// create-advisor (docs/35 blocker #1: provisioning was CLI-only). An advisor or
+// create-advisor (docs/archive/35 blocker #1: provisioning was CLI-only). An advisor or
 // admin invites another advisor / reviewer / admin into THEIR OWN firm; the
 // caller's firm is resolved from their profile upstream (scope 'firm'), never
 // from the request body, so a firm can only ever grow its own team.

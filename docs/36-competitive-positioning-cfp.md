@@ -139,7 +139,7 @@ Framed as wedge-deepeners, not a feature arms race (docs/20). Each item is tagge
   ignored asset and open the exit-readiness conversation — the wedge that converts an
   existing AUM client into an engagement. Reuses the intake/DRS engine at a lighter depth.
 - **[net-new] Boomer-market owner experience.** A plain-language, low-jargon owner-facing
-  readiness view tuned to a non-power-user, retirement-minded audience (docs/34/35 already
+  readiness view tuned to a non-power-user, retirement-minded audience (docs/archive/34/35 already
   flag "dense domain vocabulary" as a UX risk). Clarity as competitive advantage per seam #2.
 
 ## The CFP go-to-market wedge

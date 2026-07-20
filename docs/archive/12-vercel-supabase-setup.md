@@ -1,8 +1,8 @@
 # Connecting the repo → Supabase → Render → Vercel (going live)
 
 How to take this repo from the local dev emulator to a real, public website.
-This is the concrete, click-by-click companion to `docs/11-deploy-runbook.md`
-(which explains the runtime choices) and `docs/10-production-readiness.md`
+This is the concrete, click-by-click companion to `docs/archive/11-deploy-runbook.md`
+(which explains the runtime choices) and `docs/archive/10-production-readiness.md`
 (which explains why the architecture is shaped this way). Read those for the
 "why"; this doc is the "how", for the specific case of **Vercel + Supabase +
 GitHub**.
@@ -68,7 +68,7 @@ Deploy order matters because of the URLs each piece needs from the others:
    IPv4-only and it won't connect, use the **session pooler** string
    (`aws-0-<region>.pooler.supabase.com:5432`). Never use the transaction
    pooler (`:6543`) for migrations. Details + the full connection-string table
-   are in `docs/11-deploy-runbook.md` §1.
+   are in `docs/archive/11-deploy-runbook.md` §1.
 
 ---
 
@@ -199,7 +199,7 @@ in the repo. Local dev keeps them in `.env.local`, which `.gitignore` excludes.
 
 ## Smoke test after deploy
 
-Run the full sequence in `docs/11-deploy-runbook.md` (§ *Smoke test after
+Run the full sequence in `docs/archive/11-deploy-runbook.md` (§ *Smoke test after
 deploy*). The short version:
 
 1. `GET <render-url>/health` → `{ "ok": true }`.
@@ -217,8 +217,8 @@ compute service — recheck `VITE_FUNCTIONS_URL` (Vercel), `FUNCTIONS_ALLOWED_OR
 
 ## Known follow-ups before a real customer
 
-- **Owner invite email** (`docs/11-deploy-runbook.md` §4): swap
+- **Owner invite email** (`docs/archive/11-deploy-runbook.md` §4): swap
   `server/invite.ts`'s direct insert for Supabase `inviteUserByEmail`, and
   configure Supabase Auth email (SMTP or Postmark/Resend).
-- **Ops** (`docs/11-deploy-runbook.md` §5): Supabase backups/PITR, error
+- **Ops** (`docs/archive/11-deploy-runbook.md` §5): Supabase backups/PITR, error
   monitoring (Sentry) on both surfaces, and a deploy stage in CI.

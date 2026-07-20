@@ -3061,7 +3061,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .agreement-consents legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
 .agreement-consents label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; padding: 0.2rem 0; }
 .agreement-consents input { width: auto; }
-/* New-company inline inputs inside the Add-engagement dialog (docs/34). */
+/* New-company inline inputs inside the Add-engagement dialog (docs/archive/34). */
 .add-eng-newco { display: flex; flex-direction: column; gap: 0.5rem; }
 .add-eng-newco input { width: 100%; }
 
@@ -3182,7 +3182,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .report-poweredby { margin-top: 0.5rem; }
 
 /* ---- portfolio dashboard (F2) ---- */
-/* "Needs attention" worklist on the dashboard (docs/35 Phase 9). */
+/* "Needs attention" worklist on the dashboard (docs/archive/35 Phase 9). */
 .attn-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -3377,7 +3377,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   margin-top: var(--space-4);
 }
 
-/* ---- work-stream progress rail (docs/22) ----
+/* ---- work-stream progress rail (docs/archive/22) ----
    The five preparation work streams as a left-to-right arc on the Overview, each
    chip showing where the engagement stands and linking into that stream's tab. */
 .ws-rail {
@@ -3698,7 +3698,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border-color: var(--border);
 }
 
-/* Account menu (docs/34): folds Security + Sign out out of the primary nav. */
+/* Account menu (docs/archive/34): folds Security + Sign out out of the primary nav. */
 .user-menu { position: relative; }
 .user-menu-trigger {
   display: inline-flex;
@@ -4842,7 +4842,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 }
 .danger-confirm input:focus { outline: 2px solid var(--status-critical); outline-offset: 1px; }
 
-/* Engagement log — institutional memory (docs/21 Category B) */
+/* Engagement log — institutional memory (docs/archive/21 Category B) */
 .log-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
 .log-entry { display: flex; gap: 0.7rem; align-items: flex-start; padding-bottom: 0.55rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
 .log-entry:last-child { border-bottom: 0; }
@@ -4862,7 +4862,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 .log-form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .log-form-row select, .log-form-row input { flex: 1; min-width: 130px; }
 
-/* Engagement knowledge chain — "how the plan connects" (docs/21 Category B) */
+/* Engagement knowledge chain — "how the plan connects" (docs/archive/21 Category B) */
 .chain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
 .chain { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; }
 .chain-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -4877,7 +4877,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 .chain-arrow { color: var(--text-secondary); }
 .chain-reason { font-size: 0.82rem; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
 
-/* Comparable engagements (docs/21 Category B) */
+/* Comparable engagements (docs/archive/21 Category B) */
 .cmp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .cmp { display: grid; grid-template-columns: minmax(140px, 1fr) auto; gap: 0.3rem 0.9rem; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
 .cmp:last-child { border-bottom: 0; }

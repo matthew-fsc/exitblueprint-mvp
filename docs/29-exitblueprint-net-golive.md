@@ -1,10 +1,18 @@
 # Go-live on exitblueprint.net — the exact runbook
 
 The concrete, ordered checklist to host this app on **exitblueprint.net**, with
-the domain split so the existing marketing site keeps the root. It specializes
-`docs/12-vercel-supabase-setup.md` (the general how) and
-`docs/11-deploy-runbook.md` (the why) to this domain. Every account/dashboard
-step is yours to run — nothing here can be provisioned from the repo.
+the domain split so the existing marketing site keeps the root. (The general/why
+predecessors — `docs/archive/12` and `docs/archive/11` — are archived; this is the
+live runbook.) Every account/dashboard step is yours to run — nothing here can be
+provisioned from the repo.
+
+> **Auth note (2026-07).** Identity is **Clerk**, not Supabase Auth. Wherever a
+> step below sets up a Supabase JWT secret, Supabase auth redirects, or
+> service-role owner-invite emails, follow **`docs/30-clerk-cutover-runbook.md`**
+> instead — set `CLERK_JWKS_URL` / `CLERK_SECRET_KEY` / `CLERK_WEBHOOK_SIGNING_SECRET`
+> on the compute service and `VITE_CLERK_PUBLISHABLE_KEY` on the frontend
+> (see `docs/14` and `.env.example`). The Supabase-auth steps here are retained
+> only for the legacy path.
 
 Keep every secret in the host dashboards (Vercel/Render/Supabase) and your
 shell. Never commit one.
@@ -22,7 +30,7 @@ shell. Never commit one.
 
 The app is **three runtimes**, not two — the compute service (`server/http.ts`)
 renders PDFs with a real Chromium and cannot live on Vercel's serverless
-runtime. See the diagram in `docs/12` for the request flow.
+runtime. See the diagram in `docs/archive/12` for the request flow.
 
 Deploy order is forced by the URLs each piece needs from the others:
 **Supabase → Render → Vercel → DNS → connect**.
@@ -34,7 +42,7 @@ Deploy order is forced by the URLs each piece needs from the others:
 - Access to the DNS zone for `exitblueprint.net` (your registrar or DNS host).
 - A machine that can reach the Supabase database to run migrations. The
   **direct** connection is IPv6-only; if you're IPv4-only, use the **session
-  pooler** string (see `docs/11` §1). Running `npm run db:setup` from this
+  pooler** string (see `docs/archive/11` §1). Running `npm run db:setup` from this
   repo checkout is the tested path.
 
 ---
@@ -211,5 +219,5 @@ service — recheck `VITE_FUNCTIONS_URL` (Vercel), `FUNCTIONS_ALLOWED_ORIGIN`
 
 - Error monitoring (Sentry) on frontend + compute service.
 - ToS + Privacy Policy linked (real financial data).
-- Comp the beta firms (`docs/25` step 6) so billing never blocks testers.
+- Comp the beta firms (`docs/archive/25` step 6) so billing never blocks testers.
 - Add a deploy stage to CI (today it stops after build).

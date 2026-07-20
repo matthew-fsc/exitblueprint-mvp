@@ -10,8 +10,9 @@ pieces fit; then use `docs/27-engineering-patterns.md` to add to them.
 
 The frontend never talks to Postgres directly for writes — it goes through the
 **compute layer**, which is the *same router code* whether it runs as the dev
-emulator or the production Node service. Identity comes from Supabase Auth today
-(Clerk is planned, `docs/24`); every table is isolated by **Row-Level Security**.
+emulator or the production Node service. Identity comes from **Clerk** (validated
+via JWKS, `docs/30`); the local dev emulator is the only non-Clerk path. Every
+table is isolated by **Row-Level Security**.
 
 ```mermaid
 flowchart TB
@@ -22,7 +23,7 @@ flowchart TB
   end
 
   subgraph Auth["Identity"]
-    SB_AUTH["Supabase Auth (today)<br/>→ Clerk via JWKS (planned, docs/24)"]
+    SB_AUTH["Clerk (login · MFA · Orgs=firms)<br/>→ verified via JWKS (docs/30)"]
   end
 
   subgraph Compute["Compute layer — one router, two hosts"]
@@ -37,7 +38,7 @@ flowchart TB
 
   subgraph External["External services (server-side only)"]
     ANTH["Anthropic — narrative only"]
-    STRIPE["Stripe — billing (planned)"]
+    STRIPE["Stripe — billing (docs/24)"]
     LEDGER["QuickBooks/Xero — ledger OAuth"]
   end
 
@@ -67,7 +68,7 @@ sequenceDiagram
   participant DB as Postgres (RLS)
 
   B->>H: POST /functions/v1/{name} (Bearer JWT, body)
-  H->>H: verify JWT (HS256 or JWKS) → Claims{sub, role}
+  H->>H: verify Clerk JWT via JWKS → Claims{sub, role}
   H->>R: handleFunctionCall(name, body, ctx)
   R->>R: REGISTRY[name] — look up engine, scope, gate, handler
   R->>DB: authorize(scope) — resolve firm_id from profile (asUser)
@@ -212,4 +213,4 @@ gateway. Rules never let AI compute a score; Reasoning only ever explains
 - **Add a feature** → `docs/27-engineering-patterns.md` + `templates/`.
 - **UI** → `docs/26-ui-system.md`.
 - **Data model detail** → `docs/02-data-model.md`. **Scoring** → `docs/03` / `docs/07`.
-- **Path to production** (Clerk, Stripe, ops) → `docs/24` / `docs/25` / `docs/10`.
+- **Path to production** (Clerk, Stripe, ops) → `docs/24` (plan) · `docs/30` (Clerk) · `docs/29` (go-live) · `docs/32` (observability).

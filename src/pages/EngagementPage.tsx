@@ -161,7 +161,7 @@ export default function EngagementPage() {
 
       // Carry forward: a re-assessment starts from the last scored assessment's
       // answers so the advisor updates what changed instead of re-entering the
-      // whole rubric each quarter (docs/34 C1). Only when the prior assessment
+      // whole rubric each quarter (docs/archive/34 C1). Only when the prior assessment
       // used the same rubric version — a new methodology changes the question
       // set, so it must start blank. This creates a NEW immutable assessment
       // seeded with a draft; it never edits the prior one (CLAUDE.md rule 4).
@@ -267,7 +267,7 @@ export default function EngagementPage() {
   const outcomeStatus = outcomeQ.data?.process_status ?? null;
   const documents = documentsQ.data ?? [];
 
-  // The five work streams as a progress rail (docs/17 follow-up; docs/22): where
+  // The five work streams as a progress rail (docs/17 follow-up; docs/archive/22): where
   // the engagement stands in each core workflow, from the data already loaded.
   const workstreams = buildWorkstreamProgress({
     assessed: completed.length > 0,
@@ -284,7 +284,7 @@ export default function EngagementPage() {
   });
 
   // Deeper analysis lives in a single sub-tabbed panel rather than a deep stack
-  // of collapsibles (docs/22 F4): one view at a time, chosen deliberately. The
+  // of collapsibles (docs/archive/22 F4): one view at a time, chosen deliberately. The
   // tabs are built from what this engagement actually has.
   const analysisTabs: SubTab[] = [];
   if (explain) analysisTabs.push({ key: 'score', label: 'Score detail' });
@@ -420,7 +420,7 @@ export default function EngagementPage() {
           <section className="page-section">
           <div className="stack-lg">
           {/* work-stream progress rail — where the engagement stands across the five
-              core workflows, and the way into each (docs/17 follow-up; docs/22) */}
+              core workflows, and the way into each (docs/17 follow-up; docs/archive/22) */}
           <WorkstreamRail streams={workstreams} engagementId={engagementId!} />
 
           {/* readiness at a glance — the first thing an advisor needs: snapshot + gaps */}
@@ -958,7 +958,7 @@ function DealOutcomeCapture({
   );
 }
 
-// Self-serve data export (docs/35 Phase 9): download a full, portable JSON copy
+// Self-serve data export (docs/archive/35 Phase 9): download a full, portable JSON copy
 // of the engagement's data — the read-only counterpart to Delete. Backs a client's
 // "give us our data" request, a backup before deletion, or a migration.
 function ExportEngagementCard({ engagementId, companyName }: { engagementId: string; companyName: string }) {

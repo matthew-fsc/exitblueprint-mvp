@@ -1,8 +1,8 @@
 # Path to Production v2 — Clerk auth, Stripe billing, and the remaining gaps
 
-**Basis:** re-baseline of `docs/10-production-readiness.md` after PRs #16–#39.
-**What's new since docs/10:** two decisions taken by Matthew (2026-07-18) move the
-target beyond docs/10's "one real paying customer" line:
+**Basis:** re-baseline of `docs/archive/10-production-readiness.md` after PRs #16–#39.
+**What's new since docs/archive/10:** two decisions taken by Matthew (2026-07-18) move the
+target beyond docs/archive/10's "one real paying customer" line:
 
 1. **Auth → Clerk** as the identity provider, integrated via **Supabase
    third-party auth** so the existing RLS model is preserved (not replaced).
@@ -26,27 +26,27 @@ Implementation proceeds in confirmed slices after this plan is blessed.
 
 | Area | State today | Source |
 |---|---|---|
-| Compute layer | **Shipped.** `server/http.ts` serves every `/functions/v1/*` against real Postgres via service role, enforcing RLS through `asUser`. PDF in-process. Dockerized. | docs/10 execution log |
+| Compute layer | **Shipped.** `server/http.ts` serves every `/functions/v1/*` against real Postgres via service role, enforcing RLS through `asUser`. PDF in-process. Dockerized. | docs/archive/10 execution log |
 | Token verification | Already dual-mode: HS256 (`FUNCTIONS_JWT_SECRET`) **or asymmetric JWKS** (`makeVerifyToken({ jwksUrl })`). | `server/http.ts`, `server/auth-jwt.ts` |
 | Auth | Supabase Auth. `src/lib/auth.tsx` = real `supabase.auth`; idle-timeout + MFA (TOTP/AAL2) gate for staff. Dev stack uses a fixed password. | `src/lib/auth.tsx`, `src/lib/mfa.ts` |
 | Multi-tenancy | RLS on all tables, deny-by-default. Three security-definer helpers `app.user_role/user_firm_id/user_company_id` key on `auth.uid() = profiles.user_id`. **72 RLS checks** in `scripts/rls-test.ts`. | `20260707000200_rls.sql` |
 | Identity column | `profiles.user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id)`. `usage_events.actor_user_id uuid`. | `20260707000100_schema.sql` |
 | Invites | `server/invite.ts` inserts directly into `auth.users` (dev shortcut). Marked "PRODUCTION: replace with real invite." | `server/invite.ts` |
-| Financials | Honest: manual/CSV entry stamped `document`/`self_reported`; the fake `DEFAULTS` was removed. Live QuickBooks/Xero OAuth is a shaped-but-unwired seam. | docs/10 log |
+| Financials | Honest: manual/CSV entry stamped `document`/`self_reported`; the fake `DEFAULTS` was removed. Live QuickBooks/Xero OAuth is a shaped-but-unwired seam. | docs/archive/10 log |
 | Migrations | **23** applied cleanly in CI. | `supabase/migrations/` |
 | CI | `ci.yml`: migrate → RLS test → seed ×2 → vitest → eval → build. **No deploy stage. No E2E.** | `.github/workflows/ci.yml` |
 | Billing | **None.** No Stripe, no plans, no entitlements, no seat limits. | — |
-| Ops | No error monitoring, no deploy automation, no documented backups/PITR, no custom domain wired. | docs/10 Phase 4 (open) |
+| Ops | No error monitoring, no deploy automation, no documented backups/PITR, no custom domain wired. | docs/archive/10 Phase 4 (open) |
 
 **Net:** the engine, data model, RLS, and compute service are production-grade.
 The gaps are (A) swapping the identity provider to Clerk, (B) building billing
-from zero, and (C) the ops/observability/legal layer that docs/10 Phase 4 left open.
+from zero, and (C) the ops/observability/legal layer that docs/archive/10 Phase 4 left open.
 
 ---
 
-## 2. Definition of "production ready" (extends docs/10's DoD)
+## 2. Definition of "production ready" (extends docs/archive/10's DoD)
 
-docs/10's checklist still holds. This plan adds:
+docs/archive/10's checklist still holds. This plan adds:
 
 **Auth (Clerk)**
 - Login, signup, password reset, and MFA are all handled by Clerk — no dev
@@ -120,7 +120,7 @@ Severity: **P0** = blocks launch · **P1** = launch-week · **P2** = fast-follow
   read-only; portal card update → reconcile → restore.
 - **B8 (P2)** Stripe Tax, coupons/trials, annual plans — flip on once the core loop works.
 
-### C — Ops / deploy / observability  (docs/10 Phase 4 remainder)
+### C — Ops / deploy / observability  (docs/archive/10 Phase 4 remainder)
 - **C1 (P0)** Stand up the real Supabase project; run all 23 migrations; re-run the
   72 RLS checks against it.
 - **C2 (P0)** Secrets into host env (Clerk keys, Stripe keys + webhook secret,
@@ -144,7 +144,7 @@ Severity: **P0** = blocks launch · **P1** = launch-week · **P2** = fast-follow
 - **E1 (P1)** Provision `ANTHROPIC_API_KEY`; one live narrative smoke test.
 - **E2 (P1)** Auth/billing transactional email (Clerk sends auth email; pick a
   provider for billing receipts if not using Stripe's).
-- **E3 (P2)** Live QuickBooks/Xero OAuth (external approval clock — start early, non-blocking; unchanged from docs/10).
+- **E3 (P2)** Live QuickBooks/Xero OAuth (external approval clock — start early, non-blocking; unchanged from docs/archive/10).
 
 ### F — Legal / trust
 - **F1 (P0 for real customers)** ToS, Privacy Policy, DPA drafted and linked.

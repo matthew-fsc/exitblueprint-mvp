@@ -335,7 +335,7 @@ export function useCimCoverage(engagementId: string | undefined): UseQueryResult
   });
 }
 
-// In-app "Needs attention" worklist for the caller's firm (docs/35 Phase 9).
+// In-app "Needs attention" worklist for the caller's firm (docs/archive/35 Phase 9).
 export interface AttentionShape {
   generatedAt: string;
   thresholds: { staleDays: number; stalledDays: number; reassessDays: number };
@@ -604,7 +604,7 @@ export interface ComparableRow {
   score: number;
 }
 
-// Comparable engagements from the firm's own book (docs/21 Category B).
+// Comparable engagements from the firm's own book (docs/archive/21 Category B).
 export function useComparables(
   engagementId: string | undefined,
 ): UseQueryResult<ComparableRow[]> {
@@ -631,7 +631,7 @@ export interface EngagementLogRow {
   created_at: string;
 }
 
-// Institutional memory (docs/21 Category B): the advisor's meetings, decisions,
+// Institutional memory (docs/archive/21 Category B): the advisor's meetings, decisions,
 // and rationale for this engagement. Staff-only under RLS.
 export function useEngagementLog(
   engagementId: string | undefined,

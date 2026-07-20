@@ -158,7 +158,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// The three Evidence surfaces were merged into one tabbed page (docs/22 F2).
+// The three Evidence surfaces were merged into one tabbed page (docs/archive/22 F2).
 // Old per-surface routes redirect into the corresponding sub-tab so existing
 // links keep working.
 function RedirectToEvidence({ section }: { section: string }) {
@@ -330,7 +330,7 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          {/* Clients merged into the Engagements tab (docs/34): old links redirect. */}
+          {/* Clients merged into the Engagements tab (docs/archive/34): old links redirect. */}
           <Route path="/clients" element={<Navigate to="/" replace />} />
           <Route
             path="/engagement/:engagementId"
@@ -383,7 +383,7 @@ export default function App() {
             }
           />
           {/* Evidence: Data room · Documents · Verification merged into one
-              tabbed surface (docs/22 F2). The :section param drives the sub-tab. */}
+              tabbed surface (docs/archive/22 F2). The :section param drives the sub-tab. */}
           <Route
             path="/engagement/:engagementId/evidence"
             element={

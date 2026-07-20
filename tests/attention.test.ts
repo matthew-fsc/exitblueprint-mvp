@@ -1,4 +1,4 @@
-// In-app "Needs attention" surface (docs/35 Phase 9). Requires a migrated +
+// In-app "Needs attention" surface (docs/archive/35 Phase 9). Requires a migrated +
 // seeded database (DATABASE_URL); skipped otherwise. Proves the firm-scoped
 // aggregator surfaces the three signals and is isolated to the caller's firm.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

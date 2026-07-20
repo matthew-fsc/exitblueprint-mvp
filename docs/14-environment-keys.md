@@ -1,10 +1,16 @@
 # 14 — Environment Keys: what goes where, and where to get it
 
 Every environment variable the app reads, which host it belongs on, whether it's
-required, and how to obtain it. The app is **three runtime pieces** (see
-docs/12): the **frontend** (Vercel static build), **Supabase** (database + auth +
-storage), and the **compute service** (server/http.ts on Render/Railway/Fly). Keys
-live on the frontend or the compute service — never both.
+required, and how to obtain it. The app is **four runtime pieces**: the
+**frontend** (Vercel static build), **Clerk** (identity — login/MFA/orgs,
+`docs/30`), **Supabase** (Postgres + RLS + storage), and the **compute service**
+(server/http.ts on Render). Keys live on the frontend or the compute service —
+never both.
+
+> **Canonical list:** `.env.example` at the repo root is the machine-readable,
+> always-current variable reference (it drives local dev and CI). This doc is the
+> annotated "where to get it / which host" companion — if the two disagree,
+> `.env.example` wins.
 
 > **Golden rule:** only `VITE_`-prefixed variables reach the browser bundle. The
 > service-role `DATABASE_URL`, the JWT secret, and every `EB_*` / API key are
@@ -22,6 +28,8 @@ into the bundle at build time, so a change requires a redeploy.
 | `VITE_SUPABASE_URL` | Yes | Supabase → Project Settings → API → **Project URL**. Auto-bridged from `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` by `vite.config.ts` when the Vercel↔Supabase integration is connected — so you may not need to set it by hand. |
 | `VITE_SUPABASE_ANON_KEY` | Yes | Supabase → Project Settings → API → **anon / public** key. Auto-bridged from `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY` / `*_PUBLISHABLE_KEY`. |
 | `VITE_FUNCTIONS_URL` | Yes | The **compute-service URL** from step 2 below (e.g. `https://exitblueprint-functions.onrender.com`). No integration can know this — set it by hand. Leaving it unset in production points function calls at the static frontend and breaks scoring, PDFs, and document upload. |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Yes (prod) | Clerk → API Keys → **Publishable key** (`pk_...`). Selects the Clerk identity provider (login/MFA/invites, `docs/30`). **Unset is supported only for the local dev emulator** (local/CI); a hosted deploy without it shows a "not configured" page. |
+| `VITE_SENTRY_DSN` | Optional | Sentry → Project → Client Keys (DSN). Frontend error monitoring (`docs/32`). Unset → the Sentry SDK is never loaded. |
 
 The Vercel↔Supabase integration injects Supabase credentials under Next.js/generic
 names; `vite.config.ts` bridges the two **public** values into the `VITE_` names.
@@ -39,8 +47,21 @@ Service → Environment**. All server-side; treat every one as a secret.
 | Variable | Where to get it |
 | --- | --- |
 | `DATABASE_URL` | Supabase → Project Settings → Database → **Connection string (URI)**. Use the **service-role / session pooler** string (`aws-0-<region>.pooler.supabase.com:5432`). This connection bypasses RLS; per-request queries re-apply RLS as the caller. |
-| `SUPABASE_URL` **or** `FUNCTIONS_JWT_SECRET` | Token verification — set **at least one** (both is fine mid-rotation). `SUPABASE_URL` (the project URL, e.g. `https://<ref>.supabase.co`) verifies asymmetric/JWKS-signed tokens. `FUNCTIONS_JWT_SECRET` is the legacy HS256 shared secret from Supabase → Project Settings → API → **JWT Secret**. |
+| `CLERK_JWKS_URL` | Clerk → your production instance domain — `https://<clerk-domain>/.well-known/jwks.json` (e.g. `https://clerk.exitblueprint.net/.well-known/jwks.json`). **Verifies production Clerk session tokens** (`docs/30`); not a secret. This is the standard token-verification path. |
 | `EB_DOCUMENT_KEY` | **Generate:** `openssl rand -hex 32`. The AES-256-GCM key that encrypts uploaded documents at rest. If unset the service falls back to an insecure dev key and logs a warning — set a real key before storing any client document. |
+
+`SUPABASE_URL` / `FUNCTIONS_JWT_SECRET` (legacy Supabase token verification) remain
+**optional** — leave unset on the Clerk stack; set one only for a non-Clerk token
+check during rotation.
+
+### Required for identity, billing, provisioning
+
+| Variable | Where to get it |
+| --- | --- |
+| `CLERK_SECRET_KEY` | Clerk → API Keys → **Secret key** (`sk_...`). Enables Clerk org invitations from the advisor UI (`server/invite.ts`) and automatic firm/advisor provisioning (`scripts/admin.ts`). |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk dashboard → Webhooks → your endpoint → **Signing secret** (`whsec_...`). Enables `POST /webhooks/clerk`, which auto-provisions firms/advisors/owners (`docs/30` §5). Point the Clerk webhook at `https://<compute-host>/webhooks/clerk`. |
+| `STRIPE_SECRET_KEY` | Stripe → Developers → API keys → **Secret key** (`sk_...`). Enables checkout + billing-portal sessions (`docs/24`). Unset → billing endpoints reply 503 and the app runs comped. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Webhooks → your endpoint → **Signing secret** (`whsec_...`). Signature-verifies `POST /webhooks/stripe` on the raw body. |
 
 ### Recommended
 
@@ -62,6 +83,10 @@ Service → Environment**. All server-side; treat every one as a secret.
 | `EB_STORAGE_BUCKET` | `documents` | Name of the private Supabase Storage bucket. The `20260720000400` migration creates `documents`; if you change this, create the bucket (private) by hand. |
 | `EB_SCANNER` | `noop` | `noop` records uploads as `scan_status='skipped'`. Set `clamav` to scan every upload against a clamd daemon before it is stored — an infected file is rejected, never persisted. A configured-but-unreachable scanner fails the upload closed. |
 | `EB_CLAMD_HOST` / `EB_CLAMD_PORT` | `127.0.0.1` / `3310` | clamd address, used when `EB_SCANNER=clamav`. |
+| `BILLING_ENFORCED` | off | `true` turns the server-side entitlement gate ON (gated functions require an active/trialing/comped firm). Leave unset during the comped beta; comped firms always pass. |
+| `SENTRY_DSN` | — (disabled) | Sentry → Project → Client Keys (DSN). Server error monitoring (`docs/32`). `SENTRY_ENVIRONMENT` and `SENTRY_TRACES_SAMPLE_RATE` are optional refinements. |
+| `WEBHOOK_SECRET` | — (503) | **Generate:** `openssl rand -hex 32`. Shared secret for the n8n continuous-evaluation webhooks (`POST /webhooks/scheduled/*`), sent as the `x-webhook-secret` header (`docs/07`). Unset → those endpoints reply 503. |
+| `PLATFORM_SUPERADMIN_IDS` | — (403) | Comma-separated Clerk user ids allowed to load methodology from inside the system (superadmin-gated `seed-methodology`, "Load methodology" on `/health`). |
 
 ### Optional — Ledger (QuickBooks / Xero) live connection
 
@@ -98,16 +123,25 @@ To point local dev at a real Supabase project instead, set `VITE_SUPABASE_URL` +
 | `VITE_SUPABASE_URL` | Vercel | no (public) | yes |
 | `VITE_SUPABASE_ANON_KEY` | Vercel | no (public) | yes |
 | `VITE_FUNCTIONS_URL` | Vercel | no | yes |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Vercel | no (public) | yes (prod) |
+| `VITE_SENTRY_DSN` | Vercel | no | optional |
 | `DATABASE_URL` | Compute | **yes** | yes |
-| `SUPABASE_URL` / `FUNCTIONS_JWT_SECRET` | Compute | **yes** | one of |
+| `CLERK_JWKS_URL` | Compute | no | yes (prod) |
+| `CLERK_SECRET_KEY` | Compute | **yes** | yes (prod) |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Compute | **yes** | yes (prod) |
+| `SUPABASE_URL` / `FUNCTIONS_JWT_SECRET` | Compute | **yes** | optional (legacy) |
 | `EB_DOCUMENT_KEY` | Compute | **yes** | yes (prod) |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Compute | **yes** | yes (billing) |
+| `BILLING_ENFORCED` | Compute | no | optional |
 | `FUNCTIONS_ALLOWED_ORIGIN` | Compute | no | recommended |
 | `EB_SIGNING_KEY` | Compute | **yes** | optional |
 | `ANTHROPIC_API_KEY` | Compute | **yes** | optional |
+| `SENTRY_DSN` / `WEBHOOK_SECRET` / `PLATFORM_SUPERADMIN_IDS` | Compute | mixed | optional |
 | `PORT`, `EB_CHROMIUM_PATH`, `EB_PARSER`, `EB_STORAGE`, `EB_SCANNER`, `EB_CLAMD_*` | Compute | no | optional |
 | `SUPABASE_SERVICE_ROLE_KEY` | Compute | **yes** | if `EB_STORAGE=supabase` |
 | `LEDGER_OAUTH_REDIRECT_URI` | Compute | no | optional |
 | `QUICKBOOKS_* / XERO_*` | Compute | **yes** | optional |
 
-Deploy order and the full walkthrough: **docs/12-vercel-supabase-setup.md**.
+Canonical variable list: **`.env.example`** (repo root).
+Live deployment walkthrough: **docs/29-exitblueprint-net-golive.md** (Clerk auth: **docs/30**).
 Security posture for each control: **docs/13-security-summary.md**.

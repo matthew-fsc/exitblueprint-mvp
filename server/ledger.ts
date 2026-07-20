@@ -130,7 +130,7 @@ export interface ManualFinancialsResult {
   question_codes: string[];
 }
 
-// The honest manual/upload path (docs/10-production-readiness.md, Phase 3): the
+// The honest manual/upload path (docs/archive/10-production-readiness.md, Phase 3): the
 // advisor or owner supplies the financial figures directly. When `documented` is
 // true they attest the numbers come from real financial statements / an export
 // (stamped `document` = verified); otherwise the figures are `self_reported`

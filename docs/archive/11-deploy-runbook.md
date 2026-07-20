@@ -1,6 +1,6 @@
 # Deploy runbook — standing up for the first real customer
 
-Companion to `docs/10-production-readiness.md`. Concrete, ordered steps to take
+Companion to `docs/archive/10-production-readiness.md`. Concrete, ordered steps to take
 the app from the dev emulator to a real deployment. Chosen runtime: **one Node
 compute service** (`server/http.ts`) + real Supabase (auth, REST, Postgres) +
 a static frontend.
