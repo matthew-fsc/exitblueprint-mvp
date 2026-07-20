@@ -51,6 +51,7 @@ export const qk = {
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
+  engagementCollaborators: (engagementId: string) => ['engagementCollaborators', engagementId] as const,
   education: (engagementId: string) => ['education', engagementId] as const,
   ledgerConnections: (companyId: string) => ['ledgerConnections', companyId] as const,
   valuation: (engagementId: string) => ['valuation', engagementId] as const,
@@ -1125,6 +1126,37 @@ export function useOwnerProfile(
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data as OwnerProfileRow) ?? null;
+    },
+  });
+}
+
+// ---- engagement collaborators (view-only external team) --------------------
+export interface EngagementCollaboratorRow {
+  id: string;
+  email: string;
+  full_name: string | null;
+  kind: 'cpa' | 'attorney' | 'advisor' | 'other';
+  status: 'invited' | 'active' | 'revoked';
+  created_at: string;
+}
+// The engagement's view-only external team (CPA, attorney, …). Revoked rows are
+// filtered out — this is the live roster the advisor manages. Read under RLS
+// (staff-only), so it returns nothing for owners/collaborators.
+export function useEngagementCollaborators(
+  engagementId: string | undefined,
+): UseQueryResult<EngagementCollaboratorRow[]> {
+  return useQuery({
+    queryKey: qk.engagementCollaborators(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_collaborators')
+        .select('id,email,full_name,kind,status,created_at')
+        .eq('engagement_id', engagementId!)
+        .neq('status', 'revoked')
+        .order('created_at');
+      if (error) throw new Error(error.message);
+      return (data as EngagementCollaboratorRow[]) ?? [];
     },
   });
 }

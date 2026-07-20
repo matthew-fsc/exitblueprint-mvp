@@ -20,6 +20,7 @@ const VALID_SCOPES: AuthScope[] = [
   'ledger-connect',
   'ledger-complete',
   'engagement',
+  'manage-engagement',
   'assessment',
   'platform-admin',
 ];

@@ -55,7 +55,9 @@ describe.skipIf(!url)('handleClerkEvent', () => {
   const orgId = 'org_webhook_test_1';
   const advisorUser = 'user_webhook_advisor_1';
   const ownerUser = 'user_webhook_owner_1';
+  const collabUser = 'user_webhook_collab_1';
   let companyId: string;
+  let engagementId: string;
 
   beforeAll(async () => {
     db = new pg.Client({ connectionString: url });
@@ -70,7 +72,15 @@ describe.skipIf(!url)('handleClerkEvent', () => {
   });
 
   async function cleanup() {
-    await db.query(`delete from profiles where user_id = any($1)`, [[advisorUser, ownerUser]]);
+    await db.query(`delete from profiles where user_id = any($1)`, [[advisorUser, ownerUser, collabUser]]);
+    await db.query(
+      `delete from engagement_collaborators where firm_id in (select id from firms where clerk_org_id = $1 or name = 'Webhook Firm')`,
+      [orgId],
+    );
+    await db.query(
+      `delete from engagements where firm_id in (select id from firms where clerk_org_id = $1 or name = 'Webhook Firm')`,
+      [orgId],
+    );
     await db.query(`delete from companies where name = 'Webhook Co'`);
     // agreement_versions references firms with no cascade — remove it before the firm.
     await db.query(
@@ -138,6 +148,51 @@ describe.skipIf(!url)('handleClerkEvent', () => {
     expect(prof.role).toBe('owner'); // metadata wins over the org role
     expect(prof.company_id).toBe(companyId);
     expect(prof.full_name).toBe('Olive Owner');
+  });
+
+  it('membership.created provisions a view-only collaborator scoped to the engagement + activates the roster', async () => {
+    const firmId = (await db.query(`select id from firms where clerk_org_id = $1`, [orgId])).rows[0].id;
+    engagementId = (
+      await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
+    ).rows[0].id;
+    // The roster row is written up-front by the invite; the webhook activates it.
+    await db.query(
+      `insert into engagement_collaborators (firm_id, engagement_id, company_id, email, kind, status)
+       values ($1, $2, $3, 'cpa@webhook.co', 'cpa', 'invited')`,
+      [firmId, engagementId, companyId],
+    );
+
+    const r = await handleClerkEvent(db, {
+      type: 'organizationMembership.created',
+      data: {
+        organization: { id: orgId },
+        public_user_data: { user_id: collabUser, identifier: 'cpa@webhook.co' },
+        role: 'org:member',
+        public_metadata: {
+          app_role: 'collaborator',
+          company_id: companyId,
+          engagement_id: engagementId,
+          email: 'cpa@webhook.co',
+          full_name: 'Cody CPA',
+        },
+      },
+    });
+    expect(r.handled).toBe(true);
+    const prof = (
+      await db.query(`select role, company_id, engagement_id from profiles where user_id = $1`, [collabUser])
+    ).rows[0];
+    expect(prof.role).toBe('collaborator');
+    expect(prof.company_id).toBe(companyId);
+    expect(prof.engagement_id).toBe(engagementId);
+    // The roster row is now active and linked to the provisioned identity.
+    const roster = (
+      await db.query(
+        `select status, user_id from engagement_collaborators where engagement_id = $1 and email = 'cpa@webhook.co'`,
+        [engagementId],
+      )
+    ).rows[0];
+    expect(roster.status).toBe('active');
+    expect(roster.user_id).toBe(collabUser);
   });
 
   it('membership.created is idempotent per user', async () => {

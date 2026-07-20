@@ -108,7 +108,8 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   const mfa = useMfaGate(session);
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
+  // Owners and view-only collaborators both live in the read-only portal.
+  if (profile?.role === 'owner' || profile?.role === 'collaborator') return <Navigate to="/portal" replace />;
   // A pure reviewer has no advisor workspace — send them to the review queue.
   if (profile?.role === 'reviewer') return <Navigate to="/review" replace />;
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
@@ -128,19 +129,22 @@ function RequireStaff({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
+  if (profile?.role === 'owner' || profile?.role === 'collaborator') return <Navigate to="/portal" replace />;
   if (!profile || !['advisor', 'admin', 'reviewer'].includes(profile.role)) {
     return <ProfileNotReady />;
   }
   return <>{children}</>;
 }
 
-function RequireOwner({ children }: { children: ReactNode }) {
+// The read-only portal is home to both the business owner and any view-only
+// external collaborator (CPA, attorney, …) invited to a single engagement.
+function RequirePortal({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
+  if (profile && profile.role !== 'owner' && profile.role !== 'collaborator')
+    return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -438,10 +442,10 @@ export default function App() {
           {/* Security page merged into Settings (MFA lives there now; the data-
               protection summary moved to the legal footer). Old links redirect. */}
           <Route path="/security" element={<Navigate to="/settings" replace />} />
-          <Route path="/portal" element={<RequireOwner><OwnerShell><OwnerHomePage /></OwnerShell></RequireOwner>} />
-          <Route path="/portal/plan" element={<RequireOwner><OwnerShell><OwnerPlanPage /></OwnerShell></RequireOwner>} />
-          <Route path="/portal/learn" element={<RequireOwner><OwnerShell><OwnerLearnPage /></OwnerShell></RequireOwner>} />
-          <Route path="/portal/documents" element={<RequireOwner><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequireOwner>} />
+          <Route path="/portal" element={<RequirePortal><OwnerShell><OwnerHomePage /></OwnerShell></RequirePortal>} />
+          <Route path="/portal/plan" element={<RequirePortal><OwnerShell><OwnerPlanPage /></OwnerShell></RequirePortal>} />
+          <Route path="/portal/learn" element={<RequirePortal><OwnerShell><OwnerLearnPage /></OwnerShell></RequirePortal>} />
+          <Route path="/portal/documents" element={<RequirePortal><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequirePortal>} />
           {/* Accounting integration (QuickBooks/Xero) is not offered yet — the
               connect surface is hidden and the old route folds back to the portal
               home so any stale link stays harmless. */}

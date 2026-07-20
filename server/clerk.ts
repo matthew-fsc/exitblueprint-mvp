@@ -13,7 +13,7 @@
 const CLERK_API_URL = (process.env.CLERK_API_URL ?? 'https://api.clerk.com/v1').replace(/\/+$/, '');
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 
-export type AppRole = 'admin' | 'advisor' | 'reviewer' | 'owner';
+export type AppRole = 'admin' | 'advisor' | 'reviewer' | 'owner' | 'collaborator';
 
 // Clerk is the identity provider exactly when its backend key is present.
 export function clerkEnabled(): boolean {

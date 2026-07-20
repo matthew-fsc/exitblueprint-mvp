@@ -320,29 +320,29 @@ function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
   );
 }
 
-// Account + organization management (name, email, password, MFA devices, firm
-// members) lives in Clerk, the identity provider. Rather than duplicate those
-// surfaces, link into Clerk's own portals from Settings. Only mounted on the
-// Clerk stack, so useClerk() always runs inside <ClerkProvider>.
+// Personal account (name, email, password, MFA devices) lives in Clerk, the
+// identity provider. Everything about the FIRM — its team, branding, and billing
+// — is managed here in Exit Blueprint, so there is a single home for firm
+// settings (no more editing membership or the org profile in two places). We link
+// out only to Clerk's personal-account portal; the firm/organization is the app's
+// responsibility. Only mounted on the Clerk stack, so useClerk() always runs
+// inside <ClerkProvider>.
 function ClerkAccountCard() {
   const clerk = useClerk();
   return (
     <SectionCard
-      title="Account & organization"
-      subtitle="Your sign-in, profile, and firm membership are managed in Clerk."
+      title="Your account"
+      subtitle="Your personal sign-in and security are managed in Clerk. Your firm's team, branding, and billing are managed here."
     >
       <div className="control-row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
         <button className="button-secondary" onClick={() => clerk.openUserProfile()}>
           Manage your account
         </button>
-        <button className="button-secondary" onClick={() => clerk.openOrganizationProfile()}>
-          Organization settings
-        </button>
       </div>
       <p className="muted text-sm" style={{ marginTop: 'var(--space-3)' }}>
-        Your name, email, password, and multi-factor devices live in your account. Your firm's
-        members are managed under the organization. The logo shown on client-facing reports is set
-        below — it is independent of any logo in Clerk.
+        Your name, email, password, and multi-factor devices live in your personal account. Your
+        firm's team is managed in the Team section below, and its branding — the logo and identity on
+        every client-facing report — under Branding.
       </p>
     </SectionCard>
   );

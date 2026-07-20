@@ -50,7 +50,7 @@ async function main() {
              fb as (insert into firms (name) values ('Firm B') returning id)
         select (select id from fa) firm_a, (select id from fb) firm_b,
                'user_clerk_a' user_a, 'user_clerk_b' user_b, 'user_clerk_o' user_o,
-               'user_clerk_adm' user_adm`)
+               'user_clerk_adm' user_adm, 'user_clerk_c' user_c`)
     ).rows[0];
 
     const companyA = (
@@ -95,6 +95,16 @@ async function main() {
         [ids.firm_a, companyA],
       )
     ).rows[0].id;
+    // A SECOND engagement in company A — used to prove a view-only collaborator
+    // scoped to engagementA sees ONLY that engagement, never a sibling engagement
+    // of the same company (per-engagement isolation, stronger than the owner's
+    // per-company scope).
+    const engagementA2 = (
+      await db.query(
+        `insert into engagements (firm_id, company_id) values ($1, $2) returning id`,
+        [ids.firm_a, companyA],
+      )
+    ).rows[0].id;
     const engagementB = (
       await db.query(
         `insert into engagements (firm_id, company_id) values ($1, $2) returning id`,
@@ -122,6 +132,20 @@ async function main() {
       `insert into engagement_agreements (firm_id, engagement_id, agreement_version_id)
        values ($1, $2, $3), ($4, $5, $6)`,
       [ids.firm_a, engagementA, agreementA, ids.firm_b, engagementB, agreementB],
+    );
+
+    // A view-only external collaborator (e.g. the client's CPA) scoped to
+    // engagementA only — carries firm_id + company_id + engagement_id — plus its
+    // roster row. Created here now that engagementA exists.
+    await db.query(
+      `insert into profiles (user_id, firm_id, role, company_id, engagement_id, full_name)
+       values ($1, $2, 'collaborator', $3, $4, 'CPA A')`,
+      [ids.user_c, ids.firm_a, companyA, engagementA],
+    );
+    await db.query(
+      `insert into engagement_collaborators (firm_id, engagement_id, company_id, email, kind, status, user_id)
+       values ($1, $2, $3, 'cpa@a.co', 'cpa', 'active', $4)`,
+      [ids.firm_a, engagementA, companyA, ids.user_c],
     );
 
     const rubric = (
@@ -334,7 +358,9 @@ async function main() {
     check('sees exactly own firm companies', co.rows.length === 1 && co.rows[0].name === 'Alpha Co',
       `saw ${JSON.stringify(co.rows)}`);
     const eng = await db.query('select id from engagements');
-    check('sees exactly own firm engagements', eng.rows.length === 1 && eng.rows[0].id === engagementA);
+    check('sees exactly own firm engagements',
+      eng.rows.length === 2 && eng.rows.every((r) => r.id === engagementA || r.id === engagementA2),
+      `saw ${JSON.stringify(eng.rows)}`);
     const firmB = await db.query('select * from firms where id = $1', [ids.firm_b]);
     check('cannot read firm B row', firmB.rows.length === 0);
     const assessB = await db.query('select * from assessments where firm_id = $1', [ids.firm_b]);
@@ -882,6 +908,47 @@ async function main() {
       ownerLib.rows.length >= 1 && ownerLib.rows.every((r) => r.firm_id === null),
       `saw ${ownerLib.rows.length} rows, ${ownerLib.rows.filter((r) => r.firm_id !== null).length} firm-scoped`,
     );
+
+    // --- Collaborator A: view-only, scoped to a SINGLE engagement ----------
+    // The client's CPA, invited to engagementA only. Proves the read-only portal
+    // scope is per-engagement (not per-company like the owner) and firm-isolated.
+    console.log('collaborator (engagement A, view-only):');
+    await asUser(ids.user_c);
+    const collabEng = await db.query('select id from engagements');
+    check('collaborator sees only their one engagement',
+      collabEng.rows.length === 1 && collabEng.rows[0].id === engagementA,
+      `saw ${JSON.stringify(collabEng.rows)}`);
+    const collabCo = await db.query('select name from companies');
+    check('collaborator sees only their engagement company',
+      collabCo.rows.length === 1 && collabCo.rows[0].name === 'Alpha Co', `saw ${JSON.stringify(collabCo.rows)}`);
+    const collabAssess = await db.query('select status from assessments');
+    check('collaborator sees only completed assessments',
+      collabAssess.rows.length === 1 && collabAssess.rows[0].status === 'completed',
+      `saw ${JSON.stringify(collabAssess.rows)}`);
+    let collabWriteBlocked = false;
+    try {
+      await db.query('savepoint cw');
+      await db.query(`update companies set name = 'Hijacked' where id = $1`, [companyA]);
+      const after = await db.query('select name from companies where id = $1', [companyA]);
+      collabWriteBlocked = after.rows[0]?.name !== 'Hijacked';
+      await db.query('release savepoint cw');
+    } catch {
+      collabWriteBlocked = true;
+      await db.query('rollback to savepoint cw');
+    }
+    check('collaborator cannot write (read-only role)', collabWriteBlocked);
+    // Internal advisory reasoning is staff-only — a collaborator never sees it.
+    const collabLog = await db.query('select id from engagement_log');
+    check('collaborator sees no engagement log (staff-only)', collabLog.rows.length === 0, `saw ${collabLog.rows.length}`);
+    // Firm branding renders their portal (profile carries firm_id), but never firm B's.
+    const collabBrand = await db.query('select display_name from firm_branding');
+    check('collaborator reads only their firm branding',
+      collabBrand.rows.length === 1 && collabBrand.rows[0].display_name === 'Firm A Advisory',
+      `saw ${JSON.stringify(collabBrand.rows)}`);
+    // Cannot enumerate the roster or other collaborators (staff-only table).
+    const collabRoster = await db.query('select id from engagement_collaborators');
+    check('collaborator cannot read the collaborator roster (staff-only)',
+      collabRoster.rows.length === 0, `saw ${collabRoster.rows.length}`);
 
     // --- Admin A: firm-staff access, same firm scope as an advisor ---------
     // Admins are admitted to the workspace by the frontend; RLS now grants them

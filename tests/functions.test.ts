@@ -173,6 +173,53 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     await service.query(`delete from auth.users where id = $1`, [strangerId]);
   });
 
+  it('manage-engagement: staff invites a view-only collaborator to the engagement', async () => {
+    const r = await handleFunctionCall(
+      'invite-collaborator',
+      { engagement_id: engagementId, email: 'router.cpa@test.co', full_name: 'Router CPA', kind: 'cpa' },
+      ctxFor(advisorUserId),
+    );
+    expect(r.kind).toBe('json');
+    if (r.kind === 'json') {
+      expect(r.status).toBe(200);
+      expect((r.body as { status: string; kind: string }).status).toBe('invited');
+      expect((r.body as { kind: string }).kind).toBe('cpa');
+    }
+    const prof = (
+      await service.query(`select role, engagement_id from profiles where email = 'router.cpa@test.co'`)
+    ).rows[0];
+    expect(prof?.role).toBe('collaborator');
+    expect(prof?.engagement_id).toBe(engagementId);
+    // Clean up (revoke through the router, then drop the identity).
+    const row = (
+      await service.query(`select id from engagement_collaborators where email = 'router.cpa@test.co'`)
+    ).rows[0];
+    const rev = await handleFunctionCall(
+      'revoke-collaborator',
+      { engagement_id: engagementId, collaborator_id: row.id },
+      ctxFor(advisorUserId),
+    );
+    expect(rev).toMatchObject({ kind: 'json', status: 200 });
+    expect(
+      (await service.query(`select id from profiles where email = 'router.cpa@test.co'`)).rowCount,
+    ).toBe(0);
+    await service.query(`delete from engagement_collaborators where email = 'router.cpa@test.co'`);
+    await service.query(`delete from auth.users where lower(email) = 'router.cpa@test.co'`);
+  });
+
+  it('manage-engagement: a non-staff caller cannot invite a collaborator (403)', async () => {
+    const strangerId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.nostaff2@test.co') returning id`)
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'invite-collaborator',
+      { engagement_id: engagementId, email: 'router.blocked2@test.co', kind: 'cpa' },
+      ctxFor(strangerId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 403 });
+    await service.query(`delete from auth.users where id = $1`, [strangerId]);
+  });
+
   it('engagement-scoped: compute-valuation authorizes via RLS and dispatches', async () => {
     const r = await handleFunctionCall('compute-valuation', { engagement_id: engagementId }, ctxFor(advisorUserId));
     expect(r.kind).toBe('json');
