@@ -7,3 +7,8 @@ dist/
 supabase/.temp/
 *.tsbuildinfo
 .vite/
+
+# Local agent skill tooling (installed via `npx skills add`, not app code)
+.agents/
+.claude/
+skills-lock.json
