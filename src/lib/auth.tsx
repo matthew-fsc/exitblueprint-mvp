@@ -104,10 +104,12 @@ function useIdleTimeout(active: boolean, onIdle: () => void): void {
   }, [active]);
 }
 
-// ── Supabase Auth provider (dev emulator + Supabase-Auth production) ──────────
-// Unchanged behavior from before the Clerk cutover: session/token come from
-// supabase.auth. Active whenever Clerk is not configured.
-function SupabaseAuthProvider({ children }: { children: ReactNode }) {
+// ── Dev-emulator auth provider (local dev + CI only) ──────────────────────────
+// Session/token come from supabase.auth talking to the local dev emulator
+// (dev/supabase-dev-server.ts). Active only when Clerk is not configured — i.e.
+// local dev and CI. Production always runs the Clerk provider below; the hosted
+// Supabase-Auth login this once served was removed when Clerk became standard.
+function DevAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -192,6 +194,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
 
 // The active provider is fixed at build time by whether Clerk is configured, so
 // each provider consistently calls its own hooks (no conditional-hook hazard).
-export const AuthProvider = isClerkStack ? ClerkAuthProvider : SupabaseAuthProvider;
+// Clerk in production; the dev emulator locally.
+export const AuthProvider = isClerkStack ? ClerkAuthProvider : DevAuthProvider;
 
 export const useAuth = () => useContext(AuthContext);

@@ -11,9 +11,9 @@ import App from './App';
 import { clerkPublishableKey, isClerkStack } from './lib/supabase';
 import './styles.css';
 
-// Clerk is the identity provider in production (docs/30). When its publishable
-// key is unset (local dev / CI / the Supabase-Auth beta), the tree renders
-// without ClerkProvider and auth falls back to the Supabase path unchanged.
+// Clerk is the standard identity provider (docs/30). When its publishable key is
+// unset (local dev / CI only), the tree renders without ClerkProvider and auth
+// uses the local dev emulator instead.
 const app = <App />;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

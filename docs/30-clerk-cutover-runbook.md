@@ -11,17 +11,21 @@ green under Clerk-shaped subjects).
 auth; Clerk **Organizations = firms**; the three RLS helpers and every policy
 body are unchanged — only *what issues the JWT* changes.
 
-## Config gate (nothing breaks until you flip it)
+## Config gate — Clerk is the standard
 
-The whole cutover is gated on one build-time var:
+Identity is gated on one build-time var, but Clerk is now the **standard** for
+every hosted deployment:
 
 - **`VITE_CLERK_PUBLISHABLE_KEY` set** → Clerk is the identity provider (login,
-  MFA, invites via Clerk).
-- **unset** → the app keeps the Supabase-Auth / dev-emulator path **unchanged**
-  (local dev, CI, and the current beta are untouched).
+  MFA, invites via Clerk). This is the production standard.
+- **unset** → the **local dev emulator** only (`dev/supabase-dev-server.ts`,
+  password `demo`), for local dev + CI. A *hosted* deployment without the key is
+  unsupported and the login page says so.
 
-So this can land and deploy without affecting the running beta; Clerk turns on
-only where the key is present.
+The hosted **Supabase-Auth password login was removed** (frontend login form,
+the `inviteUserByEmail` invite path, and the Supabase-admin provisioning note).
+The compute service still accepts the dev HS256 secret for local/CI, and Clerk's
+JWKS in production.
 
 ---
 
@@ -41,17 +45,40 @@ only where the key is present.
 - **MFA** (`src/lib/mfa.ts`): the in-app Supabase-AAL gate is satisfied by
   definition under Clerk (MFA is a Clerk policy).
 
+## Provisioning — automatic via `scripts/admin.ts`
+
+With `CLERK_SECRET_KEY` (and `DATABASE_URL`) set, the admin CLI provisions Clerk
+directly — no manual dashboard steps for firms/advisors:
+
+```
+# Creates the Clerk Organization and stores firms.clerk_org_id
+npm run admin -- create-firm --name "Summit Exit Advisors"
+
+# Creates/finds the Clerk user, adds the org membership, writes the profile
+# keyed to the Clerk user id (no auth.users row — identity lives in Clerk)
+npm run admin -- create-advisor --firm "Summit Exit Advisors" \
+  --email jo@summit.com --role admin --name "Jo Advisor"
+```
+
+The advisor then signs in through Clerk (email code / password reset, per your
+instance's enabled strategies). App role → Clerk org role: `admin` → `org:admin`,
+everything else → `org:member`. `profiles.role` stays the source of truth for RLS.
+
+Without `CLERK_SECRET_KEY` (local/CI), the same commands write `auth.users` +
+`profiles` for the dev emulator, unchanged.
+
 ## What still needs your Clerk account to complete + verify
 
 These can't be built/verified without a live Clerk app; steps below:
 
-1. Create the Clerk application, Organizations, and roles.
+1. Create the Clerk application, enable Organizations, set roles.
 2. Configure Supabase **third-party auth** to trust Clerk.
 3. Set the env vars on Vercel + Render.
-4. **Provisioning webhook** — the one piece of server code still to add once the
-   Clerk app exists (spec in §5): on `organizationMembership.created`, insert the
-   `profiles` row from the invitation's `public_metadata`. Until it exists,
-   provision owner profiles manually (`scripts/admin.ts`).
+4. **Owner-invite webhook (optional)** — advisors and firms are provisioned by
+   `admin.ts`, but *owner* self-serve invites (sent from the advisor UI via a
+   Clerk organization invitation) create the Clerk user only on acceptance. To
+   provision that owner's profile automatically, add the membership webhook
+   (spec in §5). Until then, provision owners with `scripts/admin.ts` too.
 
 ---
 
@@ -129,10 +156,12 @@ with `scripts/admin.ts`.
 
 ## Rollback
 
-Unset `VITE_CLERK_PUBLISHABLE_KEY` (frontend) and `CLERK_JWKS_URL` (compute
-service) and redeploy — the app returns to Supabase Auth with no code change. The
-DB identity columns are text and provider-agnostic, so no schema rollback is
-needed.
+Clerk is the standard; the hosted Supabase-Auth login is gone, so unsetting the
+key on a hosted deployment no longer yields a working password login (the login
+page reports "not configured"). To roll back, restore the pre-cutover build
+(which still had the Supabase-Auth path) and redeploy. The DB identity columns
+are text and provider-agnostic, so no schema rollback is needed. Local dev + CI
+are unaffected either way — they run the dev emulator, not Clerk.
 
 ## Not in this slice
 
