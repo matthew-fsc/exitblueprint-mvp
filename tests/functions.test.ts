@@ -119,6 +119,23 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     await service.query(`delete from auth.users where id = $1`, [strangerId]);
   });
 
+  it('staff-scoped: an admin is firm staff and is authorized for the review queue (#65)', async () => {
+    // Regression for the #65 gap one layer deeper: the frontend (RequireStaff) and
+    // RLS both treat admin as firm staff, so the staff functions must too. Before
+    // the fix this returned 403 "advisor or reviewer profile required".
+    const adminUserId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.admin@test.co') returning id`)
+    ).rows[0].id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name) values ($1, $2, 'admin', 'Router Admin')`,
+      [adminUserId, firmId],
+    );
+    const r = await handleFunctionCall('list-review-queue', {}, ctxFor(adminUserId));
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+    await service.query(`delete from profiles where user_id = $1`, [adminUserId]);
+    await service.query(`delete from auth.users where id = $1`, [adminUserId]);
+  });
+
   it('engagement-scoped: compute-valuation authorizes via RLS and dispatches', async () => {
     const r = await handleFunctionCall('compute-valuation', { engagement_id: engagementId }, ctxFor(advisorUserId));
     expect(r.kind).toBe('json');
