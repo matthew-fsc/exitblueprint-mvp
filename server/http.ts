@@ -85,7 +85,33 @@ if (process.env.NODE_ENV === 'production' && !process.env.EB_DOCUMENT_KEY) {
   );
 }
 
-const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 10 });
+// connectionTimeoutMillis is essential for the deploy health check: without it,
+// a slow/unreachable DB makes a query hang indefinitely (pg has no default
+// connect timeout). That is what previously hung /health and made Render time
+// the whole deploy out. Bound it so any DB call fails fast instead.
+const pool = new pg.Pool({
+  connectionString: DATABASE_URL,
+  max: 10,
+  connectionTimeoutMillis: 10_000,
+});
+
+// Bound a promise so a hung dependency (a stalled DB connect) can never make an
+// endpoint hang forever — it rejects after `ms` instead.
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
 
 function bearer(req: IncomingMessage): Promise<Claims | null> {
   const auth = req.headers.authorization;
@@ -141,12 +167,24 @@ const server = createServer(async (req, res) => {
   }
   const url = new URL(req.url ?? '/', 'http://localhost');
 
-  if (req.method === 'GET' && url.pathname === '/health') {
+  // Liveness — Render's deploy gate (healthCheckPath). It must confirm only that
+  // the process is up and serving HTTP, with NO external dependency: coupling the
+  // deploy gate to the DB is what let a slow/unreachable DB hang the request and
+  // time the deploy out (restart loop). A DB blip must not fail the deploy or kill
+  // a running instance; use /ready for the DB-aware signal.
+  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/healthz')) {
+    return json(res, 200, { ok: true });
+  }
+
+  // Readiness — is the service actually able to serve requests (DB reachable)?
+  // Bounded so it always responds quickly (never hangs): for monitoring / a load
+  // balancer, not the deploy gate.
+  if (req.method === 'GET' && url.pathname === '/ready') {
     try {
-      await pool.query('select 1');
-      return json(res, 200, { ok: true });
+      await withTimeout(pool.query('select 1'), 5_000, 'readiness db check');
+      return json(res, 200, { ok: true, db: true });
     } catch {
-      return json(res, 503, { ok: false });
+      return json(res, 503, { ok: false, db: false });
     }
   }
 

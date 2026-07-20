@@ -86,6 +86,12 @@ values below — skip to step 4. Or do it by hand:
    **Docker Build Context Directory** to the repo root (`.`) — the image copies
    `server/`, `shared/`, and the lockfile from root.
 3. **Health check path:** `/health` (the service returns `{ "ok": true }`).
+   This is a **liveness** probe — it confirms the process is up and has **no
+   database dependency**, so a slow/unreachable DB can never hang the request and
+   time the deploy out. For a **readiness** signal (DB reachable) use `/ready`,
+   which returns `{ "ok": true, "db": true }` (200) or `{ "ok": false, "db":
+   false }` (503) and is bounded so it always responds quickly. Point Render's
+   deploy health check at `/health`, not `/ready`.
    The service listens on `PORT` (default `8787`); Render injects `PORT`
    automatically, and the service already reads it.
 4. **Environment variables:**
