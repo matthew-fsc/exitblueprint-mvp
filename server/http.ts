@@ -26,12 +26,21 @@ const PORT = Number(process.env.PORT ?? 8787);
 // legacy project sets FUNCTIONS_JWT_SECRET (HS256); a project on asymmetric
 // signing keys sets SUPABASE_URL so tokens verify against its JWKS. Setting
 // both is fine (and correct mid-rotation) — the token's `alg` picks the path.
-const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, '');
+// Normalize a URL-ish env value: trim (a pasted trailing newline/space in a
+// host's env UI otherwise makes `new URL` throw), drop trailing slashes, and
+// tolerate a missing scheme (`ref.supabase.co` → `https://ref.supabase.co`) —
+// the most common misconfiguration when copying a project URL by hand.
+function normalizeBaseUrl(raw: string | undefined): string | undefined {
+  const v = raw?.trim().replace(/\/+$/, '');
+  if (!v) return undefined;
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+const SUPABASE_URL = normalizeBaseUrl(process.env.SUPABASE_URL);
 // Clerk cutover (docs/30): once the app authenticates via Clerk, tokens are Clerk
 // session JWTs. Point the JWKS at Clerk's key set to verify them. CLERK_JWKS_URL
 // wins over the Supabase JWKS when set (both are asymmetric, so one key set is
 // used at a time); FUNCTIONS_JWT_SECRET (HS256) still works alongside for dev/CI.
-const CLERK_JWKS_URL = process.env.CLERK_JWKS_URL?.replace(/\/$/, '');
+const CLERK_JWKS_URL = normalizeBaseUrl(process.env.CLERK_JWKS_URL);
 const jwksUrl =
   CLERK_JWKS_URL ?? (SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` : undefined);
 if (!process.env.FUNCTIONS_JWT_SECRET && !jwksUrl) {
@@ -39,6 +48,20 @@ if (!process.env.FUNCTIONS_JWT_SECRET && !jwksUrl) {
     'Set FUNCTIONS_JWT_SECRET (legacy HS256), SUPABASE_URL (Supabase JWKS), or CLERK_JWKS_URL (Clerk JWKS) to verify tokens',
   );
   process.exit(1);
+}
+// Fail with a clear, actionable message instead of a cryptic `new URL` stack
+// trace deep in the JWKS client when the value is malformed.
+if (jwksUrl) {
+  try {
+    new URL(jwksUrl);
+  } catch {
+    const badVar = CLERK_JWKS_URL ? 'CLERK_JWKS_URL' : 'SUPABASE_URL';
+    console.error(
+      `${badVar} is not a valid URL (got "${jwksUrl}"). Set it to a full URL, ` +
+        'e.g. SUPABASE_URL=https://<ref>.supabase.co or CLERK_JWKS_URL=https://<clerk-domain>/.well-known/jwks.json',
+    );
+    process.exit(1);
+  }
 }
 const verifyToken = makeVerifyToken({
   hsSecret: process.env.FUNCTIONS_JWT_SECRET,
