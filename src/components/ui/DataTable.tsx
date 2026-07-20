@@ -103,6 +103,18 @@ export function DataTable<Row>({
               key={keyFor(row)}
               className={onRowClick ? 'clickable' : undefined}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }
             >
               {columns.map((c) => (
                 <td key={c.key} className={c.numeric ? 'num' : undefined}>

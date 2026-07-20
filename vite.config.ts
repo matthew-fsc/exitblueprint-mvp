@@ -30,6 +30,22 @@ export default defineConfig(() => ({
     // real Supabase URL is configured. Production builds never include it.
     ...(process.env.VITE_SUPABASE_URL ? [] : [supabaseDevServer()]),
   ],
+  // Split the heavy, rarely-changing vendor libraries into their own long-cached
+  // chunks so a route or app change doesn't invalidate them, and so the entry
+  // chunk shrinks (route code is additionally lazy-loaded in src/App.tsx). Clerk
+  // in particular is large and unused on the local dev-emulator path.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          clerk: ['@clerk/react'],
+          supabase: ['@supabase/supabase-js'],
+          query: ['@tanstack/react-query'],
+        },
+      },
+    },
+  },
   // GitHub Codespaces serves the dev server through *.app.github.dev over
   // TLS on 443 — the HMR websocket must connect back through that port.
   ...(process.env.CODESPACES

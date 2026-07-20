@@ -27,6 +27,8 @@
     "@clerk/react": "^6.12.5",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/inter-tight": "^5.2.7",
+    "@sentry/node": "^10.67.0",
+    "@sentry/react": "^10.67.0",
     "@supabase/supabase-js": "^2.110.1",
     "@tanstack/react-query": "^5.101.2",
     "@vercel/analytics": "^2.0.1",
@@ -37,6 +39,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.18.1",
+    "stripe": "^22.3.2",
     "tsx": "^4.19.2",
     "zod": "^3.24.1"
   },

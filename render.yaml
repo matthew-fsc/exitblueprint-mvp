@@ -64,3 +64,27 @@ services:
       # Optional: turns on real Claude narrative in reports. Omit to ship without it.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Stripe billing (docs/24). STRIPE_SECRET_KEY (sk_...) enables checkout +
+      # billing-portal sessions; STRIPE_WEBHOOK_SECRET (whsec_...) signature-verifies
+      # POST /webhooks/stripe. Point the Stripe dashboard webhook at
+      # https://api.exitblueprint.net/webhooks/stripe and paste its secret here.
+      # Unset → billing endpoints reply 503 (the app runs comped).
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # 'true' turns the server-side entitlement gate ON (gated functions require an
+      # active/trialing/comped firm). Leave unset during the comped beta.
+      - key: BILLING_ENFORCED
+        sync: false
+      # Shared secret for the continuous-evaluation webhooks (docs/07) that n8n calls
+      # on a schedule (POST /webhooks/scheduled/*), sent as the x-webhook-secret
+      # header. Unset → those endpoints reply 503.
+      - key: WEBHOOK_SECRET
+        sync: false
+      # Error monitoring (docs/32). Unset → disabled (no SDK active). SENTRY_ENVIRONMENT
+      # and SENTRY_TRACES_SAMPLE_RATE are optional refinements.
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        sync: false

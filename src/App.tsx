@@ -7,36 +7,47 @@ import { isDevStack } from './lib/supabase';
 import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
 import { BrandingProvider, useBrand } from './lib/branding';
 import { Analytics } from '@vercel/analytics/react';
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import ClientsPage from './pages/ClientsPage';
-import EngagementPage from './pages/EngagementPage';
-import DeltaReportPage from './pages/DeltaReportPage';
-import RoadmapPage from './pages/RoadmapPage';
-import BuyerLensPage from './pages/BuyerLensPage';
-import LibraryPage from './pages/LibraryPage';
-import ValuationPage from './pages/ValuationPage';
-import OwnerHomePage from './pages/owner/OwnerHomePage';
-import OwnerPlanPage from './pages/owner/OwnerPlanPage';
-import OwnerLearnPage from './pages/owner/OwnerLearnPage';
-import OwnerDocumentsPage from './pages/owner/OwnerDocumentsPage';
-import OwnerConnectPage from './pages/owner/OwnerConnectPage';
-import LedgerCallbackPage from './pages/LedgerCallbackPage';
-import IntakePage from './pages/IntakePage';
-import ResultsPage from './pages/ResultsPage';
-import WorkbenchPage from './pages/WorkbenchPage';
-import ReportPage from './pages/ReportPage';
-import CimPage from './pages/CimPage';
-import EvidencePage from './pages/EvidencePage';
-import ReviewQueuePage from './pages/ReviewQueuePage';
-import ReviewDocumentPage from './pages/ReviewDocumentPage';
-import SecurityPage from './pages/SecurityPage';
-import SettingsPage from './pages/SettingsPage';
-import HealthPage from './pages/HealthPage';
-import VerifyPage from './pages/VerifyPage';
-import ComponentsPage from './pages/ComponentsPage';
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { getMfaState, type MfaState } from './lib/mfa';
+import { LegalFooter } from './components/LegalFooter';
+import LoginPage from './pages/LoginPage';
+
+// Route-level code-splitting (frontend audit / docs/32): every page except the
+// login screen (first paint) is loaded on demand, so the initial bundle is the
+// shell + login rather than all ~30 route modules. <Suspense> (below) streams a
+// page loading state while each chunk downloads.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ClientsPage = lazy(() => import('./pages/ClientsPage'));
+const EngagementPage = lazy(() => import('./pages/EngagementPage'));
+const DeltaReportPage = lazy(() => import('./pages/DeltaReportPage'));
+const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
+const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const ValuationPage = lazy(() => import('./pages/ValuationPage'));
+const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
+const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
+const OwnerLearnPage = lazy(() => import('./pages/owner/OwnerLearnPage'));
+const OwnerDocumentsPage = lazy(() => import('./pages/owner/OwnerDocumentsPage'));
+const OwnerConnectPage = lazy(() => import('./pages/owner/OwnerConnectPage'));
+const LedgerCallbackPage = lazy(() => import('./pages/LedgerCallbackPage'));
+const IntakePage = lazy(() => import('./pages/IntakePage'));
+const ResultsPage = lazy(() => import('./pages/ResultsPage'));
+const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
+const ReportPage = lazy(() => import('./pages/ReportPage'));
+const CimPage = lazy(() => import('./pages/CimPage'));
+const EvidencePage = lazy(() => import('./pages/EvidencePage'));
+const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
+const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
+const SecurityPage = lazy(() => import('./pages/SecurityPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
+const HealthPage = lazy(() => import('./pages/HealthPage'));
+const VerifyPage = lazy(() => import('./pages/VerifyPage'));
+const ComponentsPage = lazy(() => import('./pages/ComponentsPage'));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
+const DpaPage = lazy(() => import('./pages/legal/DpaPage'));
+const SubprocessorsPage = lazy(() => import('./pages/legal/SubprocessorsPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -207,6 +218,7 @@ function Shell({ children }: { children: ReactNode }) {
     <BrandingProvider>
       <AppBar />
       <main className="page">{children}</main>
+      <LegalFooter />
     </BrandingProvider>
   );
 }
@@ -254,6 +266,7 @@ function OwnerShell({ children }: { children: ReactNode }) {
     <BrandingProvider>
       <OwnerAppBar />
       <main className="page">{children}</main>
+      <LegalFooter />
     </BrandingProvider>
   );
 }
@@ -266,11 +279,23 @@ export default function App() {
           <BrowserRouter>
             <AuthProvider>
               <SpeedInsights />
+              <Suspense fallback={<main className="page"><LoadingState variant="page" /></main>}>
               <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/health" element={<main className="page"><HealthPage /></main>} />
-          <Route path="/dev/verify" element={<main className="page"><VerifyPage /></main>} />
-          <Route path="/dev/components" element={<main className="page"><ComponentsPage /></main>} />
+          {/* Public legal/trust pages (draft, pending counsel) — render their own
+              page shell, no auth. Above the catch-all so they aren't swallowed. */}
+          <Route path="/legal/terms" element={<TermsPage />} />
+          <Route path="/legal/privacy" element={<PrivacyPage />} />
+          <Route path="/legal/dpa" element={<DpaPage />} />
+          <Route path="/legal/subprocessors" element={<SubprocessorsPage />} />
+          {/* Dev-only scaffolding — never routed in a production build. */}
+          {import.meta.env.DEV && (
+            <>
+              <Route path="/dev/verify" element={<main className="page"><VerifyPage /></main>} />
+              <Route path="/dev/components" element={<main className="page"><ComponentsPage /></main>} />
+            </>
+          )}
           <Route
             path="/"
             element={
@@ -474,8 +499,19 @@ export default function App() {
               </RequireAdvisor>
             }
           />
+          <Route
+            path="/settings/billing"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <BillingPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </Suspense>
             </AuthProvider>
           </BrowserRouter>
         </ToastProvider>

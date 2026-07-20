@@ -29,6 +29,7 @@ import { syncLedgerToAssessment, enterManualFinancials, type ManualFinancialEntr
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
+import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { createEngagementWithAgreement } from './agreements';
 import {
@@ -572,6 +573,48 @@ export const REGISTRY: Record<string, FunctionSpec> = {
         ).rowCount === 1;
       if (!owns) return err(404, 'connection not found');
       return ok(await disconnectLedger(service, { connectionId: body.connection_id as string }));
+    },
+  },
+
+  // ── Billing (Stripe) — checkout + self-serve portal. Deliberately NOT gated:
+  // a lapsed firm MUST be able to reach checkout/portal to restore access
+  // (entitlement gate lives in functions.ts for paid *work* endpoints). The
+  // firm's Stripe customer id is resolved server-side from its own row, never
+  // the body. Engine 'workflow' — this keeps the engagement's account active so
+  // work can continue (billing has no dedicated engine; see docs/06).
+  'create-checkout-session': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: async ({ service, body, firmId }) => {
+      if (!stripeConfigured()) return err(503, 'billing not configured');
+      const cust =
+        (await service.query(`select stripe_customer_id from firms where id = $1`, [firmId])).rows[0]
+          ?.stripe_customer_id ?? null;
+      return createCheckoutSession(
+        {
+          firmId: firmId as string,
+          planCode: body.plan_code as string,
+          stripeCustomerId: cust,
+          successUrl: body.success_url as string,
+          cancelUrl: body.cancel_url as string,
+        },
+        { stripe: getStripe(), db: service },
+      ).then(ok);
+    },
+  },
+  'create-billing-portal-session': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: async ({ service, body, firmId }) => {
+      if (!stripeConfigured()) return err(503, 'billing not configured');
+      const cust =
+        (await service.query(`select stripe_customer_id from firms where id = $1`, [firmId])).rows[0]
+          ?.stripe_customer_id ?? null;
+      if (!cust) return err(400, 'no Stripe customer for this firm yet');
+      return createBillingPortalSession(
+        { stripeCustomerId: cust, returnUrl: body.return_url as string },
+        { stripe: getStripe() },
+      ).then(ok);
     },
   },
 };
