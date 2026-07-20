@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
+  functionsBaseUrl,
+  functionsUrlConfigured,
   getAccessToken,
   isClerkStack,
   isDevStack,
@@ -48,6 +50,42 @@ async function checkSupabaseApi(): Promise<Check> {
       : { name: 'Supabase API', state: 'fail', detail: `HTTP ${res.status} from ${supabaseUrl}` };
   } catch {
     return { name: 'Supabase API', state: 'fail', detail: `Cannot reach ${supabaseUrl}` };
+  }
+}
+
+// The compute service that serves every /functions/v1/* call (valuation,
+// reports, review queue, comparables, …). The classic hosted misconfiguration —
+// and the usual cause of a pervasive "we couldn't reach the server" on
+// function-backed views — is leaving VITE_FUNCTIONS_URL UNSET: function calls
+// then fall back to the Supabase URL, which does not serve them, so the browser
+// blocks each one at the CORS preflight. Name that explicitly, then prove the
+// resolved endpoint is actually reachable.
+async function checkFunctionsService(): Promise<Check> {
+  if (isDevStack) {
+    return { name: 'Functions service', state: 'ok', detail: 'Same-origin dev emulator.' };
+  }
+  if (!functionsUrlConfigured) {
+    return {
+      name: 'Functions service',
+      state: 'fail',
+      detail:
+        `VITE_FUNCTIONS_URL is not set, so /functions/v1/* calls go to ${functionsBaseUrl} (the ` +
+        'Supabase URL), which does not serve this app’s functions — every function-backed view fails ' +
+        'its CORS preflight ("we couldn’t reach the server"). Set VITE_FUNCTIONS_URL to the compute ' +
+        'service (e.g. https://api.exitblueprint.net) in Vercel and redeploy (docs/29 §3).',
+    };
+  }
+  try {
+    const res = await fetch(`${functionsBaseUrl}/health`);
+    return res.ok
+      ? { name: 'Functions service', state: 'ok', detail: `${functionsBaseUrl} reachable` }
+      : { name: 'Functions service', state: 'fail', detail: `HTTP ${res.status} from ${functionsBaseUrl}/health` };
+  } catch {
+    return {
+      name: 'Functions service',
+      state: 'fail',
+      detail: `Cannot reach ${functionsBaseUrl}/health — is the compute service up and is VITE_FUNCTIONS_URL correct?`,
+    };
   }
 }
 
@@ -219,6 +257,7 @@ export default function HealthPage() {
       detail: supabaseUrl ? 'VITE_SUPABASE_URL configured' : 'VITE_SUPABASE_URL missing',
     },
     { name: 'Supabase API', state: 'pending', detail: 'checking…' },
+    { name: 'Functions service', state: 'pending', detail: 'checking…' },
     { name: 'Session token', state: 'pending', detail: 'checking…' },
     { name: 'RLS role claim', state: 'pending', detail: 'checking…' },
     { name: 'Authenticated read', state: 'pending', detail: 'checking…' },
@@ -238,6 +277,7 @@ export default function HealthPage() {
         },
       ];
       const api = await checkSupabaseApi();
+      const functions = await checkFunctionsService();
       const token = await getAccessToken().catch(() => null);
       const hasToken = !!token && token !== 'dev-anon-key';
       const claims = hasToken && token ? decodeJwt(token) : null;
@@ -245,7 +285,7 @@ export default function HealthPage() {
       const sessionChecks = await checkSessionToken();
       const readCheck = await checkAuthenticatedRead(hasToken);
       const linkageChecks = await checkProfileLinkage(sub);
-      if (alive) setChecks([...base, api, ...sessionChecks, readCheck, ...linkageChecks]);
+      if (alive) setChecks([...base, api, functions, ...sessionChecks, readCheck, ...linkageChecks]);
     })();
     return () => {
       alive = false;

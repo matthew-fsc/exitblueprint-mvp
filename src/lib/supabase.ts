@@ -18,7 +18,28 @@ const anonKey = env(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 // Supabase project that handles auth + REST. VITE_FUNCTIONS_URL points at it;
 // unset (dev), functions are same-origin, i.e. the dev emulator. Auth and REST
 // always go through the supabase client above; only functions are redirected.
+const functionsUrlExplicit = !!env(import.meta.env.VITE_FUNCTIONS_URL as string | undefined);
 const functionsUrl = env(import.meta.env.VITE_FUNCTIONS_URL as string | undefined) || url;
+
+// Exposed for the /health diagnostic: the resolved base URL for /functions/v1/*
+// and whether VITE_FUNCTIONS_URL was set explicitly. The classic hosted
+// misconfiguration is leaving it UNSET: functions then fall back to the Supabase
+// URL, which does not serve this app's functions (they run on the separate
+// compute service), so every function call fails its CORS preflight and the UI
+// reports "we couldn't reach the server" (docs/29 §3 — never unset in prod).
+export const functionsBaseUrl = functionsUrl;
+export const functionsUrlConfigured = functionsUrlExplicit;
+
+// Surface that misconfiguration in the console the moment the app loads, right
+// next to the CORS errors it causes — a hosted build (a real VITE_SUPABASE_URL
+// is set) with no VITE_FUNCTIONS_URL is always wrong.
+if (import.meta.env.PROD && env(import.meta.env.VITE_SUPABASE_URL as string | undefined) && !functionsUrlExplicit) {
+  console.error(
+    `VITE_FUNCTIONS_URL is not set: /functions/v1/* calls will go to ${functionsUrl} (the Supabase ` +
+      'URL), which does not serve this app’s functions — they will fail CORS. Set VITE_FUNCTIONS_URL ' +
+      'to the compute service (e.g. https://api.exitblueprint.net) in Vercel and redeploy (docs/29 §3).',
+  );
+}
 
 // Clerk is the STANDARD identity provider (docs/30). A publishable key is present
 // in every hosted deployment; login, MFA, and invites go through Clerk. Unset →
