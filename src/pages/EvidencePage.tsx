@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   useAssessmentsByEngagement,
   useCompany,
@@ -67,6 +67,13 @@ export default function EvidencePage() {
                 </>
               )}
             </>
+          }
+          actions={
+            latest ? (
+              <Link className="button-link" to={`/assessment/${latest.id}/cim`}>
+                Package into CIM →
+              </Link>
+            ) : undefined
           }
         />
         {engagementId && <EngagementNav engagementId={engagementId} />}

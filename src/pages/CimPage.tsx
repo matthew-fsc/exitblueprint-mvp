@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
-import { qk, useLatestReport, useActiveAssessment, useEngagement, useCompany } from '../lib/queries';
+import {
+  qk,
+  useLatestDoc,
+  useCimCoverage,
+  useActiveAssessment,
+  useEngagement,
+  useCompany,
+} from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
@@ -10,53 +17,50 @@ import { Collapsible, EngagementNav, FirmMark, PageHeader, SkeletonLines, useToa
 import { fmtDate } from '../lib/format';
 import { renderMarkdown } from '../lib/markdown';
 
-export default function ReportPage() {
+// The CIM (Confidential Information Memorandum) deliverable: the market-facing
+// document that packages the engagement's collected evidence for a buyer. It
+// mirrors the owner report's generate → edit → finalize → branded-PDF flow, and
+// leads with a CIM Readiness panel that shows which sections are backed by
+// Ready/verified evidence and routes the advisor back to Evidence to collect the
+// rest — the surface that postures evidence collection toward the CIM.
+export default function CimPage() {
   const { assessmentId } = useParams();
   const qc = useQueryClient();
   const toast = useToast();
   const { profile } = useAuth();
   const { brand, branding } = useBrand();
-  const reportQ = useLatestReport(assessmentId);
-  const doc = reportQ.data ?? null;
-  // Keep the engagement frame around the report (docs/22 F3): load the chain to
-  // the owning engagement so the masthead breadcrumbs and tab bar stay present.
+  const docQ = useLatestDoc(assessmentId, 'cim');
+  const doc = docQ.data ?? null;
   const assessmentQ = useActiveAssessment(assessmentId);
   const engagementId = assessmentQ.data?.engagement_id;
   const engagementQ = useEngagement(engagementId);
   const companyQ = useCompany(engagementQ.data?.company_id);
   const companyName = companyQ.data?.name ?? '';
+  const coverageQ = useCimCoverage(engagementId);
+  const coverage = coverageQ.data ?? null;
+
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const autoTried = useRef(false);
 
   useEffect(() => {
     setDraft(doc?.content_md ?? '');
   }, [doc]);
 
-  const refresh = () => qc.invalidateQueries({ queryKey: qk.latestReport(assessmentId ?? '') });
+  const refresh = () => qc.invalidateQueries({ queryKey: qk.latestDoc(assessmentId ?? '', 'cim') });
 
   const generate = async () => {
     setBusy(true);
     setError(null);
     try {
-      await invokeFunction('generate-document', { assessment_id: assessmentId, doc_type: 'owner_report' });
+      await invokeFunction('generate-document', { assessment_id: assessmentId, doc_type: 'cim' });
       refresh();
-      toast.show('Report generated', 'good');
+      toast.show('CIM generated', 'good');
     } catch (err) {
       setError((err as Error).message);
     }
     setBusy(false);
   };
-
-  // Auto-generate on first visit so the advisor lands on a finished document, not
-  // an empty page with a button. Fires once, only when no report exists yet.
-  useEffect(() => {
-    if (reportQ.isLoading || doc || !assessmentId || autoTried.current || busy) return;
-    autoTried.current = true; // synchronous guard — no double-fire under StrictMode
-    void generate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportQ.isLoading, doc, assessmentId]);
 
   const copySource = async () => {
     try {
@@ -87,7 +91,7 @@ export default function ReportPage() {
       .update({ content_md: draft, finalized_at: new Date().toISOString() })
       .eq('id', doc.id);
     if (error) setError(error.message);
-    else toast.show('Report finalized', 'good');
+    else toast.show('CIM finalized', 'good');
     refresh();
     setBusy(false);
   };
@@ -96,17 +100,15 @@ export default function ReportPage() {
     setBusy(true);
     setError(null);
     try {
-      // The PDF renders from the saved content, so flush any unsaved edits first
-      // — the download always matches the polished doc on screen.
       if (doc && !doc.finalized_at && draft !== doc.content_md) {
         await supabase.from('generated_documents').update({ content_md: draft }).eq('id', doc.id);
         refresh();
       }
-      const blob = await invokeFunctionBlob('render-owner-pdf', { assessment_id: assessmentId });
+      const blob = await invokeFunctionBlob('render-cim-pdf', { assessment_id: assessmentId });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'exit-readiness-report.pdf';
+      a.download = 'confidential-information-memorandum.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -116,7 +118,7 @@ export default function ReportPage() {
         name: 'report_downloaded',
         firmId: profile?.firm_id,
         profileId: profile?.id,
-        properties: { assessment_id: assessmentId, doc_type: 'owner_report' },
+        properties: { assessment_id: assessmentId, doc_type: 'cim' },
       });
     } catch (err) {
       setError((err as Error).message);
@@ -124,47 +126,112 @@ export default function ReportPage() {
     setBusy(false);
   };
 
-  if (reportQ.isLoading) return <SkeletonLines lines={6} />;
+  if (docQ.isLoading) return <SkeletonLines lines={6} />;
 
   const ruleBased = (doc?.model ?? '').startsWith('rule-based');
   const finalized = !!doc?.finalized_at;
+  const evidenceHref = engagementId ? `/engagement/${engagementId}/evidence` : '#';
 
   return (
     <div className="report">
       <header className="page-masthead no-print">
-      <PageHeader
-        title="Owner report"
-        crumbs={[
-          { label: 'Portfolio', to: '/' },
-          ...(engagementId
-            ? [{ label: companyName || 'Engagement', to: `/engagement/${engagementId}` }]
-            : []),
-          { label: 'Owner report' },
-        ]}
-        actions={
-          <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
-            ← results
-          </Link>
-        }
-      />
-      {engagementId && <EngagementNav engagementId={engagementId} />}
+        <PageHeader
+          title="Confidential Information Memorandum"
+          crumbs={[
+            { label: 'Portfolio', to: '/' },
+            ...(engagementId
+              ? [{ label: companyName || 'Engagement', to: `/engagement/${engagementId}` }]
+              : []),
+            { label: 'CIM' },
+          ]}
+          actions={
+            <Link className="button-link" to={`/assessment/${assessmentId}/results`}>
+              ← results
+            </Link>
+          }
+        />
+        {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
       {error && <p className="form-error no-print">{error}</p>}
+
+      {/* CIM Readiness — postures evidence collection toward the memorandum. */}
+      {coverage && (
+        <section className="cim-readiness no-print">
+          <div className="cim-readiness-head">
+            <div>
+              <span className="cim-readiness-eyebrow">CIM readiness</span>
+              <p className="cim-readiness-sub muted">
+                How much of the memorandum is backed by evidence already assembled in the data room.
+                Collect the rest in <Link to={evidenceHref}>Evidence</Link>.
+              </p>
+            </div>
+            <div className="cim-readiness-figure">
+              <span className="cim-readiness-pct">{coverage.summary.pct}%</span>
+              <span className="muted">
+                {coverage.summary.itemsReady} of {coverage.summary.itemsTotal} items ready
+              </span>
+            </div>
+          </div>
+          <div className="cim-section-grid">
+            {coverage.sections.map((s) => (
+              <div key={s.code} className={`cim-section-row ${s.narrative ? 'cim-section-narrative' : ''}`}>
+                <span className="cim-section-name">{s.name}</span>
+                {s.narrative ? (
+                  <span className="cim-section-tag muted">Narrative</span>
+                ) : (
+                  <>
+                    <span className="cim-section-track" title={`${s.itemsReady} of ${s.itemsTotal} ready`}>
+                      <span
+                        className={`cim-section-fill ${s.pct >= 100 ? 'is-full' : s.pct > 0 ? 'is-partial' : 'is-empty'}`}
+                        style={{ width: `${s.pct}%` }}
+                      />
+                    </span>
+                    <span className="cim-section-count">
+                      {s.itemsReady}/{s.itemsTotal}
+                      {s.itemsVerified > 0 && <span className="cim-verified"> · {s.itemsVerified} verified</span>}
+                    </span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          {coverage.sections.some((s) => s.missing.length > 0) && (
+            <Collapsible title="What's still needed" hint="Evidence items to collect before the CIM is fully backed">
+              <ul className="cim-missing-list">
+                {coverage.sections
+                  .filter((s) => s.missing.length > 0)
+                  .flatMap((s) =>
+                    s.missing.map((m) => (
+                      <li key={`${s.code}-${m.item_code}`}>
+                        <span className="cim-missing-section">{s.name}</span>
+                        <span className="cim-missing-label">{m.label}</span>
+                        <Link className="button-link" to={evidenceHref}>
+                          Collect →
+                        </Link>
+                      </li>
+                    )),
+                  )}
+              </ul>
+            </Collapsible>
+          )}
+        </section>
+      )}
 
       {!doc ? (
         <div className="report-generating no-print">
           {busy ? (
             <>
               <div className="report-spinner" aria-hidden />
-              <p className="muted">Composing the report from this assessment’s scores and flagged gaps…</p>
+              <p className="muted">Assembling the memorandum from the company profile, strengths, and verified evidence…</p>
             </>
           ) : (
             <>
               <p className="muted">
-                The report is built server-side from this assessment’s scores and flagged gaps — every
-                figure traces back to an answer, and no number is invented.
+                The CIM is drafted server-side from the company profile, the assessment's strengths, and
+                the evidence already collected. It is a buyer-facing marketing draft — review and edit it
+                before sharing. No number is invented; no weakness is surfaced.
               </p>
-              <button onClick={generate}>Generate owner report</button>
+              <button onClick={generate}>Generate CIM draft</button>
             </>
           )}
         </div>
@@ -176,7 +243,7 @@ export default function ReportPage() {
                 {finalized ? `Finalized ${fmtDate(doc.finalized_at)}` : ruleBased ? 'Draft' : 'AI draft'}
               </span>
               <span className="muted report-toolbar-meta">
-                {ruleBased ? 'Composed from your scores and flagged gaps' : `Drafted by ${doc.model}`} ·
+                {ruleBased ? 'Composed from the company profile, strengths, and verified evidence' : `Drafted by ${doc.model}`} ·
                 generated {new Date(doc.created_at).toLocaleString()}
               </span>
             </div>
@@ -195,8 +262,6 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* The raw Markdown source, tucked into an expand bar above the polished
-              document so it never competes with it — open it to tweak or copy. */}
           {!finalized && (
             <Collapsible title="Edit source" hint="Raw Markdown — edit the wording or copy it out">
               <textarea
@@ -216,8 +281,6 @@ export default function ReportPage() {
             </Collapsible>
           )}
 
-          {/* The polished document — the primary view, always visible, firm-branded.
-              Live-previews the draft while editing; the saved copy once finalized. */}
           <div className="report-sheet-wrap">
             <article className="report-body">
               <div className="report-brandbar">
