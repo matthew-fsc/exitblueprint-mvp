@@ -168,7 +168,7 @@ async function asUser<T>(claims: Claims, fn: (db: pg.ClientBase) => Promise<T>):
   }
 }
 
-const server = createServer(async (req, res) => {
+async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -310,6 +310,21 @@ const server = createServer(async (req, res) => {
   }
 
   return json(res, 404, { message: 'not found' });
+}
+
+// A single request must never crash the whole service. If the handler rejects —
+// most importantly when the DB is unreachable and `pool.connect()` throws (e.g.
+// DATABASE_URL points at Supabase's IPv6-only direct connection, which Render
+// can't route: `connect ENETUNREACH`) — Node would otherwise treat it as an
+// unhandled rejection and terminate the process, restart-looping the service.
+// Catch it here and reply 500 instead, so one bad request (or a DB blip) degrades
+// gracefully and Svix/webhook callers simply retry.
+const server = createServer((req, res) => {
+  handleRequest(req, res).catch((err) => {
+    console.error('request handler error:', err);
+    if (!res.headersSent) json(res, 500, { message: (err as Error).message });
+    else res.end();
+  });
 });
 
 server.listen(PORT, () => {

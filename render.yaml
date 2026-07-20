@@ -17,8 +17,11 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      # Service-role Postgres string (bypasses RLS). Use the Supabase SESSION
-      # pooler (aws-0-<region>.pooler.supabase.com:5432) for a long-lived service.
+      # Service-role Postgres string (bypasses RLS). MUST be the Supabase SESSION
+      # pooler (postgres.<ref>@aws-0-<region>.pooler.supabase.com:5432) — it is
+      # IPv4. Do NOT use the direct connection (db.<ref>.supabase.co:5432): it is
+      # IPv6-only and Render has no outbound IPv6, so every DB call fails with
+      # `connect ENETUNREACH` and DB-backed routes (webhook, functions) 5xx.
       - key: DATABASE_URL
         sync: false
       # Token verification. Clerk is the standard identity provider, so CLERK_JWKS_URL
