@@ -56,6 +56,14 @@ async function visibleUnderRls(ctx: FunctionContext, table: string, id: string):
 // Returns a FunctionResult on failure (to short-circuit). Each branch is the same
 // explicit, auditable logic the prior switch used — now keyed by the declared
 // scope instead of scattered Set membership.
+//
+// `admin` is firm staff (docs/31, #65: admins have firm-scoped RLS on every
+// domain table, and the frontend routes them to the advisor/staff surfaces —
+// RequireAdvisor admits advisor+admin, RequireStaff admits advisor+reviewer+
+// admin). So the role lists here include admin wherever advisor/reviewer are
+// accepted; omitting it rejected admins from function calls the frontend and RLS
+// both already permit (surfacing as "advisor or reviewer profile required").
+// This grants no access beyond RLS — firmFromProfile still reads through asUser.
 async function authorize(
   scope: AuthScope,
   body: Record<string, unknown>,
@@ -73,7 +81,7 @@ async function authorize(
       // Resolve the caller's own advisor firm, then confirm the target company is
       // visible to them under RLS. The engagement doesn't exist yet, so it can't
       // be authorized by its own id.
-      const firmId = await firmFromProfile(ctx, ['advisor']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'admin']);
       if (!firmId) return { error: err(403, 'advisor profile required') };
       const companyId = typeof body.company_id === 'string' ? body.company_id : null;
       if (!companyId) return { error: err(400, 'company_id required') };
@@ -83,7 +91,7 @@ async function authorize(
     case 'document-upload': {
       // Staff = advisor or reviewer; resolve the firm, then confirm the target
       // engagement is visible under RLS (upload attaches to an engagement).
-      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer', 'admin']);
       if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
       const engId = typeof body.engagement_id === 'string' ? body.engagement_id : null;
       if (!engId) return { error: err(400, 'engagement_id required') };
@@ -92,13 +100,13 @@ async function authorize(
     }
     case 'review-queue': {
       // Staff; firm-scoped, no id — the queue is the caller's whole firm.
-      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer', 'admin']);
       if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
       return { firmId };
     }
     case 'document': {
       // Staff; confirm the referenced document is visible under RLS.
-      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer', 'admin']);
       if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
       const docId = typeof body.document_id === 'string' ? body.document_id : null;
       if (!docId) return { error: err(400, 'document_id required') };
@@ -107,7 +115,7 @@ async function authorize(
     }
     case 'sellside-engagement': {
       // Staff = advisor or reviewer; resolve the firm from the profile.
-      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer', 'admin']);
       if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
       const engagementId = typeof body.engagement_id === 'string' ? body.engagement_id : null;
       if (!engagementId) return { error: err(400, 'engagement_id required') };
@@ -116,7 +124,7 @@ async function authorize(
       return { firmId };
     }
     case 'sellside-item': {
-      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer']);
+      const firmId = await firmFromProfile(ctx, ['advisor', 'reviewer', 'admin']);
       if (!firmId) return { error: err(403, 'advisor or reviewer profile required') };
       // Resolve the engagement the item belongs to (from the item, never the body),
       // then confirm the caller can see that engagement under RLS.
