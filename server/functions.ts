@@ -21,6 +21,7 @@
 import type pg from 'pg';
 import { REGISTRY, err, type AuthScope, type FunctionResult, type FunctionSpec } from './registry';
 import { entitlementGate } from './entitlements';
+import { isPlatformSuperadmin } from './platform-admin';
 
 export type { FunctionResult } from './registry';
 
@@ -174,6 +175,14 @@ async function authorize(
         return ids.length > 0 && r.rowCount === ids.length;
       });
       if (!visible) return { error: err(404, 'assessment not found') };
+      return { firmId: null };
+    }
+    case 'platform-admin': {
+      // Cross-tenant governance (methodology publishing), NOT a firm-scoped role.
+      // The gate is the caller's Clerk id against the platform-superadmin
+      // allowlist — never a profile role, never a firm — so no firm admin can
+      // reach it. Resolves no firm (global methodology).
+      if (!isPlatformSuperadmin(ctx.userId)) return { error: err(403, 'platform superadmin required') };
       return { firmId: null };
     }
     default: {

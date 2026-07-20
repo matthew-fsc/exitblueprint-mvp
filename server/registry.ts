@@ -52,6 +52,7 @@ import {
   type ResolveInput,
 } from './review-queue';
 import { logAccess } from './audit';
+import { seedMethodology } from './seed-methodology';
 import {
   renderCimReportHtml,
   renderDeltaReportHtml,
@@ -94,7 +95,8 @@ export type AuthScope =
   | 'ledger-connect' // company id in the body must be visible under RLS
   | 'ledger-complete' // company resolved from the pending oauth state (may pass through)
   | 'engagement' // the referenced engagement is visible to the caller under RLS
-  | 'assessment'; // the referenced assessment(s) are visible to the caller under RLS
+  | 'assessment' // the referenced assessment(s) are visible to the caller under RLS
+  | 'platform-admin'; // cross-tenant governance; caller's id in the superadmin allowlist
 
 export type FunctionResult =
   | { kind: 'json'; status: number; body: unknown }
@@ -300,6 +302,18 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'rules',
     scope: 'firm',
     handler: ({ service, firmId }) => firmCalibration(service, firmId as string).then(ok),
+  },
+  // Platform administration — load the canonical /seed methodology (rubric,
+  // playbooks, valuation rules, data-room template, …) into the DB from inside
+  // the system, so a hosted beta seeds itself without anyone running the CLI
+  // against a production connection string. Superadmin-gated (`platform-admin`
+  // scope — cross-tenant, above firm admin), runs the SAME validated pipeline as
+  // `npm run db:seed` with the service-role client, and is idempotent. Belongs to
+  // the Rules Engine: the rubric IS the deterministic facts (CLAUDE.md rules 1 & 3).
+  'seed-methodology': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: async ({ service }) => ok(await seedMethodology(service)),
   },
 
   // ── Reasoning Engine — AI narratives & assembled documents (always draft)

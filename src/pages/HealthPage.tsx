@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   functionsBaseUrl,
   functionsUrlConfigured,
   getAccessToken,
+  invokeFunction,
   isClerkStack,
   isDevStack,
   requiresClerkConfig,
@@ -15,6 +16,20 @@ interface Check {
   name: string;
   state: CheckState;
   detail: string;
+}
+
+// One row of the `seed-methodology` report (server/seed-methodology.ts).
+interface SeedTableReport {
+  table: string;
+  inserted: number;
+  updated: number;
+  total: number;
+  expected: number;
+  ok: boolean;
+}
+interface SeedResult {
+  rows: SeedTableReport[];
+  ok: boolean;
 }
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -177,6 +192,33 @@ async function checkAuthenticatedRead(hasToken: boolean): Promise<Check> {
   return { name: 'Authenticated read', state: 'ok', detail: 'Read the methodology tables as an authenticated user.' };
 }
 
+// Is the methodology actually loaded? The check above proves rubric_versions is
+// READABLE; this proves an ACTIVE rubric row exists. A fresh hosted DB has the
+// schema and tenant data but no methodology (a Vercel deploy never seeds), so
+// starting an assessment fails with "no active rubric version" even with every
+// auth check green. When this fails, a platform superadmin can load it in-place
+// with the button below (the `seed-methodology` function).
+async function checkMethodology(hasToken: boolean): Promise<Check> {
+  if (!hasToken) return { name: 'Methodology', state: 'warn', detail: 'Skipped — no active session.' };
+  const { data, error } = await supabase
+    .from('rubric_versions')
+    .select('version_label')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) return { name: 'Methodology', state: 'fail', detail: `Could not read rubric_versions: ${error.message}` };
+  if (!data?.length) {
+    return {
+      name: 'Methodology',
+      state: 'fail',
+      detail:
+        'No active rubric version — this database was never seeded. Assessments cannot start until the ' +
+        'methodology is loaded. A platform superadmin can load it below.',
+    };
+  }
+  return { name: 'Methodology', state: 'ok', detail: `Active rubric ${data[0].version_label} loaded.` };
+}
+
 // The check that catches the case the methodology read above cannot: RLS resolves
 // role/firm/company by joining the Clerk `sub` to `public.profiles.user_id`. A
 // valid token with `role: authenticated` still reads NOTHING firm-scoped if no
@@ -261,36 +303,62 @@ export default function HealthPage() {
     { name: 'Session token', state: 'pending', detail: 'checking…' },
     { name: 'RLS role claim', state: 'pending', detail: 'checking…' },
     { name: 'Authenticated read', state: 'pending', detail: 'checking…' },
+    { name: 'Methodology', state: 'pending', detail: 'checking…' },
     { name: 'Profile linkage', state: 'pending', detail: 'checking…' },
   ]);
+  const [methodologyMissing, setMethodologyMissing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<SeedResult | null>(null);
+  const [seedError, setSeedError] = useState<string | null>(null);
+
+  const runChecks = useCallback(async (): Promise<void> => {
+    const base: Check[] = [
+      { name: 'App', state: 'ok', detail: 'React app booted' },
+      identityCheck(),
+      {
+        name: 'Environment',
+        state: supabaseUrl ? 'ok' : 'warn',
+        detail: supabaseUrl ? 'VITE_SUPABASE_URL configured' : 'VITE_SUPABASE_URL missing',
+      },
+    ];
+    const api = await checkSupabaseApi();
+    const functions = await checkFunctionsService();
+    const token = await getAccessToken().catch(() => null);
+    const hasToken = !!token && token !== 'dev-anon-key';
+    const claims = hasToken && token ? decodeJwt(token) : null;
+    const sub = claims && typeof claims.sub === 'string' ? claims.sub : undefined;
+    const sessionChecks = await checkSessionToken();
+    const readCheck = await checkAuthenticatedRead(hasToken);
+    const methodology = await checkMethodology(hasToken);
+    const linkageChecks = await checkProfileLinkage(sub);
+    setMethodologyMissing(methodology.state === 'fail');
+    setChecks([...base, api, functions, ...sessionChecks, readCheck, methodology, ...linkageChecks]);
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      const base: Check[] = [
-        { name: 'App', state: 'ok', detail: 'React app booted' },
-        identityCheck(),
-        {
-          name: 'Environment',
-          state: supabaseUrl ? 'ok' : 'warn',
-          detail: supabaseUrl ? 'VITE_SUPABASE_URL configured' : 'VITE_SUPABASE_URL missing',
-        },
-      ];
-      const api = await checkSupabaseApi();
-      const functions = await checkFunctionsService();
-      const token = await getAccessToken().catch(() => null);
-      const hasToken = !!token && token !== 'dev-anon-key';
-      const claims = hasToken && token ? decodeJwt(token) : null;
-      const sub = claims && typeof claims.sub === 'string' ? claims.sub : undefined;
-      const sessionChecks = await checkSessionToken();
-      const readCheck = await checkAuthenticatedRead(hasToken);
-      const linkageChecks = await checkProfileLinkage(sub);
-      if (alive) setChecks([...base, api, functions, ...sessionChecks, readCheck, ...linkageChecks]);
+    void (async () => {
+      if (alive) await runChecks();
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [runChecks]);
+
+  const loadMethodology = async () => {
+    setSeeding(true);
+    setSeedError(null);
+    setSeedResult(null);
+    try {
+      const result = await invokeFunction<SeedResult>('seed-methodology', {});
+      setSeedResult(result);
+      await runChecks();
+    } catch (e) {
+      setSeedError((e as Error).message);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <div className="stack-lg">
@@ -303,6 +371,41 @@ export default function HealthPage() {
           </li>
         ))}
       </ul>
+
+      {/* Methodology bootstrap — shown only when no active rubric exists. The
+          action is superadmin-gated server-side; a non-superadmin gets a clear
+          403 ("platform superadmin required") surfaced below. */}
+      {methodologyMissing && (
+        <div className="stack-sm">
+          <button type="button" onClick={loadMethodology} disabled={seeding}>
+            {seeding ? 'Loading methodology…' : 'Load methodology'}
+          </button>
+          {seedError && (
+            <p className="check check-fail" role="alert">
+              Seeding failed: {seedError}
+            </p>
+          )}
+          {seedResult && (
+            <div className={`check check-${seedResult.ok ? 'ok' : 'fail'}`}>
+              <span className="check-detail">
+                {seedResult.ok
+                  ? 'Methodology loaded — reload the app and start an assessment.'
+                  : 'Loaded, but some row counts did not match the seed files (see below).'}
+              </span>
+              <ul className="check-list">
+                {seedResult.rows.map((r) => (
+                  <li key={r.table} className={`check check-${r.ok ? 'ok' : 'fail'}`}>
+                    <span className="check-name">{r.table}</span>
+                    <span className="check-detail">
+                      +{r.inserted} / ~{r.updated} · {r.total} of {r.expected}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

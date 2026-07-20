@@ -53,6 +53,24 @@ Copy `.env.example` to `.env`; `supabase start` prints the URL/keys.
 `db/supabase-shim.sql` (auth schema, `auth.uid()`, Supabase roles) so the same
 migrations run unmodified. CI uses this path with a `postgres:16` service.
 
+### Seeding a hosted deployment (methodology from inside the system)
+
+A hosted deploy ships only the frontend/compute code — it does **not** run the
+seed, so a fresh Supabase project has the schema but no methodology (starting an
+assessment fails with "no active rubric version"). Rather than run the CLI with a
+production connection string, load it from inside the system:
+
+1. On the compute service, set `PLATFORM_SUPERADMIN_IDS` to the Clerk user id(s)
+   allowed to publish methodology (comma-separated), and redeploy so the image
+   ships `/seed` (`server/Dockerfile`).
+2. Sign in as that user and open `/health`. When no active rubric exists, a
+   **Load methodology** button appears — it calls the superadmin-gated
+   `seed-methodology` function, which runs the same validated, idempotent
+   pipeline as `npm run db:seed` (`server/seed-methodology.ts`) with the
+   service-role client, and shows the per-table report.
+
+The CLI (`npm run db:seed`) remains the path for local dev and CI.
+
 ## Layout
 
 ```

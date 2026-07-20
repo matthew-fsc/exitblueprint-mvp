@@ -88,3 +88,9 @@ services:
         sync: false
       - key: SENTRY_ENVIRONMENT
         sync: false
+      # Comma-separated Clerk user ids allowed to load methodology from inside the
+      # system (the superadmin-gated `seed-methodology` function — "Load methodology"
+      # on /health). Unset → that endpoint replies 403. Lets a hosted beta seed
+      # itself instead of running `npm run db:seed` with a production DATABASE_URL.
+      - key: PLATFORM_SUPERADMIN_IDS
+        sync: false

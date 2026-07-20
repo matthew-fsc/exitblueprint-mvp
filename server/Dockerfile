@@ -15,6 +15,10 @@
 #                            (ES256/RS256) tokens against the project JWKS
 # Optional:
 #   PORT (default 8787), FUNCTIONS_ALLOWED_ORIGIN (default *), ANTHROPIC_API_KEY (AI narrative)
+#   PLATFORM_SUPERADMIN_IDS  comma-separated Clerk user ids allowed to call the
+#                            `seed-methodology` function (load methodology from
+#                            inside the system). Unset → that endpoint is 403.
+#   SEED_DIR                 override the /seed path (default: ./seed in the image)
 FROM mcr.microsoft.com/playwright:v1.61.1-jammy
 
 ENV NODE_ENV=production
@@ -29,6 +33,10 @@ RUN npm ci
 COPY tsconfig*.json ./
 COPY server ./server
 COPY shared ./shared
+# Canonical methodology (rubric, playbooks, valuation rules, data-room template).
+# The `seed-methodology` function reads these at runtime to load the DB from
+# inside the system, so they must ship in the image alongside the code.
+COPY seed ./seed
 
 EXPOSE 8787
 CMD ["npm", "run", "serve:functions"]
