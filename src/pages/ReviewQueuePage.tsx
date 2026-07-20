@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { invokeFunction } from '../lib/supabase';
 import { qk } from '../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
 
 interface QueueItem {
   document_id: string;
@@ -37,7 +37,7 @@ export default function ReviewQueuePage() {
           <SkeletonLines lines={5} />
         </Card>
       ) : queueQ.error ? (
-        <p className="form-error">{(queueQ.error as Error).message}</p>
+        <ErrorState variant="section" error={queueQ.error} onRetry={() => void queueQ.refetch()} />
       ) : items.length === 0 ? (
         <EmptyState title="Queue is clear" icon="check">
           Nothing awaiting review. Uploaded documents appear here for confirmation.

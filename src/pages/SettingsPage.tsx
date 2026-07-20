@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { qk, useBranding } from '../lib/queries';
-import { Card, FirmMark, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
+import { Card, ErrorState, FirmMark, LoadingState, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
 import { resolveEntitlement, type EntitlementReason } from '../../shared/entitlements';
 
 // Validate a CSS hex color (#rgb or #rrggbb).
@@ -48,7 +48,7 @@ function BillingCard({ firmId }: { firmId?: string }) {
   return (
     <SectionCard title="Billing & access" subtitle="Your firm's plan and access status.">
       {!state ? (
-        <p className="muted">Loading…</p>
+        <LoadingState variant="inline" />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <span className={`status-chip ${meta!.cls}`}>{meta!.label}</span>
@@ -150,7 +150,7 @@ export default function SettingsPage() {
         crumbs={[{ label: 'Portfolio', to: '/' }, { label: 'Settings' }]}
       />
 
-      {error && <p className="form-error">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} />}
 
       <BillingCard firmId={firmId} />
 

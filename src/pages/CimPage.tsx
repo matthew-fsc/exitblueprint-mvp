@@ -13,7 +13,7 @@ import {
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Collapsible, EngagementNav, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Collapsible, EngagementNav, ErrorState, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { fmtDate } from '../lib/format';
 import { renderMarkdown } from '../lib/markdown';
 
@@ -152,7 +152,7 @@ export default function CimPage() {
         />
         {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
-      {error && <p className="form-error no-print">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} className="no-print" />}
 
       {/* CIM Readiness — postures evidence collection toward the memorandum. */}
       {coverage && (

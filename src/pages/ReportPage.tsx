@@ -6,7 +6,7 @@ import { qk, useLatestReport, useActiveAssessment, useEngagement, useCompany } f
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Collapsible, EngagementNav, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Collapsible, EngagementNav, ErrorState, FirmMark, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { fmtDate } from '../lib/format';
 import { renderMarkdown } from '../lib/markdown';
 
@@ -149,7 +149,7 @@ export default function ReportPage() {
       />
       {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
-      {error && <p className="form-error no-print">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} className="no-print" />}
 
       {!doc ? (
         <div className="report-generating no-print">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isDevStack } from '../lib/supabase';
 import { enrollTotp, getMfaState, verifyTotp, type MfaState, type TotpEnrollment } from '../lib/mfa';
-import { PageHeader, SectionCard, useToast } from '../components/ui';
+import { ErrorState, PageHeader, SectionCard, useToast } from '../components/ui';
 
 // R5: MFA enrollment/verification + a one-page security summary for advisor
 // compliance review (the full version lives in docs/13-security-summary.md).
@@ -93,7 +93,7 @@ export default function SecurityPage() {
                 </div>
               </>
             )}
-            {error && <p className="form-error">{error}</p>}
+            {error && <ErrorState variant="inline" error={error} />}
           </div>
         )}
       </SectionCard>

@@ -18,7 +18,7 @@ import {
   type ExplainResult,
   type Rubric,
 } from '../lib/scoringClient';
-import { EngagementNav, GapSeverityChip, PageHeader } from '../components/ui';
+import { EngagementNav, ErrorState, GapSeverityChip, LoadingState, PageHeader } from '../components/ui';
 import { tierStatusOf } from '../lib/tokens';
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
@@ -282,9 +282,10 @@ export default function WorkbenchPage() {
     }
   };
 
-  if (loading) return <p className="muted">Loading workbench…</p>;
-  if (error && !board) return <p className="form-error">{error}</p>;
-  if (!displayRubric || !board || !baseline || !meta) return <p className="form-error">Unavailable</p>;
+  if (loading) return <LoadingState variant="section" label="Loading workbench…" />;
+  if (error && !board) return <ErrorState variant="inline" error={error} />;
+  if (!displayRubric || !board || !baseline || !meta)
+    return <ErrorState variant="section" title="Unavailable" message="This workbench can’t be shown right now." />;
 
   const base = baseline.explain;
   const gapCodesNow = new Set(board.firedGaps.map((g) => g.code));
@@ -440,7 +441,7 @@ export default function WorkbenchPage() {
               )}
             </div>
 
-            {error && <p className="form-error">{error}</p>}
+            {error && <ErrorState variant="inline" error={error} />}
             <div className="wb-actions">
               <button className="btn-ghost" disabled={!dirty || saving} onClick={resetToSaved}>
                 Reset to saved

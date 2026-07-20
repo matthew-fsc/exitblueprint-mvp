@@ -39,6 +39,37 @@ tokens, so changing the token restyles every label. **New label → use `.eyebro
   with a custom marker.
 - **`EmptyState`, `SkeletonLines`, `TierBadge`, `DeltaChip`, `GapSeverityChip`,
   status chips (`.status-chip .status-*`).**
+- **`LoadingState` / `ErrorState` / `AsyncBoundary`** — the loading & error
+  ladder. See the rule below.
+
+## Loading & error states — never bare text
+A loading or error message is a **component**, never a raw `<p>Loading…</p>` or
+`<p className="form-error">{err.message}</p>`. Two symptoms this rule kills:
+unstyled text on a live surface, and dumping a raw Postgres/PostgREST string at a
+user.
+
+- **`LoadingState`** — `variant="page"` (full-surface spinner + label, for a
+  route/gate), `"section"` (shimmer lines standing in for content), `"inline"`
+  (small spinner + label inside loaded UI). Prefer `section` so there's no layout
+  shift.
+- **`ErrorState`** — pass a thrown value as `error={…}` and it runs through
+  `describeError()` (`src/lib/errors.ts`), which humanizes the message and, for
+  an auth/RLS-shaped failure, adds a config hint. Same three variants; `inline`
+  replaces the old `<p className="form-error">`. Wire `onRetry` for anything
+  retryable (it defaults to a query refetch inside `AsyncBoundary`).
+- **`AsyncBoundary`** — wraps a TanStack Query result and renders the
+  loading → error → empty → content ladder for you:
+  ```tsx
+  <AsyncBoundary query={engagementQ} variant="section"
+    isEmpty={(rows) => rows.length === 0} empty={<EmptyState title="…" />}>
+    {(data) => <View data={data} />}
+  </AsyncBoundary>
+  ```
+- **Exceptions** (stay as `.form-error`): a short field-level validation hint next
+  to an input (e.g. `invalid hex`), and a deliberate static config panel. Dynamic
+  runtime errors and any server/DB message go through `ErrorState`.
+- `DataTable` keeps its own built-in `loading`/`error`/`empty` props — don't wrap
+  a table in `AsyncBoundary`.
 
 ## Formatting — always via `src/lib/format.ts`
 `fmtCurrency` / `fmtCurrencyCompact`, `fmtScore`, `fmtDelta`, `fmtDate`, and —

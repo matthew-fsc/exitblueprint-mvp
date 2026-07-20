@@ -3,11 +3,12 @@
 // Design system: docs/26. Never raw snake_case / raw integers / hand-rolled tables.
 import { useParams } from 'react-router-dom';
 import {
+  AsyncBoundary,
   EmptyState,
   EngagementNav,
+  LoadingState,
   PageHeader,
   SectionCard,
-  SkeletonLines,
 } from '../components/ui';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { fmtCurrency } from '../lib/format';
@@ -31,10 +32,14 @@ export default function <Name>Page() {
         title="<Section>"
         action={<button disabled={busy} onClick={doThing}>{busy ? 'Working…' : '<Action>'}</button>}
       >
-        {/* dataQ.isLoading ? <SkeletonLines lines={4} /> :
-            !dataQ.data ? <EmptyState title="Nothing yet" /> :
-            <>{fmtCurrency(dataQ.data.value)}</> */}
-        <SkeletonLines lines={4} />
+        {/* The loading → error → empty → content ladder in one wrapper (docs/26
+            §Loading & error states). ErrorState humanizes DB/auth failures and
+            wires retry to a refetch. Swap the placeholder below for:
+            <AsyncBoundary query={dataQ} variant="section"
+              isEmpty={(d) => !d} empty={<EmptyState title="Nothing yet" />}>
+              {(d) => <>{fmtCurrency(d.value)}</>}
+            </AsyncBoundary> */}
+        <LoadingState variant="section" lines={4} />
       </SectionCard>
     </div>
   );

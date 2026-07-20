@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SignIn } from '@clerk/react';
 import { isClerkStack, isDevStack, requiresClerkConfig, supabase } from '../lib/supabase';
+import { ErrorState } from '../components/ui';
 import { ThemeToggle } from '../lib/theme';
 
 export default function LoginPage() {
@@ -88,7 +89,7 @@ export default function LoginPage() {
             required
           />
         </label>
-        {error && <p className="form-error">{error}</p>}
+        {error && <ErrorState variant="inline" error={error} />}
         <button type="submit" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>

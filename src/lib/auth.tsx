@@ -75,7 +75,11 @@ function useProfile(userId: string | null): {
       for (const delay of backoffMs) {
         if (delay) await new Promise((r) => setTimeout(r, delay));
         if (cancelled) return;
-        const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
+        // maybeSingle, not single: a 0-row result here is expected (provisioning
+        // lag on first sign-in, and the RLS-gated read below returns 0 rows until
+        // the Clerk token attaches). single() would 406 on every miss, spraying
+        // red "database" errors in the console across the whole retry loop.
+        const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle();
         if (cancelled) return;
         if (data) {
           prof = data as Profile;
@@ -84,7 +88,7 @@ function useProfile(userId: string | null): {
       }
       setProfile(prof);
       if (prof?.firm_id) {
-        const { data: firm } = await supabase.from('firms').select('*').eq('id', prof.firm_id).single();
+        const { data: firm } = await supabase.from('firms').select('*').eq('id', prof.firm_id).maybeSingle();
         if (!cancelled) setFirmName(firm?.name ?? null);
       } else {
         setFirmName(null);
