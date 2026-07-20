@@ -44,18 +44,25 @@ stays green; a one-line entry appended to `docs/06-decisions.md`.
 1. **Handler** — a pure-ish async fn in the domain file (`server/<domain>.ts`),
    signature `(db, firmId, body) => result`. Query pg directly; **never trust a
    `firm_id` from the body** — it's resolved from the caller's profile upstream.
-2. **Authorize** — add the name to the right group set in `server/functions.ts`
-   `authorize()` (`FIRM_FNS`, `DOC_FNS`, `SELLSIDE_*`, …) so RLS + firm
-   resolution run before dispatch.
-3. **Dispatch** — add a `case '<name>':` in `dispatch()` calling the handler.
-4. **Frontend** — call via `invokeFunction<T>('<name>', body)` (`src/lib/supabase.ts`).
-   Gate paid actions? add the name to `GATED_FNS` (`server/entitlements.ts`).
+2. **Registry entry** — add one `'<name>': { engine, scope, gated?, handler }`
+   entry to `REGISTRY` in `server/registry.ts`, grouped under its **engine** (the
+   six-engine model, `docs/28`): `rules` (deterministic facts), `reasoning` (AI
+   narrative/assembled docs), `knowledge` (evidence/financials/outcomes),
+   `workflow` (engagement lifecycle), `collaboration` (participants/review). Pick
+   the **auth scope** that matches how the call is authorized (`firm`,
+   `engagement`, `assessment`, `document`, `sellside-*`, `ledger-*`, …) — this is
+   the *only* place authorization is declared. Set `gated: true` for a paid action.
+3. **Frontend** — call via `invokeFunction<T>('<name>', body)` (`src/lib/supabase.ts`).
 
-The router is transport-agnostic (`server/functions.ts` is mounted by both the
-dev emulator and the prod Node service) — handlers must not touch HTTP.
+That's it — `server/functions.ts` (the gateway) reads the registry; you never edit
+it to add a function. `GATED_FNS` (`server/entitlements.ts`) is derived from the
+`gated` flags, so there is one source of truth. The router is transport-agnostic
+(`functions.ts` is mounted by both the dev emulator and the prod Node service) —
+handlers must not touch HTTP.
 
 **DoD:** `tests/functions.test.ts` (or a domain test) exercises the handler and a
-foreign-firm 404/deny; `npm test` green.
+foreign-firm 404/deny; `tests/registry.test.ts` stays green (engine/scope/gate
+invariants); `npm test` green.
 
 ---
 
@@ -107,9 +114,12 @@ Tracked here so they're not lost; each is a deliberate change to confirm first:
   explicit **template** (above) on purpose — a `plpgsql` helper would hide
   security policy behind dynamic SQL and cost auditability. Revisit only if the
   count keeps climbing.
-- **Declarative function registry.** `server/functions.ts` wires each function in
-  3 places (authorize set, dispatch case, handler). A `{ name: { scope, handler } }`
-  registry would collapse that to one, at the cost of the current explicit
-  switch. Worth doing if function count grows much beyond ~35.
+- **Declarative function registry.** ✅ **Done** (2026-07-20). `server/registry.ts`
+  is now the `{ name: { engine, scope, gated?, handler } }` table; adding a
+  function is one entry (see pattern §2). `functions.ts` is the scope-driven
+  gateway that reads it, and it also encodes the six-engine model (`docs/28`) as a
+  first-class tag on every endpoint. The security-critical authorization stays
+  **explicit** — each scope is one auditable procedure in `authorize()`, a closed
+  `AuthScope` union with an exhaustiveness check, not dynamic dispatch.
 - **`useAsyncAction` adoption.** Hook exists + documented; pages adopt it
   incrementally as they're next touched (avoid a 10-file churn PR).
