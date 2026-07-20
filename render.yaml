@@ -46,6 +46,12 @@ services:
         value: https://clerk.exitblueprint.net/.well-known/jwks.json
       - key: CLERK_SECRET_KEY
         sync: false
+      # Svix signing secret (whsec_...) for the Clerk webhook. Enables
+      # POST /webhooks/clerk, which auto-provisions firms/advisors/owners on Clerk
+      # events (docs/30 §5). Point the Clerk dashboard webhook at
+      # https://api.exitblueprint.net/webhooks/clerk and paste its secret here.
+      - key: CLERK_WEBHOOK_SIGNING_SECRET
+        sync: false
       # Optional: turns on real Claude narrative in reports. Omit to ship without it.
       - key: ANTHROPIC_API_KEY
         sync: false
