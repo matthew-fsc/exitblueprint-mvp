@@ -34,6 +34,7 @@ import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
+import { exportEngagement } from './export';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -90,6 +91,7 @@ export type AuthScope =
   | 'firm' // firm-scoped readout; firm resolved from the advisor/admin profile
   | 'create-engagement' // advisor firm + the target company visible under RLS
   | 'delete-engagement' // advisor/admin firm + the target engagement visible under RLS
+  | 'export-engagement' // advisor/admin firm + the target engagement visible under RLS (read-only)
   | 'document-upload' // staff (advisor+reviewer); engagement id visible under RLS
   | 'review-queue' // staff; firm-scoped, no id (the queue is the whole firm)
   | 'document' // staff; the referenced document is visible under RLS
@@ -363,6 +365,15 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'delete-engagement',
     handler: ({ service, body, firmId, userId }) =>
       deleteEngagement(service, firmId as string, userId, body.engagement_id as string).then(ok),
+  },
+  // Read-only, full data export of an engagement (docs/35 Phase 9). Deliberately
+  // NOT gated: a firm taking a copy of its own data out must never be blocked by a
+  // lapsed subscription (same posture as delete-engagement).
+  'export-engagement': {
+    engine: 'workflow',
+    scope: 'export-engagement',
+    handler: ({ service, body, firmId }) =>
+      exportEngagement(service, firmId as string, body.engagement_id as string).then(ok),
   },
 
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)

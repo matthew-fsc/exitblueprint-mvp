@@ -11,6 +11,7 @@ const VALID_SCOPES: AuthScope[] = [
   'firm',
   'create-engagement',
   'delete-engagement',
+  'export-engagement',
   'document-upload',
   'review-queue',
   'document',
