@@ -133,6 +133,15 @@ export const STALE_ENGAGEMENTS_SQL = `
   order by last_activity_at asc
 `;
 
+// Firm-scoped variant, derived from the cross-firm SQL so it can never drift:
+// the same query with the caller's firm added to the WHERE, bound as $2. Used by
+// the in-app "Needs attention" surface (server/attention.ts); the webhook path
+// keeps using the unfiltered cross-firm query above.
+export const STALE_ENGAGEMENTS_FIRM_SQL = STALE_ENGAGEMENTS_SQL.replace(
+  `where e.status = 'active'`,
+  `where e.status = 'active' and e.firm_id = $2`,
+);
+
 export function mapStaleEngagementRow(row: StaleEngagementRow, now: Date): StaleEngagementItem {
   return {
     firmId: row.firm_id,
@@ -151,11 +160,13 @@ export function mapStaleEngagementRow(row: StaleEngagementRow, now: Date): Stale
 
 export async function findStaleEngagements(
   db: Db,
-  opts: { staleDays?: number } = {},
+  opts: { staleDays?: number; firmId?: string } = {},
 ): Promise<AnalyzerResult<StaleEngagementItem>> {
   const thresholdDays = opts.staleDays ?? DEFAULT_STALE_DAYS;
   const now = new Date();
-  const { rows } = await db.query(STALE_ENGAGEMENTS_SQL, [thresholdDays]);
+  const { rows } = opts.firmId
+    ? await db.query(STALE_ENGAGEMENTS_FIRM_SQL, [thresholdDays, opts.firmId])
+    : await db.query(STALE_ENGAGEMENTS_SQL, [thresholdDays]);
   const items = (rows as StaleEngagementRow[]).map((r) => mapStaleEngagementRow(r, now));
   return { generatedAt: now.toISOString(), thresholdDays, count: items.length, items };
 }
@@ -226,6 +237,13 @@ export const STALLED_TASKS_SQL = `
   order by t.due_date asc nulls last, t.created_at asc
 `;
 
+// Firm-scoped variant (see STALE_ENGAGEMENTS_FIRM_SQL): the task filter is on
+// t.firm_id, added as $2.
+export const STALLED_TASKS_FIRM_SQL = STALLED_TASKS_SQL.replace(
+  `where t.status <> 'done'`,
+  `where t.status <> 'done'\n    and t.firm_id = $2`,
+);
+
 export function mapStalledTaskRow(row: StalledTaskRow, now: Date): StalledTaskItem {
   const pastDue = row.past_due === true;
   return {
@@ -249,11 +267,13 @@ export function mapStalledTaskRow(row: StalledTaskRow, now: Date): StalledTaskIt
 
 export async function findStalledTasks(
   db: Db,
-  opts: { stalledDays?: number } = {},
+  opts: { stalledDays?: number; firmId?: string } = {},
 ): Promise<AnalyzerResult<StalledTaskItem>> {
   const thresholdDays = opts.stalledDays ?? DEFAULT_STALLED_DAYS;
   const now = new Date();
-  const { rows } = await db.query(STALLED_TASKS_SQL, [thresholdDays]);
+  const { rows } = opts.firmId
+    ? await db.query(STALLED_TASKS_FIRM_SQL, [thresholdDays, opts.firmId])
+    : await db.query(STALLED_TASKS_SQL, [thresholdDays]);
   const items = (rows as StalledTaskRow[]).map((r) => mapStalledTaskRow(r, now));
   return { generatedAt: now.toISOString(), thresholdDays, count: items.length, items };
 }
@@ -313,6 +333,13 @@ export const REASSESSMENT_DUE_SQL = `
   order by last_completed_at asc
 `;
 
+// Firm-scoped variant (see STALE_ENGAGEMENTS_FIRM_SQL): firm added on e.firm_id
+// as $2.
+export const REASSESSMENT_DUE_FIRM_SQL = REASSESSMENT_DUE_SQL.replace(
+  `where e.status = 'active'`,
+  `where e.status = 'active' and e.firm_id = $2`,
+);
+
 export function mapReassessmentDueRow(row: ReassessmentDueRow, now: Date): ReassessmentDueItem {
   return {
     firmId: row.firm_id,
@@ -330,11 +357,13 @@ export function mapReassessmentDueRow(row: ReassessmentDueRow, now: Date): Reass
 
 export async function findReassessmentDue(
   db: Db,
-  opts: { reassessDays?: number } = {},
+  opts: { reassessDays?: number; firmId?: string } = {},
 ): Promise<AnalyzerResult<ReassessmentDueItem>> {
   const thresholdDays = opts.reassessDays ?? DEFAULT_REASSESS_DAYS;
   const now = new Date();
-  const { rows } = await db.query(REASSESSMENT_DUE_SQL, [thresholdDays]);
+  const { rows } = opts.firmId
+    ? await db.query(REASSESSMENT_DUE_FIRM_SQL, [thresholdDays, opts.firmId])
+    : await db.query(REASSESSMENT_DUE_SQL, [thresholdDays]);
   const items = (rows as ReassessmentDueRow[]).map((r) => mapReassessmentDueRow(r, now));
   return { generatedAt: now.toISOString(), thresholdDays, count: items.length, items };
 }

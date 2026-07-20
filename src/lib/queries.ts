@@ -333,6 +333,44 @@ export function useCimCoverage(engagementId: string | undefined): UseQueryResult
   });
 }
 
+// In-app "Needs attention" worklist for the caller's firm (docs/35 Phase 9).
+export interface AttentionShape {
+  generatedAt: string;
+  thresholds: { staleDays: number; stalledDays: number; reassessDays: number };
+  counts: { reassessmentDue: number; stalledTasks: number; staleEngagements: number; total: number };
+  reassessmentDue: {
+    engagementId: string;
+    companyName: string | null;
+    daysSinceLastAssessment: number;
+    lastCompletedAt: string | null;
+  }[];
+  stalledTasks: {
+    taskId: string;
+    engagementId: string;
+    companyName: string | null;
+    title: string;
+    ownerRole: string;
+    dueDate: string | null;
+    pastDue: boolean;
+    daysStalled: number;
+    daysOverdue: number;
+  }[];
+  staleEngagements: {
+    engagementId: string;
+    companyName: string | null;
+    daysStale: number;
+    lastActivityAt: string | null;
+  }[];
+}
+
+export function useFirmAttention(enabled = true): UseQueryResult<AttentionShape> {
+  return useQuery({
+    queryKey: ['firmAttention'],
+    enabled,
+    queryFn: () => invokeFunction<AttentionShape>('firm-attention', {}),
+  });
+}
+
 export interface AnswerRowRaw {
   question_id: string;
   value: unknown;
