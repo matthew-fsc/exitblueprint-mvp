@@ -2,6 +2,7 @@
 export { Card } from './Card';
 export { Collapsible } from './Collapsible';
 export { ConfirmDialog } from './ConfirmDialog';
+export { IdleWarningModal } from './IdleWarningModal';
 export { DataTable, type Column } from './DataTable';
 export { DeltaChip } from './DeltaChip';
 export { DimensionBars, type DimensionDatum } from './DimensionBars';

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { describeError } from '../../lib/errors';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 
@@ -46,13 +47,18 @@ export function AsyncBoundary<T>({
   if (query.isPending) {
     return loading ?? <LoadingState variant={variant} label={loadingLabel} lines={loadingLines} />;
   }
-  // Errored with nothing cached to fall back to — show the error, retry to refetch.
+  // Errored with nothing cached to fall back to — show the error. Only wire a
+  // refetch retry when a retry could actually succeed: a non-retryable error
+  // (e.g. an expired session) would just re-fail with the same dead token, so we
+  // leave onRetry off and let ErrorState offer the right action (e.g. "Sign in
+  // again") instead of a retry-of-death.
   if (query.isError) {
+    const retryable = describeError(query.error).retryable;
     return (
       <ErrorState
         error={query.error}
         variant={variant}
-        onRetry={onRetry ?? (() => void query.refetch())}
+        onRetry={onRetry ?? (retryable ? () => void query.refetch() : undefined)}
       />
     );
   }
