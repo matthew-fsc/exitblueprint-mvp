@@ -57,7 +57,11 @@ Service → Environment**. All server-side; treat every one as a secret.
 | `PORT` | `8787` | Render sets this automatically; override only for local runs. |
 | `EB_CHROMIUM_PATH` | auto-detected | Path to a Chromium/Chrome binary for PDF rendering. Not needed on the Playwright Docker base image (`server/Dockerfile`). |
 | `EB_PARSER` | `manual` | Leave unset. Reserved for `reducto` / `llamaparse` document-extraction adapters (not implemented in the beta). |
-| `EB_STORAGE` | `db` | Leave unset. Reserved for the object-storage backend (R5 follow-up). |
+| `EB_STORAGE` | `db` | `db` keeps encrypted document bytes in Postgres (`document_blobs`). Set `supabase` to store them in a private Supabase Storage bucket instead — requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (and the bucket from the `20260720000400` migration). Bytes are the same AES-256-GCM envelope either way. |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | Supabase → Project Settings → API → **service_role** key. **Required only when `EB_STORAGE=supabase`** (the storage client bypasses storage RLS to read/write the private bucket). Never expose to the browser. |
+| `EB_STORAGE_BUCKET` | `documents` | Name of the private Supabase Storage bucket. The `20260720000400` migration creates `documents`; if you change this, create the bucket (private) by hand. |
+| `EB_SCANNER` | `noop` | `noop` records uploads as `scan_status='skipped'`. Set `clamav` to scan every upload against a clamd daemon before it is stored — an infected file is rejected, never persisted. A configured-but-unreachable scanner fails the upload closed. |
+| `EB_CLAMD_HOST` / `EB_CLAMD_PORT` | `127.0.0.1` / `3310` | clamd address, used when `EB_SCANNER=clamav`. |
 
 ### Optional — Ledger (QuickBooks / Xero) live connection
 
@@ -100,7 +104,8 @@ To point local dev at a real Supabase project instead, set `VITE_SUPABASE_URL` +
 | `FUNCTIONS_ALLOWED_ORIGIN` | Compute | no | recommended |
 | `EB_SIGNING_KEY` | Compute | **yes** | optional |
 | `ANTHROPIC_API_KEY` | Compute | **yes** | optional |
-| `PORT`, `EB_CHROMIUM_PATH`, `EB_PARSER`, `EB_STORAGE` | Compute | no | optional |
+| `PORT`, `EB_CHROMIUM_PATH`, `EB_PARSER`, `EB_STORAGE`, `EB_SCANNER`, `EB_CLAMD_*` | Compute | no | optional |
+| `SUPABASE_SERVICE_ROLE_KEY` | Compute | **yes** | if `EB_STORAGE=supabase` |
 | `LEDGER_OAUTH_REDIRECT_URI` | Compute | no | optional |
 | `QUICKBOOKS_* / XERO_*` | Compute | **yes** | optional |
 

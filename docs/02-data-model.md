@@ -79,7 +79,10 @@ Advisors (or clients) upload source documents per assessment category; each move
 through upload → virus scan → classification → extraction (ParserAdapter) → human
 review → verified fact. Extraction accuracy is not a beta blocker — the manual
 review path is complete; the automated path may be partial. Documents/fields
-never write to scoring tables.
+never write to scoring tables. The virus scan runs through a `ScannerAdapter` seam
+(server/documents/scanner.ts): `noop` by default (records `scan_status='skipped'`),
+`clamav` scans the plaintext BEFORE any bytes are stored, so an infected file is
+recorded `scan_status='infected'`, marked `status='rejected'`, and never persisted.
 
 **documents**
 - firm_id, engagement_id, category, original_filename, mime_type, byte_size
@@ -87,9 +90,12 @@ never write to scoring tables.
 - scan_status (pending|clean|infected|skipped), classification, parser_name, storage_key
 - uploaded_by, reviewed_by, reviewed_at
 
-**document_blobs** — beta byte store (document_id fk unique, firm_id, bytes bytea).
-R5 moves bytes to Supabase Storage (encryption + signed URLs) behind the same
-StorageAdapter seam; schema-swappable.
+**document_blobs** — default byte store (document_id fk unique, firm_id, bytes bytea,
+enc_algo). The `StorageAdapter` seam (server/documents/storage.ts) also has a Supabase
+Storage backend (`EB_STORAGE=supabase`): the same AES-256-GCM envelope lives in a private
+bucket keyed `firm_id/document_id` instead of Postgres, decrypted server-side and served on
+the same audited signed-URL route — no caller changes. Bucket teardown is handled explicitly
+(pipeline compensation + engagement delete) since a bucket object does not cascade.
 
 **document_fields** — extracted or manually-entered data points
 - firm_id, document_id, question_id (nullable link to a scored question), field_key, value

@@ -41,6 +41,25 @@ const toBase64 = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
+// Client-side gate mirroring the server allow-list + size cap
+// (server/documents/pipeline.ts) — fail fast before base64-encoding a file the
+// server would only reject. The extension is the reliable signal; the browser's
+// file.type is often empty or generic.
+const MAX_BYTES = 15 * 1024 * 1024; // 15 MB, matches the server cap
+const ALLOWED_EXTENSIONS = ['pdf', 'csv', 'txt', 'xls', 'xlsx', 'doc', 'docx', 'png', 'jpg', 'jpeg'];
+const ACCEPT_ATTR = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',');
+
+function validateFile(file: File): string | null {
+  const dot = file.name.lastIndexOf('.');
+  const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return `That file type isn't accepted. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}.`;
+  }
+  if (file.size === 0) return 'That file is empty.';
+  if (file.size > MAX_BYTES) return 'That file is larger than the 15 MB limit.';
+  return null;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   uploaded: 'Uploaded',
   scanning: 'Scanning',
@@ -82,11 +101,16 @@ export function DocumentsPanel() {
   const upload = async (e: FormEvent) => {
     e.preventDefault();
     if (!file || !engagementId) return;
+    const invalid = validateFile(file);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const content_base64 = await toBase64(file);
-      await invokeFunction('upload-document', {
+      const result = await invokeFunction<{ status?: string }>('upload-document', {
         engagement_id: engagementId,
         category: category.trim() || null,
         filename: file.name,
@@ -106,7 +130,12 @@ export function DocumentsPanel() {
       setFormKey((k) => k + 1);
       qc.invalidateQueries({ queryKey: qk.sourceDocuments(engagementId) });
       qc.invalidateQueries({ queryKey: qk.reviewQueue() });
-      toast.show('Uploaded — sent to the review queue', 'good');
+      // A virus scan can reject the upload before it ever reaches the queue.
+      if (result?.status === 'rejected') {
+        toast.show('Upload rejected — the file failed the virus scan', 'error');
+      } else {
+        toast.show('Uploaded — sent to the review queue', 'good');
+      }
     } catch (err) {
       setError((err as Error).message);
     }
@@ -126,6 +155,7 @@ export function DocumentsPanel() {
         <input
           key={formKey}
           type="file"
+          accept={ACCEPT_ATTR}
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           required
         />
@@ -160,7 +190,9 @@ export function DocumentsPanel() {
               </div>
               <div className="row-gap">
                 <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
-                  {STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
+                  {d.scan_status === 'infected'
+                    ? 'Infected'
+                    : STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
                 </span>
                 <Link className="button-link" to={`/review/${d.id}`}>
                   Review →

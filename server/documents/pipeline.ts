@@ -4,9 +4,32 @@
 // nothing); the MANUAL review path is complete. Nothing here writes to a score.
 import type pg from 'pg';
 import { resolveParser } from './parser';
+import { resolveScanner } from './scanner';
 import { resolveStorage } from './storage';
 
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB cap on a base64-uploaded document
+
+// Server-side allow-list (defense in depth; the client enforces the same set).
+// Gated on extension, not the browser-supplied mime_type, which is unreliable
+// (often empty or application/octet-stream). Kept permissive — the document types
+// an advisor actually assembles for a diligence binder.
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf', 'csv', 'txt', 'xls', 'xlsx', 'doc', 'docx', 'png', 'jpg', 'jpeg',
+]);
+
+function extensionOf(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot + 1).toLowerCase() : '';
+}
+
+function assertAllowedType(filename: string): void {
+  const ext = extensionOf(filename);
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `file type '${ext || 'unknown'}' is not allowed; accepted types: ${[...ALLOWED_EXTENSIONS].join(', ')}`,
+    );
+  }
+}
 
 export interface UploadDocumentInput {
   engagement_id: string;
@@ -28,6 +51,7 @@ export async function uploadDocument(
   if (typeof input.engagement_id !== 'string') throw new Error('engagement_id required');
   if (typeof input.filename !== 'string' || !input.filename) throw new Error('filename required');
   if (typeof input.content_base64 !== 'string' || !input.content_base64) throw new Error('content_base64 required');
+  assertAllowedType(input.filename);
 
   const bytes = Buffer.from(input.content_base64, 'base64');
   if (bytes.length === 0) throw new Error('uploaded file is empty');
@@ -40,14 +64,26 @@ export async function uploadDocument(
   if (engagement.rowCount !== 1) throw new Error('engagement not found in this firm');
 
   const storage = resolveStorage();
+  const scanner = resolveScanner();
   const parser = resolveParser();
 
+  // Scan the plaintext BEFORE anything is stored: infected bytes are never
+  // persisted, so there is no malware object to clean up. Fail-closed — a
+  // configured-but-unreachable scanner throws here and the whole upload fails.
+  const verdict = await scanner.scan({
+    bytes,
+    filename: input.filename,
+    mimeType: input.mime_type || 'application/octet-stream',
+  });
+
+  let documentId: string | null = null;
   await db.query('begin');
   try {
     const doc = await db.query(
       `insert into documents
-         (firm_id, engagement_id, category, original_filename, mime_type, byte_size, uploaded_by, status)
-       values ($1, $2, $3, $4, $5, $6, $7, 'uploaded') returning id`,
+         (firm_id, engagement_id, category, original_filename, mime_type, byte_size, uploaded_by,
+          scan_status, status)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, 'scanned') returning id`,
       [
         firmId,
         input.engagement_id,
@@ -56,17 +92,20 @@ export async function uploadDocument(
         input.mime_type || 'application/octet-stream',
         bytes.length,
         uploaderId,
+        verdict.status,
       ],
     );
-    const documentId = doc.rows[0].id as string;
+    documentId = doc.rows[0].id as string;
+
+    // Infected → reject immediately. Nothing is stored, nothing is extracted; the
+    // rejected row is kept as an auditable record of the blocked upload.
+    if (verdict.status === 'infected') {
+      await db.query(`update documents set status = 'rejected' where id = $1`, [documentId]);
+      await db.query('commit');
+      return { document_id: documentId, status: 'rejected', fields_extracted: 0 };
+    }
 
     const storageKey = await storage.put(db, { documentId, firmId, bytes });
-
-    // Virus scan — a stub in the beta (uploads are from trusted advisors); a real
-    // scanner is wired in R5/ops. Recorded honestly as 'skipped', not 'clean'.
-    await db.query(`update documents set scan_status = 'skipped', status = 'scanned' where id = $1`, [
-      documentId,
-    ]);
 
     // Classify + extract via the active ParserAdapter (manual = no fields).
     const parsed = await parser.parse({
@@ -101,6 +140,10 @@ export async function uploadDocument(
     return { document_id: documentId, status: 'in_review', fields_extracted: extracted };
   } catch (e) {
     await db.query('rollback').catch(() => {});
+    // Compensate for a storage write that a later failure can't roll back (a
+    // Supabase bucket object is a network side-effect outside the DB txn). No-op
+    // for the DB backend; best-effort so it never masks the original error.
+    if (documentId) await storage.remove(db, { documentId, firmId }).catch(() => {});
     throw e;
   }
 }

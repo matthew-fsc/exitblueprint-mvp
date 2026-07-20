@@ -21,6 +21,7 @@
 // confirmation (src/pages/EngagementPage.tsx) and the removal is audited.
 import type pg from 'pg';
 import { logAccess } from './audit';
+import { resolveStorage } from './documents/storage';
 
 export interface DeleteEngagementSummary {
   engagement_id: string;
@@ -168,6 +169,13 @@ export async function deleteEngagement(
 
   const deleted = await countChildren(db, engagementId);
 
+  // Snapshot the document ids BEFORE teardown. The DB rows (and their document_blobs)
+  // are removed by the transaction, but a Supabase Storage object is a side-effect
+  // outside the DB and won't cascade — so we delete those objects after the commit.
+  const docIds = (
+    await db.query(`select id from documents where engagement_id = $1`, [engagementId])
+  ).rows.map((r) => r.id as string);
+
   // The service connection autocommits per statement, so wrap the whole teardown
   // in one transaction: the engagement and its children go together or not at all.
   await db.query('begin');
@@ -199,6 +207,15 @@ export async function deleteEngagement(
     engagementId: null,
     detail: { engagement_id: engagementId, company_id: companyId, deleted },
   });
+
+  // Clean up stored bytes that live outside the DB (Supabase bucket objects).
+  // Best-effort and post-commit: a leftover object is a lesser evil than failing a
+  // delete the client asked for. No-op for the DB backend (the blobs already
+  // cascaded with the documents rows).
+  const storage = resolveStorage();
+  for (const documentId of docIds) {
+    await storage.remove(db, { documentId, firmId }).catch(() => {});
+  }
 
   return { engagement_id: engagementId, company_id: companyId, deleted };
 }

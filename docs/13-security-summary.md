@@ -18,10 +18,15 @@ implemented in the platform (beta Requirement 5)._
 - **In transit:** all traffic is over TLS/HTTPS.
 - **At rest:** uploaded source documents are encrypted with **AES-256-GCM**
   before storage; the key is supplied via `EB_DOCUMENT_KEY` and never stored with
-  the data. (Beta stores encrypted bytes in Postgres; the `StorageAdapter` seam
-  moves them to object storage without changing application code.)
+  the data. Encrypted bytes live either in Postgres or, with `EB_STORAGE=supabase`,
+  in a **private object-storage bucket** — the same envelope either way, so even a
+  leaked bucket URL yields only ciphertext.
+- **Malware scanning:** with `EB_SCANNER=clamav`, every upload is scanned before it
+  is stored; an infected file is rejected and never persisted. (Default: recorded
+  as skipped.)
 - **Document delivery:** source documents are served **only through short-expiry
-  signed URLs** (HMAC, default 5-minute expiry) — never a durable public link.
+  signed URLs** (HMAC, default 5-minute expiry) — never a durable public link, and
+  always through the audited server route that logs every read/download.
 
 ## Access controls
 
@@ -66,4 +71,7 @@ the complete vendor-DD response: **docs/16-vendor-security-dd.md**.
 
 - `EB_DOCUMENT_KEY` — 32-byte hex key for document encryption at rest (**required**).
 - `EB_SIGNING_KEY` — HMAC key for signed document URLs (falls back to the JWT secret).
+- `EB_STORAGE=supabase` + `SUPABASE_SERVICE_ROLE_KEY` — move encrypted bytes to the
+  private Storage bucket (created by the `20260720000400` migration). Optional.
+- `EB_SCANNER=clamav` + `EB_CLAMD_HOST`/`EB_CLAMD_PORT` — enable malware scanning. Optional.
 - MFA enforced by the hosted Supabase project (the local dev stack bypasses it).
