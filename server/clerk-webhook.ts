@@ -20,7 +20,7 @@ import type pg from 'pg';
 import type { AppRole } from './clerk';
 import { ensureDefaultAgreementVersion } from './agreements';
 
-const APP_ROLES: readonly AppRole[] = ['admin', 'advisor', 'reviewer', 'owner'];
+const APP_ROLES: readonly AppRole[] = ['admin', 'advisor', 'reviewer', 'owner', 'collaborator'];
 
 function asAppRole(value: unknown): AppRole | null {
   return typeof value === 'string' && (APP_ROLES as readonly string[]).includes(value)
@@ -162,6 +162,8 @@ async function provisionMembership(db: pg.ClientBase, data: Record<string, unkno
 
   const role = asAppRole(meta.app_role) ?? appRoleFromOrgRole(typeof data.role === 'string' ? data.role : undefined);
   const companyId = typeof meta.company_id === 'string' ? meta.company_id : null;
+  // A collaborator is scoped to a single engagement (owners carry only company_id).
+  const engagementId = typeof meta.engagement_id === 'string' ? meta.engagement_id : null;
   const email = typeof meta.email === 'string' ? meta.email : (publicUser?.identifier ?? null);
   const metaName = typeof meta.full_name === 'string' && meta.full_name.trim() ? meta.full_name : null;
   const derivedName = [publicUser?.first_name, publicUser?.last_name].filter(Boolean).join(' ').trim() || null;
@@ -169,13 +171,23 @@ async function provisionMembership(db: pg.ClientBase, data: Record<string, unkno
 
   const inserted = (
     await db.query(
-      `insert into profiles (user_id, firm_id, role, company_id, full_name, email)
-       values ($1, $2, $3, $4, $5, $6)
+      `insert into profiles (user_id, firm_id, role, company_id, engagement_id, full_name, email)
+       values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (user_id) do nothing
        returning id`,
-      [userId, firm.id, role, companyId, fullName, email],
+      [userId, firm.id, role, companyId, engagementId, fullName, email],
     )
   ).rowCount;
+
+  // A view-only collaborator accepting their invite activates their roster row
+  // (engagement_collaborators), linking the now-provisioned identity. Idempotent.
+  if (inserted && role === 'collaborator' && engagementId && email) {
+    await db.query(
+      `update engagement_collaborators set status = 'active', user_id = $1
+       where engagement_id = $2 and lower(email) = lower($3) and status <> 'revoked'`,
+      [userId, engagementId, email],
+    );
+  }
 
   return inserted
     ? { handled: true, detail: `provisioned ${role} profile for ${userId} in firm ${firm.id}` }

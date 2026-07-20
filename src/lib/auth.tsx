@@ -17,10 +17,13 @@ export interface Profile {
   id: string;
   user_id: string;
   firm_id: string | null;
-  role: 'admin' | 'advisor' | 'reviewer' | 'owner';
+  role: 'admin' | 'advisor' | 'reviewer' | 'owner' | 'collaborator';
   full_name: string | null;
   email: string | null;
   company_id: string | null;
+  // Set for view-only external collaborators (CPA, attorney, …): the single
+  // engagement their read-only portal is scoped to. Null for every other role.
+  engagement_id: string | null;
 }
 
 // A signed-in subject. Under Clerk this is the Clerk user id; under Supabase Auth

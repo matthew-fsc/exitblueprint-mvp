@@ -32,6 +32,7 @@ import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './out
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
+import { inviteCollaborator, revokeCollaborator } from './collaborators';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
@@ -101,6 +102,7 @@ export type AuthScope =
   | 'ledger-connect' // company id in the body must be visible under RLS
   | 'ledger-complete' // company resolved from the pending oauth state (may pass through)
   | 'engagement' // the referenced engagement is visible to the caller under RLS
+  | 'manage-engagement' // firm staff (advisor/admin) + the target engagement visible under RLS
   | 'assessment' // the referenced assessment(s) are visible to the caller under RLS
   | 'platform-admin'; // cross-tenant governance; caller's id in the superadmin allowlist
 
@@ -522,6 +524,35 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body }) =>
       inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string).then(ok),
+  },
+  // Invite a view-only external collaborator (CPA, attorney, …) to ONE engagement
+  // — the owner-portal invite workflow extended to a client's outside advisors.
+  // Scope 'manage-engagement' confirms the caller is firm staff who can see the
+  // engagement; firmId is trusted (never from the body). NOT gated: assembling a
+  // client's deal team is never blocked by billing state (mirrors invite-advisor).
+  'invite-collaborator': {
+    engine: 'collaboration',
+    scope: 'manage-engagement',
+    handler: async ({ service, body, firmId, userId }) => {
+      const actor = await staffActorId(service, userId, firmId as string);
+      return inviteCollaborator(
+        service,
+        firmId as string,
+        body.engagement_id as string,
+        body.email as string,
+        (body.full_name as string) ?? null,
+        (body.kind as string) ?? null,
+        actor,
+      ).then(ok);
+    },
+  },
+  // Revoke a collaborator's access (deletes their profile, marks the roster row
+  // revoked). Same staff+engagement gate; the roster row must belong to the firm.
+  'revoke-collaborator': {
+    engine: 'collaboration',
+    scope: 'manage-engagement',
+    handler: ({ service, body, firmId }) =>
+      revokeCollaborator(service, firmId as string, body.collaborator_id as string).then(ok),
   },
   // Firm-staff invitation (self-serve team management, docs/35 #1). Scope 'firm'
   // resolves the caller's own firm from their advisor/admin profile — a firm can

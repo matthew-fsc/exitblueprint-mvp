@@ -56,7 +56,7 @@ import {
   type SubTab,
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
-import { OwnerAccessCard } from '../components/OwnerAccessCard';
+import { EngagementTeamCard } from '../components/EngagementTeamCard';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -365,9 +365,7 @@ export default function EngagementPage() {
           To remove the engagement entirely, use “Delete engagement” below.
         </p>
       </SectionCard>
-      <div className="eng-grid" style={{ marginTop: 0 }}>
-        <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
-      </div>
+      <EngagementTeamCard engagementId={engagementId!} companyId={engagement.company_id} />
       {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
       <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
       <DeleteEngagementCard

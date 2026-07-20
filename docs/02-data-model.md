@@ -8,10 +8,22 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
 - name, status (active|suspended)
 
 **profiles** - extends Supabase auth.users
-- user_id (fk auth.users), firm_id nullable, role (admin|advisor|reviewer|owner), full_name, email
+- user_id (fk auth.users), firm_id nullable, role (admin|advisor|reviewer|owner|collaborator), full_name, email
 - owners also get company_id (fk companies) for portal scoping
 - reviewer role exists for the beta document-review queue (Requirement 3); its
   table policies land with that slice.
+- collaborator is a view-only external participant (a client's CPA, attorney, …)
+  scoped to a SINGLE engagement via engagement_id — assembled through the same
+  owner-portal invite workflow. Its RLS mirrors the owner portal one-for-one but
+  scopes by engagement_id (app.user_engagement_id()), so it sees a strict subset
+  of what that engagement's owner sees, and never a sibling engagement.
+
+**engagement_collaborators** - the per-engagement view-only roster
+- firm_id, engagement_id (on delete cascade), company_id, email, full_name,
+  kind (cpa|attorney|advisor|other), status (invited|active|revoked), invited_by,
+  user_id (set once the identity is provisioned), revoked_at; unique (engagement_id, email)
+- Written by the invite/revoke functions (service role); staff read it under RLS
+  to render + manage the team. A collaborator NEVER reads this table.
 
 ## Clients and engagements
 

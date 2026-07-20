@@ -4529,6 +4529,10 @@ textarea:focus {
 .invite-devnote { margin-top: 0.8rem; font-size: 0.78rem; color: var(--text-secondary);
   background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }
 .invite-devnote code { background: var(--surface-3); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+.collab-invite-form { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 0.5rem; align-items: center; }
+@media (max-width: 720px) { .collab-invite-form { grid-template-columns: 1fr; } }
+.collab-invite-form input, .collab-invite-form select { padding: 0.45rem 0.6rem; min-width: 0; }
+.collab-invite-form button { white-space: nowrap; }
 
 /* ---- Deal outcome capture (calibration moat) ---- */
 .deal-collapsed { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
