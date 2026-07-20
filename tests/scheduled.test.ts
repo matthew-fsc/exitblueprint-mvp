@@ -3,8 +3,11 @@ import {
   DEFAULT_REASSESS_DAYS,
   DEFAULT_STALE_DAYS,
   DEFAULT_STALLED_DAYS,
+  REASSESSMENT_DUE_FIRM_SQL,
   REASSESSMENT_DUE_SQL,
+  STALE_ENGAGEMENTS_FIRM_SQL,
   STALE_ENGAGEMENTS_SQL,
+  STALLED_TASKS_FIRM_SQL,
   STALLED_TASKS_SQL,
   findReassessmentDue,
   findStaleEngagements,
@@ -249,5 +252,55 @@ describe('verifyWebhookSecret', () => {
     expect(verifyWebhookSecret(null, 's3cret-value')).toBe(false);
     expect(verifyWebhookSecret('s3cret-value', undefined)).toBe(false);
     expect(verifyWebhookSecret('s3cret-value', '')).toBe(false);
+  });
+});
+
+// Firm-scoped variants power the in-app "Needs attention" surface (docs/35 Phase
+// 9). Same analyzers, firm added to the WHERE and bound as $2.
+describe('firm-scoped analyzer variants', () => {
+  function fake(rows: unknown[]) {
+    const calls: { sql: string; params: unknown[] }[] = [];
+    const db = {
+      query: async (sql: string, params: unknown[] = []) => {
+        calls.push({ sql, params });
+        return { rows };
+      },
+    } as never;
+    return { db, calls };
+  }
+
+  it('derived firm SQL adds exactly the firm clause to the cross-firm SQL', () => {
+    expect(STALE_ENGAGEMENTS_FIRM_SQL).not.toBe(STALE_ENGAGEMENTS_SQL);
+    expect(STALE_ENGAGEMENTS_FIRM_SQL).toContain('e.firm_id = $2');
+    expect(STALLED_TASKS_FIRM_SQL).toContain('t.firm_id = $2');
+    expect(REASSESSMENT_DUE_FIRM_SQL).toContain('e.firm_id = $2');
+  });
+
+  it('findStaleEngagements(firmId) uses the firm SQL and binds [days, firmId]', async () => {
+    const { db, calls } = fake([]);
+    await findStaleEngagements(db, { firmId: 'firm-7' });
+    expect(calls[0].sql).toBe(STALE_ENGAGEMENTS_FIRM_SQL);
+    expect(calls[0].params).toEqual([DEFAULT_STALE_DAYS, 'firm-7']);
+  });
+
+  it('findStalledTasks(firmId) uses the firm SQL and binds [days, firmId]', async () => {
+    const { db, calls } = fake([]);
+    await findStalledTasks(db, { firmId: 'firm-7', stalledDays: 10 });
+    expect(calls[0].sql).toBe(STALLED_TASKS_FIRM_SQL);
+    expect(calls[0].params).toEqual([10, 'firm-7']);
+  });
+
+  it('findReassessmentDue(firmId) uses the firm SQL and binds [days, firmId]', async () => {
+    const { db, calls } = fake([]);
+    await findReassessmentDue(db, { firmId: 'firm-7' });
+    expect(calls[0].sql).toBe(REASSESSMENT_DUE_FIRM_SQL);
+    expect(calls[0].params).toEqual([DEFAULT_REASSESS_DAYS, 'firm-7']);
+  });
+
+  it('without firmId, still uses the cross-firm SQL (webhook path unchanged)', async () => {
+    const { db, calls } = fake([]);
+    await findStaleEngagements(db);
+    expect(calls[0].sql).toBe(STALE_ENGAGEMENTS_SQL);
+    expect(calls[0].params).toEqual([DEFAULT_STALE_DAYS]);
   });
 });

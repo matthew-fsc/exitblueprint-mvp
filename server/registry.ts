@@ -35,6 +35,7 @@ import { inviteAdvisor } from './invite-advisor';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
+import { firmAttention } from './attention';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -374,6 +375,13 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'export-engagement',
     handler: ({ service, body, firmId }) =>
       exportEngagement(service, firmId as string, body.engagement_id as string).then(ok),
+  },
+  // In-app "Needs attention" worklist for the caller's firm (docs/35 Phase 9).
+  // Read-only firm-scoped readout; not gated (viewing your own worklist is free).
+  'firm-attention': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId }) => firmAttention(service, firmId as string).then(ok),
   },
 
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)
