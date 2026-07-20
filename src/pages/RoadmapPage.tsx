@@ -73,14 +73,22 @@ export default function RoadmapPage() {
     qc.invalidateQueries({ queryKey: qk.engagement(engagementId) });
   };
 
-  // Persist a new order for a task by swapping its sequence with a neighbour —
-  // the lever advisors use to customise the roadmap order. The Gantt chains and
-  // labels workstreams by sequence, so a reorder is reflected there too.
-  const swapTaskOrder = async (a: TaskRow, b: TaskRow) => {
-    await Promise.all([
-      supabase.from('tasks').update({ sequence: b.sequence ?? 0 }).eq('id', a.id),
-      supabase.from('tasks').update({ sequence: a.sequence ?? 0 }).eq('id', b.id),
-    ]);
+  // Move an open task one slot up/down and persist the new order. Ordering lives
+  // in its OWN column (display_order), not `sequence` — sequence is the
+  // per-playbook template key server/roadmap.ts dedupes on, so reordering must not
+  // touch it. Renumber the whole open list densely (0..n) with the move applied,
+  // writing only the rows whose order actually changed.
+  const moveTask = async (list: TaskRow[], from: number, to: number) => {
+    if (to < 0 || to >= list.length) return;
+    const arr = [...list];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    const changed = arr
+      .map((t, i) => ({ id: t.id, order: i, prev: t.display_order }))
+      .filter((r) => r.prev !== r.order);
+    await Promise.all(
+      changed.map((r) => supabase.from('tasks').update({ display_order: r.order }).eq('id', r.id)),
+    );
     qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
   };
 
@@ -158,7 +166,7 @@ export default function RoadmapPage() {
             title="Move up"
             aria-label={`Move ${t.title} up`}
             disabled={order.index === 0}
-            onClick={() => swapTaskOrder(t, order.list[order.index - 1])}
+            onClick={() => moveTask(order.list, order.index, order.index - 1)}
           >
             ↑
           </button>
@@ -167,7 +175,7 @@ export default function RoadmapPage() {
             title="Move down"
             aria-label={`Move ${t.title} down`}
             disabled={order.index === order.list.length - 1}
-            onClick={() => swapTaskOrder(t, order.list[order.index + 1])}
+            onClick={() => moveTask(order.list, order.index, order.index + 1)}
           >
             ↓
           </button>
@@ -336,12 +344,15 @@ export default function RoadmapPage() {
     return { role, total: rt.length, done, open: rt.length - done, nextTask };
   }).filter((g) => g.total > 0);
 
-  // Open tasks in advisor-controlled order (sequence), the list the reorder
-  // controls act on. Ties fall back to due date so a fresh plan reads sensibly.
+  // Open tasks in advisor-controlled order. A manually-set display_order wins;
+  // tasks without one (a freshly generated plan) fall to the back in due-date
+  // order, so the list reads sensibly until an advisor reorders it.
+  const ORDER_UNSET = Number.MAX_SAFE_INTEGER;
   const openOrdered = [...openTasks].sort(
     (a, b) =>
-      (a.sequence ?? 0) - (b.sequence ?? 0) ||
-      (a.due_date ?? '').localeCompare(b.due_date ?? ''),
+      (a.display_order ?? ORDER_UNSET) - (b.display_order ?? ORDER_UNSET) ||
+      (a.due_date ?? '').localeCompare(b.due_date ?? '') ||
+      (a.sequence ?? 0) - (b.sequence ?? 0),
   );
 
   return (

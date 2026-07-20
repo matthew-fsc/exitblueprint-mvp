@@ -710,6 +710,7 @@ export interface TaskRow {
   status: 'todo' | 'doing' | 'done' | 'blocked';
   due_date: string | null;
   sequence: number | null;
+  display_order: number | null;
 }
 export interface MilestoneRow {
   id: string;
