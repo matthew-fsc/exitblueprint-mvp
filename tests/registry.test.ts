@@ -19,6 +19,7 @@ const VALID_SCOPES: AuthScope[] = [
   'ledger-complete',
   'engagement',
   'assessment',
+  'platform-admin',
 ];
 
 describe('function registry', () => {
