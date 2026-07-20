@@ -21,6 +21,7 @@ import { verifyDocumentToken } from './documents/signed-url';
 import { getDocumentBytes } from './documents/pipeline';
 import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
+import { resolveDbConnection } from './db-ssl';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // Verify access tokens against whichever signing regime the project uses. A
@@ -94,12 +95,24 @@ if (process.env.NODE_ENV === 'production' && !process.env.EB_DOCUMENT_KEY) {
   );
 }
 
+// Resolve TLS for the DB connection (server/db-ssl.ts). Supabase's pooler needs
+// TLS but presents a cert chaining to Supabase's private CA; this connects
+// correctly (full verification when a CA is provided, else encrypted-unverified).
+const db = resolveDbConnection(DATABASE_URL);
+if (db.tls && !db.verified && process.env.NODE_ENV === 'production') {
+  console.warn(
+    'WARNING: Postgres TLS is enabled but the server certificate is NOT verified. ' +
+      'Set DATABASE_CA_CERT (Supabase dashboard → Database → SSL configuration) to enable full verification.',
+  );
+}
+
 // connectionTimeoutMillis is essential for the deploy health check: without it,
 // a slow/unreachable DB makes a query hang indefinitely (pg has no default
 // connect timeout). That is what previously hung /health and made Render time
 // the whole deploy out. Bound it so any DB call fails fast instead.
 const pool = new pg.Pool({
-  connectionString: DATABASE_URL,
+  connectionString: db.connectionString,
+  ssl: db.ssl,
   max: 10,
   connectionTimeoutMillis: 10_000,
 });
@@ -168,7 +181,7 @@ async function asUser<T>(claims: Claims, fn: (db: pg.ClientBase) => Promise<T>):
   }
 }
 
-const server = createServer(async (req, res) => {
+async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   setCors(res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -310,6 +323,21 @@ const server = createServer(async (req, res) => {
   }
 
   return json(res, 404, { message: 'not found' });
+}
+
+// A single request must never crash the whole service. If the handler rejects —
+// most importantly when the DB is unreachable and `pool.connect()` throws (e.g.
+// DATABASE_URL points at Supabase's IPv6-only direct connection, which Render
+// can't route: `connect ENETUNREACH`) — Node would otherwise treat it as an
+// unhandled rejection and terminate the process, restart-looping the service.
+// Catch it here and reply 500 instead, so one bad request (or a DB blip) degrades
+// gracefully and Svix/webhook callers simply retry.
+const server = createServer((req, res) => {
+  handleRequest(req, res).catch((err) => {
+    console.error('request handler error:', err);
+    if (!res.headersSent) json(res, 500, { message: (err as Error).message });
+    else res.end();
+  });
 });
 
 server.listen(PORT, () => {
