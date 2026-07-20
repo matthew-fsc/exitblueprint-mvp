@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exit Blueprint · Platform Architecture</title>
+<meta name="description" content="The definitive engineering and platform architecture guide for Exit Blueprint — what we build, why, how, and why it compounds into a defensible company.">
+<style>
+  *{margin:0;padding:0;}
+  html,body{background:#FBFCFA;}
+  @media (prefers-color-scheme: dark){html,body{background:#0E1512;}}
+  :root[data-theme="dark"] html,:root[data-theme="dark"] body{background:#0E1512;}
+  img{max-width:100%;}
+</style>
+</head>
+<body>
+<style>
+  :root{
+    color-scheme: light dark;
+    --paper:#FBFCFA;
+    --paper-2:#F4F6F2;
+    --ink:#3F4A41;          /* body */
+    --ink-strong:#4B574D;
+    --head:#163529;         /* deep forest headings */
+    --muted:#7C887E;        /* captions */
+    --accent:#1F7A52;
+    --accent-deep:#17603F;
+    --rule:#E4E9E3;
+    --rule-soft:#EEF1EC;
+    --code-bg:#F3F6F2;
+    --code-ink:#1E4433;
+    --panel:#F6F9F5;
+    --panel-rule:#DBE6DB;
+    --ghost:#EAF0EA;        /* giant section numbers */
+    --shadow:0 1px 2px rgba(22,53,42,.04),0 8px 30px rgba(22,53,42,.05);
+    --maxw:720px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#0E1512;
+      --paper-2:#121C18;
+      --ink:#BFCBC1;
+      --ink-strong:#CDD8CE;
+      --head:#EAF3EC;
+      --muted:#7E8C82;
+      --accent:#54C08A;
+      --accent-deep:#7FD4A6;
+      --rule:#213029;
+      --rule-soft:#1A2620;
+      --code-bg:#15211B;
+      --code-ink:#9FE3BE;
+      --panel:#121F19;
+      --panel-rule:#26382E;
+      --ghost:#182620;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --paper:#FBFCFA;--paper-2:#F4F6F2;--ink:#3F4A41;--ink-strong:#4B574D;--head:#163529;
+    --muted:#7C887E;--accent:#1F7A52;--accent-deep:#17603F;--rule:#E4E9E3;--rule-soft:#EEF1EC;
+    --code-bg:#F3F6F2;--code-ink:#1E4433;--panel:#F6F9F5;--panel-rule:#DBE6DB;--ghost:#EAF0EA;
+    --shadow:0 1px 2px rgba(22,53,42,.04),0 8px 30px rgba(22,53,42,.05);
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --paper:#0E1512;--paper-2:#121C18;--ink:#BFCBC1;--ink-strong:#CDD8CE;--head:#EAF3EC;
+    --muted:#7E8C82;--accent:#54C08A;--accent-deep:#7FD4A6;--rule:#213029;--rule-soft:#1A2620;
+    --code-bg:#15211B;--code-ink:#9FE3BE;--panel:#121F19;--panel-rule:#26382E;--ghost:#182620;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 34px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  .eb-doc{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;
+    font-size:16px;
+    line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    padding:0 24px;
+  }
+  .eb-doc .wrap{max-width:var(--maxw);margin:0 auto;}
+  .eb-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;}
+
+  /* ---------- masthead ---------- */
+  .eb-masthead{padding:88px 0 8px;}
+  .eb-kicker{
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;
+    color:var(--accent);margin:0 0 22px;
+  }
+  .eb-title{
+    font-size:44px;line-height:1.08;font-weight:800;letter-spacing:-.02em;
+    color:var(--head);margin:0 0 6px;text-wrap:balance;
+  }
+  .eb-subtitle{
+    font-size:20px;line-height:1.3;font-weight:500;color:var(--muted);
+    margin:0 0 34px;text-wrap:balance;
+  }
+  .eb-lede{font-size:17.5px;line-height:1.66;color:var(--ink-strong);margin:0 0 20px;}
+  .eb-lede.small{font-size:16px;color:var(--ink);}
+
+  .eb-metaline{
+    display:flex;flex-wrap:wrap;gap:8px 10px;margin:30px 0 6px;
+    font-size:12.5px;
+  }
+  .eb-chip{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11.5px;color:var(--accent-deep);background:var(--code-bg);
+    border:1px solid var(--panel-rule);border-radius:999px;padding:4px 11px;white-space:nowrap;
+  }
+
+  /* ---------- philosophy banner ---------- */
+  .eb-banner{
+    margin:44px 0 8px;padding:34px 34px 30px;border-radius:14px;
+    background:var(--paper-2);border:1px solid var(--rule);box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
+  }
+  .eb-banner::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);
+  }
+  .eb-banner .eyebrow{
+    font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;
+    color:var(--muted);margin:0 0 12px;
+  }
+  .eb-banner .stmt{
+    font-size:25px;line-height:1.25;font-weight:700;color:var(--head);
+    letter-spacing:-.015em;margin:0;text-wrap:balance;
+  }
+  .eb-banner .stmt em{color:var(--accent);font-style:normal;}
+  .eb-banner p{margin:16px 0 0;font-size:15.5px;color:var(--ink);}
+
+  /* ---------- principle cards ---------- */
+  .eb-cards{
+    display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 4px;
+  }
+  .eb-card{
+    border:1px solid var(--rule);border-radius:12px;padding:20px 20px 22px;background:var(--paper);
+  }
+  .eb-card .n{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:700;
+    color:var(--accent);letter-spacing:.04em;
+  }
+  .eb-card h4{margin:8px 0 6px;font-size:15.5px;color:var(--head);font-weight:700;letter-spacing:-.01em;}
+  .eb-card p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink);}
+
+  /* ---------- section ---------- */
+  .eb-section{padding:64px 0 8px;border-top:1px solid var(--rule-soft);margin-top:56px;}
+  .eb-section:first-of-type{border-top:none;}
+  .eb-secnum{
+    font-size:15px;font-weight:800;color:var(--accent);letter-spacing:.02em;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin:0 0 10px;
+  }
+  .eb-h2{
+    font-size:29px;line-height:1.16;font-weight:800;letter-spacing:-.02em;
+    color:var(--head);margin:0 0 20px;text-wrap:balance;
+  }
+  .eb-doc h3.eb-h3{
+    font-size:17px;font-weight:700;color:var(--head);letter-spacing:-.01em;
+    margin:34px 0 10px;
+  }
+  .eb-doc p{margin:0 0 18px;}
+  .eb-doc strong{color:var(--ink-strong);font-weight:700;}
+  .eb-doc em{color:var(--head);font-style:italic;}
+  .eb-doc a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--panel-rule);}
+  .eb-doc code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.86em;color:var(--code-ink);background:var(--code-bg);
+    border:1px solid var(--panel-rule);border-radius:5px;padding:1px 5px;
+  }
+  .eb-doc ul{margin:0 0 18px;padding-left:0;list-style:none;}
+  .eb-doc ul li{position:relative;padding-left:20px;margin:0 0 8px;}
+  .eb-doc ul li::before{
+    content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;border-radius:50%;
+    background:var(--accent);
+  }
+  .eb-doc ul li strong{color:var(--head);}
+
+  /* ---------- IN THE CODE panel ---------- */
+  .eb-code-panel{
+    margin:26px 0 6px;padding:22px 24px 6px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--panel-rule);
+    border-left:4px solid var(--accent);
+  }
+  .eb-code-panel .lbl{
+    font-size:11px;letter-spacing:.17em;text-transform:uppercase;font-weight:800;
+    color:var(--accent);margin:0 0 14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .eb-code-panel p{font-size:14px;line-height:1.62;margin:0 0 16px;color:var(--ink);}
+  .eb-code-panel ol{margin:0 0 16px;padding-left:20px;}
+  .eb-code-panel ol li{margin:0 0 8px;font-size:14px;line-height:1.6;}
+
+  /* ---------- diagrams ---------- */
+  .eb-fig{margin:26px 0;}
+  .eb-fig figcaption{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5;}
+  .eb-diagram{
+    border:1px solid var(--rule);border-radius:12px;background:var(--paper-2);
+    padding:22px;overflow-x:auto;
+  }
+  .eb-node{
+    border:1px solid var(--panel-rule);border-radius:9px;background:var(--paper);
+    padding:11px 14px;font-size:13px;line-height:1.4;color:var(--ink-strong);
+  }
+  .eb-node .t{display:block;font-weight:700;color:var(--head);font-size:13px;margin-bottom:2px;}
+  .eb-node .s{display:block;font-size:11.5px;color:var(--muted);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .eb-node.accent{border-color:var(--accent);background:var(--panel);}
+  .eb-node.accent .t{color:var(--accent-deep);}
+  .eb-node.ai{border-style:dashed;border-color:var(--accent);}
+  .eb-node.lock{border-color:var(--panel-rule);}
+
+  .eb-band{
+    border-radius:10px;padding:14px 16px 15px;border:1px solid var(--panel-rule);
+    background:var(--paper);
+  }
+  .eb-band .band-h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+    color:var(--muted);margin:0 0 10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .eb-stack{display:flex;flex-direction:column;gap:10px;}
+  .eb-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .eb-row.eq > *{flex:1;min-width:120px;}
+  .eb-arrow{
+    text-align:center;color:var(--accent);font-size:16px;line-height:1;margin:2px 0;font-weight:700;
+  }
+  .eb-arrow.h{display:flex;align-items:center;padding:0 2px;}
+  .eb-inline-flow{display:flex;align-items:stretch;gap:8px;flex-wrap:nowrap;min-width:min-content;}
+  .eb-inline-flow .eb-node{display:flex;flex-direction:column;justify-content:center;min-width:120px;}
+
+  /* engines grid */
+  .eb-engines{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .eb-engine{border:1px solid var(--rule);border-radius:11px;background:var(--paper);padding:16px 16px 17px;}
+  .eb-engine h4{margin:0 0 4px;font-size:14.5px;color:var(--head);font-weight:700;}
+  .eb-engine .role{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
+    font-weight:700;margin:0 0 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .eb-engine ul{margin:0;}
+  .eb-engine ul li{font-size:12.5px;margin:0 0 5px;padding-left:16px;color:var(--ink);}
+  .eb-engine ul li::before{width:5px;height:5px;top:.55em;}
+
+  /* pipeline */
+  .eb-pipe{display:flex;flex-direction:column;gap:0;}
+  .eb-pipe .step{display:flex;align-items:center;gap:14px;}
+  .eb-pipe .dot{
+    flex:none;width:13px;height:13px;border-radius:50%;background:var(--paper);
+    border:2.5px solid var(--accent);position:relative;z-index:1;
+  }
+  .eb-pipe .step.done .dot{background:var(--accent);}
+  .eb-pipe .line{flex:none;width:13px;display:flex;justify-content:center;}
+  .eb-pipe .line span{width:2px;height:16px;background:var(--panel-rule);}
+  .eb-pipe .lbl2{padding:6px 0;}
+  .eb-pipe .lbl2 .t{font-weight:700;color:var(--head);font-size:14px;}
+  .eb-pipe .lbl2 .d{font-size:12.5px;color:var(--muted);}
+
+  /* build vs integrate */
+  .eb-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .eb-two .col{border:1px solid var(--rule);border-radius:12px;padding:18px 18px 20px;background:var(--paper);}
+  .eb-two .col.own{border-color:var(--accent);background:var(--panel);}
+  .eb-two .col h4{margin:0 0 4px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .eb-two .col.own h4{color:var(--accent-deep);}
+  .eb-two .col.buy h4{color:var(--muted);}
+  .eb-two .col .cap{font-size:12px;color:var(--muted);margin:0 0 14px;}
+  .eb-two .col ul{margin:0;}
+  .eb-two .col ul li{font-size:13px;margin:0 0 6px;}
+
+  /* flywheel loop */
+  .eb-loop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;}
+  .eb-loop .n2{
+    border:1px solid var(--panel-rule);border-radius:999px;background:var(--paper);
+    padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--ink-strong);white-space:nowrap;
+  }
+  .eb-loop .n2.hot{border-color:var(--accent);background:var(--panel);color:var(--accent-deep);font-weight:700;}
+  .eb-loop .sep{color:var(--accent);font-weight:700;}
+
+  /* roadmap phases */
+  .eb-phases{display:flex;flex-direction:column;gap:12px;}
+  .eb-phase{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;
+    border:1px solid var(--rule);border-radius:12px;padding:18px 20px;background:var(--paper);}
+  .eb-phase .ph{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800;
+    color:var(--accent);font-size:13px;letter-spacing:.06em;white-space:nowrap;padding-top:2px;}
+  .eb-phase h4{margin:0 0 5px;font-size:16px;color:var(--head);font-weight:700;}
+  .eb-phase p{margin:0;font-size:13.5px;color:var(--ink);line-height:1.55;}
+
+  /* closing principles */
+  .eb-principles{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin:8px 0 4px;}
+  .eb-principles .pr{display:flex;gap:11px;font-size:14.5px;line-height:1.4;padding:9px 0;
+    border-bottom:1px solid var(--rule-soft);color:var(--head);font-weight:600;}
+  .eb-principles .pr .k{color:var(--accent);font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+
+  .eb-note{font-size:13px;color:var(--muted);font-style:italic;margin:14px 0 0;}
+
+  /* footer */
+  .eb-footer{margin:70px 0 90px;padding-top:26px;border-top:1px solid var(--rule);
+    font-size:13px;color:var(--muted);line-height:1.6;}
+  .eb-footer .eb-mono{color:var(--ink-strong);}
+
+  @media (max-width:640px){
+    .eb-doc{padding:0 18px;}
+    .eb-title{font-size:34px;}
+    .eb-h2{font-size:24px;}
+    .eb-banner .stmt{font-size:21px;}
+    .eb-cards,.eb-engines,.eb-two,.eb-principles{grid-template-columns:1fr;}
+    .eb-masthead{padding:56px 0 8px;}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    html{scroll-behavior:smooth;}
+  }
+</style>
+
+<article class="eb-doc">
+<div class="wrap">
+
+  <!-- ============ MASTHEAD ============ -->
+  <header class="eb-masthead">
+    <p class="eb-kicker">Exit Blueprint · Platform Architecture</p>
+    <h1 class="eb-title">The operating system for business transitions</h1>
+    <p class="eb-subtitle">How the whole system fits together — and why it gets more valuable with every engagement.</p>
+
+    <p class="eb-lede">Exit Blueprint is an exit-readiness platform for M&amp;A advisors and the lower-middle-market business owners they guide. It measures a business's Diligence Readiness Score, diagnoses the gaps that would trouble a buyer, and prescribes the remediation — over a long, repeated engagement rather than a single transaction.</p>
+
+    <p class="eb-lede small">This document is the map of how it is built and <em>why</em> it is built this way. Each section opens with the plain-English picture, then drops into the technical detail for engineers in an <strong>IN THE CODE</strong> panel. It is written to be read end-to-end by a software engineer, a CTO, an investor, a CFP or M&amp;A advisor, and an enterprise buyer — each finding the altitude they need.</p>
+
+    <div class="eb-metaline">
+      <span class="eb-chip">React + Vite frontend</span>
+      <span class="eb-chip">Supabase Postgres + RLS</span>
+      <span class="eb-chip">multi-tenant</span>
+      <span class="eb-chip">one compute router, two hosts</span>
+      <span class="eb-chip">deterministic scoring · AI narrative-only</span>
+    </div>
+  </header>
+
+  <!-- ============ PHILOSOPHY BANNER ============ -->
+  <div class="eb-banner">
+    <p class="eyebrow">The core architectural principle</p>
+    <p class="stmt">The <em>engagement</em> is the primary object in the system.</p>
+    <p>Not the assessment. Not the document. Not the company, the AI, or the CRM. Those are all things that happen <em>inside</em> an engagement. The engagement — the multi-year relationship between an advisor and an owner as a business is made ready to sell — is the object every table hangs off, every workflow advances, and every feature exists to improve. Read this document with that in mind and the rest of the architecture explains itself.</p>
+  </div>
+
+  <!-- four principle cards -->
+  <div class="eb-cards">
+    <div class="eb-card">
+      <span class="n">01</span>
+      <h4>One guarded gateway</h4>
+      <p>Displays read the database directly; every change or calculation goes through a single authorized server router.</p>
+    </div>
+    <div class="eb-card">
+      <span class="n">02</span>
+      <h4>Firm isolation in the database</h4>
+      <p>Every record carries a <code>firm_id</code>, and Postgres itself enforces that a firm sees only its own data.</p>
+    </div>
+    <div class="eb-card">
+      <span class="n">03</span>
+      <h4>Scores are deterministic</h4>
+      <p>Readiness scores come from fixed, auditable rules — defensible to a buyer. AI writes the narrative, never the number.</p>
+    </div>
+    <div class="eb-card">
+      <span class="n">04</span>
+      <h4>Assessments are snapshots</h4>
+      <p>A finished assessment is locked; re-assessing creates a new one, so progress over time is preserved.</p>
+    </div>
+  </div>
+
+  <p class="eb-note">Companion to <code>docs/28-architecture-map.md</code> and <code>docs/01-architecture.md</code> · the non-negotiable rules live in <code>CLAUDE.md</code>.</p>
+
+
+  <!-- ============ 00 — CORE PHILOSOPHY ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">00 · Foundations</p>
+    <h2 class="eb-h2">The engagement is the product</h2>
+
+    <p>Most software in this market is organized around a document or a one-time assessment: you fill out a questionnaire, you get a report, the relationship with the tool ends. Exit Blueprint is organized around the thing that actually lasts — the <strong>engagement</strong>, the 12-to-36-month relationship in which an advisor prepares an owner and their business for a sale.</p>
+
+    <p>An engagement is not an event; it is a living record. It accumulates assessments, gaps, remediation tasks, evidence, advisor decisions, meeting notes, buyer questions, and — eventually — the outcome of the deal. The assessment <em>starts</em> the engagement. Everything after it <em>compounds</em> value inside it. This is why the data model, the permissions, the workflow, and the AI are all built to serve one object rather than a scattering of features.</p>
+
+    <p>The practical test we apply to every proposed feature is simple: <strong>does it make the engagement better, stickier, or smarter?</strong> If it does, it belongs. If it only adds a standalone tool, it does not. That single question is what keeps the system coherent as it grows from an assessment product into the operating system for business transitions.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><code>engagements</code> is the hub of the schema (<code>docs/02-data-model.md</code>): a company is <em>assessed repeatedly</em>, and each assessment, task, document, and gap references an engagement, not a loose company row. Score history and deltas are first-class because the engagement — not the deal — is the unit of measurement. Every future table added to the system attaches here.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 01 — ENGINES ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">01 · Shape of the system</p>
+    <h2 class="eb-h2">A platform of engines, not a bundle of features</h2>
+
+    <p>Read from the outside, Exit Blueprint looks like a web app with assessments, roadmaps, and reports. Read from the inside, it is a small number of <strong>platform engines</strong> — durable capabilities that many features draw on — rather than a pile of independent screens. Thinking in engines is what lets the product grow without turning into a mess: a new feature is almost always a new use of an existing engine, not a new silo.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-engines">
+          <div class="eb-engine">
+            <h4>Identity Engine</h4>
+            <p class="role">Who &amp; what</p>
+            <ul><li>authentication</li><li>authorization</li><li>tenancy</li><li>permissions</li><li>auditability</li></ul>
+          </div>
+          <div class="eb-engine">
+            <h4>Knowledge Engine</h4>
+            <p class="role">What we know</p>
+            <ul><li>assessments</li><li>initiatives</li><li>advisor rationale</li><li>buyer questions</li><li>historical outcomes</li></ul>
+          </div>
+          <div class="eb-engine">
+            <h4>Workflow Engine</h4>
+            <p class="role">What happens next</p>
+            <ul><li>engagement stages</li><li>progression rules</li><li>sprints &amp; cadence</li><li>hand-offs</li><li>the product itself</li></ul>
+          </div>
+          <div class="eb-engine">
+            <h4>Rules Engine</h4>
+            <p class="role">The facts</p>
+            <ul><li>scoring</li><li>recommendations</li><li>initiative creation</li><li>document assembly</li><li>compliance</li></ul>
+          </div>
+          <div class="eb-engine">
+            <h4>Reasoning Engine</h4>
+            <p class="role">The explanation</p>
+            <ul><li>narratives</li><li>executive summaries</li><li>meeting summaries</li><li>buyer-concern briefs</li><li>evidence chains</li></ul>
+          </div>
+          <div class="eb-engine">
+            <h4>Collaboration Engine</h4>
+            <p class="role">Who participates</p>
+            <ul><li>CFP owns it</li><li>owner</li><li>CPA · attorney</li><li>M&amp;A advisor</li><li>valuation expert</li></ul>
+          </div>
+        </div>
+      </div>
+      <figcaption>Six engines, one engagement. Each section that follows is a deeper look at one or more of these.</figcaption>
+    </div>
+
+    <h3 class="eb-h3">Identity Engine</h3>
+    <p>Responsible for authentication, authorization, tenancy, permissions, and auditability — the layer that answers <em>who is asking, which firm they belong to, and what they are allowed to touch.</em> It is the subject of sections 02–03 and section 05.</p>
+
+    <h3 class="eb-h3">Knowledge Engine</h3>
+    <p>Responsible for structured business knowledge: assessments, initiatives, advisor rationale, buyer questions, and historical outcomes. Every engagement writes into it, and it is the substrate that becomes <strong>proprietary intellectual property over time</strong> — a body of structured, outcome-linked advisory knowledge no competitor can retrofit. Section 08 covers it in depth.</p>
+
+    <h3 class="eb-h3">Workflow Engine</h3>
+    <p>The workflow <em>is</em> the product. Where competitors sell a scoring instrument, Exit Blueprint sells the disciplined path a business travels from first assessment to closed deal and beyond. Section 06.</p>
+
+    <h3 class="eb-h3">Rules Engine</h3>
+    <p>Deterministic business rules power scoring, recommendations, workflow progression, initiative creation, document assembly, and compliance. <strong>AI never computes facts.</strong> Sections 04 and 10.</p>
+
+    <h3 class="eb-h3">Reasoning Engine</h3>
+    <p>AI only <em>explains</em>. It produces narratives, executive summaries, recommendations, meeting summaries, and buyer-concern explanations — always from structured data, always labeled draft. Every recommendation carries an explainable evidence chain back to the facts that produced it. Section 09.</p>
+
+    <h3 class="eb-h3">Collaboration Engine</h3>
+    <p>The CFP owns the engagement; specialists participate. The engagement becomes the shared workspace across CFP, owner, CPA, attorney, M&amp;A advisor, and valuation expert. Section 11.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>The engines are not separate services — they are a way of reading a single codebase. Identity lives in <code>server/functions.ts</code> (authorize/gate/dispatch), <code>server/auth-jwt.ts</code>, and Postgres RLS. The Rules Engine is <code>shared/scoring/engine.ts</code> plus the rubric rows and <code>server/roadmap.ts</code>. Reasoning is <code>server/narrative.ts</code> behind the Anthropic boundary. Knowledge is the domain schema itself. Keeping them conceptually distinct is what stops a change in one from leaking into another.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 02 — SYSTEM LAYERS (ORIGINAL 01) ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">02 · Identity Engine</p>
+    <h2 class="eb-h2">System layers</h2>
+
+    <p>The product is a single web workspace for advisors, backed by a database that keeps every firm's data walled off from every other. Anything that simply shows information reads straight from the database; anything that changes data or runs a calculation is funnelled through one guarded gateway. Outside services (the AI writer, billing, accounting connections) are only ever reached from the server, never from the browser.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-band">
+            <p class="band-h">Browser — React + Vite</p>
+            <div class="eb-row eq">
+              <div class="eb-node"><span class="t">Pages + design system</span><span class="s">src/pages, src/components/ui</span></div>
+              <div class="eb-node"><span class="t">Reads → react-query</span><span class="s">src/lib/queries.ts · direct via RLS</span></div>
+              <div class="eb-node"><span class="t">Writes → invokeFunction()</span><span class="s">src/lib/supabase.ts</span></div>
+            </div>
+          </div>
+          <div class="eb-arrow">↓ &nbsp; <span style="font-size:11px;color:var(--muted)" class="eb-mono">/functions/v1/*　·　RLS-scoped SELECT</span></div>
+          <div class="eb-band">
+            <p class="band-h">Identity</p>
+            <div class="eb-node"><span class="t">Supabase Auth (today) → Clerk via JWKS (planned)</span><span class="s">docs/24</span></div>
+          </div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-band">
+            <p class="band-h">Compute layer — one router, two hosts</p>
+            <div class="eb-row eq">
+              <div class="eb-node accent"><span class="t">server/functions.ts</span><span class="s">authorize → gate → dispatch</span></div>
+              <div class="eb-node"><span class="t">Host</span><span class="s">dev emulator (dev/) or prod Node (server/http.ts)</span></div>
+            </div>
+          </div>
+          <div class="eb-arrow">↓ &nbsp; <span style="font-size:11px;color:var(--muted)" class="eb-mono">asUser() — set role + JWT claims</span></div>
+          <div class="eb-band">
+            <p class="band-h">Supabase Postgres</p>
+            <div class="eb-stack">
+              <div class="eb-node"><span class="t">Row-Level Security</span><span class="s">app.user_* helpers · firm_id on every table</span></div>
+              <div class="eb-node"><span class="t">Tables</span><span class="s">firms · companies · engagements · assessments · gaps · tasks · documents · …</span></div>
+            </div>
+          </div>
+          <div class="eb-arrow">↑ server-side egress only</div>
+          <div class="eb-band">
+            <p class="band-h">External services — server-side only</p>
+            <div class="eb-row eq">
+              <div class="eb-node"><span class="t">Anthropic</span><span class="s">narrative only</span></div>
+              <div class="eb-node"><span class="t">Stripe</span><span class="s">billing (planned)</span></div>
+              <div class="eb-node"><span class="t">QuickBooks / Xero</span><span class="s">ledger OAuth</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><strong>Reads</strong> — react-query hooks in <code>src/lib/queries.ts</code> issue RLS-scoped SELECTs directly against Supabase Postgres via the Supabase JS client; no server hop.</p>
+      <p><strong>Writes / compute</strong> — <code>invokeFunction()</code> (<code>src/lib/supabase.ts</code>) POSTs to <code>/functions/v1/&lt;name&gt;</code>. The handler set lives in <code>server/functions.ts</code> and is transport-agnostic: a <code>FunctionContext</code> supplies <code>userId</code>, an <code>asUser()</code> RLS-scoped query runner, and a service-role client. The dev emulator (<code>dev/supabase-dev-server.ts</code>) and the production Node service (<code>server/http.ts</code>) mount the same router.</p>
+      <p><strong>Egress</strong> — Anthropic, Stripe (planned) and QuickBooks/Xero OAuth calls originate server-side only.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 03 — COMPUTE REQUEST (ORIGINAL 02) ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">03 · Identity Engine</p>
+    <h2 class="eb-h2">A compute request, end to end</h2>
+
+    <p>Before any action runs, the system confirms who is asking and which firm they belong to, and can refuse the action if that firm isn't entitled to it. Critically, it never trusts the browser to declare whose data to touch — the firm is looked up from the user's own record on the server.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-node"><span class="t">Browser → Host</span><span class="s">POST /functions/v1/{name} · Bearer JWT, body</span></div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-node"><span class="t">Host verifies JWT</span><span class="s">HS256 (Supabase) or JWKS (Clerk) → Claims{sub, role}</span></div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-node accent"><span class="t">handleFunctionCall(name, body, ctx)</span><span class="s">three gates, in order</span></div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-row eq">
+            <div class="eb-node"><span class="t">1 · authorize()</span><span class="s">resolve firm_id from profile (asUser) — never the body</span></div>
+            <div class="eb-node"><span class="t">2 · entitlementGate()</span><span class="s">402 if BILLING_ENFORCED &amp; not entitled</span></div>
+            <div class="eb-node"><span class="t">3 · dispatch()</span><span class="s">handler(service, firmId, body)</span></div>
+          </div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-node"><span class="t">Postgres (RLS)</span><span class="s">rows scoped to the firm → JSON result (or 402/403/404)</span></div>
+        </div>
+      </div>
+      <figcaption><code>firm_id</code> comes from the profile, never from the request body — the browser cannot ask for another firm's data.</figcaption>
+    </div>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>The host verifies the bearer JWT — HS256 for Supabase Auth today, JWKS for Clerk (planned) — yielding <code>Claims{sub, role}</code>. <code>handleFunctionCall(name, body, ctx)</code> then runs three gates in order:</p>
+      <ol>
+        <li><code>authorize()</code> resolves <code>firm_id</code> from the caller's <code>profiles</code> row via <code>asUser()</code> — never from the request body; role- and scope-sets (<code>LEDGER_FNS</code>, <code>FIRM_FNS</code>, <code>DOC_FNS</code>) decide what the caller may reach.</li>
+        <li><code>entitlementGate()</code> returns 402 for paid actions when <code>BILLING_ENFORCED</code> is on and the firm isn't entitled (a comp path keeps beta firms open).</li>
+        <li><code>dispatch()</code> runs the handler with every query executed as the caller, so Postgres RLS — not application code — is the real enforcement boundary.</li>
+      </ol>
+    </div>
+  </section>
+
+
+  <!-- ============ 04 — DETERMINISTIC SCORING (ORIGINAL 03) ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">04 · Rules Engine</p>
+    <h2 class="eb-h2">The load-bearing rule — scoring is deterministic</h2>
+
+    <p>The readiness scores are produced by fixed, auditable rules: the same inputs always yield the same score, so a result can be defended to a buyer or a lender. The AI writes the narrative around those numbers — the plain-English report — but it can never compute, adjust, or overwrite a score.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-inline-flow">
+            <div class="eb-node lock"><span class="t">Assessment answers</span><span class="s">inputs · immutable snapshot</span></div>
+            <div class="eb-arrow h">→</div>
+            <div class="eb-node accent"><span class="t">shared/scoring/engine.ts</span><span class="s">deterministic · versioned</span></div>
+            <div class="eb-arrow h">→</div>
+            <div class="eb-node"><span class="t">sub_scores → dimensions</span><span class="s">DRS (business) · ORI (owner)</span></div>
+            <div class="eb-arrow h">→</div>
+            <div class="eb-node"><span class="t">gaps + playbooks</span><span class="s">rule-thresholds</span></div>
+          </div>
+          <div style="text-align:center" class="eb-arrow">┊ &nbsp;read-only, structured &nbsp;┊</div>
+          <div class="eb-row eq">
+            <div class="eb-node ai"><span class="t">server/narrative.ts + Anthropic</span><span class="s">reads structured result only</span></div>
+            <div class="eb-node ai"><span class="t">Draft narrative</span><span class="s">labeled draft · prompt_version'd</span></div>
+          </div>
+          <div class="eb-node lock" style="border-style:dashed"><span class="t">seed/fixtures/reference_scorer.py</span><span class="s">CI must match the engine exactly</span></div>
+        </div>
+      </div>
+      <figcaption>The dashed lines into the narrative are one-way: data flows to the LLM, never back to a scoring table.</figcaption>
+    </div>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><code>shared/scoring/engine.ts</code> is a pure function of <code>(rubric, answers)</code>, ported from <code>seed/fixtures/reference_scorer.py</code>, the executable reference. CI fails unless the engine reproduces the reference fixtures exactly — down to Python's round-half-even, replicated in <code>pyRound()</code> via BigInt so the doubles match bit-for-bit.</p>
+      <p><strong>Flow:</strong> answers → banded <code>sub_scores</code> → weighted dimensions → two separate indices, DRS (business-readiness dimensions) and ORI (owner-readiness). Rule thresholds emit <code>gaps</code>, which instantiate playbook tasks (<code>server/roadmap.ts</code>).</p>
+      <p><strong>AI boundary:</strong> <code>server/narrative.ts</code> reads the structured result and calls Anthropic; output is labelled draft and stamped with a <code>prompt_version</code>. The arrow is one-way — data flows to the model, never back to a scoring table.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 05 — TENANCY & DATA (ORIGINAL 04) ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">05 · Knowledge Engine</p>
+    <h2 class="eb-h2">Tenancy &amp; data — the spine</h2>
+
+    <p>Every record belongs to exactly one firm, and the database itself enforces that a firm can only ever see its own data — isolation isn't left to application code that might have a bug. A completed assessment is a locked snapshot: re-assessing creates a new one, so score history and progress over time are preserved rather than overwritten.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-node accent" style="text-align:center"><span class="t">FIRMS</span><span class="s">the tenancy root</span></div>
+          <div class="eb-arrow">↓ owns</div>
+          <div class="eb-row eq">
+            <div class="eb-node"><span class="t">COMPANIES</span><span class="s">assessed repeatedly</span></div>
+            <div class="eb-node"><span class="t">PROFILES</span><span class="s">advisors / reviewers / owners</span></div>
+            <div class="eb-node"><span class="t">FIRM_SUBSCRIPTIONS</span><span class="s">billing (Stripe)</span></div>
+          </div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-node accent" style="text-align:center"><span class="t">ENGAGEMENTS</span><span class="s">the hub — everything hangs here</span></div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-row eq">
+            <div class="eb-node lock"><span class="t">ASSESSMENTS</span><span class="s">immutable snapshots · rubric_version</span></div>
+            <div class="eb-node"><span class="t">TASKS</span><span class="s">roadmap</span></div>
+            <div class="eb-node"><span class="t">DOCUMENTS</span><span class="s">data room / evidence</span></div>
+          </div>
+          <div class="eb-arrow">↓</div>
+          <div class="eb-row eq">
+            <div class="eb-node"><span class="t">DIMENSION_SCORES</span><span class="s">deterministic</span></div>
+            <div class="eb-node"><span class="t">GAPS</span><span class="s">flagged</span></div>
+            <div class="eb-node"><span class="t">RUBRIC_VERSIONS</span><span class="s">versions every assessment</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><code>firm_id</code> is on every domain table; Postgres RLS policies use <code>app.user_role()</code> / <code>app.user_firm_id()</code> helpers keyed on <code>auth.jwt()-&gt;&gt;'sub'</code> (identity migrated to a Clerk-compatible text subject in <code>20260719000100_clerk_identity.sql</code>, backward-compatible with Supabase Auth).</p>
+      <p><code>assessments</code> are immutable (<code>20260718000200_immutable_assessments.sql</code>) and carry a <code>rubric_version</code>; supersede semantics write a new row instead of mutating the old one. <code>dimension_scores</code> and <code>gaps</code> hang off the assessment. Billing rides alongside via <code>firm_subscriptions</code> + entitlements.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 06 — WORKFLOW ENGINE ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">06 · Workflow Engine</p>
+    <h2 class="eb-h2">The workflow is the product</h2>
+
+    <p>Competitors sell an instrument — a score, a report, a valuation. Exit Blueprint sells the <strong>path</strong>. The most valuable thing the platform does is carry a business, an owner, and their advisory team through the same disciplined sequence every time, so nothing is skipped and every stage builds on the last. That sequence is the product; the score is just one station on it.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-pipe">
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Discovery</span> <span class="d">— understand the business, owner, and financial picture</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Assessment</span> <span class="d">— deterministic DRS + ORI, named gaps</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Planning</span> <span class="d">— prioritized initiatives, sprints, hand-offs</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Execution</span> <span class="d">— remediation tasks, evidence collection</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Continuous Evaluation</span> <span class="d">— readiness updates as things change</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Specialist Collaboration</span> <span class="d">— CPA, attorney, valuation expert</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Deal Preparation</span> <span class="d">— CIM, teaser, buyer package assembled</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Due Diligence</span> <span class="d">— buyer questions, verified binder</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step done"><span class="dot"></span><span class="lbl2"><span class="t">Transaction</span> <span class="d">— the close</span></span></div>
+          <div class="line"><span></span></div>
+          <div class="step"><span class="dot"></span><span class="lbl2"><span class="t">Post-Close</span> <span class="d">— outcome captured, fed back into the system</span></span></div>
+        </div>
+      </div>
+      <figcaption>The engagement lifecycle. Each stage produces structured data the next stage — and every future engagement — consumes.</figcaption>
+    </div>
+
+    <p>Because the workflow is data, not a static diagram, the system knows which stage an engagement is in, what is blocking progression, and what should happen next. That is the difference between a tool an advisor <em>uses</em> and a system that <em>runs the practice</em>. It is also the hardest thing for a competitor to copy, because it encodes how good advisors actually work.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>Workflow state lives on the engagement and its children, not in UI. The five sell-side work streams (<code>docs/17</code>) map onto CEPA's <em>Discover → Prepare → Decide</em> gates and the CFP 7-step loop (<code>docs/18</code>); progression is driven by deterministic rules — a gap cleared, evidence verified, an assessment superseded — not by an advisor manually flipping a status. <code>server/roadmap.ts</code> turns gaps into playbook task sets stamped with a <code>playbook_version</code>.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 07 — CONTINUOUS EVALUATION ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">07 · Workflow Engine</p>
+    <h2 class="eb-h2">Continuous evaluation — the system asks "what changed?"</h2>
+
+    <p>Competitors perform <em>periodic assessments</em>: you sit down once a quarter or once a year, re-run the questionnaire, and get a fresh score. Exit Blueprint performs <strong>continuous evaluation</strong>. Instead of asking, once in a while, <em>"how ready is the business?"</em>, the system is always asking a sharper question: <em>"what changed, and what did it do to readiness?"</em></p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-row eq" style="margin-bottom:12px">
+          <div class="eb-node"><span class="t">Financial changes</span><span class="s">revenue, margin, concentration</span></div>
+          <div class="eb-node"><span class="t">Management changes</span><span class="s">key-person, org depth</span></div>
+          <div class="eb-node"><span class="t">Customer concentration</span><span class="s">a top account shifts</span></div>
+        </div>
+        <div class="eb-row eq" style="margin-bottom:12px">
+          <div class="eb-node"><span class="t">Completed initiatives</span><span class="s">a gap is remediated</span></div>
+          <div class="eb-node"><span class="t">Buyer diligence</span><span class="s">new questions surface risk</span></div>
+          <div class="eb-node"><span class="t">Ownership changes</span><span class="s">cap table, intent</span></div>
+        </div>
+        <div class="eb-arrow">↓ &nbsp;every meaningful change&nbsp; ↓</div>
+        <div class="eb-node accent" style="text-align:center"><span class="t">Readiness updates automatically</span><span class="s">new immutable assessment · delta vs. prior · re-prioritized roadmap</span></div>
+      </div>
+      <figcaption>Change is the trigger, not the calendar. A material event produces a new snapshot and a measured delta.</figcaption>
+    </div>
+
+    <p>This matters commercially as much as technically. An engagement that re-scores only at renewal is easy to cancel and easy to forget. An engagement that continuously reflects the real state of the business becomes the advisor's — and the owner's — source of truth, and the cost of leaving it climbs every month. Continuous evaluation is what turns a one-time assessment into a living relationship.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>Because assessments are immutable and versioned, "re-evaluate" is always "create a new snapshot and diff it against the last" — never a mutation. Score history and deltas are first-class (rule 4). External <code>n8n</code> workflows call authenticated webhook endpoints (<code>stale-engagements</code>, <code>stalled-tasks</code>, <code>reassessment-due</code>) that this repo exposes; a completed task, a verified document, or a changed ledger figure can each open a fresh evaluation rather than waiting for a scheduled review.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 08 — KNOWLEDGE ENGINE ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">08 · Knowledge Engine</p>
+    <h2 class="eb-h2">Structured knowledge becomes proprietary IP</h2>
+
+    <p>Anyone can rebuild the scoring engine, the reports, and the portal. What cannot be copied is the <strong>structured record of what actually happened across thousands of engagements</strong> — the gaps that mattered, the initiatives that moved the price, the questions buyers really asked, and how deals actually closed. The Knowledge Engine's job is to capture all of that as data, from day one, so it compounds into an asset no new entrant can retrofit.</p>
+
+    <p>The design discipline is that everything an advisor knows or decides is captured as <em>structured fact</em>, not free text buried in a note. An assessment is structured. A gap is structured. A remediation initiative is structured. A buyer's diligence question is structured. And — the highest-value record of all — a deal's outcome is structured: the final enterprise value, multiple, EBITDA at close, buyer type, and which risks the buyer actually flagged.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-row eq">
+          <div class="eb-node"><span class="t">Outcome calibration</span><span class="s">predicted DRS vs. actual EV — the FICO moat</span></div>
+          <div class="eb-node"><span class="t">Verified financial corpus</span><span class="s">ledger-verified, not self-reported</span></div>
+          <div class="eb-node"><span class="t">The engagement graph</span><span class="s">gap → remediation → score → price</span></div>
+        </div>
+      </div>
+      <figcaption>Three compounding assets, all of them impossible to backfill: they require years of real, closed engagements.</figcaption>
+    </div>
+
+    <p>Turned on early and left to accumulate, this record lets the DRS graduate from an <em>opinion</em> to a <em>calibrated prediction</em> — "businesses at DRS 72 closed at 4.6–5.4× within 14 months, 82% of the time" — and lets playbook advice be grounded in the platform's own results rather than generic best practice. That is the Knowledge Engine turning into intellectual property.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>The moat substrate is <code>deal_outcomes</code> (<code>docs/09-moats.md</code>): one record per closed or broken engagement, tying the prediction (DRS, ORI, verified %, predicted EV range) to reality (final EV, multiple, EBITDA, buyer type, structure, retrade, days-to-close, buyer-flagged risks). Two non-negotiables protect it: <strong>capture is advisor-reported fact, never inferred by a model</strong>; and <strong>calibration informs the rubric — it never edits a score directly</strong>. A recalibration ships as a new <code>rubric_version</code> / <code>valuation_rules_version</code>. Cross-firm aggregation is anonymized and opt-in; RLS stays firm-scoped on the raw rows.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 09 — AI ARCHITECTURE ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">09 · Reasoning Engine</p>
+    <h2 class="eb-h2">The AI architecture — three layers</h2>
+
+    <p>The architecture is intentionally split into three layers, and the split is the whole point: it lets Exit Blueprint use AI aggressively for what AI is good at (explaining) while keeping it entirely away from what it is bad at (being the system of record for a number a buyer will scrutinize).</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-band">
+            <p class="band-h">Layer 1 · Deterministic system</p>
+            <div class="eb-node accent"><span class="t">Facts · scoring · business logic</span><span class="s">rule-based, versioned, auditable — the source of truth</span></div>
+          </div>
+          <div class="eb-arrow">↓ &nbsp;structured data flows up, one-way</div>
+          <div class="eb-band">
+            <p class="band-h">Layer 2 · Reasoning</p>
+            <div class="eb-node ai"><span class="t">Narratives · recommendations · summaries</span><span class="s">AI explains the facts — always labeled draft</span></div>
+          </div>
+          <div class="eb-arrow">↓ &nbsp;every engagement contributes</div>
+          <div class="eb-band">
+            <p class="band-h">Layer 3 · Learning</p>
+            <div class="eb-node"><span class="t">Advisor rationale · completed transactions · buyer questions · successful initiatives · industry intelligence</span><span class="s">knowledge compounds over time and improves layers 1 &amp; 2</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Layer 1 is deterministic and defensible. Layer 2 explains it. Layer 3 is the compounding knowledge that, over time, makes both better.</figcaption>
+    </div>
+
+    <p>Layer 1 is the deterministic system — facts, scoring, business logic. Layer 2 is reasoning — the narratives, executive summaries, recommendations, and meeting summaries the AI produces <em>from</em> those facts. Layer 3 is learning — the advisor rationale, completed transactions, buyer questions, and successful initiatives that accumulate as structured knowledge and feed back into sharper rules and better-grounded reasoning. Crucially, <strong>learning never rewrites a score in place</strong>; it informs the next versioned rubric.</p>
+
+    <p>The rule that keeps all three honest: <strong>every recommendation should have an explainable evidence chain</strong> back to the deterministic facts that produced it. AI in this system is never a black box that emits a verdict — it is a writer that shows its work.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><code>server/narrative.ts</code> is the only path to the Anthropic API, and the key never reaches the browser. Every call is logged to an <code>llm_calls</code> cost ledger against a versioned prompt registry (<code>prompt_version</code>). A <strong>narrative guard</strong> rejects any drafted number that is not present in the source structured data — the model cannot smuggle a computed figure into a report. Output is always stamped <em>draft</em> until an advisor accepts it.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 10 — DOCUMENT STRATEGY ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">10 · Rules + Reasoning</p>
+    <h2 class="eb-h2">Documents are assembled, never authored</h2>
+
+    <p>Every important document in an exit — the CIM, the executive summary, the teaser, the buyer package, the quarterly review, the readiness report, the due-diligence responses — is <strong>assembled from structured data</strong>, not written from a blank page. The facts come from the deterministic system; the narrative connective tissue comes from AI; the advisor approves. No document is ever hand-authored in a way that could drift from the underlying record.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-inline-flow">
+          <div class="eb-node"><span class="t">Deterministic facts</span><span class="s">scores, gaps, verified financials, evidence</span></div>
+          <div class="eb-arrow h">+</div>
+          <div class="eb-node ai"><span class="t">AI narrative</span><span class="s">prose from the facts, labeled draft</span></div>
+          <div class="eb-arrow h">→</div>
+          <div class="eb-node accent"><span class="t">Assembled document</span><span class="s">CIM · teaser · buyer package · DD responses · quarterly review</span></div>
+        </div>
+      </div>
+      <figcaption>Facts + narrative + advisor approval → document. The same structured record produces every deliverable, so they never disagree.</figcaption>
+    </div>
+
+    <p>This is why the same engagement can produce a one-page teaser and a hundred-page diligence binder that never contradict each other: they are two renderings of one source of truth. It is also why a number in a buyer package can always be traced back to the assessment and the evidence that produced it — assembly preserves provenance in a way authoring never could.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>Document handlers live under <code>server/documents/</code> and <code>server/pdf.ts</code>. A document reads the deterministic result and the verified data room, calls <code>narrative.ts</code> for prose, and renders — carrying the <code>prompt_version</code>, <code>rubric_version</code>, and evidence references with it. Pluggable seams keep vendors out of the core: a <code>ParserAdapter</code> handles document extraction (manual default; Reducto/LlamaParse selectable) and a <code>StorageAdapter</code> handles bytes (DB blob now, object storage later).</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 11 — COLLABORATION ENGINE ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">11 · Collaboration Engine</p>
+    <h2 class="eb-h2">The engagement as shared workspace</h2>
+
+    <p>An exit is a team sport. The CFP owns the engagement and the client relationship, but the work pulls in a CPA, an attorney, an M&amp;A advisor, a valuation expert — and the owner themselves. Exit Blueprint makes the engagement the <strong>shared workspace</strong> those roles collaborate inside, rather than a document that gets emailed around and forks into five inconsistent copies.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-node accent" style="text-align:center;margin-bottom:12px"><span class="t">CFP — owns the engagement</span><span class="s">relationship manager · orchestrates the team</span></div>
+        <div class="eb-arrow">↓ invites &amp; scopes</div>
+        <div class="eb-row eq">
+          <div class="eb-node"><span class="t">Owner</span><span class="s">the business</span></div>
+          <div class="eb-node"><span class="t">CPA</span><span class="s">financials</span></div>
+          <div class="eb-node"><span class="t">Attorney</span><span class="s">legal / contracts</span></div>
+        </div>
+        <div class="eb-row eq" style="margin-top:10px">
+          <div class="eb-node"><span class="t">M&amp;A Advisor</span><span class="s">go-to-market</span></div>
+          <div class="eb-node"><span class="t">Valuation Expert</span><span class="s">the number</span></div>
+          <div class="eb-node lock"><span class="t">Each sees only their scope</span><span class="s">RLS + role · least privilege</span></div>
+        </div>
+      </div>
+      <figcaption>One engagement, many participants, one source of truth — each role scoped to exactly what it needs.</figcaption>
+    </div>
+
+    <p>Because everyone works inside the same structured engagement, a valuation expert's input, an attorney's flagged contract, and an owner's uploaded evidence all land in the same record and feed the same continuous evaluation. The advisor stays the trusted relationship manager; the platform is the shared surface that keeps the whole team honest and in sync.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>Roles are enforced the same way tenancy is: <code>app.user_role()</code> in RLS plus route guards (<code>RequireAdvisor</code> / <code>RequireStaff</code> / <code>RequireOwner</code> in <code>App.tsx</code>) and scope-sets in <code>server/functions.ts</code>. A participant is a <code>profiles</code> row tied to the firm and scoped to an engagement — the collaboration model is an extension of the identity model, not a separate system, which is why it inherits the same firm isolation and auditability.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 12 — BUILD VS INTEGRATE ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">12 · Strategy in the architecture</p>
+    <h2 class="eb-h2">Build the operating system, integrate the commodity</h2>
+
+    <p>The single most important strategic decision in the architecture is what to <strong>build</strong> and what to <strong>integrate</strong>. Exit Blueprint builds the things that are proprietary, compounding, and specific to business transitions. It integrates the mature commodity software that everyone already uses and no one would switch for. The goal is to be the operating system for the engagement — not to re-implement a CRM or an accounting package that does its job perfectly well.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-two">
+          <div class="col own">
+            <h4>Exit Blueprint owns</h4>
+            <p class="cap">Proprietary · compounding · unique to transitions</p>
+            <ul>
+              <li>Workflow</li>
+              <li>Knowledge graph</li>
+              <li>Rules engine</li>
+              <li>Advisor library</li>
+              <li>Buyer library</li>
+              <li>Reasoning</li>
+              <li>Collaboration</li>
+              <li>Continuous evaluation</li>
+              <li>Document assembly</li>
+            </ul>
+          </div>
+          <div class="col buy">
+            <h4>Exit Blueprint integrates</h4>
+            <p class="cap">Mature · commodity · no advantage in rebuilding</p>
+            <ul>
+              <li>CRM</li>
+              <li>Accounting</li>
+              <li>Financial planning</li>
+              <li>Custodians</li>
+              <li>Tax</li>
+              <li>Identity providers</li>
+              <li>Communications</li>
+              <li>Billing</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <figcaption>Own the workflow and the knowledge that compounds. Integrate the software that is already good and already everywhere.</figcaption>
+    </div>
+
+    <p><strong>Why draw the line here?</strong> Rebuilding a CRM or a general ledger burns engineering on problems the market already solved and creates nothing defensible — you would ship a worse QuickBooks. Owning the workflow, the knowledge graph, and the reasoning creates assets that get better with every engagement and that no integration can replicate. Every hour spent building commodity software is an hour not spent widening the moat.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>The architecture is built for integration without vendor lock-in: external services are reached <em>server-side only</em> and behind adapters. Ledger access is OAuth to QuickBooks/Xero; billing is Stripe; identity is moving to Clerk via JWKS (<code>docs/24</code>) without touching the RLS model, because policies key on a text subject claim, not a Supabase-specific one. Nothing in the core scoring, workflow, or knowledge code depends on which commodity vendor is plugged in.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 13 — SECURITY ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">13 · Enterprise readiness</p>
+    <h2 class="eb-h2">Security is foundational, not a feature</h2>
+
+    <p>Exit Blueprint holds the most sensitive data a business owner has — financials, contracts, cap tables, and the fact that they intend to sell. That data will be scrutinized by institutional buyers and their diligence teams. Security here is not a checklist bolted on before a sale; it is a property of the architecture, present from the first migration.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-row eq" style="margin-bottom:10px">
+          <div class="eb-node"><span class="t">SOC 2 Type II</span><span class="s">the target attestation</span></div>
+          <div class="eb-node"><span class="t">RLS</span><span class="s">firm isolation in the database</span></div>
+          <div class="eb-node"><span class="t">RBAC</span><span class="s">role-scoped access</span></div>
+        </div>
+        <div class="eb-row eq" style="margin-bottom:10px">
+          <div class="eb-node"><span class="t">Audit logs</span><span class="s">who did what, when</span></div>
+          <div class="eb-node"><span class="t">MFA · SSO</span><span class="s">enterprise identity</span></div>
+          <div class="eb-node"><span class="t">Encryption</span><span class="s">in transit &amp; at rest</span></div>
+        </div>
+        <div class="eb-row eq">
+          <div class="eb-node"><span class="t">Version history</span><span class="s">nothing silently overwritten</span></div>
+          <div class="eb-node"><span class="t">Immutable assessments</span><span class="s">tamper-evident record</span></div>
+          <div class="eb-node"><span class="t">Least privilege</span><span class="s">each role sees only its scope</span></div>
+        </div>
+      </div>
+      <figcaption>The controls an enterprise buyer's security review expects — several of them are architectural invariants, not settings.</figcaption>
+    </div>
+
+    <p><strong>Why these matter.</strong> RLS means a bug in application code cannot leak one firm's data to another, because isolation is enforced by the database, not by the developer remembering a <code>WHERE</code> clause. Immutable assessments and version history mean the record is tamper-evident — exactly what a buyer's counsel needs to trust a diligence binder. RBAC and least privilege keep a specialist scoped to their lane. SOC 2 Type II, MFA, SSO, and encryption are the entry ticket to selling into firms that will not touch a vendor without them. Building these in from day one is far cheaper than retrofitting them, and it is what makes the platform sellable to an enterprise at all.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>RLS is enforced in Postgres via <code>app.user_role()</code> / <code>app.user_firm_id()</code> on every table; the compute router runs every query <em>as the caller</em> so the database is the enforcement boundary. Immutability ships as a migration (<code>20260718000200_immutable_assessments.sql</code>). Identity moves to Clerk (MFA/SSO) via JWKS without a schema rewrite. Audit and review-queue handlers record privileged actions. Security posture and vendor-diligence answers are documented in <code>docs/13</code>, <code>docs/15</code>, and <code>docs/16</code>.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 14 — ROADMAP ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">14 · Technical roadmap</p>
+    <h2 class="eb-h2">Three phases, one direction</h2>
+
+    <p>The build order follows directly from the strategy: earn the right to own more of the workflow by first owning the engagement, then expand only where the platform creates leverage the incumbents cannot. Each phase is a wider circle drawn around the same center.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-phases">
+          <div class="eb-phase">
+            <span class="ph">Phase 1</span>
+            <div>
+              <h4>Own the engagement</h4>
+              <p>Become the system of record for the advisory relationship — assessment, deterministic scoring, gaps, roadmap, evidence, deliverables, continuous evaluation. Turn on outcome capture from day one so the knowledge asset starts compounding immediately.</p>
+            </div>
+          </div>
+          <div class="eb-phase">
+            <span class="ph">Phase 2</span>
+            <div>
+              <h4>Own high-value workflow modules</h4>
+              <p>Extend into the specialized, transition-specific work that generic tools do badly — document assembly, the buyer/diligence library, specialist collaboration, calibration analytics. These deepen the moat because they feed on the Phase 1 knowledge graph.</p>
+            </div>
+          </div>
+          <div class="eb-phase">
+            <span class="ph">Phase 3</span>
+            <div>
+              <h4>Replace commodity capabilities only where platform leverage exists</h4>
+              <p>Absorb a commodity capability <em>only</em> when owning it inside the engagement creates leverage an integration cannot — never for its own sake. The default remains integrate; replacement is the exception that must justify itself.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p><strong>Why this order?</strong> Owning the engagement first is what generates the proprietary data every later phase depends on. Chasing commodity replacement early would spend scarce engineering on undifferentiated work and starve the moat. Sequencing outward from the engagement means every phase is built on an asset the previous phase created.</p>
+  </section>
+
+
+  <!-- ============ 15 — FLYWHEEL ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">15 · The moat</p>
+    <h2 class="eb-h2">The knowledge flywheel</h2>
+
+    <p>Everything above exists to turn one loop. Every engagement generates structured data; that data sharpens the rules and grounds the reasoning; sharper rules and better reasoning make the next engagement more valuable; a more valuable engagement attracts more advisors and produces more data. The loop is the company. Assessment scores, reports, and portals are features a competitor can copy in a quarter — <strong>the compounding institutional knowledge this loop produces is the thing they cannot.</strong></p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-loop">
+          <span class="n2">Assessment</span><span class="sep">→</span>
+          <span class="n2">Advisor decisions</span><span class="sep">→</span>
+          <span class="n2">Initiatives</span><span class="sep">→</span>
+          <span class="n2">Buyer questions</span><span class="sep">→</span>
+          <span class="n2">Due diligence</span><span class="sep">→</span>
+          <span class="n2 hot">Transaction outcomes</span><span class="sep">→</span>
+          <span class="n2">Advisor feedback</span><span class="sep">→</span>
+          <span class="n2 hot">Knowledge graph</span><span class="sep">→</span>
+          <span class="n2">Improved rules</span><span class="sep">→</span>
+          <span class="n2">Improved AI</span><span class="sep">→</span>
+          <span class="n2 hot">Better future engagements</span><span class="sep">↺</span>
+        </div>
+      </div>
+      <figcaption>The flywheel. Each turn deposits structured knowledge that makes the next turn better — and widens the gap behind you.</figcaption>
+    </div>
+
+    <p>The critical property is that this knowledge <em>cannot be retrofitted</em>. Calibrating a readiness score against real outcomes requires years of closed deals tied to prior predictions; a well-funded competitor starting today cannot buy those years. That is why the architecture insists on capturing structured outcomes from the very first engagement, even before there is enough data to be useful — because the moat is the accumulation, and the accumulation only starts once.</p>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p>The flywheel is made real by three disciplines already in the schema: <code>deal_outcomes</code> captures the transaction result (<code>docs/09</code>); immutable, versioned assessments preserve the prediction to calibrate against; and every recalibration ships as a new <code>rubric_version</code> so the score stays deterministic even as it gets smarter. The knowledge compounds in data; the rules and prompts are re-versioned from it — the loop never violates rule 1 or rule 2.</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 16 — REPO MAP (ORIGINAL 05) ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">16 · Orientation</p>
+    <h2 class="eb-h2">Repo module map — where things live</h2>
+
+    <p>A quick orientation to the codebase: the browser app, the server-side router and its domain handlers, the shared deterministic core that both trust, the database migrations and the canonical seed data, and the developer tooling that keeps them honest.</p>
+
+    <div class="eb-fig">
+      <div class="eb-diagram">
+        <div class="eb-stack">
+          <div class="eb-band">
+            <p class="band-h">Frontend · src/</p>
+            <div class="eb-row eq">
+              <div class="eb-node"><span class="t">pages/</span><span class="s">advisor workspace + owner portal</span></div>
+              <div class="eb-node"><span class="t">components/ui/</span><span class="s">design system (docs/26)</span></div>
+              <div class="eb-node"><span class="t">lib/</span><span class="s">client, queries, auth, format, pure logic</span></div>
+            </div>
+          </div>
+          <div class="eb-band">
+            <p class="band-h">Backend · server/</p>
+            <div class="eb-row eq">
+              <div class="eb-node accent"><span class="t">functions.ts</span><span class="s">the router — authorize / dispatch</span></div>
+              <div class="eb-node"><span class="t">http.ts · auth-jwt.ts</span><span class="s">prod Node host</span></div>
+              <div class="eb-node"><span class="t">domain handlers</span><span class="s">scoring, valuation, roadmap, narrative, pdf, documents/, ledger*, verification, entitlements</span></div>
+            </div>
+          </div>
+          <div class="eb-band">
+            <p class="band-h">shared/ · FE + BE</p>
+            <div class="eb-row eq">
+              <div class="eb-node accent"><span class="t">scoring/engine.ts</span><span class="s">the DRS / ORI engine</span></div>
+              <div class="eb-node"><span class="t">entitlements · comparables · rubric-seed</span><span class="s">imported by both sides</span></div>
+            </div>
+          </div>
+          <div class="eb-band">
+            <p class="band-h">Database &amp; data · Dev &amp; ops</p>
+            <div class="eb-row eq">
+              <div class="eb-node"><span class="t">supabase/migrations/</span><span class="s">schema + RLS (25 migrations)</span></div>
+              <div class="eb-node"><span class="t">seed/</span><span class="s">canonical rubric, playbooks, reference_scorer.py, demo tenant</span></div>
+              <div class="eb-node"><span class="t">dev/ · scripts/ · CI</span><span class="s">emulator, migrate/seed/rls-test, ci.yml</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eb-code-panel">
+      <p class="lbl">In the code</p>
+      <p><strong>src/</strong> — pages, the <code>components/ui</code> design system, and <code>lib/</code> (client, queries, auth, formatting, pure logic).</p>
+      <p><strong>server/</strong> — <code>functions.ts</code> router plus ~30 domain handlers (scoring, valuation, roadmap, narrative, pdf, documents/, ledger*, verification, entitlements, review-queue, audit…).</p>
+      <p><strong>shared/</strong> — <code>scoring/engine.ts</code> with its types + interpretation, imported by both sides.</p>
+      <p><strong>supabase/migrations/</strong> — schema + RLS (25 migrations). <strong>seed/</strong> — canonical rubric, playbooks, <code>reference_scorer.py</code>, demo tenant. <strong>dev/</strong>, <strong>scripts/</strong> (migrate, seed, rls-test) and CI (migrate → rls → seed → test → build).</p>
+    </div>
+  </section>
+
+
+  <!-- ============ 17 — ENGINEERING PHILOSOPHY ============ -->
+  <section class="eb-section">
+    <p class="eb-secnum">17 · Closing</p>
+    <h2 class="eb-h2">Engineering philosophy</h2>
+
+    <p>Every engineering decision in Exit Blueprint is measured against the same set of principles. They are not aspirations on a wall — they are the reasons the architecture looks the way it does, and the test any future change has to pass.</p>
+
+    <div class="eb-principles">
+      <div class="pr"><span class="k">01</span><span>The engagement is the product.</span></div>
+      <div class="pr"><span class="k">02</span><span>Facts are deterministic.</span></div>
+      <div class="pr"><span class="k">03</span><span>AI explains; it never computes.</span></div>
+      <div class="pr"><span class="k">04</span><span>Workflow is the competitive advantage.</span></div>
+      <div class="pr"><span class="k">05</span><span>Knowledge compounds.</span></div>
+      <div class="pr"><span class="k">06</span><span>Security is foundational.</span></div>
+      <div class="pr"><span class="k">07</span><span>Integrate commodity software.</span></div>
+      <div class="pr"><span class="k">08</span><span>Build proprietary workflow.</span></div>
+      <div class="pr"><span class="k">09</span><span>Every feature should increase stickiness.</span></div>
+      <div class="pr"><span class="k">10</span><span>Every engagement should improve the next one.</span></div>
+    </div>
+
+    <p style="margin-top:28px">Hold these together and the direction is unambiguous: Exit Blueprint is not building an assessment tool that happens to store some data. It is building the operating system for business transitions — a system where the facts are defensible, the AI is trustworthy because it only ever explains, the workflow is the moat, and every engagement quietly makes the next one better. Build to reinforce that, and the company compounds.</p>
+
+    <div class="eb-footer">
+      <p class="eb-mono">Exit Blueprint · Platform Architecture</p>
+      <p>Companion to <code>docs/28-architecture-map.md</code> and <code>docs/01-architecture.md</code>. The non-negotiable rules — deterministic scoring, AI narrative-only, rubric-in-data, immutable assessments, multi-tenant isolation, versioning — live in <code>CLAUDE.md</code> and win over everything in this document. Deeper detail: data model <code>docs/02</code> · scoring <code>docs/03</code> / <code>docs/07</code> · AI layer <code>docs/04</code> · moats <code>docs/09</code> · security <code>docs/13</code> / <code>docs/16</code> · strategy <code>docs/20</code> · path to production <code>docs/24</code> / <code>docs/25</code>.</p>
+    </div>
+  </section>
+
+</div>
+</article>
+
+</body>
+</html>
