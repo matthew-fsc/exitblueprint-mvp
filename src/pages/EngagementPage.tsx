@@ -31,6 +31,7 @@ import {
 import {
   Card,
   Collapsible,
+  ConfirmDialog,
   DataTable,
   DeltaChip,
   DimensionBars,
@@ -73,6 +74,17 @@ function targetExitDate(startedAt: string, window: string | null): Date {
   d.setMonth(d.getMonth() + (Number.isFinite(months) ? months : 24));
   return d;
 }
+
+// The engagement lifecycle states (engagement_status enum). `active` and
+// `paused` are working states; `exited` and `churned` are terminal — the deal
+// closed, or the client left before one. Managed on the Setup & admin tab.
+type EngagementStatus = 'active' | 'paused' | 'exited' | 'churned';
+const STATUS_LABEL: Record<EngagementStatus, string> = {
+  active: 'Active',
+  paused: 'Paused',
+  exited: 'Exited — deal closed',
+  churned: 'Churned — left before exit',
+};
 
 const PROCESS_LABEL: Record<string, string> = {
   not_in_market: 'Not in market',
@@ -294,7 +306,7 @@ export default function EngagementPage() {
         crumbs={[{ label: 'Engagements', to: '/' }, { label: companyName }]}
         subtitle={
           <>
-            Engagement {engagement.status}
+            {STATUS_LABEL[engagement.status as EngagementStatus] ?? engagement.status}
             {engagement.target_exit_window ? ` · target window ${engagement.target_exit_window}` : ''}
             {outcomeStatus ? ` · ${PROCESS_LABEL[outcomeStatus] ?? outcomeStatus}` : ''}
           </>
@@ -676,10 +688,23 @@ export default function EngagementPage() {
           {activeAnalysis === 'setup' && (
             <div className="stack-lg">
               <SectionCard
-                title="Engagement timeline"
-                subtitle="Set the actual start date and target window so the trajectory, sprints, and exit pace reflect the real engagement."
+                title="Engagement timeline & status"
+                subtitle="Set the actual start date and target window so the trajectory, sprints, and exit pace reflect the real engagement, and move the engagement through its lifecycle."
               >
                 <div className="eng-timeline-form">
+                  <label>
+                    Status
+                    <select
+                      value={engagement.status}
+                      onChange={(e) => saveEngagement({ status: e.target.value })}
+                    >
+                      {(Object.keys(STATUS_LABEL) as EngagementStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Started
                     <input
@@ -703,6 +728,10 @@ export default function EngagementPage() {
                     </select>
                   </label>
                 </div>
+                <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
+                  Paused keeps the record but signals no active work; Exited and Churned are terminal.
+                  To remove the engagement entirely, use “Delete engagement” below.
+                </p>
               </SectionCard>
               <div className="eng-grid" style={{ marginTop: 0 }}>
                 <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
@@ -713,6 +742,19 @@ export default function EngagementPage() {
                 />
               </div>
               {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+              <DeleteEngagementCard
+                engagementId={engagementId!}
+                companyName={companyName}
+                counts={{
+                  assessments: assessments.length,
+                  documents: documents.length,
+                  gaps: gapsQ.data?.length ?? 0,
+                  tasks: tasksQ.data?.length ?? 0,
+                  logEntries: logQ.data?.length ?? 0,
+                  hasValuation: !!valuationQ.data?.has_recast,
+                  hasDealOutcome: !!outcomeStatus,
+                }}
+              />
             </div>
           )}
           </div>
@@ -949,6 +991,133 @@ function DealOutcomeCapture({
         {existing?.updated_at && <span className="muted" style={{ marginLeft: '0.6rem' }}>last saved {fmtDate(existing.updated_at)}</span>}
       </div>
     </form>
+  );
+}
+
+// The destructive escape hatch: permanently remove an engagement and everything
+// under it. The soft path (pause / mark exited or churned) lives in the status
+// control above; this is for undoing a mis-created engagement or honouring a
+// "delete our data" request. Gated behind a typed confirmation — the advisor
+// must retype the company name — and it spells out exactly what is destroyed,
+// because none of it can be recovered.
+function DeleteEngagementCard({
+  engagementId,
+  companyName,
+  counts,
+}: {
+  engagementId: string;
+  companyName: string;
+  counts: {
+    assessments: number;
+    documents: number;
+    gaps: number;
+    tasks: number;
+    logEntries: number;
+    hasValuation: boolean;
+    hasDealOutcome: boolean;
+  };
+}) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const matches = confirmText.trim().toLowerCase() === companyName.trim().toLowerCase();
+
+  // What will be destroyed, phrased plainly. Only lines that actually apply are
+  // shown so the warning is concrete, not boilerplate.
+  const willLose: string[] = [];
+  if (counts.assessments > 0)
+    willLose.push(`${counts.assessments} assessment${counts.assessments === 1 ? '' : 's'} and their full score history`);
+  if (counts.gaps > 0) willLose.push(`${counts.gaps} tracked gap${counts.gaps === 1 ? '' : 's'}`);
+  if (counts.tasks > 0) willLose.push(`${counts.tasks} remediation task${counts.tasks === 1 ? '' : 's'}`);
+  if (counts.documents > 0)
+    willLose.push(`${counts.documents} uploaded document${counts.documents === 1 ? '' : 's'} (and their stored files)`);
+  if (counts.logEntries > 0)
+    willLose.push(`${counts.logEntries} engagement-log entr${counts.logEntries === 1 ? 'y' : 'ies'}`);
+  if (counts.hasValuation) willLose.push('the valuation & EBITDA recast');
+  if (counts.hasDealOutcome)
+    willLose.push('the recorded deal outcome (calibration data that cannot be re-derived)');
+  willLose.push('the engagement agreement acceptance, data room, and all other records');
+
+  const close = () => {
+    if (busy) return;
+    setOpen(false);
+    setConfirmText('');
+    setError(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!matches) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await invokeFunction('delete-engagement', { engagement_id: engagementId });
+      // Everything keyed off this engagement is now stale, plus the book-level lists.
+      qc.invalidateQueries({ queryKey: qk.engagements() });
+      qc.invalidateQueries({ queryKey: qk.portfolio() });
+      qc.removeQueries({ queryKey: qk.engagement(engagementId) });
+      toast.show(`${companyName} engagement deleted`, 'good');
+      navigate('/');
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionCard title="Danger zone" subtitle="Irreversible actions for this engagement.">
+      <div className="danger-zone">
+        <div>
+          <strong>Delete this engagement</strong>
+          <p className="muted text-sm m-0">
+            Permanently removes the engagement and everything under it. This cannot be undone. If the
+            client simply finished or paused, use the status control above instead.
+          </p>
+        </div>
+        <button className="btn-danger" onClick={() => setOpen(true)}>
+          Delete engagement
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={open}
+        danger
+        title={`Delete ${companyName}?`}
+        confirmLabel="Permanently delete"
+        cancelLabel="Cancel"
+        busy={busy}
+        confirmDisabled={!matches}
+        onCancel={close}
+        onConfirm={confirmDelete}
+      >
+        <p className="m-0">
+          This <strong>permanently and irreversibly</strong> deletes this engagement. There is no
+          undo and no archive. It will destroy:
+        </p>
+        <ul className="danger-list">
+          {willLose.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <label className="danger-confirm">
+          <span>
+            Type the client name <strong>{companyName}</strong> to confirm:
+          </span>
+          <input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={companyName}
+            autoComplete="off"
+            aria-label={`Type ${companyName} to confirm deletion`}
+          />
+        </label>
+        {error && <ErrorState variant="inline" error={error} />}
+      </ConfirmDialog>
+    </SectionCard>
   );
 }
 

@@ -13,6 +13,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   danger = false,
   busy = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: {
@@ -23,6 +24,9 @@ export function ConfirmDialog({
   cancelLabel?: string;
   danger?: boolean;
   busy?: boolean;
+  // Hold the confirm button disabled until a precondition is met (e.g. the user
+  // has typed the required confirmation text for a destructive action).
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -95,7 +99,11 @@ export function ConfirmDialog({
           <button ref={cancelRef} className="btn-ghost" onClick={onCancel} disabled={busy}>
             {cancelLabel}
           </button>
-          <button className={danger ? 'btn-danger' : undefined} onClick={onConfirm} disabled={busy}>
+          <button
+            className={danger ? 'btn-danger' : undefined}
+            onClick={onConfirm}
+            disabled={busy || confirmDisabled}
+          >
             {busy ? 'Working…' : confirmLabel}
           </button>
         </div>

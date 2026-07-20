@@ -89,6 +89,17 @@ async function authorize(
       if (!(await visibleUnderRls(ctx, 'companies', companyId))) return { error: err(404, 'company not found') };
       return { firmId };
     }
+    case 'delete-engagement': {
+      // Destructive: only firm staff who own the engagement may delete it.
+      // Resolve the caller's advisor/admin firm (so owners/reviewers are
+      // rejected), then confirm the target engagement is visible under RLS.
+      const firmId = await firmFromProfile(ctx, ['advisor', 'admin']);
+      if (!firmId) return { error: err(403, 'advisor profile required') };
+      const engId = typeof body.engagement_id === 'string' ? body.engagement_id : null;
+      if (!engId) return { error: err(400, 'engagement_id required') };
+      if (!(await visibleUnderRls(ctx, 'engagements', engId))) return { error: err(404, 'engagement not found') };
+      return { firmId };
+    }
     case 'document-upload': {
       // Staff = advisor or reviewer; resolve the firm, then confirm the target
       // engagement is visible under RLS (upload attaches to an engagement).

@@ -86,6 +86,9 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
 
   afterAll(async () => {
     if (service) {
+      // The delete-engagement test leaves a durable audit row (engagement_id
+      // null, firm_id set) — clear it before removing the firm.
+      await service.query(`delete from data_access_log where firm_id = $1`, [firmId]);
       await service.query(`delete from deal_outcomes where firm_id = $1`, [firmId]);
       await service.query(`delete from ebitda_recasts where firm_id = $1`, [firmId]);
       await service.query(`delete from assessments where firm_id = $1`, [firmId]);
@@ -240,6 +243,145 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
 
   it('unknown function name → 404', async () => {
     const r = await handleFunctionCall('no-such-function', { engagement_id: engagementId }, ctxFor(advisorUserId));
+    expect(r).toMatchObject({ kind: 'json', status: 404 });
+  });
+
+  it('delete-engagement: tears down the whole subtree in one call', async () => {
+    // Build a disposable engagement loaded with a representative spread of
+    // children — including the ones whose FK ordering is tricky (a gap that
+    // references an assessment, a task and a milestone that reference the gap, a
+    // deal outcome that references the assessment, a document with stored bytes,
+    // append-only outcome_events) — then prove one delete removes all of it.
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const gapDefId = (await service.query(`select id from gap_definitions limit 1`)).rows[0].id;
+    const questionId = (await service.query(`select id from questions limit 1`)).rows[0].id;
+    const dimensionId = (await service.query(`select id from dimensions limit 1`)).rows[0].id;
+
+    const companyId = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Delete Me Co') returning id`, [firmId])
+    ).rows[0].id;
+    const delEng = (
+      await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
+    ).rows[0].id;
+    await acceptAgreement(service, delEng);
+
+    const asmt = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at, drs_score, drs_tier, ori_score)
+         values ($1, $2, $3, 1, 'completed', now(), 70, 'Sale Ready', 55) returning id`,
+        [firmId, delEng, rv],
+      )
+    ).rows[0].id;
+    await service.query(`insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb)`, [asmt, questionId]);
+    await service.query(`insert into dimension_scores (assessment_id, dimension_id, score) values ($1, $2, 70)`, [asmt, dimensionId]);
+    const gap = (
+      await service.query(
+        `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
+         values ($1, $2, $3, $4, 'open') returning id`,
+        [firmId, delEng, gapDefId, asmt],
+      )
+    ).rows[0].id;
+    const task = (
+      await service.query(
+        `insert into tasks (firm_id, engagement_id, gap_id, title) values ($1, $2, $3, 'Fix it') returning id`,
+        [firmId, delEng, gap],
+      )
+    ).rows[0].id;
+    await service.query(
+      `insert into roadmap_milestones (firm_id, engagement_id, track, title, linked_gap_id, linked_task_id)
+       values ($1, $2, 'business', 'Milestone', $3, $4)`,
+      [firmId, delEng, gap, task],
+    );
+    await service.query(
+      `insert into engagement_log (firm_id, engagement_id, kind, title, gap_id) values ($1, $2, 'decision', 'Log', $3)`,
+      [firmId, delEng, gap],
+    );
+    await service.query(
+      `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+       values ($1, $2, $3, 'owner_report', '# draft', 'v1', 'test')`,
+      [firmId, delEng, asmt],
+    );
+    const recast = (
+      await service.query(
+        `insert into ebitda_recasts (firm_id, engagement_id, reported_ebitda) values ($1, $2, 500000) returning id`,
+        [firmId, delEng],
+      )
+    ).rows[0].id;
+    await service.query(`insert into ebitda_addbacks (firm_id, recast_id, label, amount) values ($1, $2, 'Owner salary', 100000)`, [firmId, recast]);
+    const doc = (
+      await service.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type) values ($1, $2, 'f.pdf', 'application/pdf') returning id`,
+        [firmId, delEng],
+      )
+    ).rows[0].id;
+    await service.query(`insert into document_blobs (document_id, firm_id, bytes) values ($1, $2, '\\x00')`, [doc, firmId]);
+    await service.query(`insert into engagement_outcomes (firm_id, engagement_id, process_status) values ($1, $2, 'closed')`, [firmId, delEng]);
+    await service.query(
+      `insert into outcome_events (firm_id, engagement_id, event_type, event_date) values ($1, $2, 'deal_closed', current_date)`,
+      [firmId, delEng],
+    );
+    await service.query(
+      `insert into deal_outcomes (firm_id, engagement_id, outcome, predicted_from_assessment_id) values ($1, $2, 'closed', $3)`,
+      [firmId, delEng, asmt],
+    );
+
+    const r = await handleFunctionCall('delete-engagement', { engagement_id: delEng }, ctxFor(advisorUserId));
+    expect(r.kind).toBe('json');
+    if (r.kind !== 'json') return;
+    expect(r.status).toBe(200);
+    const body = r.body as { deleted: { assessments: number; had_deal_outcome: boolean } };
+    expect(body.deleted.assessments).toBe(1);
+    expect(body.deleted.had_deal_outcome).toBe(true);
+
+    // The engagement and every child table are empty for this engagement.
+    const gone = async (sql: string, param: string) => Number((await service.query(sql, [param])).rows[0].n);
+    expect(await gone(`select count(*)::int n from engagements where id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from assessments where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from answers where assessment_id = $1`, asmt)).toBe(0);
+    expect(await gone(`select count(*)::int n from dimension_scores where assessment_id = $1`, asmt)).toBe(0);
+    expect(await gone(`select count(*)::int n from gaps where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from tasks where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from roadmap_milestones where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from engagement_log where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from generated_documents where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from ebitda_recasts where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from ebitda_addbacks where recast_id = $1`, recast)).toBe(0);
+    expect(await gone(`select count(*)::int n from documents where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from document_blobs where document_id = $1`, doc)).toBe(0);
+    expect(await gone(`select count(*)::int n from outcome_events where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from engagement_outcomes where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from deal_outcomes where engagement_id = $1`, delEng)).toBe(0);
+    expect(await gone(`select count(*)::int n from engagement_agreements where engagement_id = $1`, delEng)).toBe(0);
+
+    // The removal is audited durably (engagement_id null, ids in detail).
+    const audit = (
+      await service.query(
+        `select detail from data_access_log where firm_id = $1 and action = 'engagement.delete' order by created_at desc limit 1`,
+        [firmId],
+      )
+    ).rows[0];
+    expect(audit?.detail?.engagement_id).toBe(delEng);
+
+    await service.query(`delete from companies where id = $1`, [companyId]);
+  });
+
+  it('delete-engagement: rejects a caller with no advisor/admin profile (403)', async () => {
+    const strangerId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.del.stranger@test.co') returning id`)
+    ).rows[0].id;
+    const r = await handleFunctionCall('delete-engagement', { engagement_id: engagementId }, ctxFor(strangerId));
+    expect(r).toMatchObject({ kind: 'json', status: 403 });
+    // The engagement is untouched.
+    expect((await service.query(`select 1 from engagements where id = $1`, [engagementId])).rowCount).toBe(1);
+    await service.query(`delete from auth.users where id = $1`, [strangerId]);
+  });
+
+  it('delete-engagement: unknown/foreign engagement is not authorized (404)', async () => {
+    const r = await handleFunctionCall(
+      'delete-engagement',
+      { engagement_id: '00000000-0000-0000-0000-000000000000' },
+      ctxFor(advisorUserId),
+    );
     expect(r).toMatchObject({ kind: 'json', status: 404 });
   });
 });
