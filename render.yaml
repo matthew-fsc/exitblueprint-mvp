@@ -43,6 +43,13 @@ services:
       # emails via Supabase Auth admin (server/invite.ts). Omit to skip email sends.
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      # Clerk auth cutover (docs/30). CLERK_JWKS_URL points token verification at
+      # Clerk's key set; CLERK_SECRET_KEY enables Clerk organization invitations for
+      # owners. Set both once the app authenticates via Clerk; omit before then.
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
       # Optional: turns on real Claude narrative in reports. Omit to ship without it.
       - key: ANTHROPIC_API_KEY
         sync: false

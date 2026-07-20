@@ -3,12 +3,14 @@
 // emulator has no MFA endpoint, so enforcement is bypassed on the dev stack; on a
 // real Supabase project the gate (RequireAdvisor) sends un-enrolled/unverified
 // staff to /security before they can use the workspace.
-import { isDevStack, supabase } from './supabase';
+import { isClerkStack, isDevStack, supabase } from './supabase';
 
 export type MfaState = 'satisfied' | 'needs_enroll' | 'needs_verify';
 
 export async function getMfaState(): Promise<MfaState> {
-  if (isDevStack) return 'satisfied';
+  // Under Clerk, MFA is enforced as a Clerk org/session policy (not Supabase
+  // AAL), so the in-app AAL gate is satisfied by definition (docs/30, A6).
+  if (isClerkStack || isDevStack) return 'satisfied';
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   // Fail open on a transient API error so a hiccup can't lock every advisor out;
   // enforcement applies whenever the call succeeds.
