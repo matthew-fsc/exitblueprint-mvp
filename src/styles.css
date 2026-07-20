@@ -4552,6 +4552,20 @@ textarea:focus {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem;
 }
 
+/* Danger zone — the irreversible delete-engagement escape hatch */
+.danger-zone {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 0.9rem 1rem; border: 1px solid var(--status-critical);
+  border-radius: 8px; background: color-mix(in srgb, var(--status-critical) 6%, transparent);
+}
+.danger-zone strong { color: var(--text-primary); }
+.danger-list { margin: 0.5rem 0 0.9rem; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; color: var(--text-secondary); font-size: 0.9rem; }
+.danger-confirm { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem; }
+.danger-confirm input {
+  padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.95rem;
+}
+.danger-confirm input:focus { outline: 2px solid var(--status-critical); outline-offset: 1px; }
+
 /* Engagement log — institutional memory (docs/21 Category B) */
 .log-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
 .log-entry { display: flex; gap: 0.7rem; align-items: flex-start; padding-bottom: 0.55rem; border-bottom: 1px solid var(--border-subtle, var(--border)); }
