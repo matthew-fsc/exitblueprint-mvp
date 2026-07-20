@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -56,6 +57,9 @@ function BillingCard({ firmId }: { firmId?: string }) {
             {state.planName ? `${state.planName} plan` : 'No plan attached'}
             {state.seatLimit != null ? ` · ${state.seatLimit} seat${state.seatLimit === 1 ? '' : 's'}` : ''}
           </span>
+          <Link to="/settings/billing" style={{ marginLeft: 'auto' }}>
+            Manage billing →
+          </Link>
         </div>
       )}
     </SectionCard>

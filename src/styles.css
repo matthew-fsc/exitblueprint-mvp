@@ -29,7 +29,7 @@
   /* ink */
   --text-primary: #14251d;
   --text-secondary: #4c574f;
-  --text-muted: #7a857c;
+  --text-muted: #5f6a62; /* WCAG AA ≥4.5:1 on light surfaces */
 
   /* brand + interactive (forest) */
   --brand: #16352a;         /* headings, emphasis, primary surfaces */
@@ -136,7 +136,7 @@
 
   --text-primary: #e7efe9;
   --text-secondary: #a6b5aa;
-  --text-muted: #6f8175;
+  --text-muted: #8ea092;
 
   --brand: #9fd8bd;         /* light forest tint reads as emphasis on dark */
   --brand-tint: #17281f;
@@ -186,7 +186,7 @@
     --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.4);
     --text-primary: #e7efe9;
     --text-secondary: #a6b5aa;
-    --text-muted: #6f8175;
+    --text-muted: #8ea092;
     --brand: #9fd8bd;
     --brand-tint: #17281f;
     --accent: #4bb888;

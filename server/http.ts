@@ -22,6 +22,19 @@ import { getDocumentBytes } from './documents/pipeline';
 import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 import { resolveDbConnection } from './db-ssl';
+import {
+  findStaleEngagements,
+  findStalledTasks,
+  findReassessmentDue,
+  verifyWebhookSecret,
+} from './scheduled';
+import { initObservability, captureError, logRequest } from './observability';
+import {
+  applyStripeEvent,
+  verifyStripeSignature,
+  stripeWebhookSecret,
+  stripeConfigured,
+} from './stripe';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // Verify access tokens against whichever signing regime the project uses. A
@@ -84,6 +97,16 @@ const ALLOWED_ORIGIN = process.env.FUNCTIONS_ALLOWED_ORIGIN ?? '*';
 const CLERK_WEBHOOK_SIGNING_SECRET = process.env.CLERK_WEBHOOK_SIGNING_SECRET?.trim();
 // Reject webhooks whose signed timestamp is older than this (replay defense).
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+
+// Shared secret for the continuous-evaluation webhooks (docs/07) that an external
+// n8n instance calls on a schedule. Set to enable POST /webhooks/scheduled/*;
+// unset → those endpoints reply 503 (disabled), mirroring the Clerk webhook.
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET?.trim();
+
+// Error monitoring + structured request logs (server/observability.ts). No-op
+// until SENTRY_DSN is set, so dev/CI/beta are unaffected; when set, unhandled
+// errors are forwarded to Sentry. Never captures secrets/PII (scrubbed).
+initObservability();
 
 // Document encryption at rest falls back to a weak dev key if EB_DOCUMENT_KEY is
 // unset — safe for dev, not for production. Warn loudly rather than silently
@@ -278,7 +301,75 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return json(res, 200, { ok: true, ...result });
     } catch (e) {
       // 5xx so Svix retries (e.g. the firm's organization.created hasn't landed).
+      captureError(e, { route: '/webhooks/clerk' });
       return json(res, 500, { message: (e as Error).message });
+    } finally {
+      c.release();
+    }
+  }
+
+  // Stripe webhook — the one unauthenticated external POST that moves money state
+  // (docs/24 §5.2). Signature-verified on the RAW body (never JSON-parsed before
+  // verify) and idempotent (billing_events dedupes by stripe_event_id inside
+  // applyStripeEvent). Unset secret → 503 (disabled), mirroring the Clerk webhook.
+  // 200 on handled/duplicate, 400 only on a bad signature.
+  if (req.method === 'POST' && url.pathname === '/webhooks/stripe') {
+    if (!stripeConfigured()) return json(res, 503, { message: 'stripe webhook not configured' });
+    const raw = await readBody(req);
+    const sig = req.headers['stripe-signature'];
+    const sigHeader = Array.isArray(sig) ? sig[0] : sig;
+    let event;
+    try {
+      event = verifyStripeSignature(raw, sigHeader ?? '', stripeWebhookSecret());
+    } catch {
+      return json(res, 400, { message: 'invalid webhook signature' });
+    }
+    const c = await pool.connect();
+    try {
+      return json(res, 200, { ok: true, ...(await applyStripeEvent(c, event)) });
+    } catch (e) {
+      captureError(e, { route: '/webhooks/stripe' });
+      return json(res, 500, { message: (e as Error).message });
+    } finally {
+      c.release();
+    }
+  }
+
+  // Continuous-evaluation webhooks (docs/07 §"IN THE CODE"). An external n8n
+  // instance calls these on a schedule; each runs a read-only, cross-firm
+  // analyzer with the service role and returns structured items n8n routes into
+  // per-firm nudges. Authenticated by a SHARED SECRET (x-webhook-secret vs.
+  // WEBHOOK_SECRET), not a user JWT: n8n is a trusted system caller, not an RLS
+  // principal — the same trust model as scripts/admin.ts. Unset secret → 503
+  // (disabled), mirroring the Clerk webhook. Read-only: never writes a score,
+  // never mutates an immutable assessment (CLAUDE.md rules 4 & 5).
+  if (req.method === 'POST' && url.pathname.startsWith('/webhooks/scheduled/')) {
+    if (!WEBHOOK_SECRET) return json(res, 503, { message: 'scheduled webhooks not configured' });
+    const provided = req.headers['x-webhook-secret'];
+    const secret = Array.isArray(provided) ? provided[0] : provided;
+    if (!verifyWebhookSecret(secret, WEBHOOK_SECRET)) {
+      return json(res, 401, { message: 'invalid webhook secret' });
+    }
+    const kind = url.pathname.replace('/webhooks/scheduled/', '');
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return json(res, 400, { message: 'invalid JSON body' });
+    }
+    const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+    const c = await pool.connect();
+    try {
+      if (kind === 'stale-engagements') {
+        return json(res, 200, await findStaleEngagements(c, { staleDays: num(body.staleDays) }));
+      }
+      if (kind === 'stalled-tasks') {
+        return json(res, 200, await findStalledTasks(c, { stalledDays: num(body.stalledDays) }));
+      }
+      if (kind === 'reassessment-due') {
+        return json(res, 200, await findReassessmentDue(c, { reassessDays: num(body.reassessDays) }));
+      }
+      return json(res, 404, { message: `unknown scheduled webhook: ${kind}` });
     } finally {
       c.release();
     }
@@ -316,6 +407,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       }
       return json(res, result.status, result.body);
     } catch (e) {
+      captureError(e, { route: 'functions/v1', fn: name });
       return json(res, 500, { message: (e as Error).message });
     } finally {
       service.release();
@@ -333,8 +425,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 // Catch it here and reply 500 instead, so one bad request (or a DB blip) degrades
 // gracefully and Svix/webhook callers simply retry.
 const server = createServer((req, res) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logRequest({
+      method: req.method ?? '?',
+      path: new URL(req.url ?? '/', 'http://localhost').pathname,
+      status: res.statusCode,
+      ms: Date.now() - start,
+    });
+  });
   handleRequest(req, res).catch((err) => {
-    console.error('request handler error:', err);
+    captureError(err, { route: 'top-level' });
     if (!res.headersSent) json(res, 500, { message: (err as Error).message });
     else res.end();
   });
