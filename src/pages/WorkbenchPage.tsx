@@ -304,7 +304,7 @@ export default function WorkbenchPage() {
             </>
           }
           crumbs={[
-            { label: 'Portfolio', to: '/' },
+            { label: 'Engagements', to: '/' },
             { label: meta.company, to: `/engagement/${meta.engagementId}` },
             { label: `Assessment #${meta.sequence}`, to: `/assessment/${assessmentId}/results` },
             { label: 'What-if' },

@@ -138,7 +138,7 @@ export default function CimPage() {
         <PageHeader
           title="Confidential Information Memorandum"
           crumbs={[
-            { label: 'Portfolio', to: '/' },
+            { label: 'Engagements', to: '/' },
             ...(engagementId
               ? [{ label: companyName || 'Engagement', to: `/engagement/${engagementId}` }]
               : []),

@@ -120,6 +120,30 @@ UI treated 100% as new).
 No scoring, schema, AI behavior, or routes changed. This is workflow/IA plus one
 client-side copy of existing rows — a low-risk efficiency consolidation.
 
+## Follow-up — Portfolio + Clients merged into one Engagements tab
+
+The primary nav carried **two tabs for one mental model**: *Portfolio* (the scored
+engagements table) and *Clients* (the company list + create flow). An advisor
+manages a book of engagements; splitting "see the book" from "add to the book"
+across two destinations is redundant navigation (a UX-Architect *screen-ownership*
+violation and needless Hick's-Law load in the primary nav).
+
+**Shipped:** a single **Engagements** tab (`/`) in the Portfolio format — stat band
++ the sortable/filterable engagements table — with an **Add engagement** action in
+the masthead top-right. Add-engagement opens one dialog that absorbs the entire
+former Clients flow: pick an existing client without an engagement *or* add a new
+company inline, record the agreement acceptance (signer + consents, unchanged —
+beta Requirement 1), then land the advisor inside the new engagement (docs/34 C2).
+`/clients` redirects to `/`; the "Portfolio" breadcrumb root is relabeled
+"Engagements" app-wide. Primary nav drops from 6 items to 5.
+
+*Impact:* removes a whole redundant destination; the create path is now one click
+from the book (top-right) instead of a tab switch; companies-without-engagements
+are reached through the same Add-engagement picker rather than a separate list.
+*Files:* `src/pages/DashboardPage.tsx` (merged page + `AddEngagementDialog`),
+`src/App.tsx` (nav + `/clients` redirect), `src/lib/nav.ts` + breadcrumb labels,
+`src/styles.css`; `src/pages/ClientsPage.tsx` deleted.
+
 ## Re-audit of the affected workflows
 
 - **Journey A (onboarding):** now add company → agreement → *land in engagement* →
