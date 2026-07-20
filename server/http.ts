@@ -22,6 +22,7 @@ import { getDocumentBytes } from './documents/pipeline';
 import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 import { resolveDbConnection } from './db-ssl';
+import { parseAllowedOrigins, resolveCorsOrigin } from './cors';
 import {
   findStaleEngagements,
   findStalledTasks,
@@ -88,7 +89,11 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 // Comma-separated allowed origins for CORS; '*' by default (tighten in prod).
-const ALLOWED_ORIGIN = process.env.FUNCTIONS_ALLOWED_ORIGIN ?? '*';
+// Parsed into a list because Access-Control-Allow-Origin is a single-origin (or
+// '*') header — emitting the raw comma-joined string is invalid and every browser
+// rejects it, which shows up app-wide as "we couldn't reach the server". See
+// server/cors.ts; the request's own Origin is echoed back per-request in setCors.
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.FUNCTIONS_ALLOWED_ORIGIN);
 
 // Clerk webhook signing secret (Svix `whsec_...`, from the Clerk dashboard).
 // Set to enable POST /webhooks/clerk (automatic firm/advisor/owner provisioning,
@@ -173,8 +178,13 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function setCors(res: ServerResponse) {
-  res.setHeader('access-control-allow-origin', ALLOWED_ORIGIN);
+function setCors(req: IncomingMessage, res: ServerResponse) {
+  const requestOrigin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
+  const origin = resolveCorsOrigin(ALLOWED_ORIGINS, requestOrigin);
+  res.setHeader('access-control-allow-origin', origin);
+  // When the value is chosen from the request's Origin (not '*'), shared caches
+  // must key on Origin so one origin's response isn't served to another.
+  if (origin !== '*') res.setHeader('vary', 'Origin');
   res.setHeader('access-control-allow-methods', 'POST, OPTIONS');
   res.setHeader('access-control-allow-headers', 'authorization, apikey, content-type, x-client-info');
   res.setHeader('access-control-max-age', '86400');
@@ -205,7 +215,7 @@ async function asUser<T>(claims: Claims, fn: (db: pg.ClientBase) => Promise<T>):
 }
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse) {
-  setCors(res);
+  setCors(req, res);
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     return res.end();
