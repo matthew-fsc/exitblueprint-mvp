@@ -112,7 +112,7 @@ export default function ClientsPage() {
         <ErrorState
           variant="section"
           title="No engagement agreement"
-          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. An admin can add one from the firm settings."
+          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are seeded with a default agreement automatically; if you’re seeing this, an admin can add one with “npm run admin -- create-agreement-version”."
         />
       )}
 
