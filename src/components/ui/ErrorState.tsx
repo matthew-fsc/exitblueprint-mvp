@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { describeError } from '../../lib/errors';
+import { notifySessionExpired } from '../../lib/sessionExpiry';
 
 // Canonical error surface. Pages never render a raw error string; they render an
 // ErrorState, which runs a thrown value through describeError() so the user sees
@@ -38,14 +39,24 @@ export function ErrorState({
   const resolvedMessage = message ?? described?.message ?? 'Please try again.';
   const resolvedHint = hint ?? described?.hint;
 
+  // An expired/invalid session can't be retried — the fix is to re-authenticate.
+  // Offer a real "Sign in again" action (which signs out so the gates route to
+  // /login) instead of a retry that would re-fail with the same dead token.
+  const isSessionExpiry = described?.kind === 'auth';
+  const action = isSessionExpiry
+    ? { label: 'Sign in again', onClick: () => notifySessionExpired() }
+    : onRetry
+      ? { label: retryLabel, onClick: onRetry }
+      : null;
+
   if (variant === 'inline') {
     return (
       <p className={`inline-error ${className}`.trim()} role="alert">
         <WarningGlyph />
         <span>{resolvedMessage}</span>
-        {onRetry && (
-          <button type="button" className="inline-error-retry" onClick={onRetry}>
-            {retryLabel}
+        {action && (
+          <button type="button" className="inline-error-retry" onClick={action.onClick}>
+            {action.label}
           </button>
         )}
       </p>
@@ -60,9 +71,9 @@ export function ErrorState({
       <span className="error-state-title">{resolvedTitle}</span>
       <p className="error-state-body">{resolvedMessage}</p>
       {resolvedHint && <p className="error-state-hint">{resolvedHint}</p>}
-      {onRetry && (
-        <button type="button" className="error-state-retry" onClick={onRetry}>
-          {retryLabel}
+      {action && (
+        <button type="button" className="error-state-retry" onClick={action.onClick}>
+          {action.label}
         </button>
       )}
     </div>

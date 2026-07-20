@@ -1,11 +1,17 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useAuth as useClerkAuth } from '@clerk/react';
 import { isClerkStack, registerClerkToken, supabase } from './supabase';
+import { IdleWarningModal } from '../components/ui';
+import { markSignoutReason, registerSessionExpiredHandler } from './sessionExpiry';
 
 // Idle-session timeout: sign out after this long with no user activity. A
 // vendor-DD control ("automatic shutdown of inactive sessions"). 30 minutes.
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+// How long before the cut-off the user is warned + offered a one-click "stay",
+// so an inactive session is never yanked to /login mid-task without notice.
+const IDLE_WARN_MS = 60 * 1000;
+const IDLE_WARN_SECONDS = Math.round(IDLE_WARN_MS / 1000);
 
 export interface Profile {
   id: string;
@@ -103,26 +109,87 @@ function useProfile(userId: string | null): {
   return { profile, firmName, profileLoading };
 }
 
-// Automatic shutdown of inactive sessions (vendor-DD control): call `onIdle`
-// after IDLE_TIMEOUT_MS with no activity. Only armed while signed in.
-function useIdleTimeout(active: boolean, onIdle: () => void): void {
+// Automatic shutdown of inactive sessions (vendor-DD control), in two phases:
+// after IDLE_TIMEOUT_MS - IDLE_WARN_MS of no activity it raises a warning with a
+// live countdown; at IDLE_TIMEOUT_MS it calls `onIdle` (sign out). Any activity
+// — or the explicit `stay()` the warning modal wires up — resets both timers.
+// Only armed while signed in.
+interface IdleState {
+  warning: boolean;
+  secondsLeft: number;
+  stay: () => void;
+}
+function useIdleTimeout(active: boolean, onIdle: () => void): IdleState {
+  const [warning, setWarning] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(IDLE_WARN_SECONDS);
+  // `reset` lives inside the effect closure; expose the latest one via a ref so
+  // the modal's "Stay signed in" button can call it without re-arming the effect.
+  const resetRef = useRef<() => void>(() => {});
+  // Read the latest onIdle without re-running the effect (each provider passes a
+  // fresh arrow every render).
+  const onIdleRef = useRef(onIdle);
+  onIdleRef.current = onIdle;
+
   useEffect(() => {
-    if (!active) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const reset = () => {
-      clearTimeout(timer);
-      timer = setTimeout(onIdle, IDLE_TIMEOUT_MS);
+    if (!active) {
+      setWarning(false);
+      return;
+    }
+    let warnTimer: ReturnType<typeof setTimeout>;
+    let idleTimer: ReturnType<typeof setTimeout>;
+    let ticker: ReturnType<typeof setInterval> | undefined;
+
+    const clearAll = () => {
+      clearTimeout(warnTimer);
+      clearTimeout(idleTimer);
+      if (ticker) clearInterval(ticker);
+      ticker = undefined;
     };
+
+    const beginWarning = () => {
+      setWarning(true);
+      setSecondsLeft(IDLE_WARN_SECONDS);
+      ticker = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+    };
+
+    const reset = () => {
+      clearAll();
+      setWarning(false);
+      warnTimer = setTimeout(beginWarning, IDLE_TIMEOUT_MS - IDLE_WARN_MS);
+      idleTimer = setTimeout(() => {
+        clearAll();
+        setWarning(false);
+        onIdleRef.current();
+      }, IDLE_TIMEOUT_MS);
+    };
+    resetRef.current = reset;
+
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'visibilitychange'] as const;
     for (const e of events) window.addEventListener(e, reset, { passive: true });
     reset();
     return () => {
-      clearTimeout(timer);
+      clearAll();
       for (const e of events) window.removeEventListener(e, reset);
     };
-    // onIdle is stable per provider; deps intentionally limited to `active`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+
+  const stay = useCallback(() => resetRef.current(), []);
+  return { warning, secondsLeft, stay };
+}
+
+// Arms the idle timeout and renders its warning. Shared by both providers so the
+// two-phase logic lives in one place; `signOut` is the provider's own sign-out.
+function IdleGuard({ active, signOut }: { active: boolean; signOut: () => void }) {
+  // Both the countdown expiry and the modal's "Sign out now" flag the reason so
+  // /login can explain the inactivity sign-out.
+  const doSignOut = useCallback(() => {
+    markSignoutReason('idle');
+    signOut();
+  }, [signOut]);
+  const { warning, secondsLeft, stay } = useIdleTimeout(active, doSignOut);
+  return (
+    <IdleWarningModal open={warning} secondsLeft={secondsLeft} onStay={stay} onSignOut={doSignOut} />
+  );
 }
 
 // ── Dev-emulator auth provider (local dev + CI only) ──────────────────────────
@@ -153,19 +220,23 @@ function DevAuthProvider({ children }: { children: ReactNode }) {
     if (session && !profileLoading) setAuthLoading(false);
   }, [session, profileLoading]);
 
-  useIdleTimeout(!!session, () => {
-    void supabase.auth.signOut();
-  });
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
+
+  // A query failing with an expired/invalid JWT signals a dead session; sign out
+  // so the gates route to /login (src/App.tsx wires the detection).
+  useEffect(() => {
+    registerSessionExpiredHandler(() => void supabase.auth.signOut());
+    return () => registerSessionExpiredHandler(null);
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{ session: userId ? { userId } : null, profile, firmName, loading: authLoading, signOut }}
     >
       {children}
+      <IdleGuard active={!!session} signOut={() => void supabase.auth.signOut()} />
     </AuthContext.Provider>
   );
 }
@@ -188,13 +259,16 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
   const activeUserId = isSignedIn ? (userId ?? null) : null;
   const { profile, firmName, profileLoading } = useProfile(activeUserId);
 
-  useIdleTimeout(!!activeUserId, () => {
-    void clerkSignOut();
-  });
-
   const signOut = async () => {
     await clerkSignOut();
   };
+
+  // A query failing with an expired/invalid JWT signals a dead session; sign out
+  // so the gates route to /login (src/App.tsx wires the detection).
+  useEffect(() => {
+    registerSessionExpiredHandler(() => void clerkSignOut());
+    return () => registerSessionExpiredHandler(null);
+  }, [clerkSignOut]);
 
   const loading = !isLoaded || (!!activeUserId && profileLoading);
 
@@ -209,6 +283,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <IdleGuard active={!!activeUserId} signOut={() => void clerkSignOut()} />
     </AuthContext.Provider>
   );
 }

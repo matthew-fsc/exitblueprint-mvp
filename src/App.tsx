@@ -1,5 +1,7 @@
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { describeError } from './lib/errors';
+import { notifySessionExpired } from './lib/sessionExpiry';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
@@ -52,6 +54,16 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 },
   },
+  // A stale/invalid session JWT surfaces as an auth-kind error on any query. No
+  // refetch can fix it, so sign the user out here — the route gates then route to
+  // /login (capturing where they were so login can return them). This is what
+  // makes an expired session recover gracefully instead of the user hitting a
+  // dead "Your session expired" card with a retry that re-fails.
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (describeError(error).kind === 'auth') notifySessionExpired();
+    },
+  }),
 });
 
 // R5: advisor/admin accounts must satisfy MFA (bypassed on the dev stack). An

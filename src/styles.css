@@ -627,12 +627,29 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .login-page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
   padding: 1.5rem;
   background:
     radial-gradient(1200px 600px at 50% -10%, var(--brand-tint), transparent 70%),
     var(--bg);
+}
+
+/* Explains why the user landed on /login (inactivity or an expired session),
+   sitting above the sign-in card so it reads before they act. */
+.login-notice {
+  width: 100%;
+  max-width: 380px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .login-card {
