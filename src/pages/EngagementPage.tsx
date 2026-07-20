@@ -35,6 +35,7 @@ import {
   DeltaChip,
   DimensionBars,
   EmptyState,
+  ErrorState,
   EngagementNav,
   WorkstreamRail,
   GapSeverityChip,
@@ -197,7 +198,7 @@ export default function EngagementPage() {
       </Card>
     );
   }
-  if (!engagement) return <p className="form-error">{engagementQ.error?.message ?? 'Engagement not found'}</p>;
+  if (!engagement) return <ErrorState variant="section" error={engagementQ.error ?? 'Engagement not found'} onRetry={() => void engagementQ.refetch()} />;
 
   const companyName = companyQ.data?.name ?? '';
   const inProgress = assessments.find((a) => a.status === 'in_progress');
@@ -283,7 +284,7 @@ export default function EngagementPage() {
       />
       <EngagementNav engagementId={engagementId!} />
       </header>
-      {error && <p className="form-error">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} />}
 
       {completed.length > 0 ? (
         <>
@@ -977,7 +978,7 @@ function ComparePanel({ assessments, embedded = false }: { assessments: Assessme
           ) : compareQ.isLoading ? (
             <SkeletonLines lines={4} />
           ) : compareQ.error ? (
-            <p className="form-error">{compareQ.error.message}</p>
+            <ErrorState variant="inline" error={compareQ.error} />
           ) : cmp && !cmp.comparable ? (
             <div className="compare-incomparable">
               <strong>Not directly comparable.</strong> The methodology changed between these

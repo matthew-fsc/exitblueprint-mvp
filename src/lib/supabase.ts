@@ -41,6 +41,13 @@ async function currentAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+// The access token supabase-js and /functions/* are currently sending. Exposed
+// for the /health auth diagnostic, which decodes it to check the Clerk→Supabase
+// claims (notably `role: authenticated`) without which every RLS read is denied.
+export function getAccessToken(): Promise<string | null> {
+  return currentAccessToken();
+}
+
 // Under Clerk, hand supabase-js our token source (third-party auth) so REST +
 // RLS see the Clerk subject; without it, supabase-js manages its own session.
 export const supabase = createClient(url, anonKey, isClerkStack ? { accessToken: () => currentAccessToken() } : undefined);

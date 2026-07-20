@@ -5,7 +5,7 @@ import { invokeFunction, supabase } from '../lib/supabase';
 import { qk } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Card, EmptyState, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, ErrorState, SkeletonLines, useToast } from '../components/ui';
 
 interface DocumentRow {
   id: string;
@@ -122,7 +122,7 @@ export function DocumentsPanel() {
         <button type="submit" disabled={!file || busy}>
           {busy ? 'Uploading…' : 'Upload'}
         </button>
-        {error && <p className="form-error">{error}</p>}
+        {error && <ErrorState variant="inline" error={error} />}
       </form>
 
       {docsQ.isLoading ? (

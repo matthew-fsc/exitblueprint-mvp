@@ -8,7 +8,7 @@ import {
   type AdvisoryItemRow,
   type AdvisoryItemType,
 } from '../lib/queries';
-import { Card, ConfirmDialog, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 
 const TYPE_LABEL: Record<AdvisoryItemType, string> = {
@@ -165,7 +165,7 @@ function AuthoringForm({
           Documentation needed (optional)
           <textarea value={v.data_needed} onChange={(e) => set('data_needed', e.target.value)} rows={2} />
         </label>
-        {error && <p className="form-error">{error}</p>}
+        {error && <ErrorState variant="inline" error={error} />}
         <div className="advisory-form-actions">
           <button type="submit">{submitLabel}</button>
           <button type="button" className="button-secondary" onClick={onCancel}>
@@ -353,7 +353,7 @@ export default function LibraryPage() {
       </div>
 
       {libraryQ.isLoading && <SkeletonLines lines={6} />}
-      {libraryQ.isError && <p className="form-error">{(libraryQ.error as Error).message}</p>}
+      {libraryQ.isError && <ErrorState variant="inline" error={libraryQ.error} />}
 
       {!libraryQ.isLoading && filtered.length === 0 && (
         <EmptyState title="No matching items">Adjust the filters, or add a firm-specific item.</EmptyState>

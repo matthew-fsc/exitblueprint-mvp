@@ -4,7 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack } from './lib/supabase';
-import { FirmMark, ToastProvider } from './components/ui';
+import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
 import { BrandingProvider, useBrand } from './lib/branding';
 import { Analytics } from '@vercel/analytics/react';
 import LoginPage from './pages/LoginPage';
@@ -68,11 +68,13 @@ function useMfaGate(session: unknown): MfaState | 'loading' {
 function ProfileNotReady() {
   return (
     <main className="page">
-      <p className="form-error">
-        Your account isn’t set up yet. If you just signed in, give it a moment and refresh. If this
-        keeps happening, contact your administrator.
-      </p>
-      <button onClick={() => window.location.reload()}>Refresh</button>
+      <ErrorState
+        variant="page"
+        title="Your account isn’t set up yet"
+        message="If you just signed in, give it a moment — provisioning finishes a beat after your first sign-in. If this keeps happening, contact your administrator."
+        onRetry={() => window.location.reload()}
+        retryLabel="Refresh"
+      />
     </main>
   );
 }
@@ -81,7 +83,7 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
   const mfa = useMfaGate(session);
-  if (loading) return <p className="muted page">Loading…</p>;
+  if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
   // A pure reviewer has no advisor workspace — send them to the review queue.
@@ -89,7 +91,7 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
     return <ProfileNotReady />;
   }
-  if (mfa === 'loading') return <p className="muted page">Loading…</p>;
+  if (mfa === 'loading') return <main className="page"><LoadingState variant="page" /></main>;
   // /security is where MFA is set up, so it must stay reachable during the gate.
   if (mfa !== 'satisfied' && location.pathname !== '/security') {
     return <Navigate to="/security" replace />;
@@ -101,7 +103,7 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
 function RequireStaff({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <p className="muted page">Loading…</p>;
+  if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
   if (!profile || !['advisor', 'admin', 'reviewer'].includes(profile.role)) {
@@ -113,7 +115,7 @@ function RequireStaff({ children }: { children: ReactNode }) {
 function RequireOwner({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <p className="muted page">Loading…</p>;
+  if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile && profile.role !== 'owner') return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -124,7 +126,7 @@ function RequireOwner({ children }: { children: ReactNode }) {
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <p className="muted page">Loading…</p>;
+  if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   return <>{children}</>;
 }

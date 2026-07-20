@@ -17,6 +17,7 @@ import {
   DataTable,
   DeltaChip,
   EngagementNav,
+  ErrorState,
   FirmMark,
   PageHeader,
   SkeletonLines,
@@ -173,7 +174,7 @@ export default function DeltaReportPage() {
       <div className="no-print">
         <EngagementNav engagementId={engagementId!} />
       </div>
-      {error && <p className="form-error no-print">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} className="no-print" />}
 
       {/* controls */}
       <Card>

@@ -5,7 +5,7 @@ import { documentDownloadUrl, invokeFunction } from '../lib/supabase';
 import { qk } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Card, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Card, ErrorState, LoadingState, PageHeader, SkeletonLines, useToast } from '../components/ui';
 
 interface DetailField {
   id: string;
@@ -112,8 +112,10 @@ export default function ReviewDocumentPage() {
   };
 
   if (detailQ.isLoading) return <SkeletonLines lines={8} />;
-  if (detailQ.error) return <p className="form-error">{(detailQ.error as Error).message}</p>;
-  if (!detailQ.data) return <p className="form-error">Not found</p>;
+  if (detailQ.error)
+    return <ErrorState variant="section" error={detailQ.error} onRetry={() => void detailQ.refetch()} />;
+  if (!detailQ.data)
+    return <ErrorState variant="section" title="Not found" message="This document isn’t available." />;
 
   const doc = detailQ.data.document;
   const isImage = (doc.mime_type ?? '').startsWith('image/');
@@ -141,7 +143,7 @@ export default function ReviewDocumentPage() {
             )
           ) : (
             <Card>
-              <p className="muted">Loading source…</p>
+              <LoadingState variant="inline" label="Loading source…" />
             </Card>
           )}
         </div>
@@ -186,7 +188,7 @@ export default function ReviewDocumentPage() {
             + Add field
           </button>
 
-          {error && <p className="form-error">{error}</p>}
+          {error && <ErrorState variant="inline" error={error} />}
 
           <div className="review-actions">
             <Link className="btn-ghost" to="/review">

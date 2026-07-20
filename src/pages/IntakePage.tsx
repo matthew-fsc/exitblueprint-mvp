@@ -14,7 +14,7 @@ import {
   useLedgerConnections,
   useRubric,
 } from '../lib/queries';
-import { EngagementNav, PageHeader, SkeletonLines } from '../components/ui';
+import { EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
 import {
   QuestionControl,
   draftFromValue,
@@ -216,7 +216,7 @@ export default function IntakePage() {
     return <SkeletonLines lines={6} />;
   }
   if (!rubric || !dimension) {
-    return <p className="form-error">{rubricQ.error?.message ?? assessmentQ.error?.message ?? 'Rubric unavailable'}</p>;
+    return <ErrorState variant="section" error={rubricQ.error ?? assessmentQ.error ?? 'Rubric unavailable'} />;
   }
 
   const isLast = step === rubric.dimensions.length - 1;
@@ -311,7 +311,7 @@ export default function IntakePage() {
         ))}
       </section>
 
-      {error && <p className="form-error intake-error">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} className="intake-error" />}
 
       <div className="intake-nav">
         <button className="btn-ghost" disabled={step === 0 || busy} onClick={() => goStep(step - 1)}>

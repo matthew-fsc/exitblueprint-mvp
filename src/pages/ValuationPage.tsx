@@ -11,7 +11,7 @@ import {
   useValuationInputs,
   type AddbackRow,
 } from '../lib/queries';
-import { Card, EmptyState, EngagementNav, MoneyInput, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
+import { Card, EmptyState, EngagementNav, ErrorState, MoneyInput, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
 import { fmtCurrency, fmtCurrencyCompact } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
 
@@ -112,7 +112,7 @@ export default function ValuationPage() {
   const companyName = companyQ.data?.name ?? '';
 
   if (engagementQ.isLoading) return <Card><SkeletonLines lines={6} /></Card>;
-  if (!engagement) return <p className="form-error">Engagement not found</p>;
+  if (!engagement) return <ErrorState variant="section" title="Engagement not found" message="This engagement doesn’t exist or you don’t have access to it." />;
 
   return (
     <div className="stack-lg">

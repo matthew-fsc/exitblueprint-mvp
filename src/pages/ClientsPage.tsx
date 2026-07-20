@@ -10,7 +10,7 @@ import {
   useEngagements,
   type AgreementVersionRow,
 } from '../lib/queries';
-import { Card, ConfirmDialog, EmptyState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import { Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../components/ui';
 import { track } from '../lib/analytics';
 
 export default function ClientsPage() {
@@ -106,15 +106,14 @@ export default function ClientsPage() {
   return (
     <div className="stack-lg">
       <PageHeader title="Clients" subtitle="Companies your firm is guiding toward exit readiness." />
-      {error && !pending && <p className="form-error">{error}</p>}
+      {error && !pending && <ErrorState variant="inline" error={error} />}
 
       {!agreementsQ.isLoading && !agreement && (
-        <Card>
-          <p className="form-error m-0">
-            Your firm has no active engagement agreement, so new engagements can’t be started yet.
-            An admin can add one with <code>npm run admin -- create-agreement-version</code>.
-          </p>
-        </Card>
+        <ErrorState
+          variant="section"
+          title="No engagement agreement"
+          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. An admin can add one from the firm settings."
+        />
       )}
 
       {companiesQ.isLoading ? (
@@ -212,7 +211,7 @@ export default function ClientsPage() {
               </label>
             </fieldset>
 
-            {error && <p className="form-error">{error}</p>}
+            {error && <ErrorState variant="inline" error={error} />}
           </div>
         )}
       </ConfirmDialog>

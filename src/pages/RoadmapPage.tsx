@@ -17,6 +17,7 @@ import {
   Collapsible,
   EmptyState,
   EngagementNav,
+  ErrorState,
   GanttChart,
   PageHeader,
   SkeletonLines,
@@ -240,7 +241,7 @@ export default function RoadmapPage() {
       </Card>
     );
   }
-  if (!engagement) return <p className="form-error">Engagement not found</p>;
+  if (!engagement) return <ErrorState variant="section" title="Engagement not found" message="This engagement doesn’t exist or you don’t have access to it." />;
 
   const companyName = companyQ.data?.name ?? '';
   const openTasks = tasks.filter((t) => t.status !== 'done');
@@ -269,7 +270,7 @@ export default function RoadmapPage() {
         subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
       />
       <EngagementNav engagementId={engagementId!} />
-      {error && <p className="form-error">{error}</p>}
+      {error && <ErrorState variant="inline" error={error} />}
 
       {ganttItems.length === 0 ? (
         <EmptyState

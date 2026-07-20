@@ -5,8 +5,8 @@ import { invokeFunction, supabase } from '../lib/supabase';
 import { qk } from '../lib/queries';
 import { humanizeKey, formatFieldValue } from '../lib/format';
 import {
-  Card,
   EmptyState,
+  ErrorState,
   GapSeverityChip,
   SectionCard,
   SkeletonLines,
@@ -387,11 +387,7 @@ export function VerificationPanel() {
       </SectionCard>
 
       {(reconQ.error || findingsQ.error || reviewQ.error) && (
-        <Card>
-          <p className="form-error">
-            {((reconQ.error || findingsQ.error || reviewQ.error) as Error).message}
-          </p>
-        </Card>
+        <ErrorState variant="section" error={reconQ.error || findingsQ.error || reviewQ.error} />
       )}
     </div>
   );

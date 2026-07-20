@@ -7,7 +7,7 @@ import {
   type AdvisoryItemType,
   type FiredAdvisoryItem,
 } from '../lib/queries';
-import { Card, EmptyState, EngagementNav, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, EmptyState, EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 
@@ -113,7 +113,7 @@ export default function BuyerLensPage() {
       <EngagementNav engagementId={engagementId!} />
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
-      {firedQ.isError && <p className="form-error">{(firedQ.error as Error).message}</p>}
+      {firedQ.isError && <ErrorState variant="inline" error={firedQ.error} />}
 
       {result && result.assessment_id === null && (
         <EmptyState title="No completed assessment yet">
