@@ -72,9 +72,15 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 export function supabaseDevServer(): Plugin {
+  // Default must match scripts/migrate.ts and scripts/seed.ts, or the app reads
+  // a different database than the one you seeded and every RLS read comes back
+  // empty — surfacing as "no active rubric version — run npm run db:seed" even
+  // right after a successful seed. The `supabase start` stack (README "Local
+  // development") lives here; the no-Docker devdb.sh path (port 55499) always
+  // exports DATABASE_URL via dev-demo.sh, so it never relies on this default.
   const pool = new pg.Pool({
     connectionString:
-      process.env.DATABASE_URL ?? 'postgresql://postgres@127.0.0.1:55499/exit_blueprint',
+      process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
     max: 5,
   });
 
