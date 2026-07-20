@@ -28,6 +28,10 @@ export function ConfirmDialog({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // read the latest onCancel without re-running the focus effect (callers pass
+  // an inline arrow, so its identity changes every render)
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +49,7 @@ export function ConfirmDialog({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onCancel();
+        onCancelRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -72,7 +76,7 @@ export function ConfirmDialog({
       window.removeEventListener('keydown', onKey);
       previouslyFocused?.focus?.();
     };
-  }, [open, onCancel]);
+  }, [open]);
 
   if (!open) return null;
   return (
