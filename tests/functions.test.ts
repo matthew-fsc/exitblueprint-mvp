@@ -139,6 +139,40 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     await service.query(`delete from auth.users where id = $1`, [adminUserId]);
   });
 
+  it('firm-scoped: an advisor invites a colleague into their own firm (invite-advisor)', async () => {
+    const r = await handleFunctionCall(
+      'invite-advisor',
+      { email: 'router.colleague@test.co', full_name: 'New Colleague', role: 'advisor' },
+      ctxFor(advisorUserId),
+    );
+    expect(r.kind).toBe('json');
+    if (r.kind === 'json') {
+      expect(r.status).toBe(200);
+      expect((r.body as { status: string; role: string }).status).toBe('invited');
+      expect((r.body as { role: string }).role).toBe('advisor');
+    }
+    // The colleague now exists in the same firm.
+    const created = (
+      await service.query(`select firm_id from profiles where email = 'router.colleague@test.co'`)
+    ).rows[0];
+    expect(created?.firm_id).toBe(firmId);
+    await service.query(`delete from profiles where email = 'router.colleague@test.co'`);
+    await service.query(`delete from auth.users where lower(email) = 'router.colleague@test.co'`);
+  });
+
+  it('firm-scoped: a non-staff caller cannot invite an advisor (403)', async () => {
+    const strangerId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.nostaff@test.co') returning id`)
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'invite-advisor',
+      { email: 'router.blocked@test.co', role: 'advisor' },
+      ctxFor(strangerId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 403 });
+    await service.query(`delete from auth.users where id = $1`, [strangerId]);
+  });
+
   it('engagement-scoped: compute-valuation authorizes via RLS and dispatches', async () => {
     const r = await handleFunctionCall('compute-valuation', { engagement_id: engagementId }, ctxFor(advisorUserId));
     expect(r.kind).toBe('json');

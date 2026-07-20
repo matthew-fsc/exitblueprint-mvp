@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
+import { useAsyncAction } from '../lib/useAsyncAction';
 import { buildEngagementKnowledge } from '../lib/knowledge';
 import { buildWorkstreamProgress } from '../lib/workstreams';
 import {
@@ -374,6 +375,7 @@ export default function EngagementPage() {
         />
       </div>
       {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+      <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
       <DeleteEngagementCard
         engagementId={engagementId!}
         companyName={companyName}
@@ -961,6 +963,52 @@ function DealOutcomeCapture({
         {existing?.updated_at && <span className="muted" style={{ marginLeft: '0.6rem' }}>last saved {fmtDate(existing.updated_at)}</span>}
       </div>
     </form>
+  );
+}
+
+// Self-serve data export (docs/35 Phase 9): download a full, portable JSON copy
+// of the engagement's data — the read-only counterpart to Delete. Backs a client's
+// "give us our data" request, a backup before deletion, or a migration.
+function ExportEngagementCard({ engagementId, companyName }: { engagementId: string; companyName: string }) {
+  const { busy, run } = useAsyncAction();
+
+  const download = () =>
+    run(
+      async () => {
+        const data = await invokeFunction<Record<string, unknown>>('export-engagement', {
+          engagement_id: engagementId,
+        });
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const slug = companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'engagement';
+        const stamp = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `exitblueprint-${slug}-${stamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      },
+      { success: 'Export downloaded' },
+    );
+
+  return (
+    <SectionCard title="Export data" subtitle="Download a full copy of this engagement's data.">
+      <div className="danger-zone">
+        <div>
+          <strong>Export this engagement</strong>
+          <p className="muted text-sm m-0">
+            A portable JSON file with the assessments and scores, gaps, roadmap, valuation, data room,
+            outcomes, engagement log, and generated report text. Uploaded document files are listed but
+            not included. Nothing is changed or removed.
+          </p>
+        </div>
+        <button onClick={download} disabled={busy}>
+          {busy ? 'Preparing…' : 'Export data (JSON)'}
+        </button>
+      </div>
+    </SectionCard>
   );
 }
 

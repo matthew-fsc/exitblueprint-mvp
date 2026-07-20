@@ -1,12 +1,13 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
-import { supabase, isDevStack, isClerkStack } from '../lib/supabase';
+import { supabase, isDevStack, isClerkStack, invokeFunction } from '../lib/supabase';
 import { useClerk } from '@clerk/react';
+import { useAsyncAction } from '../lib/useAsyncAction';
 import { qk, useBranding } from '../lib/queries';
 import { enrollTotp, getMfaState, verifyTotp, type MfaState, type TotpEnrollment } from '../lib/mfa';
-import { Card, ErrorState, FirmMark, LoadingState, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
+import { Card, EmptyState, ErrorState, FirmMark, LoadingState, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
 import { resolveEntitlement, type EntitlementReason } from '../../shared/entitlements';
 
 // Validate a CSS hex color (#rgb or #rrggbb).
@@ -162,6 +163,163 @@ function MfaCard() {
   );
 }
 
+// ── Team management (self-serve advisor provisioning, docs/35 #1) ──────────────
+// Advisors/admins invite firm staff without the CLI. Members are read directly
+// under RLS (advisor_firm_profiles_read / admin_firm_profiles_read); the invite
+// goes through the guarded invite-advisor function (Clerk org invite in prod, dev
+// direct-insert locally).
+
+interface Member {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: 'admin' | 'advisor' | 'reviewer' | 'owner';
+}
+
+interface InviteAdvisorResult {
+  status: 'invited' | 'exists';
+  email: string;
+  role: string;
+  seatsUsed: number;
+  seatLimit: number | null;
+  dev_password?: string;
+}
+
+const STAFF_ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  advisor: 'Advisor',
+  reviewer: 'Reviewer',
+  owner: 'Owner',
+};
+
+function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
+  const [members, setMembers] = useState<Member[] | null>(null);
+  const [seatLimit, setSeatLimit] = useState<number | null>(null);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'advisor' | 'reviewer' | 'admin'>('advisor');
+  const [devNote, setDevNote] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction();
+
+  const load = useCallback(async () => {
+    if (!firmId) return;
+    const [{ data: profs }, { data: sub }] = await Promise.all([
+      supabase.from('profiles').select('id,full_name,email,role').eq('firm_id', firmId).in('role', ['advisor', 'reviewer', 'admin']).order('role'),
+      supabase.from('firm_subscriptions').select('plan_code').eq('firm_id', firmId).maybeSingle(),
+    ]);
+    setMembers((profs as Member[]) ?? []);
+    if (sub?.plan_code) {
+      const { data: plan } = await supabase.from('plans').select('seat_limit').eq('code', sub.plan_code).maybeSingle();
+      setSeatLimit((plan?.seat_limit as number | null | undefined) ?? null);
+    } else {
+      setSeatLimit(null);
+    }
+  }, [firmId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const invite = () =>
+    run(
+      async () => {
+        const res = await invokeFunction<InviteAdvisorResult>('invite-advisor', {
+          email,
+          full_name: name || null,
+          role,
+        });
+        setDevNote(
+          res.status === 'exists'
+            ? `${res.email} is already on this firm.`
+            : res.dev_password
+              ? `Invited ${res.email}. Dev login: password "${res.dev_password}".`
+              : `Invitation email sent to ${res.email}.`,
+        );
+        setEmail('');
+        setName('');
+        await load();
+        return res;
+      },
+      { success: 'Invitation sent' },
+    );
+
+  const seatsUsed = members?.length ?? 0;
+  const seatText = seatLimit == null ? `${seatsUsed} seat${seatsUsed === 1 ? '' : 's'} used` : `${seatsUsed} of ${seatLimit} seats used`;
+  const atLimit = seatLimit != null && seatsUsed >= seatLimit;
+
+  return (
+    <SectionCard title="Team" subtitle="Advisors, reviewers and admins in your firm. Invite a colleague to give them their own login.">
+      {members === null ? (
+        <LoadingState variant="inline" />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {members.length === 0 ? (
+              <EmptyState title="No team members yet">Invite your first colleague below.</EmptyState>
+            ) : (
+              members.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-3)',
+                    padding: 'var(--space-2) 0',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {m.full_name || m.email || '—'}
+                      {m.id === meId && <span className="muted text-sm"> · you</span>}
+                    </div>
+                    {m.full_name && m.email && <div className="muted text-sm">{m.email}</div>}
+                  </div>
+                  <span className="status-chip status-neutral" style={{ marginLeft: 'auto' }}>
+                    {STAFF_ROLE_LABEL[m.role] ?? m.role}
+                  </span>
+                </div>
+              ))
+            )}
+            <span className="muted text-sm">{seatText}</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto auto', gap: 'var(--space-2)', alignItems: 'end' }} className="team-invite-row">
+            <label className="field">
+              <span className="field-label">Email</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="colleague@firm.com" />
+            </label>
+            <label className="field">
+              <span className="field-label">Name (optional)</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Advisor" />
+            </label>
+            <label className="field">
+              <span className="field-label">Role</span>
+              <select value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
+                <option value="advisor">Advisor</option>
+                <option value="reviewer">Reviewer</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <button onClick={invite} disabled={busy || !email || atLimit}>
+              {busy ? 'Inviting…' : 'Invite'}
+            </button>
+          </div>
+          {atLimit && (
+            <span className="form-error">Seat limit reached. Upgrade your plan to add more advisors.</span>
+          )}
+          {devNote && (
+            <span className="muted text-sm">
+              {devNote}
+              {isDevStack && ' (dev stack — no email is sent)'}
+            </span>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 // Account + organization management (name, email, password, MFA devices, firm
 // members) lives in Clerk, the identity provider. Rather than duplicate those
 // surfaces, link into Clerk's own portals from Settings. Only mounted on the
@@ -283,6 +441,7 @@ export default function SettingsPage() {
       <BillingCard firmId={firmId} />
 
       {isClerkStack && <ClerkAccountCard />}
+      <TeamCard firmId={firmId} meId={profile?.id} />
       <MfaCard />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,20rem)', gap: '1.25rem', alignItems: 'start' }} className="settings-grid">

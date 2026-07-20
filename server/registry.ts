@@ -31,8 +31,11 @@ import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
+import { inviteAdvisor } from './invite-advisor';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
+import { exportEngagement } from './export';
+import { firmAttention } from './attention';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -89,6 +92,7 @@ export type AuthScope =
   | 'firm' // firm-scoped readout; firm resolved from the advisor/admin profile
   | 'create-engagement' // advisor firm + the target company visible under RLS
   | 'delete-engagement' // advisor/admin firm + the target engagement visible under RLS
+  | 'export-engagement' // advisor/admin firm + the target engagement visible under RLS (read-only)
   | 'document-upload' // staff (advisor+reviewer); engagement id visible under RLS
   | 'review-queue' // staff; firm-scoped, no id (the queue is the whole firm)
   | 'document' // staff; the referenced document is visible under RLS
@@ -363,6 +367,22 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body, firmId, userId }) =>
       deleteEngagement(service, firmId as string, userId, body.engagement_id as string).then(ok),
   },
+  // Read-only, full data export of an engagement (docs/35 Phase 9). Deliberately
+  // NOT gated: a firm taking a copy of its own data out must never be blocked by a
+  // lapsed subscription (same posture as delete-engagement).
+  'export-engagement': {
+    engine: 'workflow',
+    scope: 'export-engagement',
+    handler: ({ service, body, firmId }) =>
+      exportEngagement(service, firmId as string, body.engagement_id as string).then(ok),
+  },
+  // In-app "Needs attention" worklist for the caller's firm (docs/35 Phase 9).
+  // Read-only firm-scoped readout; not gated (viewing your own worklist is free).
+  'firm-attention': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId }) => firmAttention(service, firmId as string).then(ok),
+  },
 
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)
   'sync-ledger': {
@@ -502,6 +522,23 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body }) =>
       inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string).then(ok),
+  },
+  // Firm-staff invitation (self-serve team management, docs/35 #1). Scope 'firm'
+  // resolves the caller's own firm from their advisor/admin profile — a firm can
+  // only grow its own team. NOT entitlement-gated: managing your team is never
+  // blocked by billing state (seats are enforced inside the handler when billing
+  // is on); the seat *usage* is always returned for the UI.
+  'invite-advisor': {
+    engine: 'collaboration',
+    scope: 'firm',
+    handler: ({ service, body, firmId }) =>
+      inviteAdvisor(
+        service,
+        firmId as string,
+        body.email as string,
+        (body.full_name as string) ?? null,
+        (body.role as string) ?? 'advisor',
+      ).then(ok),
   },
   'run-verification': {
     engine: 'collaboration',

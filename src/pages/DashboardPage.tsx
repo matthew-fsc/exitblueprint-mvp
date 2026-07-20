@@ -21,8 +21,10 @@ import {
   useActiveAgreementVersions,
   useCompanies,
   useEngagements,
+  useFirmAttention,
   usePortfolio,
   type AgreementVersionRow,
+  type AttentionShape,
   type CompanyRow,
   type EngagementRow,
   type PortfolioRow,
@@ -38,12 +40,87 @@ const STALE_DAYS = 90;
 type TierFilter = 'all' | (typeof TIER_ORDER)[number];
 type MoveFilter = 'all' | 'up' | 'down' | 'stale';
 
+const ATTENTION_PREVIEW = 4; // rows shown per group before "+N more"
+
+// In-app "Needs attention" worklist (docs/35 Phase 9). Surfaces the same signals
+// the n8n continuous-eval webhooks compute — reassessment due, stalled tasks,
+// stale engagements — so an advisor sees what needs doing without an external
+// nudge. Hidden entirely when nothing is due (the stat band already shows the
+// all-clear); read-only, links straight to the engagement.
+function AttentionGroup<T extends { engagementId: string; companyName: string | null }>({
+  title,
+  items,
+  emphasis,
+  render,
+  onOpen,
+}: {
+  title: string;
+  items: T[];
+  emphasis?: boolean;
+  render: (it: T) => string;
+  onOpen: (engagementId: string) => void;
+}) {
+  if (items.length === 0) return null;
+  const shown = items.slice(0, ATTENTION_PREVIEW);
+  const more = items.length - shown.length;
+  return (
+    <div className="attn-group">
+      <div className="attn-group-head">
+        <span className={`attn-count ${emphasis ? 'attn-count-warn' : ''}`}>{items.length}</span>
+        <span className="attn-group-title">{title}</span>
+      </div>
+      <ul className="attn-list">
+        {shown.map((it, i) => (
+          <li key={i}>
+            <button className="attn-item" onClick={() => onOpen(it.engagementId)}>
+              <span className="attn-company">{it.companyName ?? 'Untitled engagement'}</span>
+              <span className="attn-reason">{render(it)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <p className="attn-more muted text-sm">+{more} more</p>}
+    </div>
+  );
+}
+
+function AttentionPanel({ data }: { data: AttentionShape }) {
+  const navigate = useNavigate();
+  const open = (id: string) => navigate(`/engagement/${id}`);
+  return (
+    <PageSection title="Needs attention" note={`${data.counts.total} item${data.counts.total === 1 ? '' : 's'}`}>
+      <div className="attn-grid">
+        <AttentionGroup
+          title="Reassessment due"
+          items={data.reassessmentDue}
+          onOpen={open}
+          render={(it) => `last assessed ${it.daysSinceLastAssessment} days ago`}
+        />
+        <AttentionGroup
+          title="Stalled tasks"
+          items={data.stalledTasks}
+          emphasis
+          onOpen={open}
+          render={(t) => (t.pastDue ? `${t.title} — ${t.daysOverdue}d overdue` : `${t.title} — untouched ${t.daysStalled}d`)}
+        />
+        <AttentionGroup
+          title="Gone quiet"
+          items={data.staleEngagements}
+          onOpen={open}
+          render={(it) => `no activity in ${it.daysStale} days`}
+        />
+      </div>
+    </PageSection>
+  );
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const portfolioQ = usePortfolio();
   const rows = portfolioQ.data ?? [];
   const companiesQ = useCompanies();
   const engagementsQ = useEngagements();
+  const attentionQ = useFirmAttention();
   const agreementsQ = useActiveAgreementVersions();
   const agreement: AgreementVersionRow | undefined = agreementsQ.data?.[0];
   const [tier, setTier] = useState<TierFilter>('all');
@@ -216,6 +293,8 @@ export default function DashboardPage() {
           />
         </StatRow>
       </PageSection>
+
+      {attentionQ.data && attentionQ.data.counts.total > 0 && <AttentionPanel data={attentionQ.data} />}
 
       <PageSection
         title="Engagements"
