@@ -81,20 +81,41 @@ export function DataTable<Row>({
       <table className="ui-table">
         <thead>
           <tr>
-            {columns.map((c) => (
-              <th key={c.key} className={c.numeric ? 'num' : undefined}>
-                {c.sortValue ? (
-                  <button className="ui-table-sort" onClick={() => toggleSort(c.key)}>
-                    {c.header}
-                    {sort?.key === c.key && (
-                      <span className="ui-table-sort-arrow">{sort.dir === 'asc' ? '▲' : '▼'}</span>
-                    )}
-                  </button>
-                ) : (
-                  c.header
-                )}
-              </th>
-            ))}
+            {columns.map((c) => {
+              const isSorted = sort?.key === c.key;
+              return (
+                <th
+                  key={c.key}
+                  className={c.numeric ? 'num' : undefined}
+                  aria-sort={
+                    c.sortValue
+                      ? isSorted
+                        ? sort!.dir === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                      : undefined
+                  }
+                >
+                  {c.sortValue ? (
+                    <button
+                      className="ui-table-sort"
+                      onClick={() => toggleSort(c.key)}
+                      aria-label={`Sort by ${c.header}`}
+                    >
+                      {c.header}
+                      {isSorted && (
+                        <span className="ui-table-sort-arrow" aria-hidden>
+                          {sort!.dir === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    c.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

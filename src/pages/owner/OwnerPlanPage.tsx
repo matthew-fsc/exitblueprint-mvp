@@ -1,6 +1,6 @@
 import { useOwnerContext } from '../../lib/owner';
 import { useTasks, useMilestones } from '../../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines } from '../../components/ui';
+import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -8,7 +8,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function OwnerPlanPage() {
-  const { engagement, loading } = useOwnerContext();
+  const { engagement, loading, isError, error, refetch } = useOwnerContext();
   const tasksQ = useTasks(engagement?.id);
   const milestonesQ = useMilestones(engagement?.id);
   const tasks = tasksQ.data ?? [];
@@ -22,8 +22,10 @@ export default function OwnerPlanPage() {
         title="Your plan"
         subtitle="The steps your advisor and team have laid out to move your business toward a sale."
       />
-      {loading || tasksQ.isLoading ? (
+      {loading || tasksQ.isLoading || milestonesQ.isLoading ? (
         <Card><SkeletonLines lines={6} /></Card>
+      ) : isError || tasksQ.isError || milestonesQ.isError ? (
+        <ErrorState variant="section" error={error ?? tasksQ.error ?? milestonesQ.error} onRetry={refetch} />
       ) : tasks.length === 0 && milestones.length === 0 ? (
         <EmptyState title="Your plan is being built">
           Once your advisor turns your assessment into a roadmap, the steps will appear here.

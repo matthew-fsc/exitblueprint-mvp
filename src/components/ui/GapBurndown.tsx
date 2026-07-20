@@ -22,6 +22,13 @@ const SEVS = [
 // Reads remediation progress at a glance — the counterpart to the score trend.
 export function GapBurndown({ points }: { points: BurndownDatum[] }) {
   const max = Math.max(1, ...points.map((p) => p.total));
+  // Text alternative so severity mix is readable without color or a hover title
+  // (WCAG 1.4.1 / 1.1.1): "Assessment #3: 2 critical, 5 high — 7 open gaps".
+  const describe = (p: BurndownDatum) => {
+    if (p.total === 0) return `Assessment #${p.seq}: all gaps cleared`;
+    const parts = SEVS.filter((s) => p[s.key] > 0).map((s) => `${p[s.key]} ${s.label.toLowerCase()}`);
+    return `Assessment #${p.seq}: ${parts.join(', ')} — ${p.total} open gaps`;
+  };
   return (
     <div className="burndown">
       <div className="burndown-rows">
@@ -32,7 +39,12 @@ export function GapBurndown({ points }: { points: BurndownDatum[] }) {
               {p.date && <span className="burndown-date">{fmtDate(p.date)}</span>}
             </span>
             <div className="burndown-bar-wrap">
-              <div className="burndown-bar" style={{ width: `${(p.total / max) * 100}%` }}>
+              <div
+                className="burndown-bar"
+                style={{ width: `${(p.total / max) * 100}%` }}
+                role="img"
+                aria-label={describe(p)}
+              >
                 {SEVS.map((s) => {
                   const v = p[s.key];
                   if (v === 0) return null;
@@ -42,6 +54,7 @@ export function GapBurndown({ points }: { points: BurndownDatum[] }) {
                       className="burndown-seg"
                       style={{ flex: v, background: `var(${s.varName})` }}
                       title={`${v} ${s.label}`}
+                      aria-hidden
                     />
                   );
                 })}

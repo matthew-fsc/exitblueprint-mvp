@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOwnerContext } from '../../lib/owner';
 import { useEducationModules, type EducationLibraryModule } from '../../lib/queries';
-import { Card, EmptyState, PageHeader, SkeletonLines } from '../../components/ui';
+import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines } from '../../components/ui';
 
 // The nine canonical rubric dimension codes → the plain names an owner reads.
 // Owners never see raw codes like "FIN" (docs/26 UI system, machine-artifact
@@ -23,22 +23,28 @@ function ModuleCard({ m }: { m: EducationLibraryModule }) {
   const dimLabel = m.dimension_code
     ? (DIMENSION_LABELS[m.dimension_code] ?? null)
     : null;
+  const bodyId = `learn-body-${m.code ?? m.id}`;
   return (
     <div className={`learn-item ${m.recommended ? 'learn-item-rec' : ''}`}>
-      <button className="learn-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+      <button
+        className="learn-head"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={bodyId}
+      >
         <span className="learn-titles">
           <span className="learn-title">{m.title}</span>
           {dimLabel && <span className="learn-dim">{dimLabel}</span>}
         </span>
-        <span className="learn-toggle">{open ? '−' : '+'}</span>
+        <span className="learn-toggle" aria-hidden>{open ? '−' : '+'}</span>
       </button>
-      {open && <div className="learn-body">{m.body}</div>}
+      {open && <div className="learn-body" id={bodyId}>{m.body}</div>}
     </div>
   );
 }
 
 export default function OwnerLearnPage() {
-  const { engagement, loading } = useOwnerContext();
+  const { engagement, loading, isError, error, refetch } = useOwnerContext();
   const eduQ = useEducationModules(engagement?.id);
   const modules = eduQ.data?.modules ?? [];
   const recommended = modules.filter((m) => m.recommended);
@@ -52,6 +58,8 @@ export default function OwnerLearnPage() {
       />
       {loading || eduQ.isLoading ? (
         <Card><SkeletonLines lines={6} /></Card>
+      ) : isError || eduQ.isError ? (
+        <ErrorState variant="section" error={error ?? eduQ.error} onRetry={refetch} />
       ) : modules.length === 0 ? (
         <EmptyState title="Guides coming soon">
           Educational content will appear here as your engagement progresses.
