@@ -1,11 +1,11 @@
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
-import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryCache, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { describeError } from './lib/errors';
 import { notifySessionExpired } from './lib/sessionExpiry';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
-import { isDevStack } from './lib/supabase';
+import { isDevStack, invokeFunction } from './lib/supabase';
 import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
 import { UserMenu } from './components/UserMenu';
 import { BrandingProvider, useBrand } from './lib/branding';
@@ -40,7 +40,6 @@ const CimPage = lazy(() => import('./pages/CimPage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
-const SecurityPage = lazy(() => import('./pages/SecurityPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const HealthPage = lazy(() => import('./pages/HealthPage'));
@@ -68,7 +67,8 @@ const queryClient = new QueryClient({
 });
 
 // R5: advisor/admin accounts must satisfy MFA (bypassed on the dev stack). An
-// un-enrolled or unverified advisor is sent to /security before anything else.
+// un-enrolled or unverified advisor is sent to /settings (which hosts MFA setup)
+// before anything else.
 function useMfaGate(session: unknown): MfaState | 'loading' {
   const [state, setState] = useState<MfaState | 'loading'>('loading');
   useEffect(() => {
@@ -115,9 +115,9 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
     return <ProfileNotReady />;
   }
   if (mfa === 'loading') return <main className="page"><LoadingState variant="page" /></main>;
-  // /security is where MFA is set up, so it must stay reachable during the gate.
-  if (mfa !== 'satisfied' && location.pathname !== '/security') {
-    return <Navigate to="/security" replace />;
+  // /settings is where MFA is set up, so it must stay reachable during the gate.
+  if (mfa !== 'satisfied' && location.pathname !== '/settings') {
+    return <Navigate to="/settings" replace />;
   }
   return <>{children}</>;
 }
@@ -170,6 +170,29 @@ function userInitials(email?: string | null): string {
   return local.slice(0, 2).toUpperCase();
 }
 
+// The review queue is where uploaded documents become verified facts, but the
+// nav gave no sign work was waiting there. This badge surfaces the pending count
+// so the queue reads as an active inbox, not a page you have to remember to open.
+function ReviewNavLink() {
+  const { data: pending } = useQuery({
+    queryKey: ['reviewQueue', 'count'],
+    queryFn: async () => {
+      const r = await invokeFunction<{ items: unknown[] }>('list-review-queue', {});
+      return r.items.length;
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+  return (
+    <NavLink to="/review" className="app-nav-link">
+      Review
+      {pending != null && pending > 0 && (
+        <span className="nav-count" aria-label={`${pending} awaiting review`}>{pending}</span>
+      )}
+    </NavLink>
+  );
+}
+
 function AppBar() {
   const { firmName, profile, signOut } = useAuth();
   const { brand } = useBrand();
@@ -183,9 +206,7 @@ function AppBar() {
             <NavLink to="/" end className="app-nav-link">
               Engagements
             </NavLink>
-            <NavLink to="/review" className="app-nav-link">
-              Review
-            </NavLink>
+            <ReviewNavLink />
             <NavLink to="/library" className="app-nav-link">
               Library
             </NavLink>
@@ -198,11 +219,10 @@ function AppBar() {
           {isDevStack && <span className="dev-badge">Dev</span>}
           <ThemeToggle />
           <span className="app-bar-divider" aria-hidden />
-          <UserMenu
-            email={profile?.email}
-            links={[{ to: '/security', label: 'Security' }]}
-            onSignOut={signOut}
-          />
+          {/* The standalone Security page was merged into Settings (MFA lives
+              there now), so the account menu carries just Sign out; account &
+              security settings are reachable from the Settings nav item. */}
+          <UserMenu email={profile?.email} links={[]} onSignOut={signOut} />
         </div>
       </div>
     </header>
@@ -415,16 +435,9 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          <Route
-            path="/security"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <SecurityPage />
-                </Shell>
-              </RequireAdvisor>
-            }
-          />
+          {/* Security page merged into Settings (MFA lives there now; the data-
+              protection summary moved to the legal footer). Old links redirect. */}
+          <Route path="/security" element={<Navigate to="/settings" replace />} />
           <Route path="/portal" element={<RequireOwner><OwnerShell><OwnerHomePage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/plan" element={<RequireOwner><OwnerShell><OwnerPlanPage /></OwnerShell></RequireOwner>} />
           <Route path="/portal/learn" element={<RequireOwner><OwnerShell><OwnerLearnPage /></OwnerShell></RequireOwner>} />

@@ -68,10 +68,13 @@ const TARGET_DRS = 85;
 // stays a glanceable summary next to Current readiness.
 const GAP_PREVIEW = 5;
 
-// Turn a target-exit window ("24-36 months", "under 12 months") into a concrete
-// date: engagement start + the earliest month in the window (the "ready by"
-// date). Falls back to 24 months when the window is missing or unparseable.
-function targetExitDate(startedAt: string, window: string | null): Date {
+// The concrete date the readiness plan runs to. Prefer the advisor-set target
+// close date (set on the Roadmap or the Setup tab); otherwise fall back to the
+// coarse target-exit window ("24-36 months" → engagement start + the earliest
+// month in the window, the "ready by" date), defaulting to 24 months when the
+// window is missing or unparseable.
+function targetExitDate(startedAt: string, window: string | null, closeDate?: string | null): Date {
+  if (closeDate) return new Date(closeDate);
   const months = Number(window?.match(/\d+/)?.[0] ?? 24);
   const d = new Date(startedAt);
   d.setMonth(d.getMonth() + (Number.isFinite(months) ? months : 24));
@@ -255,7 +258,7 @@ export default function EngagementPage() {
       score: Number(a.drs_score),
       tier: a.drs_tier ?? undefined,
     }));
-  const exitDate = targetExitDate(engagement.started_at, engagement.target_exit_window);
+  const exitDate = targetExitDate(engagement.started_at, engagement.target_exit_window, engagement.target_close_date);
   const delta =
     completed.length > 1
       ? Number(completed[completed.length - 1].drs_score) - Number(completed[0].drs_score)
@@ -300,6 +303,88 @@ export default function EngagementPage() {
   const activeAnalysis = analysisTabs.some((t) => t.key === analysisTab)
     ? analysisTab
     : (analysisTabs[0]?.key ?? 'log');
+
+  // Engagement management (timeline/status + hard delete). Extracted so it renders
+  // BOTH inside the Setup & admin analysis tab and, crucially, when the engagement
+  // has no completed assessment yet — otherwise a mis-created engagement (the exact
+  // case you'd want to delete) had no reachable delete/status control at all.
+  const setupAdmin = (
+    <div className="stack-lg">
+      <SectionCard
+        title="Engagement timeline & status"
+        subtitle="Set the actual start date and target window so the trajectory, sprints, and exit pace reflect the real engagement, and move the engagement through its lifecycle."
+      >
+        <div className="eng-timeline-form">
+          <label>
+            Status
+            <select
+              value={engagement.status}
+              onChange={(e) => saveEngagement({ status: e.target.value })}
+            >
+              {(Object.keys(STATUS_LABEL) as EngagementStatus[]).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Started
+            <input
+              type="date"
+              defaultValue={engagement.started_at ? engagement.started_at.slice(0, 10) : ''}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => e.target.value && saveEngagement({ started_at: e.target.value })}
+            />
+          </label>
+          <label>
+            Target exit window
+            <select
+              defaultValue={engagement.target_exit_window ?? ''}
+              onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
+            >
+              <option value="">Not set</option>
+              <option value="under 12 months">Under 12 months</option>
+              <option value="12-24 months">12–24 months</option>
+              <option value="24-36 months">24–36 months</option>
+              <option value="36+ months">36+ months</option>
+            </select>
+          </label>
+          <label>
+            Target sale date
+            <input
+              type="date"
+              defaultValue={engagement.target_close_date ? engagement.target_close_date.slice(0, 10) : ''}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => saveEngagement({ target_close_date: e.target.value || null })}
+            />
+          </label>
+        </div>
+        <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
+          Paused keeps the record but signals no active work; Exited and Churned are terminal.
+          To remove the engagement entirely, use “Delete engagement” below.
+        </p>
+      </SectionCard>
+      <div className="eng-grid" style={{ marginTop: 0 }}>
+        <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
+      </div>
+      {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
+      <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
+      <DeleteEngagementCard
+        engagementId={engagementId!}
+        companyName={companyName}
+        counts={{
+          assessments: assessments.length,
+          documents: documents.length,
+          gaps: gapsQ.data?.length ?? 0,
+          tasks: tasksQ.data?.length ?? 0,
+          logEntries: logQ.data?.length ?? 0,
+          hasValuation: !!valuationQ.data?.has_recast,
+          hasDealOutcome: !!outcomeStatus,
+        }}
+      />
+    </div>
+  );
 
   return (
     <div className="page-shell">
@@ -630,84 +715,24 @@ export default function EngagementPage() {
           )}
 
           {/* setup & admin — connections and record-keeping */}
-          {activeAnalysis === 'setup' && (
-            <div className="stack-lg">
-              <SectionCard
-                title="Engagement timeline & status"
-                subtitle="Set the actual start date and target window so the trajectory, sprints, and exit pace reflect the real engagement, and move the engagement through its lifecycle."
-              >
-                <div className="eng-timeline-form">
-                  <label>
-                    Status
-                    <select
-                      value={engagement.status}
-                      onChange={(e) => saveEngagement({ status: e.target.value })}
-                    >
-                      {(Object.keys(STATUS_LABEL) as EngagementStatus[]).map((s) => (
-                        <option key={s} value={s}>
-                          {STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Started
-                    <input
-                      type="date"
-                      defaultValue={engagement.started_at ? engagement.started_at.slice(0, 10) : ''}
-                      max={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => e.target.value && saveEngagement({ started_at: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Target exit window
-                    <select
-                      defaultValue={engagement.target_exit_window ?? ''}
-                      onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
-                    >
-                      <option value="">Not set</option>
-                      <option value="under 12 months">Under 12 months</option>
-                      <option value="12-24 months">12–24 months</option>
-                      <option value="24-36 months">24–36 months</option>
-                      <option value="36+ months">36+ months</option>
-                    </select>
-                  </label>
-                </div>
-                <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
-                  Paused keeps the record but signals no active work; Exited and Churned are terminal.
-                  To remove the engagement entirely, use “Delete engagement” below.
-                </p>
-              </SectionCard>
-              <div className="eng-grid" style={{ marginTop: 0 }}>
-                <OwnerAccessCard engagementId={engagementId!} companyId={engagement.company_id} />
-              </div>
-              {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
-              <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
-              <DeleteEngagementCard
-                engagementId={engagementId!}
-                companyName={companyName}
-                counts={{
-                  assessments: assessments.length,
-                  documents: documents.length,
-                  gaps: gapsQ.data?.length ?? 0,
-                  tasks: tasksQ.data?.length ?? 0,
-                  logEntries: logQ.data?.length ?? 0,
-                  hasValuation: !!valuationQ.data?.has_recast,
-                  hasDealOutcome: !!outcomeStatus,
-                }}
-              />
-            </div>
-          )}
+          {activeAnalysis === 'setup' && setupAdmin}
           </div>
           </PageSection>
         </>
       ) : (
-        <EmptyState
-          title="No completed assessments yet"
-          action={profile && !inProgress && <button onClick={startAssessment}>Start baseline assessment</button>}
-        >
-          The baseline assessment sets the starting DRS and opens this engagement’s trajectory.
-        </EmptyState>
+        <>
+          <EmptyState
+            title="No completed assessments yet"
+            action={profile && !inProgress && <button onClick={startAssessment}>Start baseline assessment</button>}
+          >
+            The baseline assessment sets the starting DRS and opens this engagement’s trajectory.
+          </EmptyState>
+          {/* Management stays reachable before the first assessment — otherwise a
+              mis-created engagement can never be renamed, paused, or deleted. */}
+          <PageSection title="Setup & admin" note="Timeline, status, and deletion">
+            {setupAdmin}
+          </PageSection>
+        </>
       )}
 
       <PageSection title="Record" note="Assessment history & documents">

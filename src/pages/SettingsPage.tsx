@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
-import { invokeFunction, isDevStack, supabase } from '../lib/supabase';
+import { supabase, isDevStack, isClerkStack, invokeFunction } from '../lib/supabase';
+import { useClerk } from '@clerk/react';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { qk, useBranding } from '../lib/queries';
+import { enrollTotp, getMfaState, verifyTotp, type MfaState, type TotpEnrollment } from '../lib/mfa';
 import { Card, EmptyState, ErrorState, FirmMark, LoadingState, PageHeader, SectionCard, TierBadge, useToast } from '../components/ui';
 import { resolveEntitlement, type EntitlementReason } from '../../shared/entitlements';
 
@@ -61,6 +63,100 @@ function BillingCard({ firmId }: { firmId?: string }) {
           <Link to="/settings/billing" style={{ marginLeft: 'auto' }}>
             Manage billing →
           </Link>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+// Multi-factor authentication lives in Settings now that the standalone Security
+// page is gone (the MFA gate routes unenrolled advisors here). Same enrollment /
+// verify flow it always had; only its home moved.
+function MfaCard() {
+  const toast = useToast();
+  const [state, setState] = useState<MfaState | 'loading'>('loading');
+  const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = () => {
+    getMfaState()
+      .then(setState)
+      .catch(() => setState('satisfied'));
+  };
+  useEffect(refresh, []);
+
+  const startEnroll = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setEnrollment(await enrollTotp());
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  };
+
+  const verify = async () => {
+    if (!enrollment) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyTotp(enrollment.factorId, code.trim());
+      setEnrollment(null);
+      setCode('');
+      toast.show('Multi-factor authentication enabled', 'good');
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <SectionCard title="Multi-factor authentication" subtitle="Required for advisor and admin accounts.">
+      {isDevStack ? (
+        <p className="muted">
+          MFA is enforced on the hosted deployment. The local dev stack has no authenticator
+          endpoint, so enrollment is disabled here.
+        </p>
+      ) : state === 'loading' ? (
+        <p className="muted">Checking status…</p>
+      ) : state === 'satisfied' && !enrollment ? (
+        <p className="status-chip status-good">Active — your account is protected by MFA.</p>
+      ) : (
+        <div className="mfa-enroll">
+          {!enrollment ? (
+            <>
+              <p className="muted">
+                {state === 'needs_verify'
+                  ? 'Enter a code from your authenticator to finish signing in.'
+                  : 'MFA is required for advisor accounts. Add an authenticator app to continue.'}
+              </p>
+              <button onClick={startEnroll} disabled={busy}>
+                {busy ? 'Starting…' : 'Set up authenticator'}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="muted">Scan this with your authenticator app, or enter the secret manually.</p>
+              <img className="mfa-qr" src={enrollment.qrSvg} alt="MFA QR code" />
+              <code className="mfa-secret">{enrollment.secret}</code>
+              <div className="mfa-verify">
+                <input
+                  inputMode="numeric"
+                  placeholder="6-digit code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                <button onClick={verify} disabled={busy || code.trim().length < 6}>
+                  {busy ? 'Verifying…' : 'Verify & enable'}
+                </button>
+              </div>
+            </>
+          )}
+          {error && <ErrorState variant="inline" error={error} />}
         </div>
       )}
     </SectionCard>
@@ -224,6 +320,34 @@ function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
   );
 }
 
+// Account + organization management (name, email, password, MFA devices, firm
+// members) lives in Clerk, the identity provider. Rather than duplicate those
+// surfaces, link into Clerk's own portals from Settings. Only mounted on the
+// Clerk stack, so useClerk() always runs inside <ClerkProvider>.
+function ClerkAccountCard() {
+  const clerk = useClerk();
+  return (
+    <SectionCard
+      title="Account & organization"
+      subtitle="Your sign-in, profile, and firm membership are managed in Clerk."
+    >
+      <div className="control-row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <button className="button-secondary" onClick={() => clerk.openUserProfile()}>
+          Manage your account
+        </button>
+        <button className="button-secondary" onClick={() => clerk.openOrganizationProfile()}>
+          Organization settings
+        </button>
+      </div>
+      <p className="muted text-sm" style={{ marginTop: 'var(--space-3)' }}>
+        Your name, email, password, and multi-factor devices live in your account. Your firm's
+        members are managed under the organization. The logo shown on client-facing reports is set
+        below — it is independent of any logo in Clerk.
+      </p>
+    </SectionCard>
+  );
+}
+
 export default function SettingsPage() {
   const { profile, firmName } = useAuth();
   const firmId = profile?.firm_id ?? undefined;
@@ -316,7 +440,9 @@ export default function SettingsPage() {
 
       <BillingCard firmId={firmId} />
 
+      {isClerkStack && <ClerkAccountCard />}
       <TeamCard firmId={firmId} meId={profile?.id} />
+      <MfaCard />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,20rem)', gap: '1.25rem', alignItems: 'start' }} className="settings-grid">
         <Card pad="lg">
