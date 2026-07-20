@@ -60,6 +60,23 @@ function useMfaGate(session: unknown): MfaState | 'loading' {
   return state;
 }
 
+// Shown when a signed-in user has no usable profile yet. Provisioning is
+// automatic (the Clerk webhook writes the profile just after sign-in) but
+// eventually-consistent, so this is usually a brief timing gap right after a
+// first sign-in — offer a refresh rather than a dead end, and never tell an end
+// user to run a CLI.
+function ProfileNotReady() {
+  return (
+    <main className="page">
+      <p className="form-error">
+        Your account isn’t set up yet. If you just signed in, give it a moment and refresh. If this
+        keeps happening, contact your administrator.
+      </p>
+      <button onClick={() => window.location.reload()}>Refresh</button>
+    </main>
+  );
+}
+
 function RequireAdvisor({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
@@ -70,13 +87,7 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   // A pure reviewer has no advisor workspace — send them to the review queue.
   if (profile?.role === 'reviewer') return <Navigate to="/review" replace />;
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
-    return (
-      <main className="page">
-        <p className="form-error">
-          This account has no advisor profile. Provision one with scripts/admin.ts.
-        </p>
-      </main>
-    );
+    return <ProfileNotReady />;
   }
   if (mfa === 'loading') return <p className="muted page">Loading…</p>;
   // /security is where MFA is set up, so it must stay reachable during the gate.
@@ -94,13 +105,7 @@ function RequireStaff({ children }: { children: ReactNode }) {
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner') return <Navigate to="/portal" replace />;
   if (!profile || !['advisor', 'admin', 'reviewer'].includes(profile.role)) {
-    return (
-      <main className="page">
-        <p className="form-error">
-          This account has no staff profile. Provision one with scripts/admin.ts.
-        </p>
-      </main>
-    );
+    return <ProfileNotReady />;
   }
   return <>{children}</>;
 }

@@ -63,9 +63,26 @@ function useProfile(userId: string | null): {
     let cancelled = false;
     setProfileLoading(true);
     (async () => {
-      const { data: prof } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
-      if (cancelled) return;
-      setProfile((prof as Profile) ?? null);
+      // Provisioning is eventually-consistent: on first sign-in the Clerk webhook
+      // writes the profile a beat later, and the Clerk→supabase token needs a
+      // moment to attach (an unauthenticated read returns 0 rows under RLS). So a
+      // first miss is not terminal — retry a few times with backoff before giving
+      // up, which keeps the "no profile" gate from flashing right after sign-in.
+      // No added latency in the normal case: the first attempt has no delay and we
+      // stop as soon as a row appears.
+      const backoffMs = [0, 500, 1000, 2000, 3500]; // ~7s total across 5 attempts
+      let prof: Profile | null = null;
+      for (const delay of backoffMs) {
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        if (cancelled) return;
+        const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
+        if (cancelled) return;
+        if (data) {
+          prof = data as Profile;
+          break;
+        }
+      }
+      setProfile(prof);
       if (prof?.firm_id) {
         const { data: firm } = await supabase.from('firms').select('*').eq('id', prof.firm_id).single();
         if (!cancelled) setFirmName(firm?.name ?? null);
