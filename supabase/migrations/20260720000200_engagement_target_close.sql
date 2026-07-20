@@ -1,0 +1,14 @@
+-- Concrete target sale date on the engagement (UI cleanup, 2026-07-20).
+--
+-- The exit-pace chart and roadmap previously derived a fuzzy target date from
+-- target_exit_window ("24-36 months" → started_at + earliest month). That reads
+-- as an estimate, not the owner's actual intent, and the two surfaces couldn't
+-- agree on a date. This adds an explicit, advisor-set target close date so the
+-- roadmap can be scheduled against it and the "on pace for the exit window?"
+-- chart plots the real deadline. target_exit_window stays as the coarse band
+-- (still shown, still the fallback when no concrete date is set).
+--
+-- Nullable, no default: existing engagements keep deriving from the window until
+-- an advisor sets a date. No RLS change — the existing engagements UPDATE
+-- policies (advisor_firm_all / admin_firm_all) already cover every column.
+alter table engagements add column if not exists target_close_date date;

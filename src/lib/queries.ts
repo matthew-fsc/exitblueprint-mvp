@@ -85,6 +85,7 @@ export interface EngagementRow {
   advisor_id: string | null;
   status: string;
   target_exit_window: string | null;
+  target_close_date: string | null;
   started_at: string;
 }
 export interface AssessmentRow {

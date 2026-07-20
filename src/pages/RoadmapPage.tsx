@@ -14,7 +14,6 @@ import {
 } from '../lib/queries';
 import {
   Card,
-  Collapsible,
   EmptyState,
   EngagementNav,
   ErrorState,
@@ -26,7 +25,6 @@ import {
 } from '../components/ui';
 import { fmtDate, humanizeKey } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
-import { groupIntoSprints } from '../lib/practitioner';
 
 export default function RoadmapPage() {
   const { engagementId } = useParams();
@@ -60,10 +58,30 @@ export default function RoadmapPage() {
   const milestones = milestonesQ.data ?? [];
   const playbooks = playbooksQ.data ?? new Map();
   const startDate = anchor;
+  // The owner's real sale-date target, set here (like the start date) and shared
+  // with the exit-pace chart on the Overview so both run to the same deadline.
+  const targetDate = engagement?.target_close_date ?? '';
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
     qc.invalidateQueries({ queryKey: qk.milestones(engagementId!) });
+  };
+
+  const saveTargetDate = async (v: string) => {
+    if (!engagementId) return;
+    await supabase.from('engagements').update({ target_close_date: v || null }).eq('id', engagementId);
+    qc.invalidateQueries({ queryKey: qk.engagement(engagementId) });
+  };
+
+  // Persist a new order for a task by swapping its sequence with a neighbour —
+  // the lever advisors use to customise the roadmap order. The Gantt chains and
+  // labels workstreams by sequence, so a reorder is reflected there too.
+  const swapTaskOrder = async (a: TaskRow, b: TaskRow) => {
+    await Promise.all([
+      supabase.from('tasks').update({ sequence: b.sequence ?? 0 }).eq('id', a.id),
+      supabase.from('tasks').update({ sequence: a.sequence ?? 0 }).eq('id', b.id),
+    ]);
+    qc.invalidateQueries({ queryKey: qk.tasks(engagementId!) });
   };
 
   const generate = async () => {
@@ -127,8 +145,34 @@ export default function RoadmapPage() {
     toast.show('Task added', 'good');
   };
 
-  const renderTask = (t: TaskRow) => (
+  // `order`, when given, wires the up/down reorder controls (open-task list only).
+  const renderTask = (
+    t: TaskRow,
+    order?: { list: TaskRow[]; index: number },
+  ) => (
     <li key={t.id} className={`rm-task ${t.status === 'done' ? 'rm-task-done' : ''}`}>
+      {order && (
+        <span className="rm-move" aria-hidden={false}>
+          <button
+            className="rm-move-btn"
+            title="Move up"
+            aria-label={`Move ${t.title} up`}
+            disabled={order.index === 0}
+            onClick={() => swapTaskOrder(t, order.list[order.index - 1])}
+          >
+            ↑
+          </button>
+          <button
+            className="rm-move-btn"
+            title="Move down"
+            aria-label={`Move ${t.title} down`}
+            disabled={order.index === order.list.length - 1}
+            onClick={() => swapTaskOrder(t, order.list[order.index + 1])}
+          >
+            ↓
+          </button>
+        </span>
+      )}
       <button
         className={`rm-check ${t.status === 'done' ? 'rm-check-done' : ''}`}
         title={t.status === 'done' ? 'Mark not done' : 'Mark done'}
@@ -191,8 +235,12 @@ export default function RoadmapPage() {
     qc.invalidateQueries({ queryKey: qk.milestones(engagementId!) });
   };
 
-  // Build Gantt items: business-track tasks chained by workstream (playbook),
-  // plus milestones on their tracks.
+  // Build Gantt items. One bar PER WORKSTREAM (playbook), not per task — the
+  // per-task chart ran dozens of rows tall and read as noise. Each workstream bar
+  // spans the plan start → the workstream's last due date (the window in which
+  // that cluster of gaps is closed), labelled with progress and the next task.
+  // Milestones (personal + business) keep their diamonds, and the owner's target
+  // sale date is drawn as its own diamond so the whole plan visibly runs to it.
   const ganttItems = useMemo<GanttItem[]>(() => {
     const items: GanttItem[] = [];
     const byPlaybook = new Map<string, TaskRow[]>();
@@ -202,24 +250,39 @@ export default function RoadmapPage() {
       list.push(t);
       byPlaybook.set(key, list);
     }
-    for (const [pid, list] of byPlaybook) {
-      const ordered = [...list].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-      let prevEnd = startDate;
-      for (const t of ordered) {
-        if (!t.due_date) continue;
-        items.push({
-          id: t.id,
-          label: t.title,
-          sublabel: `${t.owner_role}${playbooks.get(pid)?.name ? ` · ${playbooks.get(pid)!.name}` : ''}`,
-          track: 'business',
-          kind: 'task',
-          start: prevEnd,
-          end: t.due_date,
-          status: t.status,
-        });
-        prevEnd = t.due_date;
-      }
+    // Order lanes by their earliest open due date so the nearest work sits on top.
+    const lanes = [...byPlaybook.entries()]
+      .map(([pid, list]) => {
+        const ordered = [...list].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+        const dued = ordered.filter((t) => t.due_date);
+        const lastDue = dued.length ? dued[dued.length - 1].due_date! : null;
+        const open = ordered.filter((t) => t.status !== 'done');
+        const nextTask = open.find((t) => t.due_date) ?? open[0] ?? null;
+        const anyBlocked = open.some((t) => t.status === 'blocked');
+        const done = ordered.length - open.length;
+        return { pid, list: ordered, lastDue, open: open.length, done, nextTask, anyBlocked };
+      })
+      .filter((l) => l.lastDue)
+      .sort((a, b) => (a.nextTask?.due_date ?? a.lastDue!).localeCompare(b.nextTask?.due_date ?? b.lastDue!));
+
+    for (const lane of lanes) {
+      const name = playbooks.get(lane.pid)?.name ?? 'Other tasks';
+      const status = lane.open === 0 ? 'done' : lane.anyBlocked ? 'blocked' : 'todo';
+      items.push({
+        id: `ws-${lane.pid}`,
+        label: name,
+        sublabel:
+          lane.open === 0
+            ? `${lane.done}/${lane.list.length} done`
+            : `${lane.done}/${lane.list.length} done${lane.nextTask ? ` · next: ${lane.nextTask.title}` : ''}`,
+        track: 'business',
+        kind: 'task',
+        start: startDate,
+        end: lane.lastDue!,
+        status,
+      });
     }
+
     for (const m of milestones) {
       if (!m.target_date) continue;
       items.push({
@@ -231,8 +294,17 @@ export default function RoadmapPage() {
         status: m.completed_at ? 'reached' : undefined,
       });
     }
+    if (targetDate) {
+      items.push({
+        id: 'target-close',
+        label: 'Target sale date',
+        track: 'business',
+        kind: 'milestone',
+        end: targetDate,
+      });
+    }
     return items;
-  }, [tasks, milestones, startDate, playbooks]);
+  }, [tasks, milestones, startDate, playbooks, targetDate]);
 
   if (engagementQ.isLoading || tasksQ.isLoading) {
     return (
@@ -255,12 +327,22 @@ export default function RoadmapPage() {
   const roleGroups = ROLE_ORDER.map((role) => {
     const rt = tasks.filter((t) => t.owner_role === role);
     const done = rt.filter((t) => t.status === 'done').length;
-    const nextDue = rt
-      .filter((t) => t.status !== 'done' && t.due_date)
-      .map((t) => t.due_date as string)
-      .sort()[0];
-    return { role, total: rt.length, done, open: rt.length - done, nextDue };
+    const nextTask =
+      rt
+        .filter((t) => t.status !== 'done' && t.due_date)
+        .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))[0] ??
+      rt.find((t) => t.status !== 'done') ??
+      null;
+    return { role, total: rt.length, done, open: rt.length - done, nextTask };
   }).filter((g) => g.total > 0);
+
+  // Open tasks in advisor-controlled order (sequence), the list the reorder
+  // controls act on. Ties fall back to due date so a fresh plan reads sensibly.
+  const openOrdered = [...openTasks].sort(
+    (a, b) =>
+      (a.sequence ?? 0) - (b.sequence ?? 0) ||
+      (a.due_date ?? '').localeCompare(b.due_date ?? ''),
+  );
 
   return (
     <div className="page-shell stack-lg">
@@ -268,7 +350,7 @@ export default function RoadmapPage() {
         <PageHeader
           title="Roadmap"
           crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
-          subtitle="Remediation tasks and milestones on one timeline: business readiness and the owner’s personal plan."
+          subtitle="Every open gap and milestone on one timeline, mapped from the start date to the target sale date."
         />
         <EngagementNav engagementId={engagementId!} />
       </header>
@@ -293,6 +375,15 @@ export default function RoadmapPage() {
               <span>Start date</span>
               <input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
             </label>
+            <label className="roadmap-startdate">
+              <span>Target sale date</span>
+              <input
+                type="date"
+                value={targetDate ? targetDate.slice(0, 10) : ''}
+                min={anchor}
+                onChange={(e) => saveTargetDate(e.target.value)}
+              />
+            </label>
             <button className="button-secondary" onClick={generate} disabled={busy}>
               {busy ? 'Working…' : 'Reschedule from start date'}
             </button>
@@ -303,33 +394,33 @@ export default function RoadmapPage() {
         </div>
       )}
 
-      {/* deal-team handoff: what each responsible party owns */}
+      {/* Next up by party — the deal-team handoff, surfaced (not hidden in a
+          disclosure) so each responsible party's next move is visible at a glance. */}
       {roleGroups.length > 0 && (
-        <Collapsible
-          title="By responsible party"
-          hint="Remaining work by responsible party: advisor, owner, and deal team"
-        >
-          <div className="handoff">
-            {roleGroups.map((g) => {
-              const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
-              return (
-                <div className="handoff-row" key={g.role}>
+        <section>
+          <h3 className="section-heading" style={{ marginBottom: 'var(--space-2)' }}>Next up by party</h3>
+          <div className="nextup-grid">
+            {roleGroups.map((g) => (
+              <div className="nextup-card" key={g.role}>
+                <div className="nextup-head">
                   <span className="handoff-role">{ROLE_LABEL[g.role] ?? g.role}</span>
-                  <div className="handoff-bar" title={`${g.done} of ${g.total} done`}>
-                    <div className="handoff-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="handoff-count">
+                  <span className="nextup-count">
                     {g.open > 0 ? <><strong>{g.open}</strong> open</> : <span className="handoff-clear">clear</span>}
                     <span className="muted"> · {g.done}/{g.total}</span>
                   </span>
-                  <span className="handoff-due muted">
-                    {g.nextDue ? `next ${fmtDate(g.nextDue)}` : '—'}
-                  </span>
                 </div>
-              );
-            })}
+                {g.nextTask ? (
+                  <p className="nextup-task">
+                    {g.nextTask.title}
+                    {g.nextTask.due_date && <span className="muted"> · {fmtDate(g.nextTask.due_date)}</span>}
+                  </p>
+                ) : (
+                  <p className="nextup-task muted">Nothing open — this party is clear.</p>
+                )}
+              </div>
+            ))}
           </div>
-        </Collapsible>
+        </section>
       )}
 
       {/* Milestones is a compact left rail; remediation tasks (the main content)
@@ -369,26 +460,23 @@ export default function RoadmapPage() {
             Remediation tasks <span className="count-pill">{openTasks.length}</span>
           </h3>
           <p className="muted rm-sprint-note" style={{ marginTop: 0 }}>
-            Grouped into 90-day sprints, the execution cadence for the Prepare phase.
+            In execution order — use ↑ ↓ to re-sequence, or set a due date to reschedule.
           </p>
           {tasks.length === 0 ? (
             <p className="muted">Build the roadmap to generate tasks from the open gaps.</p>
           ) : (
             <>
-              {groupIntoSprints(openTasks, new Date().toISOString()).map((sprint) => (
-                <div key={sprint.key} className="rm-sprint">
-                  <h4 className="rm-sprint-head">
-                    {sprint.label} <span className="count-pill">{sprint.tasks.length}</span>
-                  </h4>
-                  <ul className="rm-tasklist">{sprint.tasks.map(renderTask)}</ul>
-                </div>
-              ))}
+              {openOrdered.length > 0 && (
+                <ul className="rm-tasklist">
+                  {openOrdered.map((t, i) => renderTask(t, { list: openOrdered, index: i }))}
+                </ul>
+              )}
               {doneTasks.length > 0 && (
                 <div className="rm-sprint rm-sprint-done">
                   <h4 className="rm-sprint-head">
                     Completed <span className="count-pill">{doneTasks.length}</span>
                   </h4>
-                  <ul className="rm-tasklist">{doneTasks.map(renderTask)}</ul>
+                  <ul className="rm-tasklist">{doneTasks.map((t) => renderTask(t))}</ul>
                 </div>
               )}
             </>

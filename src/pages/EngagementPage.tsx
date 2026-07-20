@@ -68,10 +68,13 @@ const TARGET_DRS = 85;
 // stays a glanceable summary next to Current readiness.
 const GAP_PREVIEW = 5;
 
-// Turn a target-exit window ("24-36 months", "under 12 months") into a concrete
-// date: engagement start + the earliest month in the window (the "ready by"
-// date). Falls back to 24 months when the window is missing or unparseable.
-function targetExitDate(startedAt: string, window: string | null): Date {
+// The concrete date the readiness plan runs to. Prefer the advisor-set target
+// close date (set on the Roadmap or the Setup tab); otherwise fall back to the
+// coarse target-exit window ("24-36 months" → engagement start + the earliest
+// month in the window, the "ready by" date), defaulting to 24 months when the
+// window is missing or unparseable.
+function targetExitDate(startedAt: string, window: string | null, closeDate?: string | null): Date {
+  if (closeDate) return new Date(closeDate);
   const months = Number(window?.match(/\d+/)?.[0] ?? 24);
   const d = new Date(startedAt);
   d.setMonth(d.getMonth() + (Number.isFinite(months) ? months : 24));
@@ -255,7 +258,7 @@ export default function EngagementPage() {
       score: Number(a.drs_score),
       tier: a.drs_tier ?? undefined,
     }));
-  const exitDate = targetExitDate(engagement.started_at, engagement.target_exit_window);
+  const exitDate = targetExitDate(engagement.started_at, engagement.target_exit_window, engagement.target_close_date);
   const delta =
     completed.length > 1
       ? Number(completed[completed.length - 1].drs_score) - Number(completed[0].drs_score)
@@ -671,6 +674,15 @@ export default function EngagementPage() {
                       <option value="24-36 months">24–36 months</option>
                       <option value="36+ months">36+ months</option>
                     </select>
+                  </label>
+                  <label>
+                    Target sale date
+                    <input
+                      type="date"
+                      defaultValue={engagement.target_close_date ? engagement.target_close_date.slice(0, 10) : ''}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => saveEngagement({ target_close_date: e.target.value || null })}
+                    />
                   </label>
                 </div>
                 <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
