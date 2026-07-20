@@ -18,6 +18,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type pg from 'pg';
 import type { AppRole } from './clerk';
+import { ensureDefaultAgreementVersion } from './agreements';
 
 const APP_ROLES: readonly AppRole[] = ['admin', 'advisor', 'reviewer', 'owner'];
 
@@ -109,18 +110,34 @@ async function provisionFirm(db: pg.ClientBase, data: Record<string, unknown>): 
   const name = typeof data.name === 'string' ? data.name : null;
   if (!orgId || !name) return { handled: false, detail: 'organization.created missing id/name' };
 
-  if ((await db.query(`select 1 from firms where clerk_org_id = $1`, [orgId])).rowCount) {
-    return { handled: true, detail: `firm already linked to org ${orgId}` };
+  let firmId: string;
+  let detail: string;
+  const linked = (await db.query(`select id from firms where clerk_org_id = $1`, [orgId])).rows[0];
+  if (linked) {
+    firmId = linked.id as string;
+    detail = `firm already linked to org ${orgId}`;
+  } else {
+    const byName = (await db.query(`select id from firms where name = $1 and clerk_org_id is null limit 1`, [name]))
+      .rows[0];
+    if (byName) {
+      await db.query(`update firms set clerk_org_id = $2 where id = $1`, [byName.id, orgId]);
+      firmId = byName.id as string;
+      detail = `linked firm '${name}' (${byName.id}) to org ${orgId}`;
+    } else {
+      const created = (
+        await db.query(`insert into firms (name, clerk_org_id) values ($1, $2) returning id`, [name, orgId])
+      ).rows[0];
+      firmId = created.id as string;
+      detail = `created firm '${name}' (${created.id}) for org ${orgId}`;
+    }
   }
-  const byName = (await db.query(`select id from firms where name = $1 and clerk_org_id is null limit 1`, [name]))
-    .rows[0];
-  if (byName) {
-    await db.query(`update firms set clerk_org_id = $2 where id = $1`, [byName.id, orgId]);
-    return { handled: true, detail: `linked firm '${name}' (${byName.id}) to org ${orgId}` };
-  }
-  const created = (await db.query(`insert into firms (name, clerk_org_id) values ($1, $2) returning id`, [name, orgId]))
-    .rows[0];
-  return { handled: true, detail: `created firm '${name}' (${created.id}) for org ${orgId}` };
+
+  // A firm cannot start an engagement without an active agreement version (the
+  // create-engagement handler and the UI both require it). Seed the default so
+  // provisioning never leaves a firm in an unreachable state. Idempotent, and
+  // also backfills a pre-existing firm that predates this seeding.
+  await ensureDefaultAgreementVersion(db, firmId);
+  return { handled: true, detail };
 }
 
 // organizationMembership.created → write the member's profile, scoped to the firm

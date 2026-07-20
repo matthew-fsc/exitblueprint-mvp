@@ -23,6 +23,7 @@ import {
   DEFAULT_AGREEMENT_LABEL,
   DEFAULT_AGREEMENT_TITLE,
 } from './agreement-template';
+import { ensureDefaultAgreementVersion } from '../server/agreements';
 import {
   addMembership,
   clerkEnabled,
@@ -76,26 +77,35 @@ async function createFirm(db: pg.ClientBase, flags: Record<string, string>) {
   if (!clerkEnabled()) {
     if (existing) {
       console.log(`firm '${name}' already exists: ${existing.id}`);
+      await ensureDefaultAgreementVersion(db, existing.id);
       return;
     }
     const res = await db.query(`insert into firms (name) values ($1) returning id`, [name]);
     console.log(`created firm '${name}': ${res.rows[0].id}`);
+    await ensureDefaultAgreementVersion(db, res.rows[0].id);
     return;
   }
 
   // Clerk mode: ensure the firm exists and carries a Clerk Organization id.
   if (existing?.clerk_org_id) {
     console.log(`firm '${name}' already provisioned: ${existing.id} (Clerk org ${existing.clerk_org_id})`);
+    await ensureDefaultAgreementVersion(db, existing.id);
     return;
   }
   const org = await createOrganization(name);
+  let firmId: string;
   if (existing) {
     await db.query(`update firms set clerk_org_id = $2 where id = $1`, [existing.id, org.id]);
+    firmId = existing.id;
     console.log(`backfilled Clerk org for firm '${name}': ${existing.id} (Clerk org ${org.id})`);
   } else {
     const res = await db.query(`insert into firms (name, clerk_org_id) values ($1, $2) returning id`, [name, org.id]);
+    firmId = res.rows[0].id;
     console.log(`created firm '${name}': ${res.rows[0].id} (Clerk org ${org.id})`);
   }
+  // Seed the default engagement agreement so the firm can start onboarding
+  // immediately (matches the Clerk webhook's provisioning path).
+  await ensureDefaultAgreementVersion(db, firmId);
 }
 
 async function createAdvisor(db: pg.ClientBase, flags: Record<string, string>) {
