@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SignIn } from '@clerk/react';
-import { isClerkStack, isDevStack, supabase } from '../lib/supabase';
+import { isClerkStack, isDevStack, requiresClerkConfig, supabase } from '../lib/supabase';
 import { ThemeToggle } from '../lib/theme';
 
 export default function LoginPage() {
@@ -24,8 +24,9 @@ export default function LoginPage() {
     navigate('/');
   };
 
-  // Under Clerk, sign-in / sign-up / reset / MFA are all handled by Clerk's
-  // hosted component; the route gates redirect to the app once a session exists.
+  // Under Clerk (the production standard), sign-in / sign-up / reset / MFA are all
+  // handled by Clerk's hosted component; the route gates redirect to the app once
+  // a session exists.
   if (isClerkStack) {
     return (
       <main className="login-page">
@@ -37,6 +38,28 @@ export default function LoginPage() {
     );
   }
 
+  // A hosted deployment without Clerk is unsupported: the Supabase-Auth password
+  // login was removed when Clerk became the standard. Say so plainly instead of
+  // rendering a login form that can't work.
+  if (requiresClerkConfig) {
+    return (
+      <main className="login-page">
+        <div className="login-topline">
+          <ThemeToggle />
+        </div>
+        <div className="login-card">
+          <h1>Exit Blueprint</h1>
+          <p className="login-subtitle">Authentication is not configured</p>
+          <p className="form-error">
+            This deployment must use Clerk. Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> (frontend) and{' '}
+            <code>CLERK_JWKS_URL</code> (compute service), then redeploy — see docs/30.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // Local dev emulator: the only remaining password path (dev password 'demo').
   return (
     <main className="login-page">
       <div className="login-topline">

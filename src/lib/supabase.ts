@@ -20,10 +20,10 @@ const anonKey = env(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 // always go through the supabase client above; only functions are redirected.
 const functionsUrl = env(import.meta.env.VITE_FUNCTIONS_URL as string | undefined) || url;
 
-// Clerk is the identity provider when a publishable key is present (the auth
-// cutover, docs/30). Unset → the app keeps its Supabase-Auth / dev-emulator path
-// unchanged, so local dev, CI, and the current beta are untouched. Turning Clerk
-// on is a build-time config flip, exactly like isDevStack below.
+// Clerk is the STANDARD identity provider (docs/30). A publishable key is present
+// in every hosted deployment; login, MFA, and invites go through Clerk. Unset →
+// the local dev emulator only (dev/supabase-dev-server.ts), for local dev + CI.
+// The hosted Supabase-Auth password login was removed when Clerk became standard.
 export const clerkPublishableKey = env(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined);
 export const isClerkStack = !!clerkPublishableKey;
 
@@ -45,7 +45,12 @@ async function currentAccessToken(): Promise<string | null> {
 // RLS see the Clerk subject; without it, supabase-js manages its own session.
 export const supabase = createClient(url, anonKey, isClerkStack ? { accessToken: () => currentAccessToken() } : undefined);
 
+// The only supported non-Clerk configuration is the local dev emulator (no
+// VITE_SUPABASE_URL, no Clerk key). A hosted deployment (VITE_SUPABASE_URL set)
+// without Clerk is unsupported since the Supabase-Auth login was removed — surface
+// it as a misconfiguration rather than silently offering password login.
 export const isDevStack = !env(import.meta.env.VITE_SUPABASE_URL as string | undefined) && !isClerkStack;
+export const requiresClerkConfig = !isClerkStack && !isDevStack;
 
 async function functionEndpoint(name: string): Promise<{ endpoint: string; token: string }> {
   const token = (await currentAccessToken()) ?? anonKey;

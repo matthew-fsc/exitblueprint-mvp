@@ -14,7 +14,7 @@ Exit readiness platform for lower middle market business owners, distributed thr
 
 ## Stack
 
-- Supabase (Postgres, RLS, Storage) + Clerk (Auth). Identity is Clerk in production; RLS validates Clerk JWTs via JWKS (Clerk = Organizations→firms). Auth is config-gated: unset `VITE_CLERK_PUBLISHABLE_KEY` falls back to Supabase Auth / the dev emulator unchanged (docs/30).
+- Supabase (Postgres, RLS, Storage) + Clerk (Auth). **Clerk is the standard identity provider**; RLS validates Clerk JWTs via JWKS (Clerk = Organizations→firms). Firms/advisors are provisioned into Clerk automatically by `scripts/admin.ts` (create-firm → Clerk Organization; create-advisor → Clerk user + membership + profile). Auth is config-gated: unset `VITE_CLERK_PUBLISHABLE_KEY` selects the **local dev emulator only** (local/CI). The hosted Supabase-Auth login was removed; a hosted deploy without Clerk is unsupported (docs/30).
 - React + Vite frontend (advisor workspace first, owner portal later)
 - Anthropic API (Claude) for narrative generation, via a thin server-side service; never call from the browser with a key
 - n8n (external, already provisioned) for scheduled workflows via webhooks; this repo only exposes the webhook endpoints n8n calls

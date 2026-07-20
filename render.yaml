@@ -21,11 +21,10 @@ services:
       # pooler (aws-0-<region>.pooler.supabase.com:5432) for a long-lived service.
       - key: DATABASE_URL
         sync: false
-      # Token verification — set the one matching your project (docs/11 §2a):
-      #   SUPABASE_URL          https://<ref>.supabase.co, for asymmetric (JWKS) tokens
-      #   FUNCTIONS_JWT_SECRET  legacy HS256 shared secret
-      # Set at least one; both is fine mid-rotation. The service refuses to boot
-      # with neither. SUPABASE_URL is also reused by the owner-invite email path.
+      # Token verification. Clerk is the standard identity provider, so CLERK_JWKS_URL
+      # below is what verifies production session tokens (docs/30). SUPABASE_URL /
+      # FUNCTIONS_JWT_SECRET remain optional for non-Clerk token verification (e.g. a
+      # legacy check during rotation); leave unset on the Clerk stack.
       - key: SUPABASE_URL
         sync: false
       - key: FUNCTIONS_JWT_SECRET
@@ -39,15 +38,12 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: EB_DOCUMENT_KEY
         sync: false
-      # Service-role key (Settings → API → service_role). Enables real owner-invite
-      # emails via Supabase Auth admin (server/invite.ts). Omit to skip email sends.
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      # Clerk auth cutover (docs/30). CLERK_JWKS_URL points token verification at
-      # Clerk's key set; CLERK_SECRET_KEY enables Clerk organization invitations for
-      # owners. Set both once the app authenticates via Clerk; omit before then.
+      # Clerk (standard identity provider, docs/30). CLERK_JWKS_URL verifies Clerk
+      # session tokens; it's the public Clerk domain for exitblueprint.net, so it's
+      # pinned here (not a secret). CLERK_SECRET_KEY (sk_...) enables Clerk owner
+      # organization invitations from the advisor UI (server/invite.ts).
       - key: CLERK_JWKS_URL
-        sync: false
+        value: https://clerk.exitblueprint.net/.well-known/jwks.json
       - key: CLERK_SECRET_KEY
         sync: false
       # Optional: turns on real Claude narrative in reports. Omit to ship without it.
