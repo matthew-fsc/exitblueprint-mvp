@@ -139,6 +139,63 @@ async function checkAuthenticatedRead(hasToken: boolean): Promise<Check> {
   return { name: 'Authenticated read', state: 'ok', detail: 'Read the methodology tables as an authenticated user.' };
 }
 
+// The check that catches the case the methodology read above cannot: RLS resolves
+// role/firm/company by joining the Clerk `sub` to `public.profiles.user_id`. A
+// valid token with `role: authenticated` still reads NOTHING firm-scoped if no
+// profiles row is keyed to that exact `sub` (e.g. the row was seeded/dev-created
+// with a UUID, or provisioning never ran). We read our own profile by `sub` — the
+// own_profile_read policy is itself `user_id = sub`, so a 0-row result IS the
+// mismatch — then attempt a real firm-scoped read to prove end-to-end access.
+async function checkProfileLinkage(sub: string | undefined): Promise<Check[]> {
+  if (!sub) return [{ name: 'Profile linkage', state: 'warn', detail: 'Skipped — no active session.' }];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, firm_id, company_id')
+    .eq('user_id', sub)
+    .maybeSingle();
+
+  if (error) {
+    return [{ name: 'Profile linkage', state: 'fail', detail: `Reading your profile failed: ${error.message}` }];
+  }
+  if (!data) {
+    return [
+      {
+        name: 'Profile linkage',
+        state: 'fail',
+        detail:
+          `No public.profiles row is keyed to your Clerk id \`${sub}\`. RLS resolves role/firm from ` +
+          'profiles.user_id, which must equal the Clerk `sub` — a profile seeded or dev-created with a ' +
+          'UUID will not match, so every firm-scoped read is denied. Provision via ' +
+          '`scripts/admin.ts create-advisor` (Clerk mode) or the webhook, or re-key the row (docs/31).',
+      },
+    ];
+  }
+
+  const checks: Check[] = [];
+  const firmOk = data.role === 'owner' ? data.company_id != null : data.firm_id != null;
+  checks.push({
+    name: 'Profile linkage',
+    state: firmOk ? 'ok' : 'warn',
+    detail: firmOk
+      ? `Profile found — role ${data.role}, firm ${data.firm_id ?? '—'}${data.company_id ? `, company ${data.company_id}` : ''}.`
+      : `Profile found (role ${data.role}) but ${data.role === 'owner' ? 'company_id' : 'firm_id'} is null — nothing will scope to it.`,
+  });
+
+  // Prove a real firm-scoped read resolves. This never errors on a missing row
+  // (RLS just filters), so a count is informative, not a failure signal — the
+  // linkage check above is the decisive one.
+  const { count, error: readErr } = await supabase.from('companies').select('id', { count: 'exact', head: true });
+  checks.push({
+    name: 'Firm-scoped read',
+    state: readErr ? 'fail' : 'ok',
+    detail: readErr
+      ? `Read of companies failed: ${readErr.message}`
+      : `Read ${count ?? 0} company row(s) under your firm scope.`,
+  });
+  return checks;
+}
+
 function identityCheck(): Check {
   if (requiresClerkConfig) {
     return {
@@ -163,7 +220,9 @@ export default function HealthPage() {
     },
     { name: 'Supabase API', state: 'pending', detail: 'checking…' },
     { name: 'Session token', state: 'pending', detail: 'checking…' },
+    { name: 'RLS role claim', state: 'pending', detail: 'checking…' },
     { name: 'Authenticated read', state: 'pending', detail: 'checking…' },
+    { name: 'Profile linkage', state: 'pending', detail: 'checking…' },
   ]);
 
   useEffect(() => {
@@ -181,9 +240,12 @@ export default function HealthPage() {
       const api = await checkSupabaseApi();
       const token = await getAccessToken().catch(() => null);
       const hasToken = !!token && token !== 'dev-anon-key';
+      const claims = hasToken && token ? decodeJwt(token) : null;
+      const sub = claims && typeof claims.sub === 'string' ? claims.sub : undefined;
       const sessionChecks = await checkSessionToken();
       const readCheck = await checkAuthenticatedRead(hasToken);
-      if (alive) setChecks([...base, api, ...sessionChecks, readCheck]);
+      const linkageChecks = await checkProfileLinkage(sub);
+      if (alive) setChecks([...base, api, ...sessionChecks, readCheck, ...linkageChecks]);
     })();
     return () => {
       alive = false;
