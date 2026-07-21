@@ -23,3 +23,20 @@ summary: Document every EBITDA addback so it survives a quality-of-earnings revi
 | 3 | Obtain third-party market comp benchmark for owner role | advisor | 45 |
 | 4 | Rate each addback for challenge likelihood; remediate or remove HIGH items | advisor | 75 |
 | 5 | Document related-party transactions with market-rate comparisons | cpa | 90 |
+
+## Why buyers care
+
+A Quality-of-Earnings review challenges every addback, and unsupported addbacks are the
+leading source of price reductions between the letter of intent and close. A documented
+schedule converts aggressive-looking addbacks into bankable EBITDA and removes the buyer's
+easiest retrade lever.
+
+## Evidence this produces
+
+- An itemized addback schedule with a source document and a challenge-likelihood rating per line.
+- A third-party market benchmark for owner compensation.
+- Related-party transaction memos at market rates.
+
+## Sources
+
+Addback substantiation and the post-LOI reversal finding: SRC-ASA, SRC-AICPA, SRC-PRACTITIONER. See `seed/SOURCES.md`.

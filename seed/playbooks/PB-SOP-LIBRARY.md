@@ -23,3 +23,19 @@ summary: Document core processes: sales, delivery, onboarding, invoicing/collect
 | 3 | Complete SOP library to 80% coverage | ops | 150 |
 | 4 | Automate top repetitive tasks (invoicing, reporting, scheduling) | ops | 180 |
 | 5 | Validate SOPs by having a non-owner execute each process | ops | 180 |
+
+## Why buyers care
+
+Undocumented core processes signal transition risk. Documented, transferable procedures
+prove the business survives a change of ownership — and they are the prerequisite for
+extracting the owner from daily operations.
+
+## Evidence this produces
+
+- A process inventory ranked by owner-dependency.
+- SOPs for the highest-dependency processes, to 80% coverage.
+- Proof of transfer: a non-owner executing each process from the written steps.
+
+## Sources
+
+Transferability and owner-independence: SRC-VALUEBUILDER, SRC-EPI. See `seed/SOURCES.md`.

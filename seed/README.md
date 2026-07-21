@@ -15,11 +15,25 @@ It is real, load-ready seed data - not templates. Weights, bands, and thresholds
    weights, formula types, and band logic from the methodology.
 4. **gap-definitions.csv** - 24 gaps with triggers (mostly sub_score_below 70, per the
    methodology rule that any sub-score under 70 generates a buyer question).
-5. **playbooks/** - 13 remediation playbooks with roadmap phase, EV impact language from
-   the initiative impact table, and task templates.
+5. **playbooks/** - remediation playbooks with roadmap phase, EV impact language, task
+   templates, and (added 2026-07-21) a deepened body per playbook — "Why buyers care",
+   "How to run it", "Evidence this produces", and a "Sources" footer citing the register
+   in `sources.csv`. Two playbooks added for the LMM financial workstream:
+   `PB-WORKING-CAPITAL` (the net-working-capital peg) and `PB-QOE-PREP` (sell-side
+   Quality-of-Earnings readiness).
 6. **content-modules.csv** - buyer question prep modules (question / response framework /
-   documentation needed, verbatim structure from the methodology) plus education modules.
-7. **gap-playbook-map.csv / gap-content-map.csv** - wiring.
+   documentation needed) plus an expanded education library covering owner readiness
+   (three legs of the stool, value gap), the deal process (how a sale runs, buyer types,
+   deal structure), working capital, Quality of Earnings, retention/durability, growth,
+   positioning, management depth, and key-person retention.
+7. **gap-playbook-map.csv / gap-content-map.csv** - wiring (gap→content now drips a
+   multi-step education sequence per gap, not a single module).
+7a. **sources.csv / SOURCES.md** - provenance register for the narrative & prescription
+   content: the reputable, **free** LMM M&A sources (Pepperdine PCM, IBBA/M&A Source
+   Market Pulse, BVR DealStats free index, Capstone, Exit Planning Institute, Value
+   Builder, ASA/AICPA) and the cross-checked figures used in the education/playbook
+   copy. **Documents the content without changing the canonical rubric.** The
+   foundation is industry-agnostic; `valuation-multiples.csv` numbers are unchanged.
 8. **fixtures/** - three fictional companies with full answers and expected outputs,
    plus reference_scorer.py, the executable reference implementation of the scoring
    logic. The production engine is correct when it reproduces these outputs exactly.

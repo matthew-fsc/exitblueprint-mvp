@@ -23,3 +23,20 @@ summary: Reduce owner hours in operations below 10/week and transition owner-hel
 | 3 | Transition owner-held customer relationships to account management | owner | 180 |
 | 4 | Introduce second point of contact for every >5% revenue customer | ops | 210 |
 | 5 | Run a 2-week owner-absence test and document results | advisor | 270 |
+
+## Why buyers care
+
+The single biggest value driver a buyer looks for is a business that operates without the
+owner. When the business depends on the owner for relationships, decisions, or daily
+operations, the buyer prices in risk — or walks. Reducing owner dependence is what converts
+a personal enterprise into a transferable asset.
+
+## Evidence this produces
+
+- An owner time-audit classifying operations vs strategy vs external relationships.
+- Delegated processes with named managers, and owner-held relationships transitioned to the team.
+- Documented results from a two-week owner-absence test.
+
+## Sources
+
+Owner-independence as the top transferable-value driver: SRC-VALUEBUILDER, SRC-EPI. See `seed/SOURCES.md`.

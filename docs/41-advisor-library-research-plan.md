@@ -12,6 +12,19 @@
 > **Market facts in this doc are time-sensitive** (multiples and benchmarks move).
 > Every number that lands in `/seed` must carry a source + as-of date via the
 > provenance register proposed in §4.4.
+>
+> **Build status (2026-07-21): first content pass shipped, industry-agnostic, on free
+> sources.** Delivered: the provenance register (`seed/sources.csv` + `seed/SOURCES.md`,
+> the Phase-A foundation, realized as a companion register rather than per-row DB
+> columns to avoid rewriting the canonical CSVs); the advisory library expanded to 54
+> items (Growth, working-capital, QoE, owner-readiness, deal-process breadth);
+> content-module education library expanded to 27 (owner readiness, deal process, buyer
+> types, deal structure, working capital, QoE, retention, positioning, management depth,
+> key-person); all 13 playbooks deepened (Why buyers care / How to run it / Evidence /
+> Sources) plus two new (`PB-WORKING-CAPITAL`, `PB-QOE-PREP`); system Plans grown from 3
+> to 9. **`valuation-multiples.csv` numbers are deliberately unchanged** — refining them
+> per-industry needs paid transaction data and is out of scope (kept industry-agnostic).
+> Phase B (valuation refresh + EV bridge) remains open and gated on §6-Q1/Q2.
 
 ---
 

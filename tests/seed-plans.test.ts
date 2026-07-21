@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { SYSTEM_PLANS, validateSystemPlans } from '../server/seed-methodology';
+import {
+  loadSeedBundle,
+  resolveSeedDir,
+  SYSTEM_PLANS,
+  validateSystemPlans,
+} from '../server/seed-methodology';
 
-// Real code sets the shipped SYSTEM_PLANS reference; used to prove the happy path.
-const PLAYBOOKS = new Set([
-  'PB-CLEAN-BOOKS', 'PB-ADDBACK-DOC', 'PB-OWNER-EXTRACT', 'PB-MGMT-DEPTH', 'PB-CUST-DIVERSIFY',
-]);
-const CONTENT = new Set(['CM-EDU-EBITDA-RECAST', 'CM-BUYERQ-OWNER', 'CM-BUYERQ-CONC']);
-const ADVISORY = new Set(['AL-BQ-ADDBACKS', 'AL-BQ-OWNER', 'AL-BQ-CONC']);
+// Derive the real code universe from the parsed seed (no DB), so the happy-path
+// check proves SYSTEM_PLANS is consistent with the actual shipped content and
+// does not go stale when playbooks/content/advisory items are added.
+const bundle = loadSeedBundle(resolveSeedDir());
+const PLAYBOOKS = new Set(bundle.playbooks.map((p) => p.code));
+const CONTENT = new Set(bundle.contentModules.map((c) => c.code));
+const ADVISORY = new Set(bundle.advisoryItems.map((a) => a.code));
 
 describe('validateSystemPlans', () => {
   it('the shipped SYSTEM_PLANS validate against their referenced codes', () => {

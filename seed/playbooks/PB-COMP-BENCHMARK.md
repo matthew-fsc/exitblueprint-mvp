@@ -21,3 +21,19 @@ summary: Benchmark key-role compensation to market and fix retention risk.
 | 1 | Obtain third-party comp benchmarks for key roles | advisor | 30 |
 | 2 | Adjust below-market roles into +/-15% band or add retention plans | owner | 90 |
 | 3 | Establish turnover tracking and stay-interview cadence | ops | 120 |
+
+## Why buyers care
+
+Below-market pay for a key role is a flight risk a buyer discounts; far-above-market pay is
+a cost-structure risk. Compensation aligned to market, with retention where needed, removes
+both from the diligence conversation.
+
+## Evidence this produces
+
+- Third-party compensation benchmarks for key roles.
+- Adjusted pay bands or documented retention plans.
+- Turnover tracking and a stay-interview cadence.
+
+## Sources
+
+Key-person and compensation risk framing: SRC-VALUEBUILDER, SRC-PRACTITIONER. See `seed/SOURCES.md`.

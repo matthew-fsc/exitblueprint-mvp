@@ -21,3 +21,19 @@ summary: Build the decline-year narrative with evidence of resolution.
 | 1 | Reconstruct year-over-year revenue by customer for decline years | advisor | 30 |
 | 2 | Document root cause, corrective action, and recovery evidence | owner | 60 |
 | 3 | Fold narrative into buyer question prep guide | advisor | 75 |
+
+## Why buyers care
+
+Choppy or declining revenue invites a discount unless the story is controlled. Buyers hear
+generalization as evasion, so a specific narrative — root cause, corrective action, and
+evidence of recovery — prepared before it is asked, prevents a diligence surprise.
+
+## Evidence this produces
+
+- Year-over-year revenue by customer for the decline years.
+- A documented root cause with corrective action and recovery evidence.
+- The narrative folded into the buyer-question prep guide.
+
+## Sources
+
+Revenue-narrative discipline: SRC-PRACTITIONER. See `seed/SOURCES.md`.
