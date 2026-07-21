@@ -364,19 +364,6 @@ export default function HealthPage() {
 
   return (
     <div className="stack-lg">
-      {/* Jump to the internal Platform Console (the metrics & business-development
-          analytics surface at /internal). The console itself is superadmin-gated
-          server-side, so this is just a shortcut — a non-superadmin lands on its
-          access card. */}
-      <div className="stack-sm">
-        <p className="check-detail">
-          Platform metrics &amp; business-development analytics (superadmin only).
-        </p>
-        <button type="button" onClick={() => navigate('/internal')}>
-          Open platform console
-        </button>
-      </div>
-
       <ul className="check-list">
         {checks.map((c) => (
           <li key={c.name} className={`check check-${c.state}`}>
@@ -387,14 +374,29 @@ export default function HealthPage() {
         ))}
       </ul>
 
-      {/* Methodology bootstrap & sync — always available, not just on an unseeded
-          DB. The seed is idempotent, so re-running it against an already-seeded
-          database pulls in methodology content added since it was last seeded
-          (new advisory-library items, plans, education, playbooks) — this is the
-          only in-app way to populate that new content. The action is
-          superadmin-gated server-side; a non-superadmin gets a clear 403
-          ("platform superadmin required") surfaced below. */}
-      {
+      {/* Superadmin controls — grouped together at the bottom, apart from the
+          read-only diagnostics above. Every action here is superadmin-gated
+          server-side (a non-superadmin gets an access card / a clear 403). */}
+      <section className="stack-sm">
+        <h3 className="section-heading">Superadmin controls</h3>
+
+        {/* Platform Console — the metrics & business-development analytics
+            surface at /internal (superadmin-gated; a non-superadmin lands on its
+            access card). */}
+        <div className="stack-sm">
+          <p className="check-detail">
+            Platform metrics &amp; business-development analytics.
+          </p>
+          <button type="button" onClick={() => navigate('/internal')}>
+            Open platform console
+          </button>
+        </div>
+
+        {/* Methodology bootstrap & sync — idempotent; re-running against an
+            already-seeded DB pulls in methodology/advisory-library content added
+            since it was last seeded (new library items, plans, education,
+            playbooks). Superadmin-gated server-side; a non-superadmin gets a
+            clear 403 surfaced below. */}
         <div className="stack-sm">
           <p className="check-detail">
             {methodologyMissing
@@ -435,7 +437,7 @@ export default function HealthPage() {
             </div>
           )}
         </div>
-      }
+      </section>
     </div>
   );
 }
