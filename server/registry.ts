@@ -407,18 +407,30 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   'sync-ledger': {
     engine: 'knowledge',
     scope: 'assessment',
-    handler: ({ service, body }) => syncLedgerToAssessment(service, body.assessment_id as string).then(ok),
+    handler: async ({ service, body, userId }) => {
+      const actor = await anyActorId(service, userId);
+      return syncLedgerToAssessment(service, body.assessment_id as string, actor).then(ok);
+    },
   },
   'enter-manual-financials': {
     engine: 'knowledge',
     scope: 'assessment',
-    handler: ({ service, body }) =>
-      enterManualFinancials(
+    handler: async ({ service, body, userId }) => {
+      const actor = await anyActorId(service, userId);
+      return enterManualFinancials(
         service,
         body.assessment_id as string,
         (body.entries as ManualFinancialEntry[]) ?? [],
         !!body.documented,
-      ).then(ok),
+        {
+          // The stored P&L this claim is attested against; enforced server-side —
+          // a `documented` claim with no resolvable document downgrades to
+          // self_reported (server/ledger.ts).
+          evidenceDocumentId: (body.evidence_document_id as string) ?? null,
+          actorProfileId: actor,
+        },
+      ).then(ok);
+    },
   },
   'extract-financials-from-file': {
     engine: 'knowledge',

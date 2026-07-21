@@ -279,6 +279,14 @@ async function main() {
       `insert into dimension_scores (assessment_id, dimension_id, score) values ($1, $2, 1)`,
       [assessmentACompleted, dimId],
     );
+    // answer_provenance_events (append-only history, 20260722000400): one row per
+    // firm — firm A's is on the owner's own company assessment so the owner-read
+    // check sees it; firm B's proves isolation.
+    await db.query(
+      `insert into answer_provenance_events (firm_id, assessment_id, question_id, source, event)
+       values ($1, $2, $3, 'document', 'manual_entry'), ($4, $5, $3, 'document', 'manual_entry')`,
+      [ids.firm_a, assessmentACompleted, questionId, ids.firm_b, assessmentBId],
+    );
     // Firm B ledger connection + its OAuth secrets for the isolation checks.
     const ledgerB = (
       await db.query(
@@ -965,6 +973,58 @@ async function main() {
     }
     check('cannot write provenance for firm B', provBWriteBlocked);
 
+    // answer_provenance_events: advisor A reads only own firm's history, may
+    // APPEND to it, but cannot write another firm's — and the table is
+    // append-only (no UPDATE/DELETE grant, so those are denied regardless).
+    const provEventsA = await db.query('select firm_id from answer_provenance_events');
+    check(
+      'cannot read firm B provenance events',
+      provEventsA.rows.every((r) => r.firm_id !== ids.firm_b),
+      `saw ${provEventsA.rows.filter((r) => r.firm_id === ids.firm_b).length} firm B rows`,
+    );
+    let ownEventInsertOk = false;
+    try {
+      await db.query('savepoint ev');
+      const ins = await db.query(
+        `insert into answer_provenance_events (firm_id, assessment_id, question_id, source, event)
+         values ($1, $2, $3, 'document', 'manual_entry')`,
+        [ids.firm_a, assessmentACompleted, questionId],
+      );
+      ownEventInsertOk = (ins.rowCount ?? 0) === 1;
+      await db.query('rollback to savepoint ev'); // don't pollute the owner-read check below
+    } catch {
+      await db.query('rollback to savepoint ev');
+    }
+    check('advisor appends own firm provenance events', ownEventInsertOk);
+    let evBWriteBlocked = false;
+    try {
+      await db.query('savepoint evb');
+      const ins = await db.query(
+        `insert into answer_provenance_events (firm_id, assessment_id, question_id, source, event)
+         values ($1, $2, $3, 'document', 'manual_entry')`,
+        [ids.firm_b, assessmentBId, questionId],
+      );
+      evBWriteBlocked = (ins.rowCount ?? 0) === 0;
+      await db.query('release savepoint evb');
+    } catch {
+      evBWriteBlocked = true;
+      await db.query('rollback to savepoint evb');
+    }
+    check('cannot write provenance events for firm B', evBWriteBlocked);
+    let evUpdateBlocked = false;
+    try {
+      await db.query('savepoint evu');
+      const upd = await db.query(`update answer_provenance_events set note = 'tamper' where firm_id = $1`, [
+        ids.firm_a,
+      ]);
+      evUpdateBlocked = (upd.rowCount ?? 0) === 0;
+      await db.query('release savepoint evu');
+    } catch {
+      evUpdateBlocked = true; // no UPDATE grant → permission denied
+      await db.query('rollback to savepoint evu');
+    }
+    check('provenance events are append-only (no update)', evUpdateBlocked);
+
     // ledger_connections: advisor A reads/writes only their firm's rows.
     const ledgerA = await db.query('select firm_id from ledger_connections');
     check(
@@ -1042,6 +1102,14 @@ async function main() {
       [engagementA],
     );
     check('owner can update their company data room', ownerDrWrite.rowCount === 1);
+    // answer_provenance_events: owner reads history for their own company's
+    // assessments only (mirrors owner_engagement_read on answer_provenance).
+    const ownerEvents = await db.query('select firm_id from answer_provenance_events');
+    check(
+      'owner reads only their company provenance events',
+      ownerEvents.rows.length === 1 && ownerEvents.rows[0].firm_id === ids.firm_a,
+      `saw ${ownerEvents.rows.length}`,
+    );
     // Engagement log is internal advisory reasoning — owners must not see it.
     const ownerLog = await db.query('select id from engagement_log');
     check('owner sees no engagement log (staff-only)', ownerLog.rows.length === 0, `saw ${ownerLog.rows.length}`);

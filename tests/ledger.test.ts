@@ -15,7 +15,9 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
   let db: pg.Client;
   let firmId: string;
   let companyId: string;
+  let engagementId: string;
   let assessmentId: string;
+  let documentId: string;
 
   beforeAll(async () => {
     db = new pg.Client({ connectionString: url });
@@ -27,10 +29,18 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
     companyId = (
       await db.query(`insert into companies (firm_id, name) values ($1, 'Ledger Co') returning id`, [firmId])
     ).rows[0].id;
-    const engagementId = (
+    engagementId = (
       await db.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId])
     ).rows[0].id;
     await acceptAgreement(db, engagementId);
+    // A stored P&L document that the document-verified path attests against.
+    documentId = (
+      await db.query(
+        `insert into documents (firm_id, engagement_id, original_filename, mime_type, byte_size, status)
+         values ($1, $2, 'pl.csv', 'text/csv', 10, 'scanned') returning id`,
+        [firmId, engagementId],
+      )
+    ).rows[0].id;
     assessmentId = (
       await db.query(
         `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status)
@@ -42,10 +52,12 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
 
   afterAll(async () => {
     if (!db) return;
+    await db.query(`delete from answer_provenance_events where firm_id = $1`, [firmId]);
     await db.query(`delete from answer_provenance where firm_id = $1`, [firmId]);
     await db.query(`delete from answers where assessment_id = $1`, [assessmentId]);
     await db.query(`delete from ledger_connections where firm_id = $1`, [firmId]);
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await db.query(`delete from documents where firm_id = $1`, [firmId]);
     await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
@@ -81,13 +93,16 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
       { code: 'FIN-BASIS', value: 'accrual_consistent' },
       { code: 'FIN-STATEMENTS', value: 'all_three' },
     ];
-    const r = await enterManualFinancials(db, assessmentId, entries, true);
+    // Document-verified REQUIRES a stored evidence document now.
+    const r = await enterManualFinancials(db, assessmentId, entries, true, { evidenceDocumentId: documentId });
     expect(r.source).toBe('document');
+    expect(r.downgraded).toBe(false);
+    expect(r.evidence_document_id).toBe(documentId);
     expect(r.filled).toBe(LEDGER_DERIVABLE_CODES.length);
 
     const prov = (
       await db.query(
-        `select ap.source, ap.verified_at from answer_provenance ap
+        `select ap.source, ap.verified_at, ap.evidence_document_id from answer_provenance ap
          join questions q on q.id = ap.question_id
          where ap.assessment_id = $1 and q.code = 'REV-ANNUAL'`,
         [assessmentId],
@@ -95,10 +110,39 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
     ).rows[0];
     expect(prov.source).toBe('document');
     expect(prov.verified_at).not.toBeNull();
+    expect(prov.evidence_document_id).toBe(documentId); // provenance links the stored file
 
     const v = await verificationSummary(db, assessmentId);
     expect(v.verified_inputs).toBeGreaterThanOrEqual(LEDGER_DERIVABLE_CODES.length);
     expect(v.pct).toBeGreaterThan(0);
+  });
+
+  it('documented=true WITHOUT an evidence document downgrades to self_reported', async () => {
+    // The invariant enforced in app code (no hard DB CHECK): a "documented" claim
+    // with no stored evidence never stamps `document`.
+    const r = await enterManualFinancials(db, assessmentId, [{ code: 'REV-RECUR-PCT', value: 42 }], true);
+    expect(r.source).toBe('self_reported');
+    expect(r.downgraded).toBe(true);
+    expect(r.evidence_document_id).toBeNull();
+    const prov = (
+      await db.query(
+        `select ap.source, ap.verified_at, ap.evidence_document_id from answer_provenance ap
+         join questions q on q.id = ap.question_id
+         where ap.assessment_id = $1 and q.code = 'REV-RECUR-PCT'`,
+        [assessmentId],
+      )
+    ).rows[0];
+    expect(prov.source).toBe('self_reported');
+    expect(prov.verified_at).toBeNull();
+    expect(prov.evidence_document_id).toBeNull();
+  });
+
+  it('documented=true with a foreign/unknown document id also downgrades', async () => {
+    const r = await enterManualFinancials(db, assessmentId, [{ code: 'REV-RECUR-PCT', value: 33 }], true, {
+      evidenceDocumentId: '00000000-0000-0000-0000-000000000000',
+    });
+    expect(r.source).toBe('self_reported');
+    expect(r.downgraded).toBe(true);
   });
 
   it('manual entry without attestation is self_reported, not verified', async () => {
