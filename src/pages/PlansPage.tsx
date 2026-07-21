@@ -13,7 +13,17 @@ import {
   type PlanItemKind,
   type PlanView,
 } from '../lib/queries';
-import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../components/ui';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  GapSeverityChip,
+  PageHeader,
+  SectionCard,
+  SkeletonLines,
+  useToast,
+} from '../components/ui';
+import { humanizeKey } from '../lib/format';
 
 // Plans (docs/37): reusable initiative bundles an advisor curates and applies to
 // an engagement. This surface lists system + firm Plans, lets an advisor author a
@@ -26,8 +36,43 @@ const KIND_LABEL: Record<PlanItemKind, string> = {
   milestone: 'Milestone',
   manual_task: 'Manual task',
 };
+// What each item kind contributes to an engagement when the Plan is applied.
+// Shown inline so the 5-kind selector is never unexplained (docs/37).
+const KIND_HINT: Record<PlanItemKind, string> = {
+  playbook: 'Instantiates the playbook’s task templates onto the roadmap.',
+  education: 'Assigns a learning module from the education catalog.',
+  advisory: 'Surfaces a coaching / advisory item for the owner.',
+  milestone: 'Adds a target-dated milestone on the chosen track.',
+  manual_task: 'Adds a one-off task owned by the chosen role.',
+};
 const TRACKS = ['business', 'personal'] as const;
 const OWNER_ROLES = ['owner', 'advisor', 'cpa', 'attorney', 'ops'] as const;
+
+// An annotated catalog option for the ref picker: the label plus the methodology
+// metadata that already lives on each table (dimension / severity / description).
+interface RefOption {
+  id: string;
+  label: string;
+  dimension: string | null;
+  severity: string | null;
+  description: string | null;
+}
+
+// Group ref options by dimension for <optgroup>; undimensioned items last.
+function groupByDimension(opts: RefOption[]): { key: string; label: string; options: RefOption[] }[] {
+  const groups = new Map<string, RefOption[]>();
+  for (const o of opts) {
+    const key = o.dimension ?? '__none';
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(o);
+    else groups.set(key, [o]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => (a === '__none' ? 1 : b === '__none' ? -1 : a.localeCompare(b)))
+    .map(([key, options]) => ({ key, label: key === '__none' ? 'General' : humanizeKey(key), options }));
+}
+
+const truncate = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
 
 // One row of the authoring item builder — a superset of every kind's fields.
 interface DraftItem {
@@ -83,7 +128,13 @@ export default function PlansPage() {
 
   const plans = plansQ.data ?? [];
   const playbooks = useMemo(
-    () => Array.from(playbooksQ.data?.entries() ?? []).map(([id, p]) => ({ id, name: p.name })),
+    () =>
+      Array.from(playbooksQ.data?.entries() ?? []).map(([id, p]) => ({
+        id,
+        name: p.name,
+        dimension: p.dimension_code,
+        description: p.summary,
+      })),
     [playbooksQ.data],
   );
   const content = contentQ.data ?? [];
@@ -99,6 +150,7 @@ export default function PlansPage() {
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
   const [items, setItems] = useState<DraftItem[]>([emptyItem()]);
+  const [status, setStatus] = useState<'active' | 'draft'>('active');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -111,6 +163,7 @@ export default function PlansPage() {
     setName('');
     setSummary('');
     setItems([emptyItem()]);
+    setStatus('active');
     setFormError(null);
     setShowForm(false);
   };
@@ -124,6 +177,16 @@ export default function PlansPage() {
       setFormError('a plan name is required');
       return;
     }
+    // Never silently drop a row the advisor built: block on incomplete rows and
+    // name exactly which ones need finishing or removing.
+    const incomplete = items.map((d, i) => (toPayloadItem(d) ? null : i + 1)).filter((n): n is number => n != null);
+    if (incomplete.length > 0) {
+      setFormError(
+        `Finish or remove ${incomplete.length === 1 ? 'the incomplete item' : 'these incomplete items'}: ` +
+          `row ${incomplete.join(', ')}. Pick a catalog item or give the milestone/task a title.`,
+      );
+      return;
+    }
     const payloadItems = items.map(toPayloadItem).filter(Boolean);
     setBusy(true);
     setFormError(null);
@@ -131,10 +194,10 @@ export default function PlansPage() {
       await invokeFunction('create-plan', {
         name: name.trim(),
         summary: summary.trim() || null,
-        status: 'active',
+        status,
         items: payloadItems,
       });
-      toast.show('Plan created', 'good');
+      toast.show(status === 'draft' ? 'Draft plan saved' : 'Plan created', 'good');
       resetForm();
       qc.invalidateQueries({ queryKey: qk.plans() });
     } catch (err) {
@@ -178,12 +241,33 @@ export default function PlansPage() {
     }
   };
 
-  const refOptions = (kind: PlanItemKind) => {
-    if (kind === 'playbook') return playbooks.map((p) => ({ id: p.id, label: p.name }));
-    if (kind === 'education') return content.map((c) => ({ id: c.id, label: c.title }));
-    if (kind === 'advisory') return advisory.map((a) => ({ id: a.id, label: a.title }));
+  // Annotated catalog options per kind, carrying the metadata each table already
+  // exposes (playbook/content: dimension + summary; advisory: dimension + severity + body).
+  const refOptions = (kind: PlanItemKind): RefOption[] => {
+    if (kind === 'playbook')
+      return playbooks.map((p) => ({ id: p.id, label: p.name, dimension: p.dimension, severity: null, description: p.description }));
+    if (kind === 'education')
+      return content.map((c) => ({ id: c.id, label: c.title, dimension: c.dimension_code, severity: null, description: null }));
+    if (kind === 'advisory')
+      return advisory.map((a) => ({ id: a.id, label: a.title, dimension: a.dimension_code, severity: a.severity, description: a.body }));
     return [];
   };
+  const findOption = (kind: PlanItemKind, id: string): RefOption | undefined =>
+    id ? refOptions(kind).find((o) => o.id === id) : undefined;
+
+  // Resolve a draft row to a readable preview line (null when still incomplete).
+  const resolvePreview = (
+    d: DraftItem,
+  ): { kind: PlanItemKind; label: string; dimension: string | null; severity: string | null; meta: string | null } | null => {
+    if (!toPayloadItem(d)) return null;
+    if (d.kind === 'milestone') return { kind: d.kind, label: d.title.trim(), dimension: null, severity: null, meta: d.track };
+    if (d.kind === 'manual_task') return { kind: d.kind, label: d.title.trim(), dimension: null, severity: null, meta: d.owner_role };
+    const opt = findOption(d.kind, d.ref_id);
+    if (!opt) return null;
+    return { kind: d.kind, label: opt.label, dimension: opt.dimension, severity: opt.severity, meta: null };
+  };
+  const previewItems = items.map(resolvePreview).filter((p): p is NonNullable<typeof p> => p != null);
+  const incompleteCount = items.filter((d) => !toPayloadItem(d)).length;
 
   return (
     <div className="stack-lg">
@@ -215,69 +299,121 @@ export default function PlansPage() {
 
             <div className="plans-items">
               <span className="advisory-detail-label">Items</span>
-              {items.map((it, i) => (
-                <div key={i} className="plan-item-row">
-                  <select value={it.kind} onChange={(e) => setItem(i, { kind: e.target.value as PlanItemKind, ref_id: '' })}>
-                    {(Object.keys(KIND_LABEL) as PlanItemKind[]).map((k) => (
-                      <option key={k} value={k}>
-                        {KIND_LABEL[k]}
-                      </option>
-                    ))}
-                  </select>
-                  {(it.kind === 'playbook' || it.kind === 'education' || it.kind === 'advisory') && (
-                    <select value={it.ref_id} onChange={(e) => setItem(i, { ref_id: e.target.value })}>
-                      <option value="">Select…</option>
-                      {refOptions(it.kind).map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {(it.kind === 'milestone' || it.kind === 'manual_task') && (
-                    <input
-                      placeholder={it.kind === 'milestone' ? 'Milestone title' : 'Task title'}
-                      value={it.title}
-                      onChange={(e) => setItem(i, { title: e.target.value })}
-                    />
-                  )}
-                  {it.kind === 'milestone' && (
-                    <select value={it.track} onChange={(e) => setItem(i, { track: e.target.value as (typeof TRACKS)[number] })}>
-                      {TRACKS.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {it.kind === 'manual_task' && (
-                    <select value={it.owner_role} onChange={(e) => setItem(i, { owner_role: e.target.value as (typeof OWNER_ROLES)[number] })}>
-                      {OWNER_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <button
-                    type="button"
-                    className="button-danger-link"
-                    onClick={() => setItems((prev) => (prev.length > 1 ? prev.filter((_, j) => j !== i) : prev))}
-                    aria-label="Remove item"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+              {items.map((it, i) => {
+                const isRef = it.kind === 'playbook' || it.kind === 'education' || it.kind === 'advisory';
+                const selected = isRef ? findOption(it.kind, it.ref_id) : undefined;
+                const complete = !!toPayloadItem(it);
+                return (
+                  <div key={i} className="plans-items">
+                    <div className="plan-item-row">
+                      <select value={it.kind} onChange={(e) => setItem(i, { kind: e.target.value as PlanItemKind, ref_id: '' })}>
+                        {(Object.keys(KIND_LABEL) as PlanItemKind[]).map((k) => (
+                          <option key={k} value={k}>
+                            {KIND_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                      {isRef && (
+                        <select value={it.ref_id} onChange={(e) => setItem(i, { ref_id: e.target.value })}>
+                          <option value="">Select {KIND_LABEL[it.kind].toLowerCase()}…</option>
+                          {groupByDimension(refOptions(it.kind)).map((g) => (
+                            <optgroup key={g.key} label={g.label}>
+                              {g.options.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.severity ? `${o.label} — ${humanizeKey(o.severity)}` : o.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      )}
+                      {(it.kind === 'milestone' || it.kind === 'manual_task') && (
+                        <input
+                          placeholder={it.kind === 'milestone' ? 'Milestone title' : 'Task title'}
+                          value={it.title}
+                          onChange={(e) => setItem(i, { title: e.target.value })}
+                        />
+                      )}
+                      {it.kind === 'milestone' && (
+                        <select value={it.track} onChange={(e) => setItem(i, { track: e.target.value as (typeof TRACKS)[number] })}>
+                          {TRACKS.map((t) => (
+                            <option key={t} value={t}>
+                              {humanizeKey(t)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {it.kind === 'manual_task' && (
+                        <select value={it.owner_role} onChange={(e) => setItem(i, { owner_role: e.target.value as (typeof OWNER_ROLES)[number] })}>
+                          {OWNER_ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {humanizeKey(r)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {!complete && <span className="advisory-tag advisory-tag-inactive">Incomplete</span>}
+                      <button
+                        type="button"
+                        className="button-danger-link"
+                        onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}
+                        aria-label="Remove item"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <span className="muted text-xs">
+                      {KIND_HINT[it.kind]}
+                      {selected?.dimension && <span className="advisory-tag">{humanizeKey(selected.dimension)}</span>}
+                      {selected?.severity && <GapSeverityChip severity={selected.severity} />}
+                      {selected?.description && ` ${truncate(selected.description)}`}
+                    </span>
+                  </div>
+                );
+              })}
               <button type="button" className="button-secondary" onClick={() => setItems((prev) => [...prev, emptyItem()])}>
                 Add item
               </button>
             </div>
 
+            {items.length > 0 && (
+              <SectionCard
+                title="Plan preview"
+                subtitle={
+                  incompleteCount > 0
+                    ? `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} ready · ${incompleteCount} incomplete row${incompleteCount === 1 ? '' : 's'} to finish or remove`
+                    : `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} — what this plan lays onto the roadmap`
+                }
+              >
+                {previewItems.length === 0 ? (
+                  <p className="muted m-0">Pick catalog items or add a milestone/task to see the plan take shape.</p>
+                ) : (
+                  <div className="plans-items">
+                    {previewItems.map((p, i) => (
+                      <div key={i} className="plan-item-row">
+                        <span className="advisory-tag">{KIND_LABEL[p.kind]}</span>
+                        <strong>{p.label}</strong>
+                        {p.dimension && <span className="advisory-tag">{humanizeKey(p.dimension)}</span>}
+                        {p.severity && <GapSeverityChip severity={p.severity} />}
+                        {p.meta && <span className="muted text-xs">{humanizeKey(p.meta)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
             {formError && <ErrorState variant="inline" error={formError} />}
             <div className="advisory-form-actions">
+              <label>
+                Save as
+                <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
+                  <option value="active">Active — visible to apply now</option>
+                  <option value="draft">Draft — keep authoring, not yet applicable</option>
+                </select>
+              </label>
               <button type="submit" disabled={busy}>
-                {busy ? 'Creating…' : 'Create plan'}
+                {busy ? 'Saving…' : status === 'draft' ? 'Save draft' : 'Create plan'}
               </button>
               <button type="button" className="button-secondary" onClick={resetForm}>
                 Cancel

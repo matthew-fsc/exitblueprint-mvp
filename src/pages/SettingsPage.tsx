@@ -114,7 +114,7 @@ function MfaCard() {
           disabled here.
         </p>
       ) : state === 'loading' ? (
-        <p className="muted">Checking status…</p>
+        <LoadingState variant="inline" label="Checking status…" />
       ) : state === 'satisfied' && !enrollment ? (
         <p className="status-chip status-good">Active — your account is protected by MFA.</p>
       ) : (

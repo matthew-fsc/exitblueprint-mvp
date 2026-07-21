@@ -96,7 +96,7 @@ export default function DeliverablesPage() {
                   ))}
                 </select>
               </label>
-              <p className="muted delta-compared-against" style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
+              <p className="muted delta-compared-against">
                 {activeType.blurb}
               </p>
             </div>

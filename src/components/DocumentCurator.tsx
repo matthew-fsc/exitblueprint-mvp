@@ -196,6 +196,9 @@ export function DocumentCurator({
   const ruleBased = (doc?.model ?? '').startsWith('rule-based');
   const finalized = !!doc?.finalized_at;
   const activeMarkdown = finalized ? doc!.content_md : draft;
+  // Unsaved editor changes: surfaced as a chip and used to gate "Save changes"
+  // so the advisor always knows whether the draft on screen has been persisted.
+  const dirty = !!doc && !finalized && draft !== doc.content_md;
 
   return (
     <>
@@ -220,18 +223,43 @@ export function DocumentCurator({
         </div>
       ) : (
         <>
+          {/* One toolbar, one control model: the lifecycle status (and an
+              unsaved-edits flag) on the left, and a single cluster of actions on
+              the right, ordered edit → regenerate → finalize → download. The save
+              model is explicit — "Save changes" is the only button that persists
+              editor edits, and it lights up only when the draft is dirty. Download
+              auto-saves and Regenerate overwrites the draft; both say so on hover. */}
           <div className="report-toolbar no-print">
             <div className="report-toolbar-status">
-              <span className={`status-chip status-${finalized ? 'good' : 'warning'}`}>
+              <span className={`status-chip status-${finalized ? 'good' : 'neutral'}`}>
                 {finalized ? `Finalized ${fmtDate(doc.finalized_at)}` : ruleBased ? 'Draft' : 'AI draft'}
               </span>
+              {dirty && <span className="status-chip status-warning">Unsaved edits</span>}
               <span className="muted report-toolbar-meta">
-                {ruleBased ? meta?.narratorNote : `Drafted by ${doc.model}`} · generated{' '}
-                {new Date(doc.created_at).toLocaleString()}
+                {finalized
+                  ? 'Finalized documents are locked — regenerate to start a new draft.'
+                  : `${ruleBased ? meta?.narratorNote : `Drafted by ${doc.model}`} · generated ${new Date(
+                      doc.created_at,
+                    ).toLocaleString()}`}
               </span>
             </div>
             <div className="report-toolbar-actions">
-              <button className="button-secondary" onClick={generate} disabled={busy}>
+              {!finalized && (
+                <button
+                  className="button-secondary"
+                  onClick={saveDraft}
+                  disabled={busy || !dirty}
+                  title="Save the edits made in the narrative editor below"
+                >
+                  Save changes
+                </button>
+              )}
+              <button
+                className="button-secondary"
+                onClick={generate}
+                disabled={busy}
+                title="Overwrites the current draft with a freshly generated narrative"
+              >
                 {busy ? 'Working…' : 'Regenerate'}
               </button>
               {!finalized && (
@@ -239,17 +267,35 @@ export function DocumentCurator({
                   Finalize
                 </button>
               )}
-              <button onClick={downloadPdf} disabled={busy}>
+              <button
+                onClick={downloadPdf}
+                disabled={busy}
+                title={
+                  finalized
+                    ? 'Download the finalized document as a branded PDF'
+                    : 'Saves any unsaved edits first, then downloads the branded PDF'
+                }
+              >
                 {busy ? 'Preparing…' : 'Download branded PDF'}
               </button>
             </div>
           </div>
 
           {/* The raw Markdown source, tucked into an expand bar above the polished
-              document so it never competes with it — open it to tweak or copy. The
-              figures below stay fixed by the scoring engine; only the prose edits. */}
+              document so it never competes with it — open it to tweak or copy, then
+              Save changes in the toolbar. The figures below stay fixed by the
+              scoring engine; only the prose edits. Hidden once finalized, since the
+              saved copy is locked (there is no un-finalize) — the toolbar status
+              makes that state legible. */}
           {!finalized && (
-            <Collapsible title="Edit narrative" hint="Raw Markdown — the figures stay fixed by the scoring engine">
+            <Collapsible
+              title="Edit narrative"
+              hint={
+                dirty
+                  ? 'Unsaved edits — use Save changes in the toolbar to persist them'
+                  : 'Raw Markdown — the figures stay fixed by the scoring engine'
+              }
+            >
               <textarea
                 className="report-editor"
                 rows={16}
@@ -259,9 +305,6 @@ export function DocumentCurator({
               <div className="report-source-actions">
                 <button className="linkish" onClick={copySource}>
                   Copy Markdown
-                </button>
-                <button className="button-secondary" onClick={saveDraft} disabled={busy}>
-                  Save changes
                 </button>
               </div>
             </Collapsible>

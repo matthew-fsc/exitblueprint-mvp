@@ -221,8 +221,8 @@ export function VerificationPanel() {
   return (
     <div className="stack-lg">
       <SectionCard
-        title="Run verification"
-        subtitle="Parses uploaded documents, builds the knowledge graph, reconciles values, and runs the buy-side finding patterns."
+        title="Stage 3 · Run verification"
+        subtitle="Parses the uploaded data-room documents, builds the knowledge graph, reconciles self-reported values against them, and runs the buy-side finding patterns."
         action={
           <button onClick={run} disabled={busy}>
             {busy ? 'Running…' : 'Run verification'}
@@ -231,9 +231,9 @@ export function VerificationPanel() {
       >
         <StatRow>
           <StatBlock
-            label="Automated"
+            label="Auto-reconciled"
             value={m ? `${Math.round(m.automation_ratio * 100)}%` : '—'}
-            hint="verified without review"
+            hint="cleared without review"
           />
           <StatBlock label="Auto-verified" value={m ? m.auto_resolved : '—'} hint="no review needed" />
           <StatBlock label="Needs review" value={m ? m.human_required : '—'} hint="awaiting review" />

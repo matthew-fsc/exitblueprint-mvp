@@ -212,6 +212,19 @@ export async function getDocumentBytes(
   return { bytes, mime: doc.mime_type as string, filename: doc.original_filename as string };
 }
 
+// The data-room item states a verified document must NOT override — an advisor's
+// explicit judgement that an item is a gap or out of scope always wins over the
+// automatic "verified document ⇒ Ready" rule. Kept as the single source of truth
+// for that rule so it stays in lock-step with the SQL predicate in
+// submitDocumentReview and is unit-testable without a database.
+export const AUTO_READY_PROTECTED_STATES = ['gap', 'not_applicable'] as const;
+
+/** Whether a linked item in this state should auto-advance to 'ready' when its
+ * document is verified. False only for the advisor-set protected states. */
+export function dataRoomAutoReadyEligible(state: string): boolean {
+  return !(AUTO_READY_PROTECTED_STATES as readonly string[]).includes(state);
+}
+
 export interface ReviewFieldInput {
   id?: string; // existing document_field id; omit to add a new manual field
   field_key: string;
@@ -277,6 +290,21 @@ export async function submitDocumentReview(
       await db.query(
         `update documents set status = 'verified', reviewed_by = $2, reviewed_at = now() where id = $1`,
         [input.document_id, reviewerId],
+      );
+
+      // Auto-derive data-room readiness from document verification. When a
+      // document that is LINKED to an engagement_data_room_item becomes verified,
+      // the item it answers is now proven, so advance it to 'ready' — closing the
+      // drift where an item stayed not_started/in_progress while its source file
+      // was already verified. Additive + defensive: a no-op when no item links to
+      // this document. Never overrides an advisor's explicit 'gap' or
+      // 'not_applicable' judgement (see AUTO_READY_PROTECTED_STATES).
+      await db.query(
+        `update engagement_data_room_items
+            set readiness_state = 'ready', updated_at = now()
+          where document_id = $1 and firm_id = $2
+            and readiness_state not in ('gap', 'not_applicable')`,
+        [input.document_id, firmId],
       );
     }
 

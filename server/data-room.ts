@@ -97,6 +97,54 @@ export async function listDataRoom(db: pg.ClientBase, engagementId: string): Pro
   return { sections, items, summary };
 }
 
+// ── Evidence binder coverage (docs/17 §3) ─────────────────────────────────────
+// The single, true "diligence binder" figure the Evidence surface headlines with.
+// It answers one question: of the items this engagement actually needs, how many
+// are not just claimed Ready but PROVEN — backed by a linked document that has
+// been reviewed and verified. This is distinct from `readiness_pct` (which counts
+// self-reported "Ready" regardless of document proof) and from the assessment-
+// scoped financial `verification-summary` (answer_provenance on scored questions).
+export interface EvidenceCoverage {
+  total: number; // applicable items (excludes not_applicable)
+  ready: number; // marked Ready by the advisor (self-reported)
+  verified: number; // Ready AND backed by a document whose status = 'verified' (proven)
+  pct: number; // proven share: verified / total, 0–100 (rounded)
+}
+
+/**
+ * Pure rollup of the binder-coverage metric — the testable heart of
+ * evidenceCoverage. Counts over the engagement's APPLICABLE items only
+ * (not_applicable is out of scope for the binder). `verified` is the true
+ * "proven" count: an item marked Ready whose linked document reached 'verified'.
+ * `pct` is verified/total — deliberately the proven share, not the ready share,
+ * so the headline can never overstate the binder as complete on unproven claims.
+ */
+export function computeEvidenceCoverage(
+  items: { readiness_state: DataRoomState | string; document_status: string | null }[],
+): EvidenceCoverage {
+  const applicable = items.filter((i) => i.readiness_state !== 'not_applicable');
+  const total = applicable.length;
+  const ready = applicable.filter((i) => i.readiness_state === 'ready').length;
+  const verified = applicable.filter(
+    (i) => i.readiness_state === 'ready' && i.document_status === 'verified',
+  ).length;
+  const pct = total === 0 ? 0 : Math.round((verified / total) * 100);
+  return { total, ready, verified, pct };
+}
+
+/**
+ * The engagement's binder-coverage figure, read from the same template + state
+ * listDataRoom serves (so the number can never drift from the checklist). The
+ * caller is already authorized on the engagement (functions.ts); read-only.
+ */
+export async function evidenceCoverage(
+  db: pg.ClientBase,
+  engagementId: string,
+): Promise<EvidenceCoverage> {
+  const { items } = await listDataRoom(db, engagementId);
+  return computeEvidenceCoverage(items);
+}
+
 export interface SetDataRoomItemInput {
   engagementId: string;
   itemCode: string;
