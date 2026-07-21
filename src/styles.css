@@ -79,6 +79,11 @@
   --radius-sm: 6px;
   --radius-lg: 12px;
 
+  /* control height — one baseline so a button, icon-button, and switch on the
+     same row align to a common target (used by the modern-controls pass). */
+  --control-h: 2.25rem;      /* 36px — default interactive control */
+  --control-h-sm: 1.875rem;  /* 30px — dense contexts (filter bars, row actions) */
+
   /* height of the global sticky app bar — sticky children (table headers, the
      workbench scoreboard) offset from this so they pin below the bar, not under
      it. Mirrors .app-bar-inner height. */
@@ -5193,6 +5198,202 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 .plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; }
 .plan-progress-fill-done { background: var(--good, var(--accent-strong)); }
 .plan-rec-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+
+/* ============================================================
+   Modern controls pass — the interactive layer, modernized.
+   Sits after the institutional register (so it wins over the base
+   button/input rules) and before the mobile pass (so touch-target
+   overrides still win on a phone). Five moves, all token-driven so
+   they hold the same institutional register the rest of the app does:
+   (1) on-brand checkboxes/radios instead of the OS-blue widget,
+   (2) a real on/off Switch for single booleans, (3) one canonical
+   icon-button, (4) a small button size for dense rows, (5) an
+   animated tab underline — plus a blanket reduced-motion guard.
+   ============================================================ */
+
+/* (1) CHECKBOXES & RADIOS — the native control paints an OS-blue box that
+   ignores the theme and the forest accent. Restyle it in place (no markup
+   change) so every checkbox/radio across filters, consent forms, and risk
+   pickers reads as part of the control system. For a single boolean that takes
+   effect immediately (a filter, a setting), prefer <Switch>; a checkbox is for
+   selecting items in a set or acknowledging a form field. */
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+input[type='checkbox'] { border-radius: var(--radius-sm); }
+input[type='radio'] { border-radius: 999px; }
+/* the checkmark (classic rotated-border technique — crisp at any DPI) */
+input[type='checkbox']::before {
+  content: '';
+  width: 0.3rem;
+  height: 0.56rem;
+  margin-top: -0.12rem;
+  border: solid var(--on-brand);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.12s ease;
+}
+input[type='radio']::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--on-brand);
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+input[type='checkbox']:hover:not(:disabled):not(:checked),
+input[type='radio']:hover:not(:disabled):not(:checked) {
+  border-color: var(--border-strong);
+}
+input[type='checkbox']:checked,
+input[type='radio']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+input[type='checkbox']:checked::before { transform: rotate(45deg) scale(1); }
+input[type='radio']:checked::before { transform: scale(1); }
+input[type='checkbox']:disabled,
+input[type='radio']:disabled { opacity: 0.5; cursor: default; }
+
+/* (2) SWITCH — an on/off slider for a single boolean that takes effect
+   immediately. Built on <button role="switch"> (see Switch.tsx), so it keeps
+   the button focus ring but sheds the raised-button fill/press-nudge. */
+.switch {
+  --switch-w: 2.2rem;
+  --switch-h: 1.25rem;
+  position: relative;
+  flex-shrink: 0;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  min-height: 0;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  background-image: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+.switch-sm { --switch-w: 1.85rem; --switch-h: 1.05rem; }
+.switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: calc(var(--switch-h) - 6px);
+  height: calc(var(--switch-h) - 6px);
+  border-radius: 999px;
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.28);
+  transform: translateY(-50%);
+  transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.switch-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.switch-on .switch-thumb {
+  transform: translateY(-50%) translateX(calc(var(--switch-w) - var(--switch-h)));
+  background: #fff;
+}
+.switch:hover:not(:disabled) { border-color: var(--accent); }
+.switch:disabled { opacity: 0.5; cursor: default; }
+.switch:active:not(:disabled) { transform: none; } /* cancel the button press-nudge */
+.switch-field { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.switch-field:has(.switch:disabled) { cursor: default; }
+.switch-text { display: inline-flex; flex-direction: column; gap: 1px; min-width: 0; }
+.switch-label { font-size: var(--text-md); font-weight: 600; color: var(--text-primary); }
+.switch-hint { font-size: var(--text-sm); color: var(--text-muted); }
+
+/* (3) ICON BUTTON — one canonical square, quiet-until-hover control for a
+   single-glyph action (a toolbar/nav toggle, an inline dismiss), so icon
+   actions stop being re-invented per surface. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.icon-btn-sm { width: var(--control-h-sm); height: var(--control-h-sm); }
+
+/* (4) SMALL BUTTON — for dense contexts (filter bars, inline row actions) where
+   the default control height is too tall. Opt-in; the default button is
+   unchanged, so existing pages keep their sizing. */
+.btn-sm {
+  padding: 0.32rem 0.7rem;
+  font-size: var(--text-md);
+  min-height: var(--control-h-sm);
+}
+
+/* (5) TAB UNDERLINE — the engagement tabs marked the active view with a static
+   border. Draw the underline as a pseudo-element that grows from the center on
+   activate and previews on hover, so switching tabs reads as motion, not a jump.
+   The underline insets to the label width (the tab's own padding). */
+.eng-nav-link { position: relative; }
+.eng-nav-link.active { border-bottom-color: transparent; }
+.eng-nav-link::after {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.18s ease;
+}
+.eng-nav-link.active::after { transform: scaleX(1); }
+.eng-nav-link:hover:not(.active)::after {
+  transform: scaleX(0.4);
+  background: var(--border-strong);
+}
+
+/* Blanket reduced-motion guard. The app has targeted guards on specific
+   animations; this backstops every remaining transition/animation and the
+   button press-nudge for users who ask the OS to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:active:not(:disabled) { transform: none !important; }
+}
+
 /* ============================================================
    Mobile optimization pass
    The app is advisor-desktop-first; this section makes every
@@ -5233,7 +5434,12 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
   .theme-toggle,
   .user-menu-trigger,
   .user-signout { min-height: 44px; }
-  button:not(.linkish):not(.app-nav-link) { min-height: 40px; }
+  /* .switch and .icon-btn are self-sized controls (a slider track, a square
+     glyph button), not text buttons — a 40px min-height would deform them.
+     The switch keeps its track height; the icon button grows to a square
+     touch target below. */
+  button:not(.linkish):not(.app-nav-link):not(.switch):not(.icon-btn) { min-height: 40px; }
+  .icon-btn { width: 2.5rem; height: 2.5rem; }
 }
 
 @media (max-width: 680px) {
