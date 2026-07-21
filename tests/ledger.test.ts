@@ -59,6 +59,10 @@ describe.skipIf(!url)('ledger sync + manual financials', () => {
     await db.query(`delete from assessments where firm_id = $1`, [firmId]);
     await db.query(`delete from documents where firm_id = $1`, [firmId]);
     await db.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
+    // A ledger sync that fills codes writes a data_access_log row referencing the
+    // engagement (see server/ledger.ts logAccess); clear it before the engagement
+    // it points at, or the FK data_access_log_engagement_id_fkey blocks the delete.
+    await db.query(`delete from data_access_log where firm_id = $1`, [firmId]);
     await db.query(`delete from engagements where firm_id = $1`, [firmId]);
     await db.query(`delete from companies where firm_id = $1`, [firmId]);
     await db.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
