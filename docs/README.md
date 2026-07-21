@@ -43,6 +43,7 @@ Point-in-time audits and superseded runbooks have been moved to
 | [17-sellside-workstreams-ux](./17-sellside-workstreams-ux.md) | The five sell-side work streams and the nav that groups them | Reference |
 | [19-vision-workstreams-ux](./19-vision-workstreams-ux.md) | North-star: vision + methodology + work streams + IA in one place (superset of 17) | Strategy |
 | [18-cfp-cepa-workflow-alignment](./18-cfp-cepa-workflow-alignment.md) | Maps CEPA / CFP workflows onto the product's work streams | Strategy |
+| [37-programs-plans-design](./37-programs-plans-design.md) | Design proposal for reusable "Plans" — advisor-curated bundles of playbooks/tasks/education/milestones applied to an engagement | Strategy |
 
 ## Strategy & positioning
 | Doc | What it is | Status |
