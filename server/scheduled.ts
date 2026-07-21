@@ -160,10 +160,10 @@ export function mapStaleEngagementRow(row: StaleEngagementRow, now: Date): Stale
 
 export async function findStaleEngagements(
   db: Db,
-  opts: { staleDays?: number; firmId?: string } = {},
+  opts: { staleDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<StaleEngagementItem>> {
   const thresholdDays = opts.staleDays ?? DEFAULT_STALE_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(STALE_ENGAGEMENTS_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(STALE_ENGAGEMENTS_SQL, [thresholdDays]);
@@ -267,10 +267,10 @@ export function mapStalledTaskRow(row: StalledTaskRow, now: Date): StalledTaskIt
 
 export async function findStalledTasks(
   db: Db,
-  opts: { stalledDays?: number; firmId?: string } = {},
+  opts: { stalledDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<StalledTaskItem>> {
   const thresholdDays = opts.stalledDays ?? DEFAULT_STALLED_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(STALLED_TASKS_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(STALLED_TASKS_SQL, [thresholdDays]);
@@ -357,10 +357,10 @@ export function mapReassessmentDueRow(row: ReassessmentDueRow, now: Date): Reass
 
 export async function findReassessmentDue(
   db: Db,
-  opts: { reassessDays?: number; firmId?: string } = {},
+  opts: { reassessDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<ReassessmentDueItem>> {
   const thresholdDays = opts.reassessDays ?? DEFAULT_REASSESS_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(REASSESSMENT_DUE_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(REASSESSMENT_DUE_SQL, [thresholdDays]);
