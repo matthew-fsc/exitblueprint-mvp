@@ -972,6 +972,32 @@ export function useAnswerProvenance(
   });
 }
 
+// Which answers have a STORED evidence document behind their provenance
+// (question_id -> evidence_document_id | null). Additive to useAnswerProvenance:
+// lets the UI show that a verified financial answer is backed by a real file,
+// not just attested. A `document` row with a null value here is legacy/unbacked.
+export function useAnswerEvidence(
+  assessmentId: string | undefined,
+): UseQueryResult<Record<string, string | null>> {
+  return useQuery({
+    queryKey: ['answerEvidence', assessmentId ?? ''],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('answer_provenance')
+        .select('question_id,evidence_document_id')
+        .eq('assessment_id', assessmentId!);
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(
+        (data ?? []).map((r: { question_id: string; evidence_document_id: string | null }) => [
+          r.question_id,
+          r.evidence_document_id,
+        ]),
+      );
+    },
+  });
+}
+
 export function useVerification(
   assessmentId: string | undefined,
 ): UseQueryResult<VerificationSummary> {

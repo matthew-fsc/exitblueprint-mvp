@@ -18,7 +18,7 @@ import pg from 'pg';
 import { handleFunctionCall } from './functions';
 import { makeVerifyToken, type Claims } from './auth-jwt';
 import { verifyDocumentToken } from './documents/signed-url';
-import { getDocumentBytes } from './documents/pipeline';
+import { getDocumentBytes, sanitizeFilename } from './documents/pipeline';
 import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 import { resolveDbConnection } from './db-ssl';
@@ -136,14 +136,24 @@ const webhookLimiter = createRateLimiter({
 // errors are forwarded to Sentry. Never captures secrets/PII (scrubbed).
 initObservability();
 
-// Document encryption at rest falls back to a weak dev key if EB_DOCUMENT_KEY is
-// unset — safe for dev, not for production. Warn loudly rather than silently
-// protecting client documents with a publicly-known key (docs/14).
-if (process.env.NODE_ENV === 'production' && !process.env.EB_DOCUMENT_KEY) {
-  console.warn(
-    'WARNING: EB_DOCUMENT_KEY is not set — uploaded documents are encrypted with the ' +
-      'insecure dev default key. Set a 32-byte hex key before storing real client documents.',
-  );
+// Document secrets fall back to weak, publicly-known dev defaults when unset —
+// server/documents/crypto.ts uses 'dev-insecure-document-key' for encryption at
+// rest, and server/documents/signed-url.ts uses 'dev-insecure-signing-key' for
+// the download-token HMAC (a known signing key makes download tokens forgeable).
+// Both are fine for dev/CI but MUST be set in production, so hard-fail at startup
+// rather than silently protecting real client documents with a public key.
+if (process.env.NODE_ENV === 'production') {
+  const missing = [
+    !process.env.EB_DOCUMENT_KEY && 'EB_DOCUMENT_KEY (encryption at rest)',
+    !process.env.EB_SIGNING_KEY && 'EB_SIGNING_KEY (download-URL signing)',
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    console.error(
+      `Refusing to start in production without: ${missing.join(', ')}. ` +
+        'Set a 32-byte hex EB_DOCUMENT_KEY and a strong random EB_SIGNING_KEY (docs/14).',
+    );
+    process.exit(1);
+  }
 }
 
 // Resolve TLS for the DB connection (server/db-ssl.ts). Supabase's pooler needs
@@ -345,9 +355,30 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
           detail: { via: 'signed-url' },
         });
       }
+      // Safe serve: NEVER trust the stored/browser mime_type. Recompute a safe
+      // content-type from the (sanitized) extension and only let a small trusted
+      // set render inline (PDF + raster images, which the browser sandboxes);
+      // everything else — HTML, SVG, office docs, unknown types — is served as an
+      // opaque octet-stream ATTACHMENT so stored HTML/JS can never execute in our
+      // origin (stored-XSS). nosniff stops the browser re-interpreting the type.
+      const safeName = sanitizeFilename(d.filename);
+      const ext = safeName.includes('.') ? safeName.split('.').pop()!.toLowerCase() : '';
+      const INLINE_SAFE: Record<string, string> = {
+        pdf: 'application/pdf',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+      };
+      const inlineType = INLINE_SAFE[ext];
       res.statusCode = 200;
-      res.setHeader('content-type', d.mime || 'application/octet-stream');
-      res.setHeader('content-disposition', `inline; filename="${d.filename}"`);
+      res.setHeader('x-content-type-options', 'nosniff');
+      if (inlineType) {
+        res.setHeader('content-type', inlineType);
+        res.setHeader('content-disposition', `inline; filename="${safeName}"`);
+      } else {
+        res.setHeader('content-type', 'application/octet-stream');
+        res.setHeader('content-disposition', `attachment; filename="${safeName}"`);
+      }
       return res.end(Buffer.from(d.bytes));
     } finally {
       c.release();
