@@ -33,6 +33,7 @@ import { createCheckoutSession, createBillingPortalSession, getStripe, stripeCon
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
 import { inviteCollaborator, revokeCollaborator } from './collaborators';
+import { assignEngagement } from './organization';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
@@ -99,6 +100,7 @@ export type Engine = (typeof ENGINES)[number];
 // body-shape guess inside the gateway.
 export type AuthScope =
   | 'firm' // firm-scoped readout; firm resolved from the advisor/admin profile
+  | 'admin' // firm-scoped ORG administration; firm resolved from an admin-only profile
   | 'create-engagement' // advisor firm + the target company visible under RLS
   | 'delete-engagement' // advisor/admin firm + the target engagement visible under RLS
   | 'export-engagement' // advisor/admin firm + the target engagement visible under RLS (read-only)
@@ -440,6 +442,22 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'firm',
     handler: ({ service, firmId }) => firmAttention(service, firmId as string).then(ok),
   },
+  // Reassign which advisor owns an engagement — an admin org control. Scope 'admin'
+  // rejects non-admins; the handler validates the engagement + target advisor are
+  // in the caller's firm and writes as service_role (the only path past the
+  // advisor_id reassignment guard trigger). NOT gated: org administration is never
+  // blocked by billing state.
+  'assign-engagement': {
+    engine: 'workflow',
+    scope: 'admin',
+    handler: ({ service, body, firmId }) =>
+      assignEngagement(
+        service,
+        firmId as string,
+        body.engagement_id as string,
+        (body.advisor_id as string | null) ?? null,
+      ).then(ok),
+  },
 
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)
   'sync-ledger': {
@@ -609,14 +627,15 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body, firmId }) =>
       revokeCollaborator(service, firmId as string, body.collaborator_id as string).then(ok),
   },
-  // Firm-staff invitation (self-serve team management, docs/archive/35 #1). Scope 'firm'
-  // resolves the caller's own firm from their advisor/admin profile — a firm can
-  // only grow its own team. NOT entitlement-gated: managing your team is never
-  // blocked by billing state (seats are enforced inside the handler when billing
-  // is on); the seat *usage* is always returned for the UI.
+  // Firm-staff invitation (self-serve team management, docs/archive/35 #1). Scope
+  // 'admin' resolves the caller's own firm from an admin-only profile — growing
+  // the team is an org control, so advisors can no longer invite staff. NOT
+  // entitlement-gated: managing your team is never blocked by billing state (seats
+  // are enforced inside the handler when billing is on); the seat *usage* is always
+  // returned for the UI.
   'invite-advisor': {
     engine: 'collaboration',
-    scope: 'firm',
+    scope: 'admin',
     handler: ({ service, body, firmId }) =>
       inviteAdvisor(
         service,

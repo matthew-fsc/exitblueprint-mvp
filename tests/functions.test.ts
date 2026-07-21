@@ -139,11 +139,20 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     await service.query(`delete from auth.users where id = $1`, [adminUserId]);
   });
 
-  it('firm-scoped: an advisor invites a colleague into their own firm (invite-advisor)', async () => {
+  it('admin-scoped: an admin invites a colleague into their own firm (invite-advisor)', async () => {
+    // Team management is now an org control — invite-advisor uses the 'admin'
+    // scope, so an admin (not a plain advisor) grows the team.
+    const adminUserId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.orgadmin@test.co') returning id`)
+    ).rows[0].id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name) values ($1, $2, 'admin', 'Router Org Admin')`,
+      [adminUserId, firmId],
+    );
     const r = await handleFunctionCall(
       'invite-advisor',
       { email: 'router.colleague@test.co', full_name: 'New Colleague', role: 'advisor' },
-      ctxFor(advisorUserId),
+      ctxFor(adminUserId),
     );
     expect(r.kind).toBe('json');
     if (r.kind === 'json') {
@@ -151,26 +160,62 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
       expect((r.body as { status: string; role: string }).status).toBe('invited');
       expect((r.body as { role: string }).role).toBe('advisor');
     }
-    // The colleague now exists in the same firm.
     const created = (
       await service.query(`select firm_id from profiles where email = 'router.colleague@test.co'`)
     ).rows[0];
     expect(created?.firm_id).toBe(firmId);
     await service.query(`delete from profiles where email = 'router.colleague@test.co'`);
     await service.query(`delete from auth.users where lower(email) = 'router.colleague@test.co'`);
+    await service.query(`delete from profiles where user_id = $1`, [adminUserId]);
+    await service.query(`delete from auth.users where id = $1`, [adminUserId]);
   });
 
-  it('firm-scoped: a non-staff caller cannot invite an advisor (403)', async () => {
-    const strangerId = (
-      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.nostaff@test.co') returning id`)
-    ).rows[0].id;
+  it('admin-scoped: a plain advisor can no longer invite a colleague (403)', async () => {
+    // The enforcement half of the org-control change: an advisor with full
+    // firm-scoped data access is still rejected from the admin-only team endpoint.
     const r = await handleFunctionCall(
       'invite-advisor',
       { email: 'router.blocked@test.co', role: 'advisor' },
-      ctxFor(strangerId),
+      ctxFor(advisorUserId),
     );
     expect(r).toMatchObject({ kind: 'json', status: 403 });
-    await service.query(`delete from auth.users where id = $1`, [strangerId]);
+  });
+
+  it('admin-scoped: an admin reassigns an engagement owner (assign-engagement)', async () => {
+    // Reassignment is server-authoritative (a guard trigger freezes advisor_id for
+    // end-user roles); the admin-scoped function is the only path that changes it.
+    const adminUserId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.assign.admin@test.co') returning id`)
+    ).rows[0].id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name) values ($1, $2, 'admin', 'Assign Admin')`,
+      [adminUserId, firmId],
+    );
+    const advisorProfileId = (
+      await service.query(`select id from profiles where user_id = $1`, [advisorUserId])
+    ).rows[0].id;
+
+    const r = await handleFunctionCall(
+      'assign-engagement',
+      { engagement_id: engagementId, advisor_id: advisorProfileId },
+      ctxFor(adminUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+    const owner = (await service.query(`select advisor_id from engagements where id = $1`, [engagementId])).rows[0];
+    expect(owner.advisor_id).toBe(advisorProfileId);
+
+    // A plain advisor cannot reassign (admin-only).
+    const denied = await handleFunctionCall(
+      'assign-engagement',
+      { engagement_id: engagementId, advisor_id: null },
+      ctxFor(advisorUserId),
+    );
+    expect(denied).toMatchObject({ kind: 'json', status: 403 });
+
+    // Reset ownership + clean up.
+    await service.query(`update engagements set advisor_id = null where id = $1`, [engagementId]);
+    await service.query(`delete from profiles where user_id = $1`, [adminUserId]);
+    await service.query(`delete from auth.users where id = $1`, [adminUserId]);
   });
 
   it('manage-engagement: staff invites a view-only collaborator to the engagement', async () => {

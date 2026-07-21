@@ -78,6 +78,14 @@ async function authorize(
       if (!firmId) return { error: err(403, 'advisor profile required') };
       return { firmId };
     }
+    case 'admin': {
+      // Org administration (team, engagement ownership): resolve the caller's firm
+      // from an ADMIN-only profile. Advisors are rejected here even though they
+      // have firm-scoped data access — these are org controls, not client work.
+      const firmId = await firmFromProfile(ctx, ['admin']);
+      if (!firmId) return { error: err(403, 'firm admin required') };
+      return { firmId };
+    }
     case 'create-engagement': {
       // Resolve the caller's own advisor firm, then confirm the target company is
       // visible to them under RLS. The engagement doesn't exist yet, so it can't

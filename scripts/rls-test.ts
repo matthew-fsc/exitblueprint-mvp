@@ -180,10 +180,20 @@ async function main() {
        values ($1, $2, 'loi_received', 'firm B event')`,
       [ids.firm_b, engagementB],
     );
+    // Branding is now admin-only to WRITE (20260721000200), so the per-firm rows
+    // are seeded here as the service role rather than by an advisor at test time.
     await db.query(
-      `insert into firm_branding (firm_id, display_name, accent_color)
-       values ($1, 'Firm B Wealth', '#123456')`,
-      [ids.firm_b],
+      `insert into firm_branding (firm_id, display_name, accent_color) values
+         ($1, 'Firm A Advisory', '#1f7a52'), ($2, 'Firm B Wealth', '#123456')`,
+      [ids.firm_a, ids.firm_b],
+    );
+    // Firm professional directory (20260721000100): one entry per firm, seeded as
+    // service role. Directory writes are admin-only; the entry drives the advisor
+    // read + link checks below.
+    await db.query(
+      `insert into firm_professionals (firm_id, full_name, kind) values
+         ($1, 'CPA Directory A', 'cpa'), ($2, 'CPA Directory B', 'cpa')`,
+      [ids.firm_a, ids.firm_b],
     );
     await db.query(
       `insert into roadmap_milestones (firm_id, engagement_id, track, title)
@@ -654,19 +664,28 @@ async function main() {
     }
     check('can emit a usage_event for own firm', ueInsertOk);
 
-    // firm_branding: advisor A writes+reads own firm, never sees firm B
-    await db.query(
-      `insert into firm_branding (firm_id, display_name, accent_color)
-       values ($1, 'Firm A Advisory', '#1f7a52')`,
-      [ids.firm_a],
-    );
-    check('can create own firm branding', true);
+    // firm_branding: advisor A READS own firm (never firm B), but can no longer
+    // WRITE — branding is an admin-only org control now (20260721000200).
     const brandingA = await db.query('select display_name from firm_branding');
     check(
       'sees only own firm branding',
       brandingA.rows.length === 1 && brandingA.rows[0].display_name === 'Firm A Advisory',
       `saw ${JSON.stringify(brandingA.rows)}`,
     );
+    let advBrandWriteBlocked = false;
+    try {
+      await db.query('savepoint abw');
+      const upd = await db.query(
+        `update firm_branding set display_name = 'advisor edit' where firm_id = $1`,
+        [ids.firm_a],
+      );
+      advBrandWriteBlocked = upd.rowCount === 0; // RLS filters the row out → 0 updated
+      await db.query('release savepoint abw');
+    } catch {
+      advBrandWriteBlocked = true;
+      await db.query('rollback to savepoint abw');
+    }
+    check('advisor cannot modify own firm branding (admin-only)', advBrandWriteBlocked);
     let brandBWriteBlocked = false;
     try {
       await db.query('savepoint bb');
@@ -681,6 +700,78 @@ async function main() {
       await db.query('rollback to savepoint bb');
     }
     check('cannot modify firm B branding', brandBWriteBlocked);
+
+    // firm_professionals (directory): advisor A READS the firm's directory, but
+    // WRITES are admin-only (20260721000100).
+    const dirA = await db.query('select id, full_name from firm_professionals');
+    check('advisor sees only own firm directory',
+      dirA.rows.length === 1 && dirA.rows[0].full_name === 'CPA Directory A', `saw ${JSON.stringify(dirA.rows)}`);
+    let advDirWriteBlocked = false;
+    try {
+      await db.query('savepoint apw');
+      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Sneaky', 'other')`, [ids.firm_a]);
+      await db.query('release savepoint apw');
+    } catch {
+      advDirWriteBlocked = true;
+      await db.query('rollback to savepoint apw');
+    }
+    check('advisor cannot write the firm directory (admin-only)', advDirWriteBlocked);
+
+    // engagement_professionals (deal-team link): staff CRUD — advisor A attaches a
+    // directory professional to an engagement in their firm. Rolled back so later
+    // count invariants are unaffected.
+    let advLinkOk = false;
+    try {
+      await db.query('savepoint epl');
+      await db.query(
+        `insert into engagement_professionals (firm_id, engagement_id, professional_id) values ($1, $2, $3)`,
+        [ids.firm_a, engagementA, dirA.rows[0].id],
+      );
+      advLinkOk = true;
+      await db.query('rollback to savepoint epl');
+    } catch {
+      await db.query('rollback to savepoint epl');
+    }
+    check('advisor can attach a directory professional to an engagement', advLinkOk);
+
+    // A firm B link is refused (firm isolation on the staff CRUD policy).
+    let linkFirmBBlocked = false;
+    try {
+      await db.query('savepoint eplb');
+      await db.query(
+        `insert into engagement_professionals (firm_id, engagement_id, professional_id) values ($1, $2, $3)`,
+        [ids.firm_b, engagementB, dirA.rows[0].id],
+      );
+      await db.query('release savepoint eplb');
+    } catch {
+      linkFirmBBlocked = true;
+      await db.query('rollback to savepoint eplb');
+    }
+    check('advisor cannot attach a professional to a firm B engagement', linkFirmBBlocked);
+
+    // Engagement ownership is server-authoritative: a direct advisor UPDATE of
+    // advisor_id is frozen by the guard trigger (20260721000200), while other
+    // engagement columns still update normally.
+    let reassignBlocked = false;
+    try {
+      await db.query('savepoint rea');
+      await db.query(`update engagements set advisor_id = gen_random_uuid() where id = $1`, [engagementA]);
+      await db.query('release savepoint rea');
+    } catch {
+      reassignBlocked = true;
+      await db.query('rollback to savepoint rea');
+    }
+    check('advisor cannot reassign an engagement owner directly (trigger)', reassignBlocked);
+    let statusUpdateOk = false;
+    try {
+      await db.query('savepoint stu');
+      await db.query(`update engagements set status = 'paused' where id = $1`, [engagementA]);
+      statusUpdateOk = true;
+      await db.query('rollback to savepoint stu');
+    } catch {
+      await db.query('rollback to savepoint stu');
+    }
+    check('advisor can still update other engagement fields', statusUpdateOk);
 
     // roadmap_milestones: advisor A writes+reads own firm, never sees firm B
     await db.query(
@@ -1100,14 +1191,61 @@ async function main() {
     }
     check('admin cannot insert a company into firm B', admFirmBWriteBlocked);
 
+    // Org controls: the admin (and only the admin) writes branding + the directory.
+    let admBrandWriteOk = false;
+    try {
+      await db.query('savepoint abr');
+      const upd = await db.query(`update firm_branding set display_name = 'Firm A Advisory (edited)' where firm_id = $1`, [ids.firm_a]);
+      admBrandWriteOk = upd.rowCount === 1;
+      await db.query('rollback to savepoint abr');
+    } catch {
+      await db.query('rollback to savepoint abr');
+    }
+    check('admin can modify own firm branding', admBrandWriteOk);
+    let admDirWriteOk = false;
+    try {
+      await db.query('savepoint adr');
+      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Admin Added CPA', 'cpa')`, [ids.firm_a]);
+      admDirWriteOk = true;
+      await db.query('rollback to savepoint adr');
+    } catch {
+      await db.query('rollback to savepoint adr');
+    }
+    check('admin can add to the firm directory', admDirWriteOk);
+    let admDirFirmBBlocked = false;
+    try {
+      await db.query('savepoint adrb');
+      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Cross-firm CPA', 'cpa')`, [ids.firm_b]);
+      await db.query('release savepoint adrb');
+    } catch {
+      admDirFirmBBlocked = true;
+      await db.query('rollback to savepoint adrb');
+    }
+    check('admin cannot add to firm B directory', admDirFirmBBlocked);
+    // The reassignment guard is role-agnostic: even an admin changes ownership only
+    // through the server (assign-engagement, service role), never a direct update.
+    let admReassignBlocked = false;
+    try {
+      await db.query('savepoint area');
+      await db.query(`update engagements set advisor_id = gen_random_uuid() where id = $1`, [engagementA]);
+      await db.query('release savepoint area');
+    } catch {
+      admReassignBlocked = true;
+      await db.query('rollback to savepoint area');
+    }
+    check('even admin cannot reassign owner via direct update (server-only)', admReassignBlocked);
+
     // --- Unauthenticated: nothing ------------------------------------------
     console.log('unauthenticated:');
     await asUser(null);
     const coAnon = await db.query('select count(*)::int c from companies');
     check('sees no companies', coAnon.rows[0].c === 0);
   } finally {
-    await asSuper();
+    // Roll back FIRST: if the body threw, the transaction is aborted and any other
+    // command (including `reset role`) would fail with 25P02 and mask the real
+    // error. Rollback clears the aborted state, then role reset succeeds.
     await db.query('rollback');
+    await asSuper();
     await db.end();
   }
 
