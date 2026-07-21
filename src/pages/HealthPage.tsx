@@ -372,13 +372,28 @@ export default function HealthPage() {
         ))}
       </ul>
 
-      {/* Methodology bootstrap — shown only when no active rubric exists. The
-          action is superadmin-gated server-side; a non-superadmin gets a clear
-          403 ("platform superadmin required") surfaced below. */}
-      {methodologyMissing && (
+      {/* Methodology bootstrap & sync — always available, not just on an unseeded
+          DB. The seed is idempotent, so re-running it against an already-seeded
+          database pulls in methodology content added since it was last seeded
+          (new advisory-library items, plans, education, playbooks) — this is the
+          only in-app way to populate that new content. The action is
+          superadmin-gated server-side; a non-superadmin gets a clear 403
+          ("platform superadmin required") surfaced below. */}
+      {
         <div className="stack-sm">
+          <p className="check-detail">
+            {methodologyMissing
+              ? 'This database has no methodology loaded. Load it to enable assessments and populate the advisory library.'
+              : 'Re-sync to pull in methodology and advisory-library content added since this database was last seeded. Idempotent — existing rows are updated in place and new items are added.'}
+          </p>
           <button type="button" onClick={loadMethodology} disabled={seeding}>
-            {seeding ? 'Loading methodology…' : 'Load methodology'}
+            {seeding
+              ? methodologyMissing
+                ? 'Loading methodology…'
+                : 'Syncing methodology…'
+              : methodologyMissing
+                ? 'Load methodology'
+                : 'Re-sync methodology'}
           </button>
           {seedError && (
             <p className="check check-fail" role="alert">
@@ -389,7 +404,7 @@ export default function HealthPage() {
             <div className={`check check-${seedResult.ok ? 'ok' : 'fail'}`}>
               <span className="check-detail">
                 {seedResult.ok
-                  ? 'Methodology loaded — reload the app and start an assessment.'
+                  ? 'Methodology synced — reload the app to see the latest library and assessment content.'
                   : 'Loaded, but some row counts did not match the seed files (see below).'}
               </span>
               <ul className="check-list">
@@ -405,7 +420,7 @@ export default function HealthPage() {
             </div>
           )}
         </div>
-      )}
+      }
     </div>
   );
 }
