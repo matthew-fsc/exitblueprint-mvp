@@ -114,10 +114,10 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
     >
       {error && <ErrorState variant="inline" error={error} />}
       <div
-        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,20rem)', gap: '1.25rem', alignItems: 'start' }}
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,20rem)', gap: 'var(--space-5)', alignItems: 'start' }}
         className="settings-grid"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <label className="field">
             <span className="field-label">Display name</span>
             <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Cascade Wealth Partners" />
@@ -135,7 +135,7 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
                 type="color"
                 value={accentValid && accent ? accent : '#1f7a52'}
                 onChange={(e) => setAccent(e.target.value)}
-                style={{ width: '3rem', height: '2.4rem', padding: 2 }}
+                style={{ width: 'calc(var(--control-h) + var(--space-3))', height: 'var(--control-h)', padding: 'var(--space-1)' }}
                 aria-label="Accent color picker"
               />
               <input
@@ -180,16 +180,16 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
 
         <Card pad="lg">
           <span className="stat-block-label">Live preview</span>
-          <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <div style={accentValid && accent ? ({ ['--accent' as string]: accent } as React.CSSProperties) : undefined}>
               <FirmMark brand={previewBrand} />
-              <p className="ui-pageheader-sub" style={{ marginTop: '0.5rem' }}>{fromLine || 'Prepared by your firm'}</p>
-              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <p className="ui-pageheader-sub" style={{ marginTop: 'var(--space-2)' }}>{fromLine || 'Prepared by your firm'}</p>
+              <div style={{ marginTop: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                 <TierBadge tier="Sale Ready" />
                 <button style={{ background: 'var(--accent)' }}>Accent button</button>
               </div>
-              {disclosure && <p className="powered-by" style={{ marginTop: '0.9rem' }}>{disclosure}</p>}
-              <p className="powered-by" style={{ marginTop: '0.5rem' }}>Powered by Exit Blueprint</p>
+              {disclosure && <p className="powered-by" style={{ marginTop: 'var(--space-4)' }}>{disclosure}</p>}
+              <p className="powered-by" style={{ marginTop: 'var(--space-2)' }}>Powered by Exit Blueprint</p>
             </div>
           </div>
         </Card>

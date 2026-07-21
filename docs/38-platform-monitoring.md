@@ -209,14 +209,25 @@ dashboard UI, and turning on Sentry DSNs — those are operator/console actions.
 ## 6. The team dashboard
 
 `GET /internal/metrics` returns a single JSON document with `totals`, `product`,
-`business`, `security`, and `ops` blocks. Options to surface it, cheapest first:
+`business`, `security`, and `ops` blocks (plus the `corpus`/`moats` moat rails).
+Options to surface it, cheapest first:
 
-- **Metabase/Grafana over the `analytics` schema** (recommended) — point a BI tool
-  at the service-role connection, restricted to the `analytics` schema; every view
-  is chart-ready. No app code.
-- **A small internal `/admin/platform` page** — one superadmin-guarded React page
-  that renders the endpoint via the design system. Build only if we want it inside
-  the app.
+- **Metabase/Grafana over the `analytics` schema** (recommended for ad-hoc
+  slicing) — point a BI tool at the service-role connection, restricted to the
+  `analytics` schema; every view is chart-ready. No app code.
+- **The in-app Platform Console — BUILT.** A single self-contained superadmin
+  surface at **`/internal`** (`src/pages/PlatformConsolePage.tsx`, data +
+  pure helpers in `src/lib/platformConsole.ts`) that renders the whole endpoint
+  through the design system: at-a-glance totals, the **business-development**
+  readout (activation funnel, subscription units, and the firm account/churn
+  book — dormant firms first), product usage, the moat/business-plan KPIs, ops &
+  AI cost, and the security access log. Deliberately **independent of the tenant
+  product**: its own route and chrome (no advisor `Shell`/firm branding), read-
+  only, and it imports no tenant query hooks — it only reads the rail. Not linked
+  from any tenant nav; navigate to it directly. The server's
+  `PLATFORM_SUPERADMIN_IDS` gate is the real authority (a signed-in non-superadmin
+  just sees an access card); the page's `RequireAuth` wrapper only checks "signed
+  in."
 - **A scheduled digest** — an n8n job hits `/internal/metrics` daily and posts the
   headline numbers to Slack.
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   functionsBaseUrl,
   functionsUrlConfigured,
@@ -306,6 +307,7 @@ export default function HealthPage() {
     { name: 'Methodology', state: 'pending', detail: 'checking…' },
     { name: 'Profile linkage', state: 'pending', detail: 'checking…' },
   ]);
+  const navigate = useNavigate();
   const [methodologyMissing, setMethodologyMissing] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState<SeedResult | null>(null);
@@ -372,13 +374,43 @@ export default function HealthPage() {
         ))}
       </ul>
 
-      {/* Methodology bootstrap — shown only when no active rubric exists. The
-          action is superadmin-gated server-side; a non-superadmin gets a clear
-          403 ("platform superadmin required") surfaced below. */}
-      {methodologyMissing && (
+      {/* Superadmin controls — grouped together at the bottom, apart from the
+          read-only diagnostics above. Every action here is superadmin-gated
+          server-side (a non-superadmin gets an access card / a clear 403). */}
+      <section className="stack-sm">
+        <h3 className="section-heading">Superadmin controls</h3>
+
+        {/* Platform Console — the metrics & business-development analytics
+            surface at /internal (superadmin-gated; a non-superadmin lands on its
+            access card). */}
         <div className="stack-sm">
+          <p className="check-detail">
+            Platform metrics &amp; business-development analytics.
+          </p>
+          <button type="button" onClick={() => navigate('/internal')}>
+            Open platform console
+          </button>
+        </div>
+
+        {/* Methodology bootstrap & sync — idempotent; re-running against an
+            already-seeded DB pulls in methodology/advisory-library content added
+            since it was last seeded (new library items, plans, education,
+            playbooks). Superadmin-gated server-side; a non-superadmin gets a
+            clear 403 surfaced below. */}
+        <div className="stack-sm">
+          <p className="check-detail">
+            {methodologyMissing
+              ? 'This database has no methodology loaded. Load it to enable assessments and populate the advisory library.'
+              : 'Re-sync to pull in methodology and advisory-library content added since this database was last seeded. Idempotent — existing rows are updated in place and new items are added.'}
+          </p>
           <button type="button" onClick={loadMethodology} disabled={seeding}>
-            {seeding ? 'Loading methodology…' : 'Load methodology'}
+            {seeding
+              ? methodologyMissing
+                ? 'Loading methodology…'
+                : 'Syncing methodology…'
+              : methodologyMissing
+                ? 'Load methodology'
+                : 'Re-sync methodology'}
           </button>
           {seedError && (
             <p className="check check-fail" role="alert">
@@ -389,7 +421,7 @@ export default function HealthPage() {
             <div className={`check check-${seedResult.ok ? 'ok' : 'fail'}`}>
               <span className="check-detail">
                 {seedResult.ok
-                  ? 'Methodology loaded — reload the app and start an assessment.'
+                  ? 'Methodology synced — reload the app to see the latest library and assessment content.'
                   : 'Loaded, but some row counts did not match the seed files (see below).'}
               </span>
               <ul className="check-list">
@@ -405,7 +437,7 @@ export default function HealthPage() {
             </div>
           )}
         </div>
-      )}
+      </section>
     </div>
   );
 }

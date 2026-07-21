@@ -12,7 +12,7 @@ import {
   type AddbackRow,
 } from '../lib/queries';
 import { Card, EmptyState, EngagementNav, ErrorState, MoneyInput, PageHeader, SectionCard, SkeletonLines, useToast } from '../components/ui';
-import { fmtCurrency, fmtCurrencyCompact } from '../lib/format';
+import { fmtCurrency, fmtCurrencyCompact, humanizeKey } from '../lib/format';
 import { engagementCrumbs } from '../lib/nav';
 
 const INDUSTRIES = [
@@ -32,6 +32,21 @@ const CHALLENGE = [
 ] as const;
 
 const DEFENSIBLE = new Set(['low', 'medium']);
+
+// size_band keys are coded revenue/EBITDA ranges (e.g. lt_1m, 1m_5m, gt_5m).
+// Render them as legible money ranges rather than raw snake_case.
+function fmtSizeBand(band: string | null | undefined): string {
+  if (!band) return '—';
+  const money = (t: string) => {
+    const m = t.match(/^(\d+(?:\.\d+)?)([mk])$/i);
+    return m ? `$${m[1]}${m[2].toUpperCase()}` : t;
+  };
+  const parts = band.split('_');
+  if (parts[0] === 'lt' && parts[1]) return `< ${money(parts[1])}`;
+  if (parts[0] === 'gt' && parts[1]) return `> ${money(parts[1])}`;
+  if (parts.length === 2) return `${money(parts[0])}–${money(parts[1])}`;
+  return parts.map(money).join('–');
+}
 
 export default function ValuationPage() {
   const { engagementId } = useParams();
@@ -157,8 +172,8 @@ export default function ValuationPage() {
                   </div>
                   <p className="muted val-ev-basis">
                     {fmtCurrency(val.defensible_ebitda)} defensible EBITDA × {val.base_multiple.toFixed(1)}×{' '}
-                    ({INDUSTRIES.find((i) => i[0] === val.industry_key)?.[1] ?? val.industry_key}, {val.size_band.replace('_', '–').replace('lt', '<')})
-                    {' · '}readiness ×{val.readiness_factor} · {val.verification_tier.replace('_', ' ')} range ±{Math.round(val.range_width * 100)}%
+                    ({INDUSTRIES.find((i) => i[0] === val.industry_key)?.[1] ?? val.industry_key}, {fmtSizeBand(val.size_band)})
+                    {' · '}readiness ×{val.readiness_factor} · {humanizeKey(val.verification_tier)} range ±{Math.round(val.range_width * 100)}%
                   </p>
                 </div>
                 <div className="val-gaps">

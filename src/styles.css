@@ -3167,8 +3167,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .field-label { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
 .field-hint { font-size: 0.76rem; color: var(--text-muted); }
 @media (max-width: 760px) {
-  .settings-grid { grid-template-columns: 1fr !important; }
-  .team-invite-row { grid-template-columns: 1fr !important; }
+  /* minmax(0, 1fr), not bare 1fr: a bare 1fr track has an auto (min-content)
+     minimum, so a wide child (a long unbroken value, a file input) can force the
+     column past the viewport and spill the form sideways. The 0 minimum lets the
+     column shrink to fit. */
+  .settings-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .team-invite-row { grid-template-columns: minmax(0, 1fr) !important; }
 }
 
 /* Preserve fixed tier + status colors when printing client-facing artifacts */
@@ -3462,6 +3466,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 /* The panel below the sub-tabs gets a little air so the switch reads cleanly. */
 .subtabs-panel {
   margin-top: var(--space-4);
+}
+/* Inside .report (Deliverables), the flex `gap` already spaces the panel, so the
+   panel's own margin-top would double it. Neutralise the margin only in that
+   context; other pages' SubTabs keep the global spacing above. */
+.report .subtabs-panel {
+  margin-top: 0;
 }
 
 /* ---- work-stream progress rail (docs/archive/22) ----
@@ -3955,11 +3965,43 @@ summary:focus-visible,
 select {
   appearance: none;
   -webkit-appearance: none;
+  /* Let the native option popup follow the active theme rather than the OS. */
+  color-scheme: light dark;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a968c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   padding-right: 2.1rem;
   cursor: pointer;
+}
+/* The open option list is a native popup: without explicit colors it falls back
+   to OS defaults, which renders near-black-on-near-black in the dark theme. Pin
+   it to token surfaces so it stays legible in both themes. */
+select option {
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+select option:checked,
+select option:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+/* The chevron data-URI stroke is baked in, so its color can't reference a token.
+   Swap in a lighter stroke under the dark theme (explicit toggle + prefers-dark
+   when no explicit light toggle is set) so it isn't low-contrast on dark surfaces. */
+/* These overrides are more specific than any per-surface select rule, so they
+   also re-assert repeat/position: if a per-surface rule uses the `background`
+   shorthand (which resets those), the image alone would otherwise tile. */
+:root[data-theme='dark'] select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8c4ba' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8c4ba' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+  }
 }
 input,
 select,
@@ -4282,7 +4324,10 @@ textarea:focus {
 .advisory-filters { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .advisory-filters select, .advisory-filters input[type="search"] {
   padding: 0.4rem 0.6rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface-1); color: inherit; font-size: 0.9rem;
+  /* background-color, not the `background` shorthand: the shorthand resets
+     background-repeat/position, which makes the base select's chevron tile
+     across the whole control in dark theme (and vanish in light). */
+  background-color: var(--surface-1); color: inherit; font-size: 0.9rem;
 }
 .advisory-filters input[type="search"] { flex: 1; min-width: 12rem; }
 .advisory-filters-count { margin-left: auto; font-size: 0.85rem; }
@@ -4291,7 +4336,8 @@ textarea:focus {
 .advisory-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; }
 .advisory-form input, .advisory-form select, .advisory-form textarea {
   padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface-1); color: inherit; font: inherit; font-weight: 400;
+  /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
+  background-color: var(--surface-1); color: inherit; font: inherit; font-weight: 400;
 }
 .advisory-form textarea { resize: vertical; }
 .advisory-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
@@ -5120,7 +5166,11 @@ button {
   letter-spacing: -0.005em;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1.5px rgba(18, 40, 30, 0.12);
 }
-button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
+/* The transparent text-style buttons (sortable table headers, disclosure
+   toggles, danger links) are reset to no fill above; keep them excluded here too
+   or this later, higher-specificity gradient re-paints them as faint raised
+   boxes — which read as "weirdly shadowed" columns in table headers. */
+button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not(.comparison-toggle):not(.advisory-item-toggle):not(.button-danger-link):not(.learn-head) {
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.04));
 }
 .btn-secondary, .btn-ghost, .linkish { box-shadow: none; background-image: none; }
@@ -5207,7 +5257,8 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 .plan-item-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .plan-item-row select, .plan-item-row input {
   padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text-primary); font: inherit;
+  /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
+  background-color: var(--surface); color: var(--text-primary); font: inherit;
 }
 .plan-apply-row {
   display: flex; gap: var(--space-3); align-items: flex-end; flex-wrap: wrap;
@@ -5216,7 +5267,8 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 .plan-apply-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; }
 .plan-apply-row select, .plan-apply-row input {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text-primary); font: inherit;
+  /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
+  background-color: var(--surface); color: var(--text-primary); font: inherit;
 }
 
 /* Applied-plan progress bars (docs/37 PL4) */

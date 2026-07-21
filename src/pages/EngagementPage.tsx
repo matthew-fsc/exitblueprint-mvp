@@ -11,6 +11,7 @@ import { buildWorkstreamProgress } from '../lib/workstreams';
 import {
   qk,
   useAssessmentsByEngagement,
+  useEvidenceCoverage,
   useCompany,
   useCompare,
   useEngagement,
@@ -56,10 +57,8 @@ import {
   type PacePoint,
   type SubTab,
 } from '../components/ui';
-import { VerificationCard } from '../components/VerificationCard';
 import { EngagementTeamCard } from '../components/EngagementTeamCard';
 import { EngagementComments } from '../components/EngagementComments';
-import { EngagementProfessionalsCard } from '../components/EngagementProfessionalsCard';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -124,7 +123,15 @@ export default function EngagementPage() {
   const latest = completed[completed.length - 1] ?? null;
   const gapsQ = useEngagementGaps(engagementId, latest?.rubric_version_id);
   const burndownQ = useGapBurndown(engagementId, latest?.rubric_version_id);
+  // Two DISTINCT verification signals, kept separate on purpose:
+  //  • verifQ (answer_provenance, assessment-scoped) — share of FINANCIAL inputs
+  //    backed by documents/ledger. Drives the "financials verified" snapshot chip.
+  //  • coverageQ (evidence-coverage, engagement-scoped) — share of the diligence
+  //    binder that is PROVEN (Ready AND its linked document verified). This is the
+  //    same metric the Evidence surface headlines, so the Overview work-stream
+  //    meter and the Evidence page always agree. Drives the Evidence WORK-STREAM meter.
   const verifQ = useVerification(latest?.id);
+  const coverageQ = useEvidenceCoverage(engagementId);
   const explainQ = useExplain(latest?.id);
   const valuationQ = useValuation(engagementId);
   const logQ = useEngagementLog(engagementId);
@@ -279,7 +286,13 @@ export default function EngagementPage() {
     openGapCount: gapsQ.data?.length ?? 0,
     tasksTotal: tasksQ.data?.length ?? 0,
     tasksDone: (tasksQ.data ?? []).filter((t) => t.status === 'done').length,
-    verifiedPct: verifQ.data?.pct ?? null,
+    // The Evidence stream is the whole binder, so it reads the engagement-level
+    // evidence-coverage "proven" % — NOT the narrow financial answer-provenance %
+    // (that stays on the "financials verified" snapshot chip below). The input
+    // field is named verifiedPct for compatibility; its meaning here is the proven
+    // binder-coverage share (Ready AND document-verified), the same figure the
+    // Evidence surface headlines.
+    verifiedPct: coverageQ.data?.pct ?? null,
     valuationSet: !!valuationQ.data?.has_recast,
     valueGap: valuationQ.data?.value_creation_gap ?? null,
     reportDraftCount: documents.filter((d) => !d.finalized_at).length,
@@ -368,10 +381,12 @@ export default function EngagementPage() {
           To remove the engagement entirely, use “Delete engagement” below.
         </p>
       </SectionCard>
-      <EngagementTeamCard engagementId={engagementId!} companyId={engagement.company_id} />
+      <EngagementTeamCard
+        engagementId={engagementId!}
+        companyId={engagement.company_id}
+        firmId={engagement.firm_id}
+      />
       <EngagementComments engagementId={engagementId!} />
-      <EngagementProfessionalsCard engagementId={engagementId!} firmId={engagement.firm_id} />
-      {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
       <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
       <DeleteEngagementCard
         engagementId={engagementId!}
@@ -451,9 +466,9 @@ export default function EngagementPage() {
                     {verifQ.data && (
                       <span
                         className={`verif-chip verif-tier-${verifQ.data.tier === 'document_verified' ? 'high' : verifQ.data.tier === 'partly_verified' ? 'mid' : 'low'}`}
-                        title="Share of financial inputs backed by documents or a connected ledger"
+                        title="Share of financial inputs backed by documents or a connected ledger. Whole-binder evidence coverage is tracked separately on the Evidence work stream above."
                       >
-                        {verifQ.data.pct}% verified
+                        {verifQ.data.pct}% financials verified
                       </span>
                     )}
                   </div>

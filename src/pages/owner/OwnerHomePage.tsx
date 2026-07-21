@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useOwnerContext } from '../../lib/owner';
 import { useExplain, useEngagementGaps, useValuation, useVerification } from '../../lib/queries';
-import { Card, EmptyState, ErrorState, GapSeverityChip, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
+import { Card, EmptyState, ErrorState, GapSeverityChip, PageHeader, ScoreDial, SectionCard, SkeletonLines, TierBadge } from '../../components/ui';
 import { EngagementComments } from '../../components/EngagementComments';
 import { fmtCurrencyCompact, fmtScore } from '../../lib/format';
 
@@ -92,8 +92,7 @@ export default function OwnerHomePage() {
       </div>
 
       {val?.has_recast && (
-        <Card>
-          <span className="stat-block-label">What your business could be worth</span>
+        <SectionCard title="What your business could be worth">
           <div className="owner-value">
             <div className="owner-value-main">
               <span className="owner-value-num">{fmtCurrencyCompact(val.ev_base)}</span>
@@ -114,18 +113,17 @@ export default function OwnerHomePage() {
               </div>
             )}
           </div>
-          <p className="muted text-sm" style={{ margin: '0.7rem 0 0', fontStyle: 'italic' }}>
+          <p className="muted text-sm" style={{ margin: 'var(--space-3) 0 0', fontStyle: 'italic' }}>
             An estimate to guide planning — not an appraisal. Finishing your plan is worth about{' '}
             {fmtCurrencyCompact(val.value_creation_gap)} more in enterprise value.
           </p>
-        </Card>
+        </SectionCard>
       )}
 
       <div className="owner-grid">
-        <Card>
-          <span className="stat-block-label">What we're focused on</span>
+        <SectionCard title="What we're focused on">
           {topGaps.length === 0 ? (
-            <p className="muted" style={{ marginTop: '0.6rem' }}>No open priorities right now.</p>
+            <p className="muted" style={{ marginTop: 'var(--space-3)' }}>No open priorities right now.</p>
           ) : (
             <ul className="owner-priorities">
               {topGaps.map((g) => (
@@ -137,10 +135,9 @@ export default function OwnerHomePage() {
             </ul>
           )}
           <Link className="owner-more" to="/portal/plan">See the full plan →</Link>
-        </Card>
+        </SectionCard>
 
-        <Card>
-          <span className="stat-block-label">Your workspace</span>
+        <SectionCard title="Your workspace">
           <div className="owner-links">
             <Link className="owner-link" to="/portal/plan">
               <span className="owner-link-title">Your plan</span>
@@ -155,7 +152,7 @@ export default function OwnerHomePage() {
               <span className="owner-link-sub">Your readiness reports</span>
             </Link>
           </div>
-        </Card>
+        </SectionCard>
       </div>
 
       <EngagementComments engagementId={engagement.id} />

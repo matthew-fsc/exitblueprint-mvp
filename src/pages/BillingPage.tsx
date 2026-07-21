@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { useAsyncAction } from '../lib/useAsyncAction';
-import { fmtDate } from '../lib/format';
+import { fmtDate, humanizeKey } from '../lib/format';
 import {
   Card,
   EmptyState,
@@ -75,8 +75,7 @@ const FEATURE_LABEL: Record<string, string> = {
   branding: 'Firm branding',
   priority_support: 'Priority support',
 };
-const featureLabel = (key: string) =>
-  FEATURE_LABEL[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const featureLabel = (key: string) => FEATURE_LABEL[key] ?? humanizeKey(key);
 
 function CheckIcon() {
   return (
@@ -175,7 +174,7 @@ export default function BillingPage() {
     return (
       <div className="stack-lg">
         {header}
-        <ErrorState variant="inline" error={(error as Error).message} />
+        <ErrorState variant="inline" error={error} />
       </div>
     );
   }
@@ -213,7 +212,7 @@ export default function BillingPage() {
           ) : undefined
         }
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
           <span className={`status-chip ${meta.cls}`}>{meta.label}</span>
           {sub?.cancel_at_period_end && (
             <span className="status-chip status-warning">Cancels at period end</span>
@@ -241,7 +240,7 @@ export default function BillingPage() {
             title="No active subscription"
             action={
               plans.length > 0 ? (
-                <p className="muted" style={{ marginTop: '0.5rem' }}>
+                <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
                   Choose a plan below to activate your firm's workspace.
                 </p>
               ) : undefined

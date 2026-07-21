@@ -58,7 +58,7 @@ import {
 } from './documents/pipeline';
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
-import { attachDataRoomDocument, listDataRoom, setDataRoomItem } from './data-room';
+import { attachDataRoomDocument, evidenceCoverage, listDataRoom, setDataRoomItem } from './data-room';
 import { buildCimCoverage } from './cim';
 import { engagementComparables } from './comparables';
 import {
@@ -465,6 +465,14 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'engagement',
     // Read-only: which CIM sections are backed by Ready/verified evidence.
     handler: ({ service, body }) => buildCimCoverage(service, body.engagement_id as string).then(ok),
+  },
+  'evidence-coverage': {
+    engine: 'knowledge',
+    scope: 'engagement',
+    // Read-only: the single "diligence binder" figure — how many applicable
+    // items are proven (Ready + a verified document). Powers the Evidence
+    // masthead headline; the caller is already authorized on the engagement.
+    handler: ({ service, body }) => evidenceCoverage(service, body.engagement_id as string).then(ok),
   },
   'set-data-room-item': {
     engine: 'knowledge',

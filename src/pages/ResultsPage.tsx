@@ -17,6 +17,7 @@ import {
   EngagementNav,
   PageSection,
   EmptyState,
+  ErrorState,
   GapSeverityChip,
   PageHeader,
   ScoreDial,
@@ -99,9 +100,15 @@ export default function ResultsPage() {
   }
   if (assessmentQ.error || explainQ.error) {
     return (
-      <EmptyState icon="warning" title="Couldn’t load results">
-        {(assessmentQ.error ?? explainQ.error)?.message}
-      </EmptyState>
+      <ErrorState
+        variant="section"
+        title="Couldn’t load results"
+        error={assessmentQ.error ?? explainQ.error}
+        onRetry={() => {
+          assessmentQ.refetch();
+          explainQ.refetch();
+        }}
+      />
     );
   }
   if (!assessment || !explain) return <EmptyState title="Results not available" />;
@@ -375,7 +382,7 @@ export default function ResultsPage() {
       </PageSection>
 
       <PageSection title="Owner readiness" note="Scored separately from the business">
-        <p className="section-sub muted" style={{ marginTop: 0 }}>
+        <p className="section-sub muted mt-0">
           A ready business and an unready owner is a common — and important — mismatch.
         </p>
         <div className="dimension-list">
