@@ -57,14 +57,17 @@ Canonical register: `seed/subprocessors.csv`.
 
 | Subprocessor | Purpose | Data |
 | --- | --- | --- |
-| **Supabase** | Database, authentication, storage | All client records (encrypted at rest, RLS-isolated) |
-| **Vercel** | Frontend hosting + serverless compute (functions, PDF) | Transient, per-request |
+| **Supabase** | Postgres database, row-level security, storage | All client records (encrypted at rest, RLS-isolated) |
+| **Clerk** | Identity provider — authentication, MFA, org/user management | User identity + session data; no client business records |
+| **Render** | Compute service hosting (valuation, report + PDF render, webhooks) | Transient, per-request |
+| **Vercel** | Static frontend hosting (Vite single-page app) | Serves the browser app; no client data at rest |
+| **Stripe** | Subscription billing + payments for advisor firms | Firm billing/payment data; no client assessment records |
 | **Anthropic** | AI narrative drafted from structured data | Report inputs only — **never** used to compute or influence a score |
 
 ## Business continuity
 
 Managed Postgres backups + point-in-time recovery (Supabase); stateless,
-redeployable-from-git compute; redundant edge hosting (Vercel). Full BCP/DR and
+redeployable-from-git compute (Render); static frontend hosting (Vercel). Full BCP/DR and
 the complete vendor-DD response: **docs/16-vendor-security-dd.md**.
 
 ## Configuration checklist (production)
@@ -74,4 +77,4 @@ the complete vendor-DD response: **docs/16-vendor-security-dd.md**.
 - `EB_STORAGE=supabase` + `SUPABASE_SERVICE_ROLE_KEY` — move encrypted bytes to the
   private Storage bucket (created by the `20260720000400` migration). Optional.
 - `EB_SCANNER=clamav` + `EB_CLAMD_HOST`/`EB_CLAMD_PORT` — enable malware scanning. Optional.
-- MFA enforced by the hosted Supabase project (the local dev stack bypasses it).
+- MFA enforced by Clerk, the identity provider (the local dev emulator bypasses it).
