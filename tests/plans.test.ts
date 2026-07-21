@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
 import { findReassessmentReady } from '../server/scheduled';
-import { reconcileEngagementPlans, recommendPlans } from '../server/plans';
+import { autoApplyQualifyingPlans, reconcileEngagementPlans, recommendPlans } from '../server/plans';
 import { acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
@@ -107,6 +107,12 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(`delete from tasks where firm_id = $1`, [firmId]);
     await service.query(`delete from engagement_plans where firm_id = $1`, [firmId]);
     await service.query(`delete from gaps where firm_id = $1`, [firmId]);
+    // dimension_scores (seeded by the initiative-recommendation test) FK to
+    // assessments, so clear them before the assessments they hang off.
+    await service.query(
+      `delete from dimension_scores where assessment_id in (select id from assessments where firm_id = $1)`,
+      [firmId],
+    );
     await service.query(`delete from assessments where firm_id = $1`, [firmId]);
     await service.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await service.query(`delete from engagements where firm_id = $1`, [firmId]);
@@ -117,7 +123,8 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(`delete from playbook_task_templates where playbook_id = $1`, [playbookId]);
     await service.query(`delete from advisory_library_items where firm_id = any($1)`, [[firmId, otherFirmId]]);
     await service.query(`delete from content_modules where code = 'PL-TEST-CM'`);
-    await service.query(`delete from playbooks where code = 'PL-TEST-PB'`);
+    // PL-TEST-PB plus the extra non-gap-mapped playbooks the auto-apply test adds.
+    await service.query(`delete from playbooks where code like 'PL-TEST-PB%'`);
     await service.query(`delete from profiles where user_id = $1`, [advisorUserId]);
     await service.query(`delete from firms where id = any($1)`, [[firmId, otherFirmId]]);
     await service.end();
@@ -545,5 +552,135 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await handleFunctionCall('apply-plan', { engagement_id: eng6, plan_template_id: planId }, ctxFor(advisorUserId));
     const after = await recommendPlans(service, eng6);
     expect(after.recommendations.find((r) => r.plan_template_id === planId)).toBeUndefined();
+  });
+
+  it('recommends a plan whose advisory item is a fired initiative (Q5, initiative arm)', async () => {
+    const dim = (await service.query(`select id, code from dimensions limit 1`)).rows[0];
+    const companyId7 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Initiative Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng7 = (
+      await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId7])
+    ).rows[0].id;
+    await acceptAgreement(service, eng7);
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const a1 = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
+         values ($1, $2, $3, 1, 'completed', now()) returning id`,
+        [firmId, eng7, rv],
+      )
+    ).rows[0].id;
+    // A low dimension score so an initiative triggered on that dimension fires.
+    await service.query(`insert into dimension_scores (assessment_id, dimension_id, score) values ($1, $2, 20)`, [a1, dim.id]);
+    const initiativeId = (
+      await service.query(
+        `insert into advisory_library_items
+           (firm_id, source, item_type, active, title, body, dimension_code, score_trigger)
+         values ($1, 'advisor', 'initiative', true, 'Fireable Initiative', 'x', $2, 100) returning id`,
+        [firmId, dim.code],
+      )
+    ).rows[0].id;
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Initiative Plan', status: 'active', items: [{ kind: 'advisory', advisory_library_item_id: initiativeId }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+
+    const rec = (await recommendPlans(service, eng7)).recommendations.find((r) => r.plan_template_id === planId);
+    expect(rec).toBeDefined();
+    // Matched via the fired initiative, not a gap.
+    expect(rec!.matched_initiative_count).toBeGreaterThanOrEqual(1);
+    expect(rec!.matched_gap_count).toBe(0);
+    expect(rec!.matched_initiative_titles).toContain('Fireable Initiative');
+    expect(rec!.match_score).toBeGreaterThanOrEqual(1);
+  });
+
+  it('auto-applies a plan whose playbooks mostly target open gaps, skips a mostly-off-target one (Q5b)', async () => {
+    const map = (
+      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+    ).rows[0];
+    // Two extra playbooks with NO gap mapping, so plans mixing them dilute coverage.
+    const ng1 = (
+      await service.query(`insert into playbooks (code, name, version) values ('PL-TEST-PB-NG1', 'No-gap PB 1', 1) returning id`)
+    ).rows[0].id;
+    const ng2 = (
+      await service.query(`insert into playbooks (code, name, version) values ('PL-TEST-PB-NG2', 'No-gap PB 2', 1) returning id`)
+    ).rows[0].id;
+    // Give the matching playbook a task template so application materializes a task.
+    await service.query(
+      `insert into playbook_task_templates (playbook_id, title, default_owner_role, sequence, target_offset_days)
+       values ($1, 'gap task', 'owner', 1, 0) on conflict do nothing`,
+      [map.playbook_id],
+    );
+
+    const companyId8 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'AutoApply Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng8 = (
+      await service.query(`insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`, [firmId, companyId8])
+    ).rows[0].id;
+    await acceptAgreement(service, eng8);
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const a1 = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
+         values ($1, $2, $3, 1, 'completed', now()) returning id`,
+        [firmId, eng8, rv],
+      )
+    ).rows[0].id;
+    await service.query(
+      `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
+       values ($1, $2, $3, $4, 'open')`,
+      [firmId, eng8, map.gap_definition_id, a1],
+    );
+
+    // Qualifying: 1 of 2 playbook items map to the open gap → 50% ≥ threshold.
+    const majorityPlan = (
+      (await handleFunctionCall(
+        'create-plan',
+        { name: 'Majority Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }, { kind: 'playbook', playbook_id: ng1 }] },
+        ctxFor(advisorUserId),
+      )) as { body: PlanBody }
+    ).body.id;
+    // Not qualifying: 1 of 3 playbook items map → 33% < threshold.
+    const minorityPlan = (
+      (await handleFunctionCall(
+        'create-plan',
+        {
+          name: 'Minority Plan',
+          status: 'active',
+          items: [
+            { kind: 'playbook', playbook_id: map.playbook_id },
+            { kind: 'playbook', playbook_id: ng1 },
+            { kind: 'playbook', playbook_id: ng2 },
+          ],
+        },
+        ctxFor(advisorUserId),
+      )) as { body: PlanBody }
+    ).body.id;
+
+    const res = await autoApplyQualifyingPlans(service, eng8, advisorUserId, null);
+    const appliedIds = res.applied.map((p) => p.plan_template_id);
+    expect(appliedIds).toContain(majorityPlan);
+    expect(appliedIds).not.toContain(minorityPlan);
+
+    // The majority plan really landed as an applied engagement_plan that touched
+    // the gap playbook's tasks (created them, or claimed ones a seed plan made
+    // first — either way its summary reflects the work).
+    const majoritySummary = res.applied.find((p) => p.plan_template_id === majorityPlan)!;
+    expect(majoritySummary.tasks_created + majoritySummary.tasks_claimed).toBeGreaterThanOrEqual(1);
+    const ep = (
+      await service.query(
+        `select id from engagement_plans where engagement_id = $1 and plan_template_id = $2 and status <> 'removed'`,
+        [eng8, majorityPlan],
+      )
+    ).rows[0];
+    expect(ep).toBeDefined();
+
+    // Idempotent: a second pass applies nothing new (majority already applied).
+    const res2 = await autoApplyQualifyingPlans(service, eng8, advisorUserId, null);
+    expect(res2.applied.map((p) => p.plan_template_id)).not.toContain(majorityPlan);
   });
 });

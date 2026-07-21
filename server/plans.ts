@@ -10,6 +10,7 @@
 // Plan mints a new lineage version) and applying a Plan to an engagement (PL3,
 // applyPlan at the bottom).
 import type pg from 'pg';
+import { fireAdvisoryItems } from './advisory';
 
 const ITEM_KINDS = ['playbook', 'education', 'advisory', 'milestone', 'manual_task'] as const;
 type ItemKind = (typeof ITEM_KINDS)[number];
@@ -697,17 +698,28 @@ export async function reconcileEngagementPlans(
 }
 
 // ── Q5: score-driven Plan recommendation ─────────────────────────────────────
-// Which Plans would help this engagement right now — the ones whose playbook
-// items target the engagement's OPEN gaps (via gap_playbook_map), ranked by how
-// many gaps they cover. Plans already applied (any version, by lineage) are
-// excluded. Read-only over the deterministic gap state; never writes a score or
-// gap (rules 1 & 4). Mirrors advisory.ts firing, but keyed on gaps, not triggers.
+// Which Plans would help this engagement right now — surfaced from two
+// deterministic signals it already computes:
+//   • GAPS — the Plan's playbook items target the engagement's OPEN gaps
+//     (via gap_playbook_map), as before.
+//   • INITIATIVES — the Plan's advisory items reference an initiative that has
+//     FIRED for the latest assessment (advisory.ts, item_type='initiative',
+//     score ≤ score_trigger). This lets a Plan built around coaching/initiative
+//     content be recommended even when it carries no gap-mapped playbook.
+// Ranked by combined coverage (gaps + initiatives). Plans already applied (any
+// version, by lineage) are excluded. Read-only over the deterministic gap +
+// score state; never writes a score or gap (rules 1 & 4). Mirrors advisory.ts
+// firing, keyed on gaps and fired initiatives rather than raw triggers.
 export interface PlanRecommendation {
   plan_template_id: string;
   name: string;
   is_system: boolean;
   matched_gap_count: number;
   matched_gap_codes: string[];
+  matched_initiative_count: number;
+  matched_initiative_titles: string[];
+  // Combined coverage, the primary rank key (gaps + initiatives).
+  match_score: number;
 }
 
 export async function recommendPlans(
@@ -716,6 +728,17 @@ export async function recommendPlans(
 ): Promise<{ recommendations: PlanRecommendation[] }> {
   const eng = (await db.query(`select firm_id from engagements where id = $1`, [engagementId])).rows[0];
   if (!eng) throw new Error('engagement not found');
+
+  // The initiatives that have fired for this engagement's latest assessment —
+  // reuse the advisory firing engine verbatim (single source of truth) and keep
+  // only item_type='initiative'. Empty when the engagement has no completed
+  // assessment; the gap arm still recommends on its own.
+  const fired = await fireAdvisoryItems(db, engagementId);
+  const initiativeIds = fired.items.filter((i) => i.item_type === 'initiative').map((i) => i.id);
+
+  // Per-plan coverage of each signal via correlated subqueries (a single joined
+  // aggregate would fan out gaps × initiatives and double-count). A Plan is a
+  // candidate when it covers at least one gap OR one fired initiative.
   const rows = (
     await db.query(
       `with open_gaps as (
@@ -732,29 +755,145 @@ export async function recommendPlans(
          pt.id as plan_template_id,
          pt.name,
          (pt.firm_id is null) as is_system,
-         count(distinct og.gap_definition_id) as matched_gap_count,
-         array_agg(distinct gd.code) as matched_gap_codes
+         (select count(distinct gpm.gap_definition_id)
+            from plan_template_items pti
+            join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
+            join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
+            where pti.plan_template_id = pt.id and pti.item_kind = 'playbook') as matched_gap_count,
+         (select coalesce(array_agg(distinct gd.code), '{}')
+            from plan_template_items pti
+            join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
+            join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
+            join gap_definitions gd on gd.id = og.gap_definition_id
+            where pti.plan_template_id = pt.id and pti.item_kind = 'playbook') as matched_gap_codes,
+         (select count(distinct pti.advisory_library_item_id)
+            from plan_template_items pti
+            where pti.plan_template_id = pt.id and pti.item_kind = 'advisory'
+              and pti.advisory_library_item_id = any($3::uuid[])) as matched_initiative_count,
+         (select coalesce(array_agg(distinct ali.title), '{}')
+            from plan_template_items pti
+            join advisory_library_items ali on ali.id = pti.advisory_library_item_id
+            where pti.plan_template_id = pt.id and pti.item_kind = 'advisory'
+              and pti.advisory_library_item_id = any($3::uuid[])) as matched_initiative_titles
        from plan_templates pt
-       join plan_template_items pti on pti.plan_template_id = pt.id and pti.item_kind = 'playbook'
-       join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
-       join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
-       join gap_definitions gd on gd.id = og.gap_definition_id
+       where pt.status = 'active'
+         and (pt.firm_id is null or pt.firm_id = $2)
+         and pt.lineage_id not in (select lineage_id from applied)`,
+      [engagementId, eng.firm_id, initiativeIds],
+    )
+  ).rows;
+
+  const recommendations = rows
+    .map((r) => {
+      const matched_gap_count = Number(r.matched_gap_count) || 0;
+      const matched_initiative_count = Number(r.matched_initiative_count) || 0;
+      return {
+        plan_template_id: r.plan_template_id as string,
+        name: r.name as string,
+        is_system: r.is_system as boolean,
+        matched_gap_count,
+        matched_gap_codes: ((r.matched_gap_codes as string[]) ?? []).filter(Boolean),
+        matched_initiative_count,
+        matched_initiative_titles: ((r.matched_initiative_titles as string[]) ?? []).filter(Boolean),
+        match_score: matched_gap_count + matched_initiative_count,
+      };
+    })
+    .filter((r) => r.match_score > 0)
+    .sort(
+      (a, b) =>
+        b.match_score - a.match_score ||
+        Number(b.is_system) - Number(a.is_system) ||
+        a.name.localeCompare(b.name),
+    );
+  return { recommendations };
+}
+
+// ── Q5b: auto-apply the substantively-applicable Plans on roadmap generation ──
+// When an advisor builds the roadmap from gaps (server/roadmap.ts →
+// generate-roadmap), also lay down any Plan that is "substantively applicable":
+// a MAJORITY (≥50%) of the Plan's playbook items map to the engagement's open
+// gaps. This is stricter than the recommendation arm above (which fires on any
+// single match) so bulk generation only pulls in Plans that are mostly on-target
+// for this engagement, not ones that merely graze a gap. Already-applied Plans
+// (by lineage) are skipped; application reuses applyPlan, so its once-per-
+// engagement (playbook_id, sequence) idempotency claims — never duplicates —
+// tasks a gap already created. Read-only over scoring/gaps (rules 1 & 4).
+const AUTO_APPLY_MIN_COVERAGE = 0.5;
+
+export interface AutoAppliedPlanSummary {
+  plan_template_id: string;
+  name: string;
+  tasks_created: number;
+  tasks_claimed: number;
+  milestones_created: number;
+}
+
+export async function autoApplyQualifyingPlans(
+  db: pg.ClientBase,
+  engagementId: string,
+  userId?: string | null,
+  anchorDate?: string | null,
+): Promise<{ applied: AutoAppliedPlanSummary[] }> {
+  const eng = (
+    await db.query(`select id, firm_id from engagements where id = $1`, [engagementId])
+  ).rows[0];
+  if (!eng) throw new Error('engagement not found');
+
+  // Candidate Plans not yet applied, with how many of their playbook items map to
+  // an open gap (matched) out of their total playbook items (denominator). Only
+  // playbook items map to gaps, so a Plan with no playbook items can't qualify.
+  const candidates = (
+    await db.query(
+      `with open_gaps as (
+         select distinct gap_definition_id from gaps
+         where engagement_id = $1 and status in ('open', 'in_remediation')
+       ),
+       applied as (
+         select distinct pt.lineage_id
+         from engagement_plans ep
+         join plan_templates pt on pt.id = ep.plan_template_id
+         where ep.engagement_id = $1 and ep.status <> 'removed'
+       )
+       select
+         pt.id as plan_template_id,
+         pt.name,
+         count(*) filter (where pti.item_kind = 'playbook') as playbook_items,
+         count(*) filter (
+           where pti.item_kind = 'playbook' and exists (
+             select 1 from gap_playbook_map gpm
+             join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
+             where gpm.playbook_id = pti.playbook_id
+           )
+         ) as matched_items
+       from plan_templates pt
+       join plan_template_items pti on pti.plan_template_id = pt.id
        where pt.status = 'active'
          and (pt.firm_id is null or pt.firm_id = $2)
          and pt.lineage_id not in (select lineage_id from applied)
-       group by pt.id, pt.name, pt.firm_id
-       having count(distinct og.gap_definition_id) > 0
-       order by matched_gap_count desc, is_system desc, pt.name`,
+       group by pt.id, pt.name
+       having count(*) filter (where pti.item_kind = 'playbook') > 0`,
       [engagementId, eng.firm_id],
     )
   ).rows;
-  return {
-    recommendations: rows.map((r) => ({
-      plan_template_id: r.plan_template_id,
-      name: r.name,
-      is_system: r.is_system,
-      matched_gap_count: Number(r.matched_gap_count) || 0,
-      matched_gap_codes: (r.matched_gap_codes ?? []).filter(Boolean),
-    })),
-  };
+
+  const applied: AutoAppliedPlanSummary[] = [];
+  for (const c of candidates) {
+    const playbookItems = Number(c.playbook_items) || 0;
+    const matched = Number(c.matched_items) || 0;
+    if (matched < 1 || matched / playbookItems < AUTO_APPLY_MIN_COVERAGE) continue;
+    const res = await applyPlan(
+      db,
+      eng.firm_id,
+      { engagement_id: engagementId, plan_template_id: c.plan_template_id, anchor_date: anchorDate ?? null },
+      userId ?? '',
+    );
+    applied.push({
+      plan_template_id: c.plan_template_id,
+      name: res.engagement_plan.name,
+      tasks_created: res.tasks_created,
+      tasks_claimed: res.tasks_claimed,
+      milestones_created: res.milestones_created,
+    });
+  }
+  return { applied };
 }
