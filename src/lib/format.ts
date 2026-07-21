@@ -61,6 +61,7 @@ const ACRONYMS: Record<string, string> = {
   ebitda: 'EBITDA', gaap: 'GAAP', sop: 'SOP', sops: 'SOPs', ar: 'AR', ap: 'AP',
   arr: 'ARR', mrr: 'MRR', crm: 'CRM', kpi: 'KPI', kpis: 'KPIs', pct: '%',
   hr: 'HR', it: 'IT', qoe: 'QoE', osha: 'OSHA', sla: 'SLA', ceo: 'CEO', p: 'P',
+  cim: 'CIM', drs: 'DRS', ori: 'ORI', nda: 'NDA', loi: 'LOI',
 };
 export function humanizeKey(key: string | null | undefined): string {
   if (!key) return '—';
