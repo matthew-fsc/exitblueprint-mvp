@@ -274,6 +274,25 @@ export default function PlatformConsolePage() {
         </div>
       );
     }
+    // The rail's `analytics` schema hasn't been migrated on this database yet —
+    // the SELECTs 500 with `relation "analytics.…" does not exist`. That is an
+    // ops step, not a code fault, so surface the actionable fix instead of the
+    // raw Postgres string.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/analytics\.[a-z_]+" does not exist|schema "analytics" does not exist/i.test(msg)) {
+      return (
+        <div className="stack-lg">
+          <PageHeader title="Platform console" subtitle="Internal metrics rail" />
+          <ErrorState
+            variant="page"
+            title="Analytics rail not migrated on this database"
+            message="The read-only analytics views this console reads don’t exist yet. Apply the pending migrations to this database (npm run db:migrate against its DATABASE_URL, or supabase db push) — they add the analytics schema (platform_analytics, financial_corpus, moat_kpis) — then reload."
+            onRetry={() => q.refetch()}
+            retryLabel="Reload"
+          />
+        </div>
+      );
+    }
     return (
       <div className="stack-lg">
         <PageHeader title="Platform console" subtitle="Internal metrics rail" />
