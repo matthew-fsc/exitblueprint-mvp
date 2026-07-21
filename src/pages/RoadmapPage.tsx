@@ -7,6 +7,7 @@ import {
   qk,
   useCompany,
   useEngagement,
+  useEngagementPlans,
   useMilestones,
   usePlaybooks,
   useTasks,
@@ -37,6 +38,7 @@ export default function RoadmapPage() {
   const companyQ = useCompany(engagement?.company_id);
   const tasksQ = useTasks(engagementId);
   const milestonesQ = useMilestones(engagementId);
+  const appliedPlansQ = useEngagementPlans(engagementId);
   const playbooksQ = usePlaybooks();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -366,6 +368,33 @@ export default function RoadmapPage() {
         <EngagementNav engagementId={engagementId!} />
       </header>
       {error && <ErrorState variant="inline" error={error} />}
+
+      {(appliedPlansQ.data ?? []).length > 0 && (
+        <Card>
+          <h3 className="m-0">Applied plans</h3>
+          <div className="plan-progress-list">
+            {(appliedPlansQ.data ?? []).map((p) => (
+              <div key={p.id} className="plan-progress-row">
+                <div className="plan-progress-head">
+                  <span className="plan-progress-name">
+                    {p.name}
+                    {p.completed_at && <span className="advisory-tag">complete</span>}
+                  </span>
+                  <span className="muted">
+                    {p.done}/{p.total} · {p.pct}%
+                  </span>
+                </div>
+                <div className="plan-progress-track">
+                  <div
+                    className={`plan-progress-fill${p.completed_at ? ' plan-progress-fill-done' : ''}`}
+                    style={{ width: `${p.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {ganttItems.length === 0 ? (
         <EmptyState

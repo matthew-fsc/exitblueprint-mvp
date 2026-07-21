@@ -341,7 +341,22 @@ export function useCimCoverage(engagementId: string | undefined): UseQueryResult
 export interface AttentionShape {
   generatedAt: string;
   thresholds: { staleDays: number; stalledDays: number; reassessDays: number };
-  counts: { reassessmentDue: number; stalledTasks: number; staleEngagements: number; total: number };
+  counts: {
+    reassessmentReady: number;
+    reassessmentDue: number;
+    stalledTasks: number;
+    staleEngagements: number;
+    total: number;
+  };
+  // "Properly placed" reassessments — a Plan's work finished since the last
+  // measurement (docs/37 PL4). Listed ahead of the time-cadence due list.
+  reassessmentReady: {
+    engagementId: string;
+    companyName: string | null;
+    planCompletedAt: string | null;
+    readyPlanCount: number;
+    readyPlanNames: string | null;
+  }[];
   reassessmentDue: {
     engagementId: string;
     companyName: string | null;
@@ -1233,5 +1248,30 @@ export function useContentModules(): UseQueryResult<ContentModuleRow[]> {
       if (error) throw error;
       return (data ?? []) as ContentModuleRow[];
     },
+  });
+}
+
+// Applied-Plan progress for an engagement (docs/37 PL4).
+export interface EngagementPlanProgressRow {
+  id: string;
+  plan_template_id: string;
+  name: string;
+  status: string;
+  applied_plan_version: number;
+  anchor_date: string | null;
+  total: number;
+  done: number;
+  pct: number;
+  completed_at: string | null;
+}
+
+export function useEngagementPlans(engagementId: string | undefined): UseQueryResult<EngagementPlanProgressRow[]> {
+  return useQuery({
+    queryKey: ['engagementPlans', engagementId ?? ''],
+    enabled: !!engagementId,
+    queryFn: async () =>
+      (await invokeFunction<{ plans: EngagementPlanProgressRow[] }>('list-engagement-plans', {
+        engagement_id: engagementId,
+      })).plans,
   });
 }

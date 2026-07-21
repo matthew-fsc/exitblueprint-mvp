@@ -5053,3 +5053,12 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--text-primary); font: inherit;
 }
+
+/* Applied-plan progress bars (docs/37 PL4) */
+.plan-progress-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); }
+.plan-progress-row { display: flex; flex-direction: column; gap: 0.35rem; }
+.plan-progress-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.plan-progress-name { font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; }
+.plan-progress-track { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; }
+.plan-progress-fill-done { background: var(--good, var(--accent-strong)); }
