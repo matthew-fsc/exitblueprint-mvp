@@ -367,25 +367,24 @@ export default function PlansPage() {
         title="Plans"
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Plans' }]}
         subtitle="Reusable bundles of playbooks, education, advisory items, milestones, and tasks — and the playbooks they’re built from. System content is shared methodology; your firm authors its own. Apply a Plan to an engagement to lay its work onto the roadmap."
-        actions={
-          view === 'plans' &&
-          canAuthor && (
-            <button onClick={() => (form ? closeForm() : openCreate())}>
-              {form ? 'Cancel' : 'New plan'}
-            </button>
-          )
-        }
       />
 
-      <SubTabs
-        tabs={[
-          { key: 'plans', label: 'Plans', badge: plans.length || undefined },
-          { key: 'playbooks', label: 'Playbooks', badge: playbooksQ.data?.size || undefined },
-        ]}
-        activeKey={view}
-        ariaLabel="Plans sections"
-        onSelect={selectView}
-      />
+      <div className="plans-toolbar">
+        <SubTabs
+          tabs={[
+            { key: 'plans', label: 'Plans', badge: plans.length || undefined },
+            { key: 'playbooks', label: 'Playbooks', badge: playbooksQ.data?.size || undefined },
+          ]}
+          activeKey={view}
+          ariaLabel="Plans sections"
+          onSelect={selectView}
+        />
+        {view === 'plans' && canAuthor && (
+          <button onClick={() => (form ? closeForm() : openCreate())}>
+            {form ? 'Cancel' : 'New plan'}
+          </button>
+        )}
+      </div>
 
       <div
         className="subtabs-panel"

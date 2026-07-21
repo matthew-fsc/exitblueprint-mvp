@@ -5220,6 +5220,9 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .page-section .stack-lg > .eng-grid { margin-top: 0; }
 
 /* Plans (docs/37) — authoring + apply surface */
+/* Sub-tab bar + the view's primary action on one row, so the action isn't
+   orphaned below the (long) page subtitle. */
+.plans-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .plans-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .plans-items { display: flex; flex-direction: column; gap: var(--space-2); }
 .plans-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
