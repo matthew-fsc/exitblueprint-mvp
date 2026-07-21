@@ -5593,3 +5593,25 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
      shrinking the fixed label column (was 190px). */
   .dim-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 3em; gap: var(--space-2); }
 }
+
+/* Advisory library: collapsible advanced-targeting block in the authoring form.
+   Keeps rubric internals (sub-score code, score trigger) out of the way so an
+   advisor can capture knowledge without configuring the DRS. */
+.advisory-form-advanced {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2, transparent);
+}
+.advisory-form-advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted, inherit);
+}
+.advisory-form-advanced[open] > summary {
+  margin-bottom: var(--space-2);
+}
+.advisory-form-advanced-help {
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+}
