@@ -28,6 +28,7 @@ import {
   findStaleEngagements,
   findStalledTasks,
   findReassessmentDue,
+  findReassessmentReady,
   verifyWebhookSecret,
 } from './scheduled';
 import { initObservability, captureError, logRequest } from './observability';
@@ -425,6 +426,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       }
       if (kind === 'reassessment-due') {
         return json(res, 200, await findReassessmentDue(c, { reassessDays: num(body.reassessDays) }));
+      }
+      if (kind === 'reassessment-ready') {
+        return json(res, 200, await findReassessmentReady(c));
       }
       return json(res, 404, { message: `unknown scheduled webhook: ${kind}` });
     } finally {

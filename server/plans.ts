@@ -585,3 +585,65 @@ export async function applyPlan(
     throw err;
   }
 }
+
+// ── PL4: plan progress + reassessment coordination ───────────────────────────
+// Computed progress for each Applied Plan on an engagement — done/total over the
+// tasks + milestones tagged with its engagement_plan_id (progress is computed,
+// not stored, mirroring "deltas are computed, not stored"). completedAt is the
+// latest child completion once a plan's work is fully done — the signal PL4b uses
+// to place a reassessment after the last measurement. Education/advisory items
+// produce no execution rows, so they don't count toward the work total.
+export interface EngagementPlanProgress {
+  id: string;
+  plan_template_id: string;
+  name: string;
+  status: string;
+  applied_plan_version: number;
+  anchor_date: string | null;
+  total: number;
+  done: number;
+  pct: number;
+  completed_at: string | null;
+}
+
+export async function engagementPlanProgress(
+  db: pg.ClientBase,
+  engagementId: string,
+): Promise<EngagementPlanProgress[]> {
+  const rows = (
+    await db.query(
+      `select
+         ep.id, ep.plan_template_id, ep.name, ep.status, ep.applied_plan_version, ep.anchor_date,
+         (select count(*) from tasks t where t.engagement_plan_id = ep.id)
+           + (select count(*) from roadmap_milestones m where m.engagement_plan_id = ep.id) as total,
+         (select count(*) from tasks t where t.engagement_plan_id = ep.id and t.status = 'done')
+           + (select count(*) from roadmap_milestones m where m.engagement_plan_id = ep.id and m.completed_at is not null) as done,
+         greatest(
+           (select max(t.completed_at) from tasks t where t.engagement_plan_id = ep.id),
+           (select max(m.completed_at) from roadmap_milestones m where m.engagement_plan_id = ep.id)
+         ) as last_completed_at
+       from engagement_plans ep
+       where ep.engagement_id = $1 and ep.status <> 'removed'
+       order by ep.applied_at`,
+      [engagementId],
+    )
+  ).rows;
+  return rows.map((r) => {
+    const total = Number(r.total) || 0;
+    const done = Number(r.done) || 0;
+    const complete = total > 0 && done === total;
+    return {
+      id: r.id,
+      plan_template_id: r.plan_template_id,
+      name: r.name,
+      status: r.status,
+      applied_plan_version: Number(r.applied_plan_version) || 0,
+      anchor_date: r.anchor_date ? new Date(r.anchor_date).toISOString() : null,
+      total,
+      done,
+      pct: total > 0 ? Math.round((done / total) * 100) : 0,
+      // Only surface a completion time once the whole plan's work is done.
+      completed_at: complete && r.last_completed_at ? new Date(r.last_completed_at).toISOString() : null,
+    };
+  });
+}

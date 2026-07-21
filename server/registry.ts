@@ -37,7 +37,7 @@ import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
 import { firmAttention } from './attention';
-import { listPlanTemplates, createPlan, updatePlan, applyPlan } from './plans';
+import { listPlanTemplates, createPlan, updatePlan, applyPlan, engagementPlanProgress } from './plans';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -371,6 +371,14 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'firm',
     handler: ({ service, firmId, userId, body }) =>
       updatePlan(service, firmId as string, body, userId).then(ok),
+  },
+  // Applied-Plan progress for an engagement (PL4). Read-open 'engagement' scope so
+  // owners can see their plans too (docs/37 Q3); the engagement is RLS-checked.
+  'list-engagement-plans': {
+    engine: 'workflow',
+    scope: 'engagement',
+    handler: ({ service, body }) =>
+      engagementPlanProgress(service, body.engagement_id as string).then((plans) => ok({ plans })),
   },
   // Apply a Plan to an engagement — materializes tasks/milestones (PL3). Staff
   // write, so manage-engagement (advisor/admin only, resolves the caller's firm),

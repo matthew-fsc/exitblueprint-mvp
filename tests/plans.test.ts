@@ -5,6 +5,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
+import { findReassessmentReady } from '../server/scheduled';
+import { acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
 
@@ -103,7 +105,10 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(`delete from roadmap_milestones where firm_id = $1`, [firmId]);
     await service.query(`delete from tasks where firm_id = $1`, [firmId]);
     await service.query(`delete from engagement_plans where firm_id = $1`, [firmId]);
+    await service.query(`delete from assessments where firm_id = $1`, [firmId]);
+    await service.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await service.query(`delete from engagements where firm_id = $1`, [firmId]);
+    await service.query(`delete from agreement_versions where firm_id = $1`, [firmId]);
     await service.query(`delete from companies where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_template_items where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_templates where firm_id = $1`, [firmId]);
@@ -338,5 +343,108 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
       [engagement2, playbookId],
     );
     expect(seq1.rows[0].c).toBe(1); // not duplicated
+  });
+
+  it('reports plan progress and stamps completion when all work is done (PL4)', async () => {
+    const companyId3 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Progress Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng3 = (
+      await service.query(
+        `insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`,
+        [firmId, companyId3],
+      )
+    ).rows[0].id;
+    const plan = await handleFunctionCall(
+      'create-plan',
+      {
+        name: 'Progress Plan',
+        status: 'active',
+        items: [
+          { kind: 'manual_task', title: 'task A' },
+          { kind: 'manual_task', title: 'task B' },
+          { kind: 'milestone', title: 'ms A', track: 'business' },
+        ],
+      },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+    const applied = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: eng3, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const epId = (applied as { body: { engagement_plan: { id: string } } }).body.engagement_plan.id;
+
+    // Halfway: one task done.
+    await service.query(
+      `update tasks set status = 'done' where engagement_plan_id = $1 and title = 'task A'`,
+      [epId],
+    );
+    let prog = await handleFunctionCall('list-engagement-plans', { engagement_id: eng3 }, ctxFor(advisorUserId));
+    let row = (prog as { body: { plans: { id: string; total: number; done: number; pct: number; completed_at: string | null }[] } }).body.plans.find((p) => p.id === epId)!;
+    expect(row.total).toBe(3);
+    expect(row.done).toBe(1);
+    expect(row.pct).toBe(33);
+    expect(row.completed_at).toBeNull(); // not complete yet
+
+    // Finish the rest: second task + the milestone.
+    await service.query(`update tasks set status = 'done' where engagement_plan_id = $1`, [epId]);
+    await service.query(`update roadmap_milestones set completed_at = now() where engagement_plan_id = $1`, [epId]);
+    prog = await handleFunctionCall('list-engagement-plans', { engagement_id: eng3 }, ctxFor(advisorUserId));
+    row = (prog as { body: { plans: { id: string; total: number; done: number; pct: number; completed_at: string | null }[] } }).body.plans.find((p) => p.id === epId)!;
+    expect(row.done).toBe(3);
+    expect(row.pct).toBe(100);
+    expect(row.completed_at).not.toBeNull(); // completion stamped once fully done
+  });
+
+  it('flags an engagement as reassessment-ready once a plan completes after the last assessment (PL4b)', async () => {
+    const companyId4 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Ready Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng4 = (
+      await service.query(
+        `insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`,
+        [firmId, companyId4],
+      )
+    ).rows[0].id;
+    await acceptAgreement(service, eng4);
+    // A completed assessment IN THE PAST — the plan will finish after it.
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    await service.query(
+      `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
+       values ($1, $2, $3, 1, 'completed', now() - interval '2 days')`,
+      [firmId, eng4, rv],
+    );
+
+    // Not ready before any plan is applied/finished.
+    const before = await findReassessmentReady(service, { firmId });
+    expect(before.items.map((r) => r.engagementId)).not.toContain(eng4);
+
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Ready Plan', status: 'active', items: [{ kind: 'manual_task', title: 'the work' }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+    const applied = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: eng4, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const epId = (applied as { body: { engagement_plan: { id: string } } }).body.engagement_plan.id;
+
+    // Work not done yet → still not ready.
+    const midway = await findReassessmentReady(service, { firmId });
+    expect(midway.items.map((r) => r.engagementId)).not.toContain(eng4);
+
+    // Finish the plan's work (trigger stamps completed_at = now(), after the assessment).
+    await service.query(`update tasks set status = 'done' where engagement_plan_id = $1`, [epId]);
+
+    const ready = await findReassessmentReady(service, { firmId });
+    const item = ready.items.find((r) => r.engagementId === eng4);
+    expect(item).toBeDefined();
+    expect(item!.readyPlanCount).toBe(1);
+    expect(item!.readyPlanNames).toContain('Ready Plan');
   });
 });

@@ -76,7 +76,9 @@ describe.skipIf(!url)('firmAttention', () => {
     expect(a.counts.reassessmentDue).toBeGreaterThanOrEqual(1);
     expect(a.counts.stalledTasks).toBeGreaterThanOrEqual(1);
     expect(a.counts.staleEngagements).toBeGreaterThanOrEqual(1);
-    expect(a.counts.total).toBe(a.counts.reassessmentDue + a.counts.stalledTasks + a.counts.staleEngagements);
+    expect(a.counts.total).toBe(
+      a.counts.reassessmentReady + a.counts.reassessmentDue + a.counts.stalledTasks + a.counts.staleEngagements,
+    );
 
     expect(a.reassessmentDue.map((r) => r.engagementId)).toContain(engA);
     expect(a.reassessmentDue[0].daysSinceLastAssessment).toBeGreaterThanOrEqual(90);
