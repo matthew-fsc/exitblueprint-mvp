@@ -12,9 +12,11 @@
 import type pg from 'pg';
 import {
   findReassessmentDue,
+  findReassessmentReady,
   findStaleEngagements,
   findStalledTasks,
   type ReassessmentDueItem,
+  type ReassessmentReadyItem,
   type StaleEngagementItem,
   type StalledTaskItem,
 } from './scheduled';
@@ -22,7 +24,17 @@ import {
 export interface FirmAttention {
   generatedAt: string;
   thresholds: { staleDays: number; stalledDays: number; reassessDays: number };
-  counts: { reassessmentDue: number; stalledTasks: number; staleEngagements: number; total: number };
+  counts: {
+    reassessmentReady: number;
+    reassessmentDue: number;
+    stalledTasks: number;
+    staleEngagements: number;
+    total: number;
+  };
+  // "Properly placed" reassessments — a Plan's work finished since the last
+  // measurement (docs/37 PL4). Listed first: it's the timeliest, most actionable
+  // signal, ahead of the time-cadence "due" list.
+  reassessmentReady: ReassessmentReadyItem[];
   reassessmentDue: ReassessmentDueItem[];
   stalledTasks: StalledTaskItem[];
   staleEngagements: StaleEngagementItem[];
@@ -33,11 +45,17 @@ export async function firmAttention(
   firmId: string,
   opts: { staleDays?: number; stalledDays?: number; reassessDays?: number } = {},
 ): Promise<FirmAttention> {
-  const [reassess, stalled, stale] = await Promise.all([
+  const [ready, reassess, stalled, stale] = await Promise.all([
+    findReassessmentReady(db, { firmId }),
     findReassessmentDue(db, { firmId, reassessDays: opts.reassessDays }),
     findStalledTasks(db, { firmId, stalledDays: opts.stalledDays }),
     findStaleEngagements(db, { firmId, staleDays: opts.staleDays }),
   ]);
+
+  // An engagement that is reassessment-READY shouldn't also be double-counted as
+  // time-cadence DUE — the ready signal supersedes the clock for those.
+  const readyEngagements = new Set(ready.items.map((r) => r.engagementId));
+  const dueOnly = reassess.items.filter((d) => !readyEngagements.has(d.engagementId));
 
   return {
     generatedAt: reassess.generatedAt,
@@ -47,12 +65,14 @@ export async function firmAttention(
       reassessDays: reassess.thresholdDays,
     },
     counts: {
-      reassessmentDue: reassess.count,
+      reassessmentReady: ready.count,
+      reassessmentDue: dueOnly.length,
       stalledTasks: stalled.count,
       staleEngagements: stale.count,
-      total: reassess.count + stalled.count + stale.count,
+      total: ready.count + dueOnly.length + stalled.count + stale.count,
     },
-    reassessmentDue: reassess.items,
+    reassessmentReady: ready.items,
+    reassessmentDue: dueOnly,
     stalledTasks: stalled.items,
     staleEngagements: stale.items,
   };

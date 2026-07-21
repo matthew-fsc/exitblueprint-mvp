@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 // A segmented sub-tab bar for switching between panels *within* one page — used
 // where a surface has several related views that shouldn't each be their own
@@ -31,6 +31,15 @@ export function SubTabs({
   onSelect: (key: string) => void;
   ariaLabel?: string;
 }) {
+  // On a phone the bar is a horizontal-scroll strip (see styles.css mobile
+  // pass); keep the selected tab in view so switching to an off-screen tab
+  // doesn't leave it scrolled out of sight. No-op on desktop where it all fits.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    el?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [activeKey]);
+
   // Left/Right/Home/End move between tabs (the ARIA tabs keyboard contract);
   // only the active tab is in the tab order (roving tabindex).
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -47,7 +56,7 @@ export function SubTabs({
   };
 
   return (
-    <div className="subtabs" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+    <div className="subtabs" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown} ref={listRef}>
       {tabs.map((t) => {
         const active = t.key === activeKey;
         return (

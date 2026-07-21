@@ -160,10 +160,10 @@ export function mapStaleEngagementRow(row: StaleEngagementRow, now: Date): Stale
 
 export async function findStaleEngagements(
   db: Db,
-  opts: { staleDays?: number; firmId?: string } = {},
+  opts: { staleDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<StaleEngagementItem>> {
   const thresholdDays = opts.staleDays ?? DEFAULT_STALE_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(STALE_ENGAGEMENTS_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(STALE_ENGAGEMENTS_SQL, [thresholdDays]);
@@ -267,10 +267,10 @@ export function mapStalledTaskRow(row: StalledTaskRow, now: Date): StalledTaskIt
 
 export async function findStalledTasks(
   db: Db,
-  opts: { stalledDays?: number; firmId?: string } = {},
+  opts: { stalledDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<StalledTaskItem>> {
   const thresholdDays = opts.stalledDays ?? DEFAULT_STALLED_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(STALLED_TASKS_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(STALLED_TASKS_SQL, [thresholdDays]);
@@ -357,15 +357,125 @@ export function mapReassessmentDueRow(row: ReassessmentDueRow, now: Date): Reass
 
 export async function findReassessmentDue(
   db: Db,
-  opts: { reassessDays?: number; firmId?: string } = {},
+  opts: { reassessDays?: number; firmId?: string; now?: Date } = {},
 ): Promise<AnalyzerResult<ReassessmentDueItem>> {
   const thresholdDays = opts.reassessDays ?? DEFAULT_REASSESS_DAYS;
-  const now = new Date();
+  const now = opts.now ?? new Date();
   const { rows } = opts.firmId
     ? await db.query(REASSESSMENT_DUE_FIRM_SQL, [thresholdDays, opts.firmId])
     : await db.query(REASSESSMENT_DUE_SQL, [thresholdDays]);
   const items = (rows as ReassessmentDueRow[]).map((r) => mapReassessmentDueRow(r, now));
   return { generatedAt: now.toISOString(), thresholdDays, count: items.length, items };
+}
+
+// ---------------------------------------------------------------------------
+// 4) Reassessment READY (docs/37 PL4) — the "properly placed" signal. An active
+//    engagement has one or more Applied Plans whose tagged work (tasks +
+//    milestones) is fully done, and that completion happened AFTER the last
+//    completed assessment. That's the moment a reassessment will actually move
+//    the score, so it's recommended regardless of the time cadence (which stays
+//    as the separate staleness floor in findReassessmentDue). Read-only; never
+//    creates an assessment or writes a score (rules 1 & 4).
+// ---------------------------------------------------------------------------
+
+export interface ReassessmentReadyRow {
+  engagement_id: string;
+  firm_id: string;
+  company_id: string;
+  company_name: string | null;
+  owner_contact_name: string | null;
+  owner_contact_email: string | null;
+  last_completed_at: string | Date;
+  first_plan_completed_at: string | Date;
+  ready_plan_count: string | number;
+  ready_plan_names: string | null;
+}
+
+export interface ReassessmentReadyItem {
+  firmId: string;
+  engagementId: string;
+  companyId: string;
+  companyName: string | null;
+  ownerContactName: string | null;
+  ownerContactEmail: string | null;
+  lastAssessmentAt: string | null;
+  planCompletedAt: string | null;
+  readyPlanCount: number;
+  readyPlanNames: string | null;
+}
+
+export const REASSESSMENT_READY_SQL = `
+  select
+    e.id as engagement_id,
+    e.firm_id,
+    e.company_id,
+    c.name as company_name,
+    c.owner_contact_name,
+    c.owner_contact_email,
+    la.last_completed_at,
+    min(pc.plan_completed_at) as first_plan_completed_at,
+    count(*) as ready_plan_count,
+    string_agg(ep.name, ', ' order by pc.plan_completed_at) as ready_plan_names
+  from engagements e
+  join companies c on c.id = e.company_id
+  join engagement_plans ep on ep.engagement_id = e.id and ep.status <> 'removed'
+  join lateral (
+    select
+      (select count(*) from tasks t where t.engagement_plan_id = ep.id)
+        + (select count(*) from roadmap_milestones m where m.engagement_plan_id = ep.id) as total,
+      (select count(*) from tasks t where t.engagement_plan_id = ep.id and t.status = 'done')
+        + (select count(*) from roadmap_milestones m where m.engagement_plan_id = ep.id and m.completed_at is not null) as done,
+      greatest(
+        (select max(t.completed_at) from tasks t where t.engagement_plan_id = ep.id),
+        (select max(m.completed_at) from roadmap_milestones m where m.engagement_plan_id = ep.id)
+      ) as plan_completed_at
+  ) pc on true
+  join lateral (
+    select max(a.completed_at) as last_completed_at
+    from assessments a
+    where a.engagement_id = e.id and a.status = 'completed' and a.completed_at is not null
+  ) la on true
+  where e.status = 'active'
+    and pc.total > 0 and pc.done = pc.total
+    and la.last_completed_at is not null
+    and pc.plan_completed_at > la.last_completed_at
+  group by e.id, e.firm_id, e.company_id, c.name, c.owner_contact_name, c.owner_contact_email, la.last_completed_at
+  order by first_plan_completed_at asc
+`;
+
+// Firm-scoped variant: firm added on e.firm_id as $1 (this analyzer has no other
+// bound params, so the firm is $1 here, unlike the cadence analyzers where it is $2).
+export const REASSESSMENT_READY_FIRM_SQL = REASSESSMENT_READY_SQL.replace(
+  `where e.status = 'active'`,
+  `where e.status = 'active' and e.firm_id = $1`,
+);
+
+export function mapReassessmentReadyRow(row: ReassessmentReadyRow): ReassessmentReadyItem {
+  return {
+    firmId: row.firm_id,
+    engagementId: row.engagement_id,
+    companyId: row.company_id,
+    companyName: row.company_name,
+    ownerContactName: row.owner_contact_name,
+    ownerContactEmail: row.owner_contact_email,
+    lastAssessmentAt: toIso(row.last_completed_at),
+    planCompletedAt: toIso(row.first_plan_completed_at),
+    readyPlanCount: Number(row.ready_plan_count) || 0,
+    readyPlanNames: row.ready_plan_names,
+  };
+}
+
+export async function findReassessmentReady(
+  db: Db,
+  opts: { firmId?: string; now?: Date } = {},
+): Promise<AnalyzerResult<ReassessmentReadyItem>> {
+  const now = opts.now ?? new Date();
+  const { rows } = opts.firmId
+    ? await db.query(REASSESSMENT_READY_FIRM_SQL, [opts.firmId])
+    : await db.query(REASSESSMENT_READY_SQL, []);
+  const items = (rows as ReassessmentReadyRow[]).map(mapReassessmentReadyRow);
+  // thresholdDays is not meaningful for a progress-driven signal; report 0.
+  return { generatedAt: now.toISOString(), thresholdDays: 0, count: items.length, items };
 }
 
 // ---------------------------------------------------------------------------

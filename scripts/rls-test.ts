@@ -200,6 +200,24 @@ async function main() {
       `insert into advisory_library_items (firm_id, source, item_type, code, title, body, severity, score_trigger)
        values (null, 'system', 'buyer_question', 'RLS-SYS-1', 'Global system question', 'shared', 'high', 70)`,
     );
+    // Plans (docs/37): a global/system template, a firm B firm-authored template,
+    // and a firm B applied plan — for the plan-isolation checks below.
+    await db.query(
+      `insert into plan_templates (firm_id, source, code, name, plan_version, status)
+       values (null, 'system', 'RLS-SYS-PLAN', 'Global system plan', 1, 'active')`,
+    );
+    const firmBPlanTemplate = (
+      await db.query(
+        `insert into plan_templates (firm_id, source, name, status)
+         values ($1, 'advisor', 'Firm B private plan', 'active') returning id`,
+        [ids.firm_b],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into engagement_plans (firm_id, engagement_id, plan_template_id, applied_plan_version, name)
+       values ($1, $2, $3, 1, 'Firm B applied plan')`,
+      [ids.firm_b, engagementB, firmBPlanTemplate],
+    );
     // A question + firm B provenance row for the answer_provenance isolation checks.
     const dimId = (
       await db.query(
@@ -723,6 +741,70 @@ async function main() {
     }
     check('cannot write into the global system catalog', sysWriteBlocked);
 
+    // plan_templates (docs/37): advisor A reads global system plans + own firm,
+    // never firm B's; can create own, cannot create for B or write a system row.
+    await db.query(
+      `insert into plan_templates (firm_id, source, name, status)
+       values ($1, 'advisor', 'Firm A plan', 'active')`,
+      [ids.firm_a],
+    );
+    check('can create own firm plan template', true);
+    const plansA = await db.query('select firm_id, name from plan_templates order by name');
+    check(
+      'reads the global system plan template',
+      plansA.rows.filter((r) => r.firm_id === null).length >= 1,
+      `saw ${plansA.rows.filter((r) => r.firm_id === null).length} system plans`,
+    );
+    check(
+      'sees own firm plan templates',
+      plansA.rows.filter((r) => r.firm_id === ids.firm_a).length === 1,
+    );
+    check(
+      'cannot read firm B plan templates',
+      plansA.rows.filter((r) => r.firm_id === ids.firm_b).length === 0,
+    );
+    let planBWriteBlocked = false;
+    try {
+      await db.query('savepoint plan');
+      await db.query(
+        `insert into plan_templates (firm_id, source, name) values ($1, 'advisor', 'sneak')`,
+        [ids.firm_b],
+      );
+      await db.query('release savepoint plan');
+    } catch {
+      planBWriteBlocked = true;
+      await db.query('rollback to savepoint plan');
+    }
+    check('cannot create plan template for firm B', planBWriteBlocked);
+    let planSysWriteBlocked = false;
+    try {
+      await db.query('savepoint plansys');
+      await db.query(
+        `insert into plan_templates (firm_id, source, name) values (null, 'system', 'fake system plan')`,
+      );
+      await db.query('release savepoint plansys');
+    } catch {
+      planSysWriteBlocked = true;
+      await db.query('rollback to savepoint plansys');
+    }
+    check('cannot write into the global system plan catalog', planSysWriteBlocked);
+
+    // engagement_plans (applied instances): advisor A applies to own engagement,
+    // sees only own firm's applied plans, never firm B's.
+    const appliedA = await db.query(
+      `insert into engagement_plans (firm_id, engagement_id, plan_template_id, applied_plan_version, name)
+       select $1, $2, id, 1, 'Firm A applied plan' from plan_templates where firm_id = $1 limit 1
+       returning id`,
+      [ids.firm_a, engagementA],
+    );
+    check('can apply a plan to own firm engagement', appliedA.rows.length === 1);
+    const appliedAll = await db.query('select firm_id from engagement_plans');
+    check(
+      'sees only own firm applied plans',
+      appliedAll.rows.length === 1 && appliedAll.rows[0].firm_id === ids.firm_a,
+      `saw ${appliedAll.rows.length}`,
+    );
+
     // answer_provenance: advisor A reads/writes only their firm's rows.
     const provA = await db.query('select firm_id from answer_provenance');
     check(
@@ -865,6 +947,28 @@ async function main() {
       await db.query('rollback to savepoint om');
     }
     check('owner cannot write milestones', ownerMilestoneWriteBlocked);
+    // Applied Plans are owner-visible (docs/37 Q3): owner reads their engagement's
+    // applied plan, never firm B's, and cannot write it.
+    const ownerPlans = await db.query('select name from engagement_plans');
+    check(
+      'owner reads only their engagement applied plans',
+      ownerPlans.rows.length === 1 && ownerPlans.rows[0].name === 'Firm A applied plan',
+      `saw ${JSON.stringify(ownerPlans.rows)}`,
+    );
+    let ownerPlanWriteBlocked = false;
+    try {
+      await db.query('savepoint op');
+      const upd = await db.query(
+        `update engagement_plans set name = 'owner-edit' where firm_id = $1`,
+        [ids.firm_a],
+      );
+      ownerPlanWriteBlocked = upd.rowCount === 0;
+      await db.query('release savepoint op');
+    } catch {
+      ownerPlanWriteBlocked = true;
+      await db.query('rollback to savepoint op');
+    }
+    check('owner cannot write applied plans (read-only)', ownerPlanWriteBlocked);
     // Owner can connect their own company's ledger, and never sees firm B's.
     let ownerLedgerWrite = false;
     try {

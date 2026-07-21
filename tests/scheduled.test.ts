@@ -32,6 +32,10 @@ function fakeDb(rows: unknown[]) {
   return { db, calls };
 }
 
+// Fixed clock anchor. The analyzers compute day-counts against `now`, so tests
+// that call the `find*` wrappers must inject this same `now` (via opts) — else
+// the wrappers fall back to the real wall clock and the day-counts drift by a
+// day for every day since this file was written.
 const NOW = new Date('2026-07-20T00:00:00.000Z');
 const iso = (daysAgo: number) => new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString();
 
@@ -68,7 +72,7 @@ describe('findStaleEngagements', () => {
         assessment_count: '2',
       },
     ]);
-    const res = await findStaleEngagements(db);
+    const res = await findStaleEngagements(db, { now: NOW });
     expect(calls[0].sql).toBe(STALE_ENGAGEMENTS_SQL);
     expect(calls[0].params).toEqual([DEFAULT_STALE_DAYS]);
     expect(res.thresholdDays).toBe(30);
@@ -139,7 +143,7 @@ describe('findStalledTasks', () => {
         past_due: true,
       },
     ]);
-    const res = await findStalledTasks(db);
+    const res = await findStalledTasks(db, { now: NOW });
     expect(calls[0].sql).toBe(STALLED_TASKS_SQL);
     expect(calls[0].params).toEqual([DEFAULT_STALLED_DAYS]);
     expect(res.thresholdDays).toBe(14);
@@ -199,7 +203,7 @@ describe('findReassessmentDue', () => {
         completed_count: '3',
       },
     ]);
-    const res = await findReassessmentDue(db);
+    const res = await findReassessmentDue(db, { now: NOW });
     expect(calls[0].sql).toBe(REASSESSMENT_DUE_SQL);
     expect(calls[0].params).toEqual([DEFAULT_REASSESS_DAYS]);
     expect(res.thresholdDays).toBe(90);

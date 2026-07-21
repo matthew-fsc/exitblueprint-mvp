@@ -15,6 +15,7 @@ import {
   type ExplainResult,
 } from '../shared/scoring/engine';
 import type { Answers, GapTrigger, Rubric, ScoreResult } from '../shared/scoring/types';
+import { reconcileEngagementPlans } from './plans';
 
 export interface ScoreAssessmentResult extends ScoreResult {
   assessmentId: string;
@@ -211,6 +212,12 @@ async function scoreAndPersist(
       gapsResolved.push(code);
     }
   }
+
+  // Close the loop (docs/37 Q7): now that this assessment has resolved gaps,
+  // reconcile active Applied Plans — a Plan whose targeted gaps are all resolved
+  // is marked completed. No-op on a first assessment (no active plans / prior
+  // gaps). Prescription only; touches no score/gap row here.
+  await reconcileEngagementPlans(db, assessment.engagement_id);
 
   return { ...result, assessmentId: assessment.id, gapsOpened, gapsResolved };
 }

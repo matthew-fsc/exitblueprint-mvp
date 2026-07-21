@@ -38,6 +38,14 @@ import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
 import { firmAttention } from './attention';
 import {
+  listPlanTemplates,
+  createPlan,
+  updatePlan,
+  applyPlan,
+  engagementPlanProgress,
+  recommendPlans,
+} from './plans';
+import {
   getDocumentBytes,
   getDocumentDetail,
   listReviewQueue,
@@ -266,6 +274,53 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'assessment',
     gated: true,
     handler: ({ service, body }) => documentPdf(service, 'cim', body.assessment_id as string),
+  },
+
+  // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
+  // Authoring is firm-scoped and ungated (composing methodology is core, not a
+  // paid action; applying a Plan to an engagement — PL3 — is where gating lands).
+  'list-plans': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId }) => listPlanTemplates(service, firmId as string).then(ok),
+  },
+  'create-plan': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      createPlan(service, firmId as string, body, userId).then(ok),
+  },
+  'update-plan': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      updatePlan(service, firmId as string, body, userId).then(ok),
+  },
+  // Applied-Plan progress for an engagement (PL4). Read-open 'engagement' scope so
+  // owners can see their plans too (docs/37 Q3); the engagement is RLS-checked.
+  'list-engagement-plans': {
+    engine: 'workflow',
+    scope: 'engagement',
+    handler: ({ service, body }) =>
+      engagementPlanProgress(service, body.engagement_id as string).then((plans) => ok({ plans })),
+  },
+  // Score-driven Plan recommendation (docs/37 Q5): Plans whose playbooks target
+  // the engagement's open gaps, not yet applied. Read-only; staff-facing.
+  'recommend-plans': {
+    engine: 'workflow',
+    scope: 'manage-engagement',
+    handler: ({ service, body }) => recommendPlans(service, body.engagement_id as string).then(ok),
+  },
+  // Apply a Plan to an engagement — materializes tasks/milestones (PL3). Staff
+  // write, so manage-engagement (advisor/admin only, resolves the caller's firm),
+  // not the read-open 'engagement' scope. Gated: it drives remediation work, a
+  // paid action (docs/24 §5.3).
+  'apply-plan': {
+    engine: 'workflow',
+    scope: 'manage-engagement',
+    gated: true,
+    handler: ({ service, firmId, userId, body }) =>
+      applyPlan(service, firmId as string, body, userId).then(ok),
   },
 
   // ── Workflow Engine — the engagement lifecycle

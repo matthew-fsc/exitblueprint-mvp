@@ -30,6 +30,7 @@ import {
   type PortfolioRow,
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
+import { GettingStarted } from '../components/GettingStarted';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { track } from '../lib/analytics';
 import { TIER_ORDER } from '../lib/tokens';
@@ -90,6 +91,17 @@ function AttentionPanel({ data }: { data: AttentionShape }) {
   return (
     <PageSection title="Needs attention" note={`${data.counts.total} item${data.counts.total === 1 ? '' : 's'}`}>
       <div className="attn-grid">
+        <AttentionGroup
+          title="Reassessment ready"
+          items={data.reassessmentReady}
+          emphasis
+          onOpen={open}
+          render={(it) =>
+            it.readyPlanCount === 1
+              ? `${it.readyPlanNames} complete — reassess to capture the gains`
+              : `${it.readyPlanCount} plans complete — reassess to capture the gains`
+          }
+        />
         <AttentionGroup
           title="Reassessment due"
           items={data.reassessmentDue}
@@ -220,6 +232,11 @@ export default function DashboardPage() {
   ];
 
   const isLoading = portfolioQ.isLoading;
+  const engagements = engagementsQ.data ?? [];
+  // First-run activation checklist: shown until the firm records its first
+  // assessment, then it self-dismisses so an established book never sees it.
+  const showGettingStarted =
+    !isLoading && !engagementsQ.isLoading && assessed.length === 0;
   const filtersActive = tier !== 'all' || move !== 'all';
   // Two distinct empty states: a genuinely empty book vs. filters that excluded
   // everything — telling a user with a full book to "add your first client"
@@ -251,7 +268,9 @@ export default function DashboardPage() {
         </button>
       }
     >
-      Start a readiness engagement for a client to begin tracking it here.
+      Start a readiness engagement for a client to begin tracking it here. Each
+      engagement measures a Deal Readiness Score (DRS) and Owner Readiness Index
+      (ORI), then tracks them over time.
     </EmptyState>
   );
 
@@ -273,11 +292,20 @@ export default function DashboardPage() {
         />
       </header>
 
+      {showGettingStarted && (
+        <GettingStarted
+          engagementCount={engagements.length}
+          hasAgreement={!!agreement}
+          firstEngagementId={engagements[0]?.id ?? null}
+          onAddEngagement={() => setAdding(true)}
+        />
+      )}
+
       {!agreementsQ.isLoading && !agreement && (
         <ErrorState
           variant="section"
           title="No engagement agreement"
-          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are seeded with a default agreement automatically; if you’re seeing this, an admin can add one with “npm run admin -- create-agreement-version”."
+          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are set up with a default agreement automatically — if you’re seeing this, contact your Exit Blueprint administrator to add one."
         />
       )}
 
