@@ -123,13 +123,21 @@ erDiagram
   FIRMS ||--o{ PROFILES : "advisors / reviewers / owners"
   COMPANIES ||--o{ ENGAGEMENTS : "assessed repeatedly"
   ENGAGEMENTS ||--o{ ASSESSMENTS : "immutable snapshots"
-  ENGAGEMENTS ||--o{ TASKS : "roadmap"
+  ENGAGEMENTS ||--o{ TASKS : "roadmap (gap- or plan-derived)"
   ENGAGEMENTS ||--o{ DOCUMENTS : "data room / evidence"
+  ENGAGEMENTS ||--o{ ENGAGEMENT_PLANS : "applied Plans (immutable)"
+  PLAN_TEMPLATES ||--o{ ENGAGEMENT_PLANS : "versions (pinned at apply)"
   ASSESSMENTS ||--o{ DIMENSION_SCORES : "deterministic"
   ASSESSMENTS ||--o{ GAPS : "flagged"
+  FIRMS ||--o{ FIRM_PROFESSIONALS : "outside-pro directory (admin)"
   FIRMS ||--o| FIRM_SUBSCRIPTIONS : "billing (Stripe)"
   RUBRIC_VERSIONS ||--o{ ASSESSMENTS : "versions"
 ```
+
+`plan_templates` (firm_id-null = seeded system Plans) are advisor-curated bundles
+applied to an engagement as an **immutable `engagement_plans` snapshot** pinned to the
+template version — the same immutability pattern as `assessments`→`rubric_version`.
+See `docs/37` (feature reference) and `docs/02` (Plans tables).
 
 ---
 
@@ -147,7 +155,7 @@ flowchart TB
     F["functions.ts — the gateway (authorize by scope)"]
     REG["registry.ts — six-engine function table<br/>{ engine, scope, gated, handler }"]
     HTTP["http.ts — prod Node host  ·  auth-jwt.ts"]
-    D["domain: scoring, valuation, roadmap, narrative,<br/>pdf, documents/, ledger*, verification, entitlements"]
+    D["domain: scoring, valuation, roadmap, plans, narrative,<br/>documents/ (catalog+storage), organization, ledger*, verification, entitlements"]
   end
   subgraph SH["shared/  (FE + BE)"]
     SC["scoring/engine.ts — the DRS/ORI engine"]

@@ -45,6 +45,11 @@ value optimization). Education content is dripped against the client's specific 
 - **Core concept:** the sequenced fix plan that moves the score over the engagement.
 - **Surfaces today:** **Roadmap** (playbook tasks, board, phasing) and the
   gap-keyed content/education modules (today reached via Library).
+- **Plans (docs/37):** on top of the gap-driven roadmap, an advisor can **apply a
+  Plan** — a reusable, curated bundle of playbooks/education/milestones (authored in
+  the app-level Library, or a seeded system Plan). Applied-Plan tasks land in the
+  **same** Roadmap board tagged by provenance; progress rolls up per plan and the
+  owner sees it in their portal. Prescription only — no scoring touched.
 - **Sequence:** second — driven by the gaps Readiness opened; its progress is what
   re-assessment measures.
 - **Done when:** every critical/high gap has an owned task with a date, and Phase-1
@@ -94,8 +99,14 @@ market receives — plus the quarterly delta report that shows movement and keep
 advisor relationship warm.
 
 - **Core concept:** the narrative artifacts handed to the owner and the market.
-- **Surfaces today:** Owner report, Advisor brief, **Delta report**, and the
-  **CIM** (Confidential Information Memorandum) — the market-facing deliverable.
+- **Surfaces today:** one **Deliverables studio** (`/engagement/:id/deliverables/:section`,
+  `src/pages/DeliverablesPage.tsx`) — a single assessment selector + one sub-tab per
+  document (Owner report · Delta report · **CIM**). The three documents were formerly
+  three separate pages each re-implementing generate → edit → finalize → download;
+  that machinery now lives once in `DocumentCurator`, and the suite (which documents
+  exist, their titles/filenames/audience/owner-visibility) is declared once in
+  `shared/documents/catalog.ts`, imported by both the studio and the server renderer
+  so they cannot drift. Old per-document routes deep-link into the studio.
 - **Sequence:** last in each cycle — it packages everything the other four produced.
 - **Done when:** a finalized report exists for the current assessment.
 
@@ -139,15 +150,17 @@ is duplicated.
 | Work stream | Engagement tabs (consolidated) | Related surfaces |
 |---|---|---|
 | **Readiness** | Overview · Buyer lens | Assessment intake · Results / score detail |
-| **Remediation** | Roadmap | Education modules (Library) |
+| **Remediation** | Roadmap (incl. applied Plans) | Education modules · Plans (Library) |
 | **Evidence** | Data room · Documents · Verification | Review queue (staff) · Trust & Security |
 | **Value** | Valuation | Scenario workbench |
-| **Deliverables** | Delta report | Owner report · Advisor brief |
+| **Deliverables** | Deliverables studio (Owner report · Delta report · CIM) | — |
 
 **Cross-cutting surfaces** (not one engagement's work stream, but supporting the five):
 Portfolio dashboard (Readiness across the book), the staff Review queue (Evidence
-across engagements), the Library (Remediation content catalog), and Trust & Security
-(company-level evidence). These stay at the app level.
+across engagements), the Library (Remediation content catalog **+ Plan authoring**,
+docs/37), the **Organization** page (admin: team roster, professional directory,
+engagement assignment — docs/02), and Trust & Security (company-level evidence).
+These stay at the app level.
 
 ### The navigation change
 
@@ -156,14 +169,16 @@ work-stream groups**:
 
 ```
 Readiness      Remediation   Evidence                      Value        Deliverables
-Overview       Roadmap       Data room · Documents ·        Valuation    Delta report
-Buyer lens                   Verification
+Overview       Roadmap       Data room · Documents ·        Valuation    Deliverables
+Buyer lens                   Verification                                (studio)
 ```
 
-This is implemented in `src/components/ui/EngagementNav.tsx`: the tabs are the same
-routes, but rendered under work-stream labels so the grouping is visible at a glance —
-in particular the three Evidence tabs read as one job, which is the whole point. No
-routes change; this is pure information architecture.
+This is implemented in `src/components/ui/EngagementNav.tsx`: the tabs are rendered
+under work-stream labels so the grouping is visible at a glance — in particular the
+three Evidence tabs read as one job, which is the whole point. The former "Delta
+report" tab is now the **Deliverables** studio (Owner report · Delta report · CIM in
+one place). On phones the tab strips are single-row horizontal-scroll (SubTabs /
+EngagementNav auto-center the active tab); no routes change — pure IA.
 
 ## Why consolidate now
 

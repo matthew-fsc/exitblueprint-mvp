@@ -1,10 +1,26 @@
-# 37 - Programs / Plans — reusable initiative bundles (design proposal)
+# 37 - Plans — reusable initiative bundles (feature reference)
 
-> **Status: Strategy / design proposal.** Direction and a concrete data-model
-> proposal for a future build; **not yet built, not yet ratified.** Product-behavior
-> decisions (§6) belong to Matthew. When this doc and `CLAUDE.md` disagree,
-> `CLAUDE.md` wins. Read alongside `docs/02-data-model.md`, `docs/17`/`docs/19`
-> (work streams), and `docs/27-engineering-patterns.md` before building any slice.
+> **Status: Reference — SHIPPED.** Slices PL1–PL4 (schema+seed → authoring → apply →
+> tracking/reconcile), the owner "Your plan" view (Q3), and score-suggested
+> recommendation (Q5) all shipped 2026-07-21 (decisions log; commit "Production
+> hardening + complete Plans feature"). All seven §6 product decisions were resolved
+> by Matthew; the term is **"Plan"**. This doc is the durable design record *and* the
+> as-built reference — the section bodies describe the shipped system; the phased
+> slice plan (§7) is kept for provenance. When this doc and `CLAUDE.md` disagree,
+> `CLAUDE.md` wins.
+>
+> **As built — where the code lives:**
+> | Concern | Where |
+> | --- | --- |
+> | Schema (4 tables + 2 annotation cols) | `supabase/migrations/20260721000100_plans.sql`, `…000200_plan_lineage.sql`, `…000300_task_completed_at.sql` |
+> | Server (author · apply · reconcile · recommend) | `server/plans.ts`; registry entries in `server/registry.ts` (engine `workflow`) |
+> | System-Plan seed | `server/seed-methodology.ts` |
+> | Advisor UI | `src/pages/PlansPage.tsx`, hooks in `src/lib/queries.ts` |
+> | Owner UI | `src/pages/owner/OwnerPlanPage.tsx` |
+> | Tests | `tests/plans.test.ts`, `tests/seed-plans.test.ts`, `scripts/rls-test.ts` |
+>
+> Read alongside `docs/02-data-model.md` (Plans tables), `docs/17`/`docs/19`
+> (work streams), and `docs/27-engineering-patterns.md`.
 
 ## 0. The problem this solves
 
