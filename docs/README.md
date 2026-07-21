@@ -81,6 +81,7 @@ A developer index: the durable features and the files that own them. Pair with
 | [20-strategic-positioning](./20-strategic-positioning.md) | Apex strategy — intelligence layer above advisory workflows; 7-layer moat | Strategy |
 | [09-moats](./09-moats.md) | The three data moats (outcome calibration, financial corpus, engagement graph) — the detail 20's moat list folds in | Strategy |
 | [36-competitive-positioning-cfp](./36-competitive-positioning-cfp.md) | Competitive landscape + the CFP-planner go-to-market wedge (market facts are time-sensitive) | Strategy |
+| [41-advisor-library-research-plan](./41-advisor-library-research-plan.md) | **Content sourcing plan** — research topics, reputable LMM M&A sources, and a phased plan to fill the advisor-library/Plans/valuation seed (market facts are time-sensitive) | Strategy |
 
 > These strategy docs overlap by design (20 is the apex; 09 is its moat detail; 18
 > & 36 are the practitioner/go-to-market layer and overlap most with each other).
