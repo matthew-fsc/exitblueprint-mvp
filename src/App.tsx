@@ -28,7 +28,6 @@ const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
-const PlaybooksPage = lazy(() => import('./pages/PlaybooksPage'));
 const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
@@ -321,9 +320,6 @@ function AppBar() {
             <NavLink to="/plans" className="app-nav-link">
               Plans
             </NavLink>
-            <NavLink to="/playbooks" className="app-nav-link">
-              Playbooks
-            </NavLink>
             {profile?.role === 'admin' && (
               <NavLink to="/organization" className="app-nav-link">
                 Organization
@@ -597,16 +593,8 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          <Route
-            path="/playbooks"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <PlaybooksPage />
-                </Shell>
-              </RequireAdvisor>
-            }
-          />
+          {/* Playbooks merged into the Plans tab (a Plan bundles playbooks). */}
+          <Route path="/playbooks" element={<Navigate to="/plans?view=playbooks" replace />} />
           {/* The standalone Network tab was removed — the professional directory
               it showed already lives on the Organization page, so old links fold
               back there rather than 404. */}

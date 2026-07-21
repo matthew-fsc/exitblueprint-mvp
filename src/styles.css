@@ -5224,6 +5224,11 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .plans-items { display: flex; flex-direction: column; gap: var(--space-2); }
 .plans-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .plans-card-head > div { min-width: 0; }
+.plans-card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
+/* Expanded "what's inside a plan" list — separated from the header like the apply row. */
+.plan-items-detail {
+  margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border);
+}
 .plan-item-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .plan-item-row select, .plan-item-row input {
   padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
