@@ -420,6 +420,32 @@ shipped:** `recommend-plans` surfaces Plans whose playbooks target the engagemen
 open gaps (read-only over the gap state, like `advisory.ts`), rendered on the
 Roadmap with one-click apply.
 
+**PL5 — Roadmap redevelopment around real Plans (shipped 2026-07-21).** The
+Roadmap board no longer groups tasks by playbook "workstream" (a UI-only grouping
+that predated this feature); it groups by **applied Plan**. Each `engagement_plan`
+is a collapsible group carrying its tasks (the source playbook shown as a quiet
+sub-label), its milestones, and its computed progress; a **gap-driven / unplanned**
+bucket holds everything not tied to a live Plan, and the Gantt draws one bar per
+group instead of per playbook. Three additions land with it:
+
+- **Add a plan on the Roadmap.** A first-class picker (active system + firm Plans
+  not already applied) applies a Plan with the shared anchor date, alongside a soft
+  **Remove plan** that sets `engagement_plans.status='removed'` and keeps the client
+  task history (the rows fall back to the unplanned bucket) — never a hard delete.
+- **Recommendation fires from gaps AND initiatives.** `recommendPlans` now matches
+  on two deterministic signals: a Plan's playbook items targeting open gaps (as
+  before) *and* its advisory items referencing a **fired initiative** (`advisory.ts`
+  `item_type='initiative'`, reused verbatim), ranked by combined coverage
+  (`match_score` = gap matches + initiative matches). Read-only over scoring/gaps.
+- **Auto-apply on generate-roadmap (Q5b).** `generate-roadmap` now also lays down
+  any Plan that is *substantively applicable* — a **majority (≥50%)** of its playbook
+  items map to the engagement's open gaps — via `autoApplyQualifyingPlans`, reusing
+  `applyPlan`'s once-per-engagement `(playbook_id, sequence)` idempotency (a claimed
+  task is never doubled) and reporting what it applied. This bar is deliberately
+  stricter than the single-match recommendation arm, so bulk generation only pulls
+  in mostly-on-target Plans, not ones that merely graze a gap. No scoring/rubric/
+  schema change; no LLM in any path.
+
 ---
 
 ## 8. Where the existing code revised the approach
