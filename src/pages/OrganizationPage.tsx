@@ -27,6 +27,7 @@ import {
   useToast,
 } from '../components/ui';
 import { ProfessionalDirectoryCard } from '../components/ProfessionalDirectoryCard';
+import { accentVars } from '../lib/color';
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
@@ -181,12 +182,12 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
         <Card pad="lg">
           <span className="stat-block-label">Live preview</span>
           <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <div style={accentValid && accent ? ({ ['--accent' as string]: accent } as React.CSSProperties) : undefined}>
+            <div style={(accentValid && accent ? accentVars(accent) : undefined) as React.CSSProperties | undefined}>
               <FirmMark brand={previewBrand} />
               <p className="ui-pageheader-sub" style={{ marginTop: 'var(--space-2)' }}>{fromLine || 'Prepared by your firm'}</p>
               <div style={{ marginTop: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                 <TierBadge tier="Sale Ready" />
-                <button style={{ background: 'var(--accent)' }}>Accent button</button>
+                <button>Accent button</button>
               </div>
               {disclosure && <p className="powered-by" style={{ marginTop: 'var(--space-4)' }}>{disclosure}</p>}
               <p className="powered-by" style={{ marginTop: 'var(--space-2)' }}>Powered by Exit Blueprint</p>

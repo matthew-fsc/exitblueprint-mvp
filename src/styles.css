@@ -34,11 +34,16 @@
   /* brand + interactive (forest) */
   --brand: #16352a;         /* headings, emphasis, primary surfaces */
   --brand-tint: #e7f1ec;    /* soft brand wash */
-  --accent: #1f7a52;        /* links + accents; firm branding may override */
-  --accent-strong: #17603f;
+  --accent: #1f7a52;        /* links, focus rings + accents; firm branding overrides */
+  --accent-strong: #17603f; /* hover/pressed accent; firm branding overrides */
   --on-brand: #ffffff;
 
-  /* primary button */
+  /* primary button — the default (unbranded) forest look. Per-firm white-labeling
+     overrides --btn-bg/--btn-bg-hover/--btn-fg to the accent-derived set via
+     BrandingProvider (accentVars in lib/color.ts), so ONE firm accent rebrands
+     buttons alongside links/focus rings. These stay literal (not var(--accent))
+     so the default keeps its AA-contrast forest in BOTH themes: in dark mode the
+     accent is a bright tint unsuitable as a white-text button fill. */
   --btn-bg: #1b4a38;
   --btn-bg-hover: #205a44;
   --btn-fg: #ffffff;
