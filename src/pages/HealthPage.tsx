@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   functionsBaseUrl,
   functionsUrlConfigured,
@@ -306,6 +307,7 @@ export default function HealthPage() {
     { name: 'Methodology', state: 'pending', detail: 'checking…' },
     { name: 'Profile linkage', state: 'pending', detail: 'checking…' },
   ]);
+  const navigate = useNavigate();
   const [methodologyMissing, setMethodologyMissing] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState<SeedResult | null>(null);
@@ -362,6 +364,19 @@ export default function HealthPage() {
 
   return (
     <div className="stack-lg">
+      {/* Jump to the internal Platform Console (the metrics & business-development
+          analytics surface at /internal). The console itself is superadmin-gated
+          server-side, so this is just a shortcut — a non-superadmin lands on its
+          access card. */}
+      <div className="stack-sm">
+        <p className="check-detail">
+          Platform metrics &amp; business-development analytics (superadmin only).
+        </p>
+        <button type="button" onClick={() => navigate('/internal')}>
+          Open platform console
+        </button>
+      </div>
+
       <ul className="check-list">
         {checks.map((c) => (
           <li key={c.name} className={`check check-${c.state}`}>
