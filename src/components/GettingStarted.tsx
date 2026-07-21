@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PageSection } from './ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { ConfirmDialog, PageSection, useToast } from './ui';
 import { getMfaState } from '../lib/mfa';
-import { isDevStack } from '../lib/supabase';
+import { isDevStack, supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
+import { qk, useServiceTier } from '../lib/queries';
+import { SERVICE_TIERS, serviceTier, type ServiceTierCode } from '../lib/serviceTiers';
 
 // First-run activation checklist for a new advisor (docs/archive/35 "thin
 // first-run onboarding"). Guides the three steps that turn an empty workspace
@@ -38,6 +42,12 @@ export function GettingStarted({
   onAddEngagement: () => void;
 }) {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const firmId = profile?.firm_id ?? null;
+  // Only staff who run onboarding may write the tier (firm_service_tier RLS);
+  // reviewers see the step but aren't nudged to act.
+  const canSetTier = profile?.role === 'advisor' || profile?.role === 'admin';
+
   // MFA is force-gated before the dashboard for real advisors, so this is
   // normally already satisfied — showing it checked gives a sense of progress.
   // On the dev stack MFA is bypassed; treat it as done rather than nag.
@@ -53,9 +63,26 @@ export function GettingStarted({
     };
   }, []);
 
+  const { data: tierRow } = useServiceTier(firmId);
+  const [pickingTier, setPickingTier] = useState(false);
+  const chosenTier = serviceTier(tierRow?.tier);
+
   const hasEngagement = engagementCount > 0;
 
   const steps: Step[] = [
+    {
+      key: 'tier',
+      title: 'Choose your service tier',
+      body: chosenTier
+        ? `Your firm is set up on the ${chosenTier.name} tier.`
+        : 'Pick the service level your firm delivers so the workspace reflects how you engage owners.',
+      done: !!tierRow,
+      action: canSetTier ? (
+        <button onClick={() => setPickingTier(true)}>
+          {chosenTier ? 'Change tier' : 'Choose tier'}
+        </button>
+      ) : undefined,
+    },
     {
       key: 'secure',
       title: 'Secure your account',
@@ -102,6 +129,14 @@ export function GettingStarted({
 
   return (
     <PageSection title="Getting started" note={`${doneCount} of ${steps.length} done`}>
+      {pickingTier && firmId && (
+        <ServiceTierDialog
+          firmId={firmId}
+          profileId={profile?.id ?? null}
+          current={(tierRow?.tier as ServiceTierCode) ?? null}
+          onClose={() => setPickingTier(false)}
+        />
+      )}
       <ol className="gs-list">
         {steps.map((step, i) => {
           const active = step.key === activeKey;
@@ -131,5 +166,91 @@ export function GettingStarted({
         })}
       </ol>
     </PageSection>
+  );
+}
+
+// Firm-tier picker. Radio-style cards for the seeded service tiers; saving
+// upserts the firm's single firm_service_tier row (advisor/admin only, enforced
+// by RLS). Writing firm scope is a plain table write here — no scoring involved.
+function ServiceTierDialog({
+  firmId,
+  profileId,
+  current,
+  onClose,
+}: {
+  firmId: string;
+  profileId: string | null;
+  current: ServiceTierCode | null;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [selected, setSelected] = useState<ServiceTierCode | null>(current);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!selected) {
+      setError('Pick a service tier to continue.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const { error: err } = await supabase.from('firm_service_tier').upsert(
+      { firm_id: firmId, tier: selected, selected_by: profileId },
+      { onConflict: 'firm_id' },
+    );
+    setSaving(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: qk.serviceTier(firmId) });
+    toast.show('Service tier saved', 'good');
+    onClose();
+  };
+
+  return (
+    <ConfirmDialog
+      open
+      title="Choose your service tier"
+      confirmLabel="Save tier"
+      busy={saving}
+      confirmDisabled={!selected}
+      onConfirm={save}
+      onCancel={onClose}
+    >
+      <fieldset className="tier-picker" style={{ border: 0, margin: 0, padding: 0 }}>
+        <legend className="sr-only">Service tier</legend>
+        {SERVICE_TIERS.map((t) => {
+          const active = selected === t.code;
+          return (
+            <label key={t.code} className={`tier-option${active ? ' is-selected' : ''}`}>
+              <input
+                type="radio"
+                name="service-tier"
+                value={t.code}
+                checked={active}
+                onChange={() => setSelected(t.code)}
+              />
+              <span className="tier-option-body">
+                <span className="tier-option-name">{t.name}</span>
+                <span className="tier-option-tagline">{t.tagline}</span>
+                <ul className="tier-option-points">
+                  {t.points.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: 'var(--space-2)' }}>
+          {error}
+        </p>
+      )}
+    </ConfirmDialog>
   );
 }

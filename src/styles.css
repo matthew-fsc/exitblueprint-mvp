@@ -3273,6 +3273,36 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .gs-step-desc { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); max-width: 46rem; }
 .gs-action { flex: none; align-self: center; }
 
+/* Service-tier picker (onboarding). Radio cards; the whole card is the target. */
+.tier-picker { display: flex; flex-direction: column; gap: var(--space-3); }
+.tier-option {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+.tier-option:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.tier-option.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-1));
+}
+.tier-option input { margin-top: 0.2rem; flex: none; }
+.tier-option-body { display: flex; flex-direction: column; gap: var(--space-1); }
+.tier-option-name { font-weight: 700; color: var(--text-primary); }
+.tier-option-tagline { color: var(--text-secondary); font-size: var(--text-sm); }
+.tier-option-points {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .filter-row {
   display: flex;
   align-items: flex-end;
