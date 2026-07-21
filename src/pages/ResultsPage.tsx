@@ -154,10 +154,16 @@ export default function ResultsPage() {
             <Link className="button-link" to={`/assessment/${assessment.id}/workbench`}>
               What-if →
             </Link>
-            <Link className="button-link" to={`/assessment/${assessment.id}/report`}>
+            <Link
+              className="button-link"
+              to={`/engagement/${assessment.engagement_id}/deliverables/owner?assessment=${assessment.id}`}
+            >
               Owner report →
             </Link>
-            <Link className="button-link" to={`/assessment/${assessment.id}/cim`}>
+            <Link
+              className="button-link"
+              to={`/engagement/${assessment.engagement_id}/deliverables/cim?assessment=${assessment.id}`}
+            >
               CIM →
             </Link>
           </>

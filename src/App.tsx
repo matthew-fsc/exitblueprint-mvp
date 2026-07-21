@@ -6,6 +6,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
 import { isDevStack, invokeFunction } from './lib/supabase';
+import { useActiveAssessment } from './lib/queries';
 import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
 import { UserMenu } from './components/UserMenu';
 import { BrandingProvider, useBrand } from './lib/branding';
@@ -22,7 +23,7 @@ import SignUpPage from './pages/SignUpPage';
 // page loading state while each chunk downloads.
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const EngagementPage = lazy(() => import('./pages/EngagementPage'));
-const DeltaReportPage = lazy(() => import('./pages/DeltaReportPage'));
+const DeliverablesPage = lazy(() => import('./pages/DeliverablesPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
@@ -35,8 +36,6 @@ const LedgerCallbackPage = lazy(() => import('./pages/LedgerCallbackPage'));
 const IntakePage = lazy(() => import('./pages/IntakePage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
-const ReportPage = lazy(() => import('./pages/ReportPage'));
-const CimPage = lazy(() => import('./pages/CimPage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
@@ -164,6 +163,29 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function RedirectToEvidence({ section }: { section: string }) {
   const { engagementId } = useParams();
   return <Navigate to={`/engagement/${engagementId}/evidence/${section}`} replace />;
+}
+
+// The owner report, delta report, and CIM used to be their own routes; they are
+// now sub-tabs of the one Deliverables studio (src/pages/DeliverablesPage.tsx).
+// These keep old links (bookmarks, prior sessions, in-app links) working by
+// folding them into the studio deep-linked to the right document and assessment.
+function RedirectEngagementDeliverable({ section }: { section: string }) {
+  const { engagementId } = useParams();
+  return <Navigate to={`/engagement/${engagementId}/deliverables/${section}`} replace />;
+}
+
+function RedirectAssessmentDeliverable({ section }: { section: string }) {
+  const { assessmentId } = useParams();
+  const assessmentQ = useActiveAssessment(assessmentId);
+  const engagementId = assessmentQ.data?.engagement_id;
+  if (assessmentQ.isLoading) return <LoadingState />;
+  if (!engagementId) return <Navigate to="/" replace />;
+  return (
+    <Navigate
+      to={`/engagement/${engagementId}/deliverables/${section}?assessment=${assessmentId}`}
+      replace
+    />
+  );
 }
 
 function userInitials(email?: string | null): string {
@@ -433,15 +455,33 @@ export default function App() {
               </RequireAdvisor>
             }
           />
+          {/* Deliverables studio — the one place client documents are curated
+              (owner report · delta report · CIM), consolidated from three routes
+              (docs/17 §5). :section selects the sub-tab; ?assessment= deep-links a
+              specific assessment. */}
           <Route
-            path="/engagement/:engagementId/delta"
+            path="/engagement/:engagementId/deliverables"
             element={
               <RequireAdvisor>
                 <Shell>
-                  <DeltaReportPage />
+                  <DeliverablesPage />
                 </Shell>
               </RequireAdvisor>
             }
+          />
+          <Route
+            path="/engagement/:engagementId/deliverables/:section"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <DeliverablesPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/delta"
+            element={<RedirectEngagementDeliverable section="delta" />}
           />
           {/* Evidence: Data room · Documents · Verification merged into one
               tabbed surface (docs/archive/22 F2). The :section param drives the sub-tab. */}
@@ -542,25 +582,16 @@ export default function App() {
               </RequireAdvisor>
             }
           />
+          {/* The owner report and CIM moved into the Deliverables studio; keep the
+              old per-assessment links working by folding them in (deep-linked to
+              the document and the originating assessment). */}
           <Route
             path="/assessment/:assessmentId/report"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <ReportPage />
-                </Shell>
-              </RequireAdvisor>
-            }
+            element={<RequireAdvisor><RedirectAssessmentDeliverable section="owner" /></RequireAdvisor>}
           />
           <Route
             path="/assessment/:assessmentId/cim"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <CimPage />
-                </Shell>
-              </RequireAdvisor>
-            }
+            element={<RequireAdvisor><RedirectAssessmentDeliverable section="cim" /></RequireAdvisor>}
           />
           <Route
             path="/settings"

@@ -21,7 +21,7 @@
 // gateway that reads this registry *is* the Identity Engine.
 import type pg from 'pg';
 import { compareAssessments, explainAssessment, scoreAssessment } from './scoring';
-import { buildDeltaReportPayload, buildOwnerReportPayload, generateDocument } from './narrative';
+import { generateDocument } from './narrative';
 import { instantiateTasksForGaps } from './roadmap';
 import { fireAdvisoryItems, educationModules } from './advisory';
 import { verificationSummary } from './verification';
@@ -47,7 +47,7 @@ import {
 import { signDocumentToken } from './documents/signed-url';
 import { runEngagementVerification } from './sellside';
 import { attachDataRoomDocument, listDataRoom, setDataRoomItem } from './data-room';
-import { buildCimCoverage, buildCimPayload } from './cim';
+import { buildCimCoverage } from './cim';
 import { engagementComparables } from './comparables';
 import {
   claimReviewItem,
@@ -58,13 +58,7 @@ import {
 } from './review-queue';
 import { logAccess } from './audit';
 import { seedMethodology } from './seed-methodology';
-import {
-  renderCimReportHtml,
-  renderDeltaReportHtml,
-  renderOwnerReportHtml,
-  renderReportPdf,
-  type ReportBranding,
-} from './pdf';
+import { renderDocumentPdf } from './documents/catalog';
 
 // ── The six engines (architecture doc §01) ────────────────────────────────────
 // Every endpoint belongs to exactly one. `identity` is intentionally never used
@@ -138,102 +132,14 @@ export const err = (status: number, message: string): FunctionResult => ({
 
 // ── Reasoning Engine: assembled PDF documents ─────────────────────────────────
 // Facts (deterministic) + narrative (AI, draft) + branding → a rendered PDF. The
+// assembly for every document type lives in one place, server/documents/catalog.ts,
+// keyed by doc_type; this thin adapter maps its result onto a FunctionResult. The
 // document reads the structured result and the generated narrative; it never
 // authors a number (architecture doc §10).
-async function ownerReportPdf(service: pg.ClientBase, assessmentId: string): Promise<FunctionResult> {
-  const explain = await explainAssessment(service, assessmentId);
-  const payload = await buildOwnerReportPayload(service, assessmentId);
-  const doc = (
-    await service.query(
-      `select gd.content_md, e.firm_id, a.completed_at
-       from generated_documents gd
-       join engagements e on e.id = gd.engagement_id
-       join assessments a on a.id = gd.assessment_id
-       where gd.assessment_id = $1 and gd.doc_type = 'owner_report'
-       order by gd.created_at desc limit 1`,
-      [assessmentId],
-    )
-  ).rows[0];
-  if (!doc) return err(404, 'no owner report generated for this assessment yet');
-  const branding = (
-    await service.query(
-      `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
-       from firm_branding where firm_id = $1`,
-      [doc.firm_id],
-    )
-  ).rows[0] as ReportBranding | undefined;
-  const html = renderOwnerReportHtml(
-    {
-      companyName: payload.company.name,
-      industry: payload.company.industry,
-      targetWindow: payload.engagement_target_window,
-      date: doc.completed_at,
-      drs: explain.drsScore,
-      tier: explain.drsTier,
-      ori: explain.oriScore,
-      dimensions: explain.dimensions.map((d) => ({ name: d.name, score: d.score })),
-      topGaps: payload.top_gaps,
-      flags: explain.flags,
-    },
-    doc.content_md,
-    branding ?? null,
-  );
-  const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
-  return { kind: 'pdf', filename: 'exit-readiness-report.pdf', buffer: pdf };
-}
-
-async function deltaReportPdf(service: pg.ClientBase, assessmentId: string): Promise<FunctionResult> {
-  const payload = await buildDeltaReportPayload(service, assessmentId);
-  const doc = (
-    await service.query(
-      `select gd.content_md, e.firm_id
-       from generated_documents gd join engagements e on e.id = gd.engagement_id
-       where gd.assessment_id = $1 and gd.doc_type = 'delta_report'
-       order by gd.created_at desc limit 1`,
-      [assessmentId],
-    )
-  ).rows[0];
-  if (!doc) return err(404, 'no delta report generated for this assessment yet');
-  const branding = (
-    await service.query(
-      `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
-       from firm_branding where firm_id = $1`,
-      [doc.firm_id],
-    )
-  ).rows[0] as ReportBranding | undefined;
-  const html = renderDeltaReportHtml(payload, doc.content_md, branding ?? null);
-  const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
-  return { kind: 'pdf', filename: 'delta-report.pdf', buffer: pdf };
-}
-
-async function cimReportPdf(service: pg.ClientBase, assessmentId: string): Promise<FunctionResult> {
-  const payload = await buildCimPayload(service, assessmentId);
-  const doc = (
-    await service.query(
-      `select gd.content_md, e.firm_id, a.completed_at
-       from generated_documents gd
-       join engagements e on e.id = gd.engagement_id
-       join assessments a on a.id = gd.assessment_id
-       where gd.assessment_id = $1 and gd.doc_type = 'cim'
-       order by gd.created_at desc limit 1`,
-      [assessmentId],
-    )
-  ).rows[0];
-  if (!doc) return err(404, 'no CIM generated for this assessment yet');
-  const branding = (
-    await service.query(
-      `select display_name, logo_url, accent_color, report_from_line, footer_disclosure_md
-       from firm_branding where firm_id = $1`,
-      [doc.firm_id],
-    )
-  ).rows[0] as ReportBranding | undefined;
-  const html = renderCimReportHtml(
-    { companyName: payload.company.name, industry: payload.company.industry, date: doc.completed_at },
-    doc.content_md,
-    branding ?? null,
-  );
-  const pdf = await renderReportPdf(html, { footerLeft: branding?.display_name ?? '' });
-  return { kind: 'pdf', filename: 'confidential-information-memorandum.pdf', buffer: pdf };
+async function documentPdf(service: pg.ClientBase, docType: string, assessmentId: string): Promise<FunctionResult> {
+  const result = await renderDocumentPdf(service, docType, assessmentId);
+  if (!result.ok) return err(result.status, result.message);
+  return { kind: 'pdf', filename: result.filename, buffer: result.buffer };
 }
 
 // Resolve the caller's profile id in one firm (provenance for staff actions).
@@ -332,23 +238,34 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: ({ service, body }) =>
       generateDocument(service, body.assessment_id as string, (body.doc_type as string) ?? 'owner_report').then(ok),
   },
+  // The one endpoint the Deliverables studio renders through: it names the
+  // document type in the body, and the catalog assembles the matching branded
+  // PDF. The three render-<type>-pdf entries below are thin, stable aliases kept
+  // so existing links (owner portal, bookmarks) and callers keep working.
+  'render-document-pdf': {
+    engine: 'reasoning',
+    scope: 'assessment',
+    gated: true,
+    handler: ({ service, body }) =>
+      documentPdf(service, (body.doc_type as string) ?? 'owner_report', body.assessment_id as string),
+  },
   'render-owner-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => ownerReportPdf(service, body.assessment_id as string),
+    handler: ({ service, body }) => documentPdf(service, 'owner_report', body.assessment_id as string),
   },
   'render-delta-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => deltaReportPdf(service, body.assessment_id as string),
+    handler: ({ service, body }) => documentPdf(service, 'delta_report', body.assessment_id as string),
   },
   'render-cim-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => cimReportPdf(service, body.assessment_id as string),
+    handler: ({ service, body }) => documentPdf(service, 'cim', body.assessment_id as string),
   },
 
   // ── Workflow Engine — the engagement lifecycle

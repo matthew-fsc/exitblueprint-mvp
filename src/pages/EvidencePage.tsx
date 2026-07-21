@@ -134,7 +134,10 @@ export default function EvidencePage() {
           }
           actions={
             latest ? (
-              <Link className="button-link" to={`/assessment/${latest.id}/cim`}>
+              <Link
+                className="button-link"
+                to={`/engagement/${engagementId}/deliverables/cim?assessment=${latest.id}`}
+              >
                 Package into CIM →
               </Link>
             ) : undefined
