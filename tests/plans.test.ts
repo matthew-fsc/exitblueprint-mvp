@@ -162,4 +162,66 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     const r = await handleFunctionCall('list-plans', {}, ctxFor('user_plans_stranger'));
     expect(r).toMatchObject({ kind: 'json', status: 403 });
   });
+
+  it('edits a draft plan in place (version stays 1)', async () => {
+    const created = await handleFunctionCall(
+      'create-plan',
+      { name: 'Draft Plan', status: 'draft', items: [{ kind: 'manual_task', title: 'a' }] },
+      ctxFor(advisorUserId),
+    );
+    const id = (created as { body: PlanBody }).body.id;
+    const r = await handleFunctionCall(
+      'update-plan',
+      { id, name: 'Draft Plan Renamed', items: [{ kind: 'manual_task', title: 'b' }, { kind: 'milestone', title: 'm', track: 'personal' }] },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+    if (r.kind === 'json') {
+      const plan = r.body as PlanBody & { id: string; plan_version: number };
+      expect(plan.id).toBe(id); // same row
+      expect(plan.name).toBe('Draft Plan Renamed');
+      expect((plan as unknown as { plan_version: number }).plan_version).toBe(1);
+      expect(plan.items).toHaveLength(2);
+    }
+  });
+
+  it('editing an active plan mints a new linked version and retires the old', async () => {
+    const created = await handleFunctionCall(
+      'create-plan',
+      { name: 'Active Plan', status: 'active', items: [{ kind: 'manual_task', title: 'v1 task' }] },
+      ctxFor(advisorUserId),
+    );
+    const v1 = (created as { body: PlanBody & { lineage_id: string; plan_version: number } }).body;
+    const r = await handleFunctionCall(
+      'update-plan',
+      { id: v1.id, name: 'Active Plan v2', items: [{ kind: 'manual_task', title: 'v2 task' }] },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+    const v2 = (r as { body: PlanBody & { lineage_id: string; plan_version: number } }).body;
+    expect(v2.id).not.toBe(v1.id); // new row
+    expect(v2.plan_version).toBe(2);
+    expect(v2.lineage_id).toBe(v1.lineage_id); // same lineage
+    expect(v2.status).toBe('active');
+    // Old row retired in the DB, and hidden from the authoring list.
+    const oldStatus = (await service.query(`select status from plan_templates where id = $1`, [v1.id])).rows[0].status;
+    expect(oldStatus).toBe('retired');
+    const list = await handleFunctionCall('list-plans', {}, ctxFor(advisorUserId));
+    const listed = (list as { body: { plans: PlanBody[] } }).body.plans;
+    expect(listed.some((p) => p.id === v2.id)).toBe(true);
+    expect(listed.some((p) => p.id === v1.id)).toBe(false); // retired hidden
+  });
+
+  it('cannot edit another firm’s or a nonexistent plan (400)', async () => {
+    const foreign = (
+      await service.query(
+        `insert into plan_templates (firm_id, source, name, status, lineage_id)
+         values ($1, 'advisor', 'Foreign Plan', 'active', gen_random_uuid()) returning id`,
+        [otherFirmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall('update-plan', { id: foreign, name: 'hijack' }, ctxFor(advisorUserId));
+    expect(r).toMatchObject({ kind: 'json', status: 400 });
+    await service.query(`delete from plan_templates where id = $1`, [foreign]);
+  });
 });

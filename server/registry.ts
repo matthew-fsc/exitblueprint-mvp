@@ -37,7 +37,7 @@ import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
 import { firmAttention } from './attention';
-import { listPlanTemplates, createPlan } from './plans';
+import { listPlanTemplates, createPlan, updatePlan } from './plans';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -365,6 +365,12 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'firm',
     handler: ({ service, firmId, userId, body }) =>
       createPlan(service, firmId as string, body, userId).then(ok),
+  },
+  'update-plan': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      updatePlan(service, firmId as string, body, userId).then(ok),
   },
 
   // ── Workflow Engine — the engagement lifecycle

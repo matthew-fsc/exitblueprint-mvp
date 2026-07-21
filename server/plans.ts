@@ -37,6 +37,7 @@ export interface PlanTemplateView {
   is_system: boolean;
   source: string;
   code: string | null;
+  lineage_id: string | null;
   name: string;
   summary: string | null;
   plan_version: number;
@@ -62,7 +63,8 @@ const ITEM_COLS =
 async function loadPlanTemplate(db: pg.ClientBase, id: string): Promise<PlanTemplateView | null> {
   const p = (
     await db.query(
-      `select id, firm_id, source, code, name, summary, plan_version, status from plan_templates where id = $1`,
+      `select id, firm_id, source, code, lineage_id, name, summary, plan_version, status
+       from plan_templates where id = $1`,
       [id],
     )
   ).rows[0];
@@ -78,11 +80,13 @@ export async function listPlanTemplates(
   db: pg.ClientBase,
   firmId: string,
 ): Promise<{ plans: PlanTemplateView[] }> {
+  // Retired rows (superseded prior versions) stay for applied-instance lineage
+  // but are hidden from the authoring surface — only current Plans are listed.
   const plans = (
     await db.query(
-      `select id, firm_id, source, code, name, summary, plan_version, status
+      `select id, firm_id, source, code, lineage_id, name, summary, plan_version, status
        from plan_templates
-       where firm_id is null or firm_id = $1
+       where (firm_id is null or firm_id = $1) and status <> 'retired'
        order by (firm_id is null) desc, name`,
       [firmId],
     )
@@ -177,22 +181,15 @@ async function advisoryVisible(db: pg.ClientBase, id: string, firmId: string): P
   );
 }
 
-// Create a firm-authored Plan (plan_templates firm_id = caller firm) with its
-// items. status defaults to 'draft'; pass status:'active' to publish immediately.
-export async function createPlan(
+// Normalize the raw items and verify every referenced asset is visible to the
+// firm (global rows, or the firm's own) before anything is written. Throws a
+// caller-facing message (→ 400) on any problem.
+async function resolveItems(
   db: pg.ClientBase,
   firmId: string,
-  body: Record<string, unknown>,
-  userId: string,
-): Promise<PlanTemplateView> {
-  const name = String(body.name ?? '').trim();
-  if (!name) throw new Error('a plan name is required');
-  const summary = body.summary != null ? String(body.summary).trim() || null : null;
-  const status = body.status === 'active' ? 'active' : 'draft';
-  const rawItems = Array.isArray(body.items) ? body.items : [];
+  rawItems: unknown[],
+): Promise<NormalizedItem[]> {
   const items = rawItems.map((it, i) => normalizeItem(it, i));
-
-  // Referenced assets must be visible to the firm before we write anything.
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     if (it.kind === 'playbook' && !(await refExists(db, 'playbooks', it.playbook_id!))) {
@@ -205,12 +202,55 @@ export async function createPlan(
       throw new Error(`item ${i}: advisory item not found in your library`);
     }
   }
+  return items;
+}
 
-  // created_by is a profiles.id (uuid), not the Clerk subject (userId) — resolve
-  // the caller's profile in their firm (same pattern as server/agreements.ts).
-  const createdBy =
+async function writeItems(
+  db: pg.ClientBase,
+  firmId: string,
+  planId: string,
+  items: NormalizedItem[],
+): Promise<void> {
+  let sort = 0;
+  for (const it of items) {
+    await db.query(
+      `insert into plan_template_items
+         (firm_id, plan_template_id, item_kind, playbook_id, content_module_id,
+          advisory_library_item_id, title, description, owner_role, track,
+          target_offset_days, sort_order)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        firmId, planId, it.kind, it.playbook_id, it.content_module_id,
+        it.advisory_library_item_id, it.title, it.description, it.owner_role,
+        it.track, it.target_offset_days, sort++,
+      ],
+    );
+  }
+}
+
+// created_by / applied_by columns hold a profiles.id (uuid), not the Clerk
+// subject (userId) — resolve the caller's profile (same pattern as agreements.ts).
+async function profileId(db: pg.ClientBase, userId: string, firmId: string): Promise<string | null> {
+  return (
     ((await db.query(`select id from profiles where user_id = $1 and firm_id = $2`, [userId, firmId]))
-      .rows[0]?.id as string | undefined) ?? null;
+      .rows[0]?.id as string | undefined) ?? null
+  );
+}
+
+// Create a firm-authored Plan (plan_templates firm_id = caller firm) with its
+// items. status defaults to 'draft'; pass status:'active' to publish immediately.
+export async function createPlan(
+  db: pg.ClientBase,
+  firmId: string,
+  body: Record<string, unknown>,
+  userId: string,
+): Promise<PlanTemplateView> {
+  const name = String(body.name ?? '').trim();
+  if (!name) throw new Error('a plan name is required');
+  const summary = body.summary != null ? String(body.summary).trim() || null : null;
+  const status = body.status === 'active' ? 'active' : 'draft';
+  const items = await resolveItems(db, firmId, Array.isArray(body.items) ? body.items : []);
+  const createdBy = await profileId(db, userId, firmId);
 
   try {
     await db.query('begin');
@@ -221,25 +261,102 @@ export async function createPlan(
         [firmId, name, summary, status, createdBy],
       )
     ).rows[0].id;
-    let sort = 0;
-    for (const it of items) {
-      await db.query(
-        `insert into plan_template_items
-           (firm_id, plan_template_id, item_kind, playbook_id, content_module_id,
-            advisory_library_item_id, title, description, owner_role, track,
-            target_offset_days, sort_order)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [
-          firmId, planId, it.kind, it.playbook_id, it.content_module_id,
-          it.advisory_library_item_id, it.title, it.description, it.owner_role,
-          it.track, it.target_offset_days, sort++,
-        ],
-      );
-    }
+    // A Plan is its own lineage root until a future edit mints a new version.
+    await db.query(`update plan_templates set lineage_id = id where id = $1`, [planId]);
+    await writeItems(db, firmId, planId, items);
     await db.query('commit');
     return (await loadPlanTemplate(db, planId))!;
   } catch (err) {
     await db.query('rollback').catch(() => {});
     throw err;
   }
+}
+
+// Edit a firm-authored Plan. A DRAFT is edited in place. An ACTIVE Plan is
+// immutable once it may have been applied, so an edit MINTS a new version — a new
+// plan_templates row sharing the original's lineage_id at plan_version + 1 — and
+// retires the prior row (docs/37 §3.1). System Plans and other firms' Plans are
+// never editable here. If `items` is omitted, the existing item set is carried
+// forward; if present, it replaces the set.
+export async function updatePlan(
+  db: pg.ClientBase,
+  firmId: string,
+  body: Record<string, unknown>,
+  userId: string,
+): Promise<PlanTemplateView> {
+  const id = String(body.id ?? '');
+  if (!id) throw new Error('a plan id is required');
+  const existing = (
+    await db.query(
+      `select id, firm_id, lineage_id, name, summary, plan_version, status
+       from plan_templates where id = $1`,
+      [id],
+    )
+  ).rows[0] as
+    | { id: string; firm_id: string | null; lineage_id: string | null; name: string; summary: string | null; plan_version: number; status: string }
+    | undefined;
+  if (!existing || existing.firm_id !== firmId) throw new Error('plan not found');
+  if (existing.status === 'retired') throw new Error('this plan version is retired; edit its current version');
+
+  const name = body.name != null ? String(body.name).trim() : existing.name;
+  if (!name) throw new Error('a plan name is required');
+  const summary = 'summary' in body ? (body.summary != null ? String(body.summary).trim() || null : null) : existing.summary;
+
+  // Items: replace if provided, else carry forward the existing set.
+  const items = Array.isArray(body.items)
+    ? await resolveItems(db, firmId, body.items)
+    : await carryForwardItems(db, id);
+
+  try {
+    await db.query('begin');
+    let resultId: string;
+    if (existing.status === 'draft') {
+      // Edit in place; a draft may also be activated here.
+      const status = body.status === 'active' ? 'active' : 'draft';
+      await db.query(`update plan_templates set name = $2, summary = $3, status = $4 where id = $1`, [
+        id, name, summary, status,
+      ]);
+      await db.query(`delete from plan_template_items where plan_template_id = $1`, [id]);
+      await writeItems(db, firmId, id, items);
+      resultId = id;
+    } else {
+      // Active → mint a new linked version; retire the old one.
+      const createdBy = await profileId(db, userId, firmId);
+      resultId = (
+        await db.query(
+          `insert into plan_templates (firm_id, source, name, summary, plan_version, status, created_by, lineage_id)
+           values ($1, 'advisor', $2, $3, $4, 'active', $5, $6) returning id`,
+          [firmId, name, summary, existing.plan_version + 1, createdBy, existing.lineage_id ?? id],
+        )
+      ).rows[0].id;
+      await writeItems(db, firmId, resultId, items);
+      await db.query(`update plan_templates set status = 'retired' where id = $1`, [id]);
+    }
+    await db.query('commit');
+    return (await loadPlanTemplate(db, resultId))!;
+  } catch (err) {
+    await db.query('rollback').catch(() => {});
+    throw err;
+  }
+}
+
+// Re-read an existing plan's items as NormalizedItem[] (for carry-forward on a
+// version mint where the caller didn't send a new item set).
+async function carryForwardItems(db: pg.ClientBase, planId: string): Promise<NormalizedItem[]> {
+  const rows = (
+    await db.query(`select ${ITEM_COLS} from plan_template_items where plan_template_id = $1 order by sort_order`, [
+      planId,
+    ])
+  ).rows;
+  return rows.map((r) => ({
+    kind: r.item_kind,
+    playbook_id: r.playbook_id,
+    content_module_id: r.content_module_id,
+    advisory_library_item_id: r.advisory_library_item_id,
+    title: r.title,
+    description: r.description,
+    owner_role: r.owner_role,
+    track: r.track,
+    target_offset_days: r.target_offset_days,
+  }));
 }
