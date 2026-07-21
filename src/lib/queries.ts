@@ -48,6 +48,8 @@ export const qk = {
   tasks: (engagementId: string) => ['tasks', engagementId] as const,
   engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
   advisoryLibrary: () => ['advisoryLibrary'] as const,
+  plans: () => ['plans'] as const,
+  contentModules: () => ['contentModules'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
@@ -1173,6 +1175,63 @@ export function useBranding(firmId: string | undefined | null): UseQueryResult<B
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data as BrandingRow) ?? null;
+    },
+  });
+}
+
+// ── Plans (docs/37) ──────────────────────────────────────────────────────────
+export type PlanItemKind = 'playbook' | 'education' | 'advisory' | 'milestone' | 'manual_task';
+
+export interface PlanItemView {
+  id: string;
+  item_kind: PlanItemKind;
+  playbook_id: string | null;
+  content_module_id: string | null;
+  advisory_library_item_id: string | null;
+  title: string | null;
+  description: string | null;
+  owner_role: string | null;
+  track: string | null;
+  target_offset_days: number | null;
+  sort_order: number;
+}
+
+export interface PlanView {
+  id: string;
+  firm_id: string | null;
+  is_system: boolean;
+  source: string;
+  code: string | null;
+  lineage_id: string | null;
+  name: string;
+  summary: string | null;
+  plan_version: number;
+  status: string;
+  items: PlanItemView[];
+}
+
+// System Plans + the caller firm's own (server list-plans; RLS + firm filter).
+export function usePlans(): UseQueryResult<PlanView[]> {
+  return useQuery({
+    queryKey: qk.plans(),
+    queryFn: async () => (await invokeFunction<{ plans: PlanView[] }>('list-plans', {})).plans,
+  });
+}
+
+export interface ContentModuleRow {
+  id: string;
+  code: string;
+  title: string;
+}
+
+// The education catalog (global methodology), for the Plan item picker.
+export function useContentModules(): UseQueryResult<ContentModuleRow[]> {
+  return useQuery({
+    queryKey: qk.contentModules(),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('content_modules').select('id,code,title').order('title');
+      if (error) throw error;
+      return (data ?? []) as ContentModuleRow[];
     },
   });
 }

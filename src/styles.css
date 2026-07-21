@@ -5033,3 +5033,23 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
    stack's gap is the single source of rhythm within a region. */
 .page-section .stack-lg > .ws-rail,
 .page-section .stack-lg > .eng-grid { margin-top: 0; }
+
+/* Plans (docs/37) — authoring + apply surface */
+.plans-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.plans-items { display: flex; flex-direction: column; gap: var(--space-2); }
+.plans-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.plans-card-head > div { min-width: 0; }
+.plan-item-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.plan-item-row select, .plan-item-row input {
+  padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-primary); font: inherit;
+}
+.plan-apply-row {
+  display: flex; gap: var(--space-3); align-items: flex-end; flex-wrap: wrap;
+  margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border);
+}
+.plan-apply-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; }
+.plan-apply-row select, .plan-apply-row input {
+  padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-primary); font: inherit;
+}

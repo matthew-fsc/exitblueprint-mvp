@@ -26,6 +26,7 @@ const DeltaReportPage = lazy(() => import('./pages/DeltaReportPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const PlansPage = lazy(() => import('./pages/PlansPage'));
 const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
@@ -213,6 +214,9 @@ function AppBar() {
             <ReviewNavLink />
             <NavLink to="/library" className="app-nav-link">
               Library
+            </NavLink>
+            <NavLink to="/plans" className="app-nav-link">
+              Plans
             </NavLink>
             <NavLink to="/settings" className="app-nav-link">
               Settings
@@ -435,6 +439,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <LibraryPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/plans"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <PlansPage />
                 </Shell>
               </RequireAdvisor>
             }
