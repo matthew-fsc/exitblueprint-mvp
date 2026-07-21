@@ -101,8 +101,12 @@ advisor relationship warm.
 - **Core concept:** the narrative artifacts handed to the owner and the market.
 - **Surfaces today:** one **Deliverables studio** (`/engagement/:id/deliverables/:section`,
   `src/pages/DeliverablesPage.tsx`) — a single assessment selector + one sub-tab per
-  document (Owner report · Delta report · **CIM**). The three documents were formerly
-  three separate pages each re-implementing generate → edit → finalize → download;
+  document (Owner report · Delta report · Teaser · **CIM** · Management presentation).
+  The two owner-facing documents come first, then the three market-facing ones in the
+  order a sell-side process uses them: the anonymized **teaser** (blind profile) that
+  goes out before an NDA, the **CIM** behind the NDA, and the **management
+  presentation** for buyer meetings. The documents were formerly separate pages each
+  re-implementing generate → edit → finalize → download;
   that machinery now lives once in `DocumentCurator`, and the suite (which documents
   exist, their titles/filenames/audience/owner-visibility) is declared once in
   `shared/documents/catalog.ts`, imported by both the studio and the server renderer
@@ -153,7 +157,7 @@ is duplicated.
 | **Remediation** | Roadmap (incl. applied Plans) | Education modules · Plans (Library) |
 | **Evidence** | Data room · Documents · Verification | Review queue (staff) · Trust & Security |
 | **Value** | Valuation | Scenario workbench |
-| **Deliverables** | Deliverables studio (Owner report · Delta report · CIM) | — |
+| **Deliverables** | Deliverables studio (Owner report · Delta report · Teaser · CIM · Management presentation) | — |
 
 **Cross-cutting surfaces** (not one engagement's work stream, but supporting the five):
 Portfolio dashboard (Readiness across the book), the staff Review queue (Evidence
@@ -176,8 +180,8 @@ Buyer lens                   Verification                                (studio
 This is implemented in `src/components/ui/EngagementNav.tsx`: the tabs are rendered
 under work-stream labels so the grouping is visible at a glance — in particular the
 three Evidence tabs read as one job, which is the whole point. The former "Delta
-report" tab is now the **Deliverables** studio (Owner report · Delta report · CIM in
-one place). On phones the tab strips are single-row horizontal-scroll (SubTabs /
+report" tab is now the **Deliverables** studio (Owner report · Delta report · Teaser ·
+CIM · Management presentation in one place). On phones the tab strips are single-row horizontal-scroll (SubTabs /
 EngagementNav auto-center the active tab); no routes change — pure IA.
 
 ## Why consolidate now
