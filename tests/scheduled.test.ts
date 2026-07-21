@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_REASSESS_DAYS,
   DEFAULT_STALE_DAYS,
@@ -34,6 +34,21 @@ function fakeDb(rows: unknown[]) {
 
 const NOW = new Date('2026-07-20T00:00:00.000Z');
 const iso = (daysAgo: number) => new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString();
+
+// The scheduling functions read the wall clock (`const now = new Date()`) to
+// measure how overdue / stale / due-for-reassessment each row is, and every
+// fixture below is anchored to NOW. Without pinning the clock, "days since"
+// drifts by one for each real day that passes, so the day-count assertions
+// (e.g. daysSinceLastAssessment: 120) fail on any day other than NOW. Freeze
+// Date to NOW for the file — only Date is faked, so real timers/promises are
+// untouched — making these deterministic regardless of when CI runs.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 describe('findStaleEngagements', () => {
   it('binds the default threshold and shapes rows into items', async () => {
