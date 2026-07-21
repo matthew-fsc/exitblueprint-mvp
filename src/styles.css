@@ -3463,6 +3463,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .subtabs-panel {
   margin-top: var(--space-4);
 }
+/* Inside .report (Deliverables), the flex `gap` already spaces the panel, so the
+   panel's own margin-top would double it. Neutralise the margin only in that
+   context; other pages' SubTabs keep the global spacing above. */
+.report .subtabs-panel {
+  margin-top: 0;
+}
 
 /* ---- work-stream progress rail (docs/archive/22) ----
    The five preparation work streams as a left-to-right arc on the Overview, each
@@ -3955,11 +3961,36 @@ summary:focus-visible,
 select {
   appearance: none;
   -webkit-appearance: none;
+  /* Let the native option popup follow the active theme rather than the OS. */
+  color-scheme: light dark;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a968c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   padding-right: 2.1rem;
   cursor: pointer;
+}
+/* The open option list is a native popup: without explicit colors it falls back
+   to OS defaults, which renders near-black-on-near-black in the dark theme. Pin
+   it to token surfaces so it stays legible in both themes. */
+select option {
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+select option:checked,
+select option:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+/* The chevron data-URI stroke is baked in, so its color can't reference a token.
+   Swap in a lighter stroke under the dark theme (explicit toggle + prefers-dark
+   when no explicit light toggle is set) so it isn't low-contrast on dark surfaces. */
+:root[data-theme='dark'] select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8c4ba' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8c4ba' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  }
 }
 input,
 select,

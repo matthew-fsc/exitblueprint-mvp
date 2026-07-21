@@ -20,21 +20,21 @@ function EvidenceGuide({ active }: { active: Section }) {
     {
       key: 'data-room',
       n: 1,
-      title: 'Build the data room',
-      body: "Work the buyer's request list — set each item's readiness and upload the source file.",
+      title: 'Assemble the request list',
+      body: "Work the buyer's diligence list — set each item's readiness and attach its source file. Tracked as Data-room readiness.",
     },
     {
       key: 'documents',
       n: 2,
-      title: 'Uploads go to review',
-      body: 'Every upload lands in the Review queue, where a reviewer confirms the extracted figures.',
+      title: 'Upload & review',
+      body: 'Uploads run scan → extraction → review, where a reviewer confirms the figures. Attach files to a list item so they stay tracked.',
       to: '/review',
     },
     {
       key: 'verification',
       n: 3,
-      title: 'Facts get verified',
-      body: 'Confirmed values become verified facts — the proof behind the score and the % above.',
+      title: 'Verify the figures',
+      body: 'Self-reported answers reconcile against the documents; confirmed values become the proof behind the score and the % above.',
     },
     {
       key: 'cim',
@@ -109,7 +109,7 @@ export default function EvidencePage() {
     : 'data-room';
 
   const companyName = companyQ.data?.name ?? '';
-  const pct = verifQ.data?.pct ?? null;
+  const v = verifQ.data ?? null;
 
   return (
     <div className="page-shell">
@@ -123,11 +123,16 @@ export default function EvidencePage() {
           ]}
           subtitle={
             <>
-              The diligence binder — request list, source documents, and what's proven.
-              {pct != null && (
+              One binder, built in three stages — assemble the buyer's request list, upload
+              and review source files, then verify the figures behind the score. The tabs
+              below are stages of this one job, each with its own progress figure.
+              {v != null && (
                 <>
                   {' '}
-                  <strong>{pct}% verified.</strong>
+                  <strong>
+                    {v.verified_inputs} of {v.total_inputs} scored inputs verified ({v.pct}%)
+                  </strong>{' '}
+                  — the proof behind the score.
                 </>
               )}
             </>

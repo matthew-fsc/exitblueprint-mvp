@@ -814,15 +814,28 @@ export function useMilestones(engagementId: string | undefined): UseQueryResult<
   });
 }
 
-// Playbook id -> name/phase, for grouping roadmap tasks into workstreams.
-export function usePlaybooks(): UseQueryResult<Map<string, { name: string; phase: string | null }>> {
+// Playbook id -> descriptive metadata, for grouping roadmap tasks into
+// workstreams and for annotating the Plan authoring picker (dimension/summary).
+export interface PlaybookMeta {
+  name: string;
+  phase: string | null;
+  dimension_code: string | null;
+  summary: string | null;
+  ev_impact: string | null;
+}
+export function usePlaybooks(): UseQueryResult<Map<string, PlaybookMeta>> {
   return useQuery({
     queryKey: ['playbooks'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('playbooks').select('id,name,phase');
+      const { data, error } = await supabase.from('playbooks').select('id,name,phase,dimension_code,summary,ev_impact');
       if (error) throw new Error(error.message);
-      return new Map((data ?? []).map((p: { id: string; name: string; phase: string | null }) => [p.id, { name: p.name, phase: p.phase }]));
+      return new Map(
+        (data ?? []).map((p: { id: string } & PlaybookMeta) => [
+          p.id,
+          { name: p.name, phase: p.phase, dimension_code: p.dimension_code, summary: p.summary, ev_impact: p.ev_impact },
+        ]),
+      );
     },
   });
 }
@@ -1269,6 +1282,7 @@ export interface ContentModuleRow {
   id: string;
   code: string;
   title: string;
+  dimension_code: string | null;
 }
 
 // The education catalog (global methodology), for the Plan item picker.
@@ -1276,7 +1290,7 @@ export function useContentModules(): UseQueryResult<ContentModuleRow[]> {
   return useQuery({
     queryKey: qk.contentModules(),
     queryFn: async () => {
-      const { data, error } = await supabase.from('content_modules').select('id,code,title').order('title');
+      const { data, error } = await supabase.from('content_modules').select('id,code,title,dimension_code').order('title');
       if (error) throw error;
       return (data ?? []) as ContentModuleRow[];
     },

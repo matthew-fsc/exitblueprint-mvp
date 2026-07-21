@@ -18,25 +18,9 @@ import {
   type ExplainResult,
   type Rubric,
 } from '../lib/scoringClient';
-import { EngagementNav, ErrorState, GapSeverityChip, LoadingState, PageHeader } from '../components/ui';
+import { DeltaChip, EngagementNav, ErrorState, GapSeverityChip, LoadingState, PageHeader } from '../components/ui';
+import { fmtScore } from '../lib/format';
 import { tierStatusOf } from '../lib/tokens';
-
-const round1 = (x: number) => Math.round(x * 10) / 10;
-
-// A signed delta chip. `goodWhenUp` flips the color meaning for gap counts,
-// where fewer is better.
-function Delta({ value, goodWhenUp = true }: { value: number; goodWhenUp?: boolean }) {
-  const v = round1(value);
-  if (v === 0) return <span className="delta delta-flat">no change</span>;
-  const up = v > 0;
-  const good = up === goodWhenUp;
-  return (
-    <span className={`delta ${good ? 'delta-up' : 'delta-down'}`}>
-      {up ? '▲' : '▼'} {up ? '+' : ''}
-      {v}
-    </span>
-  );
-}
 
 export default function WorkbenchPage() {
   const { assessmentId } = useParams();
@@ -336,9 +320,9 @@ export default function WorkbenchPage() {
                   </h3>
                   {liveScore !== null && (
                     <span className="wb-dim-score">
-                      {liveScore}
+                      {fmtScore(liveScore)}
                       {d.score_group !== 'owner_readiness' && (
-                        <Delta value={liveScore - (baseDimByCode.get(d.code) ?? liveScore)} />
+                        <DeltaChip value={liveScore - (baseDimByCode.get(d.code) ?? liveScore)} />
                       )}
                     </span>
                   )}
@@ -367,8 +351,8 @@ export default function WorkbenchPage() {
             <div className="wb-score wb-score-hero">
               <span className="wb-score-label">Business readiness</span>
               <span className="wb-score-value">
-                {board.drsScore}
-                <Delta value={board.drsScore - base.drsScore} />
+                {fmtScore(board.drsScore)}
+                <DeltaChip value={board.drsScore - base.drsScore} />
               </span>
               <span className={`status-chip status-${tierStatusOf(board.drsTier)}`}>
                 {board.drsTier}
@@ -381,8 +365,8 @@ export default function WorkbenchPage() {
             <div className="wb-score">
               <span className="wb-score-label">Owner readiness</span>
               <span className="wb-score-value wb-score-value-sm">
-                {board.oriScore}
-                <Delta value={board.oriScore - base.oriScore} />
+                {fmtScore(board.oriScore)}
+                <DeltaChip value={board.oriScore - base.oriScore} />
               </span>
             </div>
 
@@ -409,8 +393,8 @@ export default function WorkbenchPage() {
                       />
                     </span>
                     <span className="wb-dimrow-val">
-                      {d.score}
-                      <Delta value={d.score - bScore} />
+                      {fmtScore(d.score)}
+                      <DeltaChip value={d.score - bScore} />
                     </span>
                   </div>
                 );

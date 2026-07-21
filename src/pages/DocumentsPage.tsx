@@ -85,6 +85,22 @@ const STATUS_TONE: Record<string, string> = {
   extracting: 'neutral',
 };
 
+// A document uploaded from the Data room tab is tagged `data_room:<item_code>`;
+// a generic upload here carries a free-text category or none. Deriving a human
+// "Attached to" label from that tag is what makes the SAME file recognisable
+// across both surfaces, instead of looking like two unrelated lists.
+const DATA_ROOM_PREFIX = 'data_room:';
+function docLinkage(category: string | null): { label: string; linked: boolean } {
+  if (category && category.startsWith(DATA_ROOM_PREFIX)) {
+    return {
+      label: `Attached to a data-room item · ${humanizeKey(category.slice(DATA_ROOM_PREFIX.length))}`,
+      linked: true,
+    };
+  }
+  if (category) return { label: `${category} · not linked to a request-list item`, linked: false };
+  return { label: 'Not linked to a request-list item', linked: false };
+}
+
 export function DocumentsPanel() {
   const { engagementId } = useParams();
   const qc = useQueryClient();
@@ -147,10 +163,13 @@ export function DocumentsPanel() {
   return (
     <div className="stack-lg">
       <form className="inline-form doc-upload" onSubmit={upload}>
-        <h3>Upload a document</h3>
+        <h3>Upload an unlinked document</h3>
         <p className="muted m-0">
-          Uploads run through virus scan, classification, and extraction, then land in the review
-          queue for a human to confirm against the source before any value is trusted.
+          Most files belong to a specific item on the buyer's request list — upload those from the{' '}
+          <Link to={`/engagement/${engagementId}/evidence/data-room`}>Data room</Link> tab so they're
+          tagged to the item and tracked toward readiness. Use this secondary path only for extra
+          documents that don't map to a request-list item. Everything still runs virus scan,
+          classification, and extraction, then lands in the review queue for a human to confirm.
         </p>
         <input
           key={formKey}
@@ -180,26 +199,34 @@ export function DocumentsPanel() {
         </EmptyState>
       ) : (
         <ul className="doc-list">
-          {docs.map((d) => (
-            <li key={d.id} className="doc-row">
-              <div>
-                <span className="doc-name">{d.original_filename}</span>
-                <span className="doc-meta">
-                  {d.category || 'Uncategorized'} · {fmtDate(d.created_at)}
-                </span>
-              </div>
-              <div className="row-gap">
-                <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
-                  {d.scan_status === 'infected'
-                    ? 'Infected'
-                    : STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
-                </span>
-                <Link className="button-link" to={`/review/${d.id}`}>
-                  Review →
-                </Link>
-              </div>
-            </li>
-          ))}
+          {docs.map((d) => {
+            const link = docLinkage(d.category);
+            return (
+              <li key={d.id} className="doc-row">
+                <div>
+                  <span className="doc-name">{d.original_filename}</span>
+                  <span className="doc-meta">
+                    {link.label} · {fmtDate(d.created_at)}
+                  </span>
+                </div>
+                <div className="row-gap">
+                  {link.linked && (
+                    <span className="status-chip status-neutral" title="Uploaded against a data-room request-list item">
+                      Data room
+                    </span>
+                  )}
+                  <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
+                    {d.scan_status === 'infected'
+                      ? 'Infected'
+                      : STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
+                  </span>
+                  <Link className="button-link" to={`/review/${d.id}`}>
+                    Review →
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

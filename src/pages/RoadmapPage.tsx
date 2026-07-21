@@ -21,6 +21,7 @@ import {
   ErrorState,
   GanttChart,
   PageHeader,
+  SectionCard,
   SkeletonLines,
   useToast,
   type GanttItem,
@@ -389,8 +390,7 @@ export default function RoadmapPage() {
       {error && <ErrorState variant="inline" error={error} />}
 
       {(appliedPlansQ.data ?? []).length > 0 && (
-        <Card>
-          <h3 className="m-0">Applied plans</h3>
+        <SectionCard title="Applied plans">
           <div className="plan-progress-list">
             {(appliedPlansQ.data ?? []).map((p) => (
               <div key={p.id} className="plan-progress-row">
@@ -412,13 +412,12 @@ export default function RoadmapPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </SectionCard>
       )}
 
       {(recommendedPlansQ.data ?? []).length > 0 && (
-        <Card>
-          <h3 className="m-0">Recommended plans</h3>
-          <p className="muted text-sm" style={{ marginTop: '0.25rem' }}>
+        <SectionCard title="Recommended plans">
+          <p className="muted text-sm" style={{ marginTop: 'var(--space-1)' }}>
             Plans whose playbooks target this engagement's open gaps.
           </p>
           <div className="plan-progress-list">
@@ -438,7 +437,7 @@ export default function RoadmapPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </SectionCard>
       )}
 
       {ganttItems.length === 0 ? (
@@ -528,7 +527,7 @@ export default function RoadmapPage() {
               </li>
             ))}
           </ul>
-          <form className="inline-form" onSubmit={addMilestone} style={{ marginTop: '0.75rem' }}>
+          <form className="inline-form" onSubmit={addMilestone} style={{ marginTop: 'var(--space-3)' }}>
             <h3>New milestone</h3>
             <input placeholder="e.g. Estate plan reviewed" value={mTitle} onChange={(e) => setMTitle(e.target.value)} required />
             <select value={mTrack} onChange={(e) => setMTrack(e.target.value as 'business' | 'personal')}>
@@ -566,7 +565,7 @@ export default function RoadmapPage() {
               )}
             </>
           )}
-          <form className="inline-form rm-add-task" onSubmit={addTask} style={{ marginTop: '0.9rem' }}>
+          <form className="inline-form rm-add-task" onSubmit={addTask} style={{ marginTop: 'var(--space-4)' }}>
             <h3>Add a task</h3>
             <p className="muted m-0">
               Capture work underway or planned outside the generated playbooks; mark items done to

@@ -7,7 +7,7 @@ import {
   type AdvisoryItemType,
   type FiredAdvisoryItem,
 } from '../lib/queries';
-import { Card, Collapsible, EmptyState, EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, Collapsible, EmptyState, EngagementNav, ErrorState, PageHeader, PageSection, SkeletonLines } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 
@@ -95,7 +95,7 @@ export default function BuyerLensPage() {
   }, [result]);
 
   return (
-    <div className="page-shell stack-lg">
+    <div className="page-shell">
       <header className="page-masthead">
         <PageHeader
           title="Buyer lens"
@@ -128,29 +128,35 @@ export default function BuyerLensPage() {
 
       {result && result.items.length > 0 && (
         <>
-          <div className="advisory-summary">
-            <span className="advisory-summary-stat">
-              <strong>{result.counts.critical}</strong> critical
-            </span>
-            <span className="advisory-summary-stat">
-              <strong>{result.counts.high}</strong> high
-            </span>
-            <span className="advisory-summary-sep" aria-hidden />
-            <span className="muted">
-              {result.counts.buyer_question} buyer questions · {result.counts.initiative} initiatives ·{' '}
-              {result.counts.risk_flag} risk flags
-            </span>
-          </div>
+          <PageSection title="How buyers will read this" note="Live counts from the latest assessment">
+            <div className="advisory-summary">
+              <span className="advisory-summary-stat">
+                <strong>{result.counts.critical}</strong> critical
+              </span>
+              <span className="advisory-summary-stat">
+                <strong>{result.counts.high}</strong> high
+              </span>
+              <span className="advisory-summary-sep" aria-hidden />
+              <span className="muted">
+                {result.counts.buyer_question} buyer questions · {result.counts.initiative} initiatives ·{' '}
+                {result.counts.risk_flag} risk flags
+              </span>
+            </div>
+          </PageSection>
 
           {SECTIONS.map((s) => {
             const items = byType.get(s.type) ?? [];
             if (items.length === 0) return null;
             return (
-              <section key={s.type}>
-                <h3 className="section-heading">
-                  {s.label} <span className="muted">· {items.length}</span>
-                </h3>
-                <p className="muted section-sub">{s.blurb}</p>
+              <PageSection
+                key={s.type}
+                title={
+                  <>
+                    {s.label} <span className="muted">· {items.length}</span>
+                  </>
+                }
+                note={s.blurb}
+              >
                 <Card>
                   <div className="advisory-list">
                     {items.map((it) => (
@@ -158,7 +164,7 @@ export default function BuyerLensPage() {
                     ))}
                   </div>
                 </Card>
-              </section>
+              </PageSection>
             );
           })}
         </>

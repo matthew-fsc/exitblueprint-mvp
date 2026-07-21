@@ -3,7 +3,16 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction } from '../lib/supabase';
 import { qk } from '../lib/queries';
-import { Card, EmptyState, ErrorState, SkeletonLines, useToast } from '../components/ui';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  SectionCard,
+  SkeletonLines,
+  StatBlock,
+  StatRow,
+  useToast,
+} from '../components/ui';
 import { humanizeKey } from '../lib/format';
 
 const toBase64 = (file: File): Promise<string> =>
@@ -69,6 +78,20 @@ const STATE_CHIP: Record<string, string> = {
   not_started: 'status-neutral',
   not_applicable: 'status-neutral',
 };
+// Tone for the attached document's pipeline status, so a data-room item can show
+// whether its source file is actually verified — the link between the manual
+// "ready" dropdown and the document's real verification state. Mirrors the tones
+// the Documents tab uses so the same status reads the same everywhere.
+const DOC_STATUS_TONE: Record<string, string> = {
+  verified: 'status-good',
+  rejected: 'status-critical',
+  in_review: 'status-warning',
+  uploaded: 'status-neutral',
+  scanning: 'status-neutral',
+  scanned: 'status-neutral',
+  classified: 'status-neutral',
+  extracting: 'status-neutral',
+};
 
 function useDataRoom(engagementId: string | undefined): UseQueryResult<DataRoomView> {
   return useQuery({
@@ -127,22 +150,34 @@ export function DataRoomPanel() {
 
   return (
     <div className="stack-lg">
-      <Card>
-        <p className="muted mt-0">
-          The request list a buyer will actually send, assembled ahead of time. Mark each item as you
-          build the binder — items flagged <strong>Gap</strong> are where a deal gets repriced or
-          stalled. Nothing here changes a readiness score.
-        </p>
+      <SectionCard
+        title="Stage 1 · Build the data room"
+        subtitle={
+          <>
+            The request list a buyer will actually send, assembled ahead of time. This is the
+            primary, tracked upload path — attaching a file to an item below tags it to the
+            item and sends it to review. Items flagged <strong>Gap</strong> are where a deal
+            gets repriced or stalled. Nothing here changes a readiness score.
+          </>
+        }
+      >
         {view && (
-          <div className="dr-summary">
-            <span className="dr-summary-pct">{view.summary.readiness_pct}%</span>
-            <span className="muted">
-              of in-scope items ready · {view.summary.ready} ready · {view.summary.in_progress} in
-              progress · {view.summary.gap} gap · {view.summary.not_started} not started
-            </span>
-          </div>
+          <StatRow>
+            <StatBlock
+              label="Data-room readiness"
+              value={`${view.summary.readiness_pct}%`}
+              hint="of in-scope items Ready"
+            />
+            <StatBlock label="Ready" value={view.summary.ready} hint="with a source file" />
+            <StatBlock
+              label="In progress"
+              value={view.summary.in_progress}
+              hint="being assembled"
+            />
+            <StatBlock label="Gap" value={view.summary.gap} hint="a buyer will challenge" />
+          </StatRow>
         )}
-      </Card>
+      </SectionCard>
 
       {dataRoomQ.isLoading ? (
         <Card>
@@ -190,12 +225,31 @@ export function DataRoomPanel() {
                       )}
                       <div className="dr-doc">
                         {item.document_id ? (
-                          <span className="dr-doc-linked" title={`Status: ${item.document_status ?? 'uploaded'}`}>
-                            ◆ {item.document_filename ?? 'Document attached'}
-                            {item.document_status && item.document_status !== 'verified' && (
-                              <span className="dr-doc-status"> · {humanizeKey(item.document_status)}</span>
+                          <>
+                            <span
+                              className="dr-doc-linked"
+                              title={`Attached document status: ${item.document_status ?? 'uploaded'}`}
+                            >
+                              ◆ {item.document_filename ?? 'Document attached'}
+                            </span>
+                            {item.document_status && (
+                              <span
+                                className={`status-chip ${DOC_STATUS_TONE[item.document_status] ?? 'status-neutral'}`}
+                                title="Verification status of the attached document"
+                              >
+                                {item.document_status === 'verified'
+                                  ? 'Document verified'
+                                  : humanizeKey(item.document_status)}
+                              </span>
                             )}
-                          </span>
+                            {item.readiness_state === 'ready' &&
+                              item.document_status &&
+                              item.document_status !== 'verified' && (
+                                <span className="dr-doc-status">
+                                  Marked Ready — document not yet verified
+                                </span>
+                              )}
+                          </>
                         ) : (
                           <span className="muted dr-doc-none">No document attached</span>
                         )}

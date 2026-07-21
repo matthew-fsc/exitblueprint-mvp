@@ -36,7 +36,7 @@ export default function OwnerPlanPage() {
         <>
           {appliedPlans.length > 0 && (
             <Card>
-              <span className="stat-block-label">Programs in progress</span>
+              <span className="stat-block-label">Plans in progress</span>
               <div className="plan-progress-list">
                 {appliedPlans.map((p) => (
                   <div key={p.id} className="plan-progress-row">
