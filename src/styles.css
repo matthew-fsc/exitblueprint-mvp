@@ -3231,6 +3231,44 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .attn-reason { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-more { margin: var(--space-1) 0 0 var(--space-2); }
 
+/* First-run activation checklist (GettingStarted) — a quiet, border-defined
+   step list; the one active step is tinted with the accent, done steps read
+   back in a confirmed green, locked steps recede. */
+.gs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.gs-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.gs-step-active { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 5%, var(--surface-1)); }
+.gs-step-locked { opacity: 0.6; }
+.gs-marker {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gs-step-active .gs-marker { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.gs-step-done .gs-marker { border-color: color-mix(in srgb, var(--status-good) 45%, transparent); background: color-mix(in srgb, var(--status-good) 12%, transparent); color: var(--status-good); }
+.gs-body { flex: 1 1 auto; min-width: 0; }
+.gs-step-title { font-weight: 700; color: var(--text-primary); }
+.gs-step-done .gs-step-title { color: var(--text-secondary); }
+.gs-step-desc { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); max-width: 46rem; }
+.gs-action { flex: none; align-self: center; }
+
 .filter-row {
   display: flex;
   align-items: flex-end;
