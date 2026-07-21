@@ -104,9 +104,17 @@ skeleton in `templates/migration.sql` and the **global-vs-tenant** RLS pattern
 already proven in `advisory_library_items`
 (`supabase/migrations/20260712000200_advisory_library.sql`).
 
+> **Table naming (shipped in `20260721000100_plans.sql`).** The product term is
+> "Plan", but the table name `plans` is **already taken** by the Stripe billing
+> tier catalog (`20260719000200_billing.sql`, referenced by a `firm_subscriptions`
+> FK). So the reusable template table is **`plan_templates`** and its rows table is
+> **`plan_template_items`**; the applied instance is **`engagement_plans`** /
+> **`engagement_plan_items`** (no collision). The instance FK to the template is
+> `plan_template_id`. The tables below use these shipped names.
+
 ### 2.1 Templates (reusable, versioned)
 
-**`plans`** — the Plan header (the reusable template).
+**`plan_templates`** — the Plan header (the reusable template).
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -122,14 +130,14 @@ already proven in `advisory_library_items`
 | `created_by` | uuid refs profiles | |
 | | | `unique (code, plan_version) where firm_id is null` (system-row idempotency, exactly like `playbooks unique(code,version)` + the advisory system-code partial index) |
 
-**`plan_items`** — the ordered contents of a Plan.
+**`plan_template_items`** — the ordered contents of a Plan.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | uuid pk | |
 | `created_at` | timestamptz | |
 | `firm_id` | uuid **null** refs firms | mirrors parent `plans.firm_id` (null for system) — carried so RLS is a plain firm predicate, not a join |
-| `plan_id` | uuid not null refs plans | |
+| `plan_template_id` | uuid not null refs plan_templates | |
 | `item_kind` | enum(`playbook`,`education`,`advisory`,`milestone`,`manual_task`) | |
 | `playbook_id` | uuid null refs playbooks | set when `item_kind='playbook'` |
 | `content_module_id` | uuid null refs content_modules | set for `education` |
@@ -159,7 +167,7 @@ template version in force, and is never rewritten when the template later change
 | `created_at` | timestamptz | |
 | `firm_id` | uuid not null refs firms | standard firm scope |
 | `engagement_id` | uuid not null refs engagements | |
-| `plan_id` | uuid not null refs plans | the source template |
+| `plan_template_id` | uuid not null refs plan_templates | the source template |
 | `applied_plan_version` | int not null | **the template version in force at apply time — the immutability/versioning pin, exactly like `assessments.rubric_version_id`** |
 | `name` | text not null | **snapshot** of the Plan name at apply time (so later template renames don't rewrite history) |
 | `anchor_date` | date | forward-lays task/milestone due dates, mirroring `instantiateTasksForGaps(anchorDate)` |
@@ -176,7 +184,7 @@ pointers to the concrete execution rows it produced.
 | `created_at` | timestamptz | |
 | `firm_id` | uuid not null refs firms | |
 | `engagement_plan_id` | uuid not null refs engagement_plans | |
-| `source_plan_item_id` | uuid null refs plan_items | template lineage (null-safe if template item later deleted) |
+| `source_plan_template_item_id` | uuid null refs plan_template_items | template lineage (null-safe if template item later deleted) |
 | `item_kind` | enum(as above) | snapshotted, not joined, so history survives template edits |
 | `task_id` | uuid null refs tasks | the concrete task this item produced/claimed |
 | `milestone_id` | uuid null refs roadmap_milestones | the concrete milestone produced |
@@ -218,7 +226,7 @@ consistent with the engagement-lifecycle rules in docs/02; hard teardown remains
 
 ### 2.4 RLS (firm isolation, rule 5)
 
-- **Templates (`plans`, `plan_items`)** — the exact `advisory_library_items` dual
+- **Templates (`plan_templates`, `plan_template_items`)** — the exact `advisory_library_items` dual
   policy:
   - `system_read`: `for select to authenticated using (firm_id is null)` — everyone
     reads seeded methodology Plans; writes to system rows are **service_role only**
@@ -417,3 +425,7 @@ scores, like `advisory.ts`).
 - **Immutability precedent (`assessments`→`rubric_version`)** → `engagement_plans`
   pins `applied_plan_version` + snapshots `name`, so template edits never rewrite
   applied history (§2.2, §4).
+- **`plans` was already taken** by the Stripe billing tier catalog
+  (`20260719000200_billing.sql`, `firm_subscriptions.plan_code` FK) → the template
+  table shipped as **`plan_templates`** / **`plan_template_items`** (instances keep
+  `engagement_plans` / `engagement_plan_items`); the product term stays "Plan" (§2).
