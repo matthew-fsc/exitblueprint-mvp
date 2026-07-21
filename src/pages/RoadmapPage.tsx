@@ -10,6 +10,7 @@ import {
   useEngagementPlans,
   useMilestones,
   usePlaybooks,
+  useRecommendedPlans,
   useTasks,
   type TaskRow,
 } from '../lib/queries';
@@ -39,6 +40,24 @@ export default function RoadmapPage() {
   const tasksQ = useTasks(engagementId);
   const milestonesQ = useMilestones(engagementId);
   const appliedPlansQ = useEngagementPlans(engagementId);
+  const recommendedPlansQ = useRecommendedPlans(engagementId);
+
+  const applyRecommendedPlan = async (planTemplateId: string) => {
+    if (!engagementId) return;
+    setBusy(true);
+    try {
+      await invokeFunction('apply-plan', { engagement_id: engagementId, plan_template_id: planTemplateId });
+      qc.invalidateQueries({ queryKey: qk.tasks(engagementId) });
+      qc.invalidateQueries({ queryKey: qk.milestones(engagementId) });
+      qc.invalidateQueries({ queryKey: ['engagementPlans', engagementId] });
+      qc.invalidateQueries({ queryKey: ['recommendedPlans', engagementId] });
+      toast.show('Plan applied to this engagement', 'good');
+    } catch (err) {
+      toast.show(err instanceof Error ? err.message : 'could not apply the plan', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
   const playbooksQ = usePlaybooks();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -390,6 +409,32 @@ export default function RoadmapPage() {
                     style={{ width: `${p.pct}%` }}
                   />
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {(recommendedPlansQ.data ?? []).length > 0 && (
+        <Card>
+          <h3 className="m-0">Recommended plans</h3>
+          <p className="muted text-sm" style={{ marginTop: '0.25rem' }}>
+            Plans whose playbooks target this engagement's open gaps.
+          </p>
+          <div className="plan-progress-list">
+            {(recommendedPlansQ.data ?? []).map((r) => (
+              <div key={r.plan_template_id} className="plan-rec-row">
+                <span className="plan-progress-name">
+                  {r.name}
+                  <span className="advisory-tag">{r.is_system ? 'System' : 'Firm'}</span>
+                  <span className="muted">
+                    {' '}
+                    covers {r.matched_gap_count} gap{r.matched_gap_count === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <button className="button-secondary" disabled={busy} onClick={() => applyRecommendedPlan(r.plan_template_id)}>
+                  Apply
+                </button>
               </div>
             ))}
           </div>

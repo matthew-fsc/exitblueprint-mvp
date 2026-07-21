@@ -695,3 +695,66 @@ export async function reconcileEngagementPlans(
   }
   return { reconciled: plans.length, completed };
 }
+
+// ── Q5: score-driven Plan recommendation ─────────────────────────────────────
+// Which Plans would help this engagement right now — the ones whose playbook
+// items target the engagement's OPEN gaps (via gap_playbook_map), ranked by how
+// many gaps they cover. Plans already applied (any version, by lineage) are
+// excluded. Read-only over the deterministic gap state; never writes a score or
+// gap (rules 1 & 4). Mirrors advisory.ts firing, but keyed on gaps, not triggers.
+export interface PlanRecommendation {
+  plan_template_id: string;
+  name: string;
+  is_system: boolean;
+  matched_gap_count: number;
+  matched_gap_codes: string[];
+}
+
+export async function recommendPlans(
+  db: pg.ClientBase,
+  engagementId: string,
+): Promise<{ recommendations: PlanRecommendation[] }> {
+  const eng = (await db.query(`select firm_id from engagements where id = $1`, [engagementId])).rows[0];
+  if (!eng) throw new Error('engagement not found');
+  const rows = (
+    await db.query(
+      `with open_gaps as (
+         select distinct gap_definition_id from gaps
+         where engagement_id = $1 and status in ('open', 'in_remediation')
+       ),
+       applied as (
+         select distinct pt.lineage_id
+         from engagement_plans ep
+         join plan_templates pt on pt.id = ep.plan_template_id
+         where ep.engagement_id = $1 and ep.status <> 'removed'
+       )
+       select
+         pt.id as plan_template_id,
+         pt.name,
+         (pt.firm_id is null) as is_system,
+         count(distinct og.gap_definition_id) as matched_gap_count,
+         array_agg(distinct gd.code) as matched_gap_codes
+       from plan_templates pt
+       join plan_template_items pti on pti.plan_template_id = pt.id and pti.item_kind = 'playbook'
+       join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
+       join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
+       join gap_definitions gd on gd.id = og.gap_definition_id
+       where pt.status = 'active'
+         and (pt.firm_id is null or pt.firm_id = $2)
+         and pt.lineage_id not in (select lineage_id from applied)
+       group by pt.id, pt.name, pt.firm_id
+       having count(distinct og.gap_definition_id) > 0
+       order by matched_gap_count desc, is_system desc, pt.name`,
+      [engagementId, eng.firm_id],
+    )
+  ).rows;
+  return {
+    recommendations: rows.map((r) => ({
+      plan_template_id: r.plan_template_id,
+      name: r.name,
+      is_system: r.is_system,
+      matched_gap_count: Number(r.matched_gap_count) || 0,
+      matched_gap_codes: (r.matched_gap_codes ?? []).filter(Boolean),
+    })),
+  };
+}

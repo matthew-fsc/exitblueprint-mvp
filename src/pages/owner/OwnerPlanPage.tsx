@@ -1,5 +1,5 @@
 import { useOwnerContext } from '../../lib/owner';
-import { useTasks, useMilestones } from '../../lib/queries';
+import { useTasks, useMilestones, useEngagementPlans } from '../../lib/queries';
 import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 
@@ -11,8 +11,10 @@ export default function OwnerPlanPage() {
   const { engagement, loading, isError, error, refetch } = useOwnerContext();
   const tasksQ = useTasks(engagement?.id);
   const milestonesQ = useMilestones(engagement?.id);
+  const plansQ = useEngagementPlans(engagement?.id);
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];
+  const appliedPlans = plansQ.data ?? [];
   const open = tasks.filter((t) => t.status !== 'done');
   const done = tasks.filter((t) => t.status === 'done');
 
@@ -32,6 +34,32 @@ export default function OwnerPlanPage() {
         </EmptyState>
       ) : (
         <>
+          {appliedPlans.length > 0 && (
+            <Card>
+              <span className="stat-block-label">Programs in progress</span>
+              <div className="plan-progress-list">
+                {appliedPlans.map((p) => (
+                  <div key={p.id} className="plan-progress-row">
+                    <div className="plan-progress-head">
+                      <span className="plan-progress-name">
+                        {p.name}
+                        {p.completed_at && <span className="owner-done-tag">✓ complete</span>}
+                      </span>
+                      <span className="muted">
+                        {p.done}/{p.total} done
+                      </span>
+                    </div>
+                    <div className="plan-progress-track">
+                      <div
+                        className={`plan-progress-fill${p.completed_at ? ' plan-progress-fill-done' : ''}`}
+                        style={{ width: `${p.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
           {milestones.length > 0 && (
             <Card>
               <span className="stat-block-label">Milestones</span>

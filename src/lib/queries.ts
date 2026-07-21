@@ -1275,3 +1275,23 @@ export function useEngagementPlans(engagementId: string | undefined): UseQueryRe
       })).plans,
   });
 }
+
+// Score-driven Plan recommendations for an engagement (docs/37 Q5).
+export interface PlanRecommendationRow {
+  plan_template_id: string;
+  name: string;
+  is_system: boolean;
+  matched_gap_count: number;
+  matched_gap_codes: string[];
+}
+
+export function useRecommendedPlans(engagementId: string | undefined): UseQueryResult<PlanRecommendationRow[]> {
+  return useQuery({
+    queryKey: ['recommendedPlans', engagementId ?? ''],
+    enabled: !!engagementId,
+    queryFn: async () =>
+      (await invokeFunction<{ recommendations: PlanRecommendationRow[] }>('recommend-plans', {
+        engagement_id: engagementId,
+      })).recommendations,
+  });
+}

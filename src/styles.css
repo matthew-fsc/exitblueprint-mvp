@@ -5062,3 +5062,4 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
 .plan-progress-track { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; }
 .plan-progress-fill-done { background: var(--good, var(--accent-strong)); }
+.plan-rec-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }

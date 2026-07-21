@@ -398,9 +398,11 @@ completing all a plan's tasks marks it complete; removing a plan hides its group
 without deleting client task history; re-assessing an engagement reconciles its active
 Plans additively.
 
-**Owner portal (Q3):** an owner-portal Applied-Plan view, on top of the owner-read RLS
-landed in PL1. **Post-PL4 (Q5):** score-driven Plan **recommendation** (read-only over
-scores, like `advisory.ts`).
+**Owner portal (Q3) — shipped:** the owner "Your plan" page shows Applied-Plan
+progress (`OwnerPlanPage`, on the owner-read RLS from PL1). **Q5 recommendation —
+shipped:** `recommend-plans` surfaces Plans whose playbooks target the engagement's
+open gaps (read-only over the gap state, like `advisory.ts`), rendered on the
+Roadmap with one-click apply.
 
 ---
 

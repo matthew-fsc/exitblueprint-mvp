@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
 import { findReassessmentReady } from '../server/scheduled';
-import { reconcileEngagementPlans } from '../server/plans';
+import { reconcileEngagementPlans, recommendPlans } from '../server/plans';
 import { acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
@@ -502,5 +502,48 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     const r2 = await reconcileEngagementPlans(service, eng5);
     expect(r2.completed).toContain(epId);
     expect((await service.query(`select status from engagement_plans where id = $1`, [epId])).rows[0].status).toBe('completed');
+  });
+
+  it('recommends a plan whose playbook targets an open gap, and drops it once applied (Q5)', async () => {
+    const map = (
+      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+    ).rows[0];
+    const companyId6 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Recommend Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng6 = (
+      await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId6])
+    ).rows[0].id;
+    await acceptAgreement(service, eng6);
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const a1 = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
+         values ($1, $2, $3, 1, 'completed', now()) returning id`,
+        [firmId, eng6, rv],
+      )
+    ).rows[0].id;
+    await service.query(
+      `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
+       values ($1, $2, $3, $4, 'open')`,
+      [firmId, eng6, map.gap_definition_id, a1],
+    );
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Recommendable Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+
+    // Recommended while the gap is open and the plan isn't applied.
+    const before = await recommendPlans(service, eng6);
+    const rec = before.recommendations.find((r) => r.plan_template_id === planId);
+    expect(rec).toBeDefined();
+    expect(rec!.matched_gap_count).toBeGreaterThanOrEqual(1);
+
+    // After applying, it drops out of the recommendations (already applied).
+    await handleFunctionCall('apply-plan', { engagement_id: eng6, plan_template_id: planId }, ctxFor(advisorUserId));
+    const after = await recommendPlans(service, eng6);
+    expect(after.recommendations.find((r) => r.plan_template_id === planId)).toBeUndefined();
   });
 });

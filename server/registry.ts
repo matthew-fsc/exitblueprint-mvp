@@ -37,7 +37,14 @@ import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
 import { firmAttention } from './attention';
-import { listPlanTemplates, createPlan, updatePlan, applyPlan, engagementPlanProgress } from './plans';
+import {
+  listPlanTemplates,
+  createPlan,
+  updatePlan,
+  applyPlan,
+  engagementPlanProgress,
+  recommendPlans,
+} from './plans';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -379,6 +386,13 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'engagement',
     handler: ({ service, body }) =>
       engagementPlanProgress(service, body.engagement_id as string).then((plans) => ok({ plans })),
+  },
+  // Score-driven Plan recommendation (docs/37 Q5): Plans whose playbooks target
+  // the engagement's open gaps, not yet applied. Read-only; staff-facing.
+  'recommend-plans': {
+    engine: 'workflow',
+    scope: 'manage-engagement',
+    handler: ({ service, body }) => recommendPlans(service, body.engagement_id as string).then(ok),
   },
   // Apply a Plan to an engagement — materializes tasks/milestones (PL3). Staff
   // write, so manage-engagement (advisor/admin only, resolves the caller's firm),
