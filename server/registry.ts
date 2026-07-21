@@ -37,6 +37,7 @@ import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
 import { exportEngagement } from './export';
 import { firmAttention } from './attention';
+import { listPlanTemplates, createPlan } from './plans';
 import {
   getDocumentBytes,
   getDocumentDetail,
@@ -349,6 +350,21 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'assessment',
     gated: true,
     handler: ({ service, body }) => cimReportPdf(service, body.assessment_id as string),
+  },
+
+  // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
+  // Authoring is firm-scoped and ungated (composing methodology is core, not a
+  // paid action; applying a Plan to an engagement — PL3 — is where gating lands).
+  'list-plans': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId }) => listPlanTemplates(service, firmId as string).then(ok),
+  },
+  'create-plan': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      createPlan(service, firmId as string, body, userId).then(ok),
   },
 
   // ── Workflow Engine — the engagement lifecycle
