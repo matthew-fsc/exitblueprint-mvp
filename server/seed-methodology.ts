@@ -53,6 +53,120 @@ export const VALUATION_CONFIG = {
 
 export const RUBRIC_VERSION_LABEL = 'DRS-1.0';
 
+// Starter system Plans (docs/37): canonical, advisor-facing initiative bundles,
+// seeded as GLOBAL methodology (firm_id null) exactly like the rubric/advisory
+// catalog. Curated inline (like VALUATION_CONFIG above) because the set is small
+// and relational-by-code; every referenced code is validated against the parsed
+// playbooks/content/advisory before anything is written. Composes only GLOBAL
+// assets so every firm can safely read them (docs/37 §5). Edit by adding items
+// or a new plan; a methodology change to a shipped Plan bumps plan_version.
+export interface SeedPlanItem {
+  kind: 'playbook' | 'education' | 'advisory' | 'milestone' | 'manual_task';
+  playbookCode?: string; // kind 'playbook'
+  contentModuleCode?: string; // kind 'education'
+  advisoryCode?: string; // kind 'advisory'
+  title?: string; // kind 'milestone' | 'manual_task'
+  description?: string;
+  ownerRole?: string; // kind 'manual_task'
+  track?: 'business' | 'personal'; // kind 'milestone'
+  targetOffsetDays?: number;
+}
+export interface SeedPlan {
+  code: string;
+  name: string;
+  summary: string;
+  items: SeedPlanItem[];
+}
+export const SYSTEM_PLANS: SeedPlan[] = [
+  {
+    code: 'PL-FIN-CLEANUP',
+    name: 'Phase 1 Financial Cleanup',
+    summary:
+      'Get the financials buyer-ready: clean books, documented addbacks, and the EBITDA recast a buyer will actually underwrite.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-CLEAN-BOOKS' },
+      { kind: 'playbook', playbookCode: 'PB-ADDBACK-DOC' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-EBITDA-RECAST' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-ADDBACKS' },
+      {
+        kind: 'milestone',
+        title: 'Financials are buyer-ready (clean books + documented addbacks)',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-OWNER-DEP',
+    name: 'Owner-Dependence Reduction',
+    summary:
+      'Reduce the business’s reliance on the owner: extract the owner from operations and build management depth so the company runs without them.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-OWNER-EXTRACT' },
+      { kind: 'playbook', playbookCode: 'PB-MGMT-DEPTH' },
+      { kind: 'education', contentModuleCode: 'CM-BUYERQ-OWNER' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-OWNER' },
+      {
+        kind: 'milestone',
+        title: 'Business operates 30 days without owner involvement',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-CUST-CONC',
+    name: 'Customer Concentration Reduction',
+    summary:
+      'Diversify the customer base and prepare the concentration story a buyer will probe.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-CUST-DIVERSIFY' },
+      { kind: 'education', contentModuleCode: 'CM-BUYERQ-CONC' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-CONC' },
+      {
+        kind: 'manual_task',
+        title: 'Map revenue share of the top 10 customers',
+        ownerRole: 'owner',
+      },
+    ],
+  },
+];
+
+// Validate every system Plan item references a real seeded code, and that inline
+// items carry their required fields. Returns problem strings (nothing is written
+// if any exist), matching the rubric/data-room validation contract.
+export function validateSystemPlans(
+  plans: SeedPlan[],
+  playbookCodes: Set<string>,
+  contentCodes: Set<string>,
+  advisoryCodes: Set<string>,
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const p of plans) {
+    if (seen.has(p.code)) problems.push(`plan ${p.code}: duplicate plan code`);
+    seen.add(p.code);
+    if (p.items.length === 0) problems.push(`plan ${p.code}: has no items`);
+    p.items.forEach((it, i) => {
+      const at = `plan ${p.code} item ${i} (${it.kind})`;
+      if (it.kind === 'playbook') {
+        if (!it.playbookCode) problems.push(`${at}: missing playbookCode`);
+        else if (!playbookCodes.has(it.playbookCode)) problems.push(`${at}: unknown playbook ${it.playbookCode}`);
+      } else if (it.kind === 'education') {
+        if (!it.contentModuleCode) problems.push(`${at}: missing contentModuleCode`);
+        else if (!contentCodes.has(it.contentModuleCode)) problems.push(`${at}: unknown content module ${it.contentModuleCode}`);
+      } else if (it.kind === 'advisory') {
+        if (!it.advisoryCode) problems.push(`${at}: missing advisoryCode`);
+        else if (!advisoryCodes.has(it.advisoryCode)) problems.push(`${at}: unknown advisory item ${it.advisoryCode}`);
+      } else if (it.kind === 'milestone') {
+        if (!it.title) problems.push(`${at}: milestone needs a title`);
+        if (it.track !== 'business' && it.track !== 'personal') problems.push(`${at}: milestone needs track business|personal`);
+      } else if (it.kind === 'manual_task') {
+        if (!it.title) problems.push(`${at}: manual_task needs a title`);
+      }
+    });
+  }
+  return problems;
+}
+
 // Where the canonical seed files live. Resolved relative to this module so it
 // works both under tsx (dev/CLI, repo root) and in the compute image, where the
 // Dockerfile copies /seed next to /server and /shared. Overridable via SEED_DIR.
@@ -125,6 +239,12 @@ export function loadSeedBundle(seedDir = resolveSeedDir()): SeedBundle {
   const problems = [
     ...validateRubric(rubric, playbooks, contentModules, gapPlaybookMap, gapContentMap),
     ...validateDataRoom(dataRoomSections, dataRoomItems, rubric.gapDefinitions),
+    ...validateSystemPlans(
+      SYSTEM_PLANS,
+      new Set(playbooks.map((p) => p.code)),
+      new Set(contentModules.map((c) => c.code)),
+      new Set(advisoryItems.map((a) => a.code)),
+    ),
   ];
   if (problems.length > 0) throw new SeedValidationError(problems);
 
@@ -308,8 +428,9 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     }
 
     // Advisory Library: global (firm_id null) system catalog, keyed by code.
+    const advisoryIds: Record<string, string> = {};
     for (const a of advisoryItems) {
-      await upsert(
+      advisoryIds[a.code] = await upsert(
         'advisory_library_items',
         `insert into advisory_library_items
            (firm_id, source, item_type, code, title, body, response_framework,
@@ -328,6 +449,47 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
           a.dimensionCode, a.subScoreCode, a.severity, a.buyerType, a.scoreTrigger, a.sortOrder,
         ],
       );
+    }
+
+    // System Plans (docs/37): global methodology (firm_id null), keyed by
+    // (code, plan_version). The header upserts idempotently; the items are
+    // deleted-and-reinserted per re-seed (the same child-row discipline
+    // playbook_task_templates uses) so the item set always matches SYSTEM_PLANS.
+    const planItemMaps = {
+      playbook: playbookIds,
+      education: contentIds,
+      advisory: advisoryIds,
+    } as const;
+    for (const plan of SYSTEM_PLANS) {
+      const planTemplateId = await upsert(
+        'plan_templates',
+        `insert into plan_templates (firm_id, source, code, name, summary, plan_version, status)
+         values (null, 'system', $1, $2, $3, 1, 'active')
+         on conflict (code, plan_version) where firm_id is null do update
+           set name = excluded.name, summary = excluded.summary, status = 'active'
+         returning id, (xmax = 0) as inserted`,
+        [plan.code, plan.name, plan.summary],
+      );
+      await db.query('delete from plan_template_items where plan_template_id = $1', [planTemplateId]);
+      let sort = 0;
+      for (const it of plan.items) {
+        const playbookId = it.kind === 'playbook' ? planItemMaps.playbook[it.playbookCode!] : null;
+        const contentId = it.kind === 'education' ? planItemMaps.education[it.contentModuleCode!] : null;
+        const advisoryId = it.kind === 'advisory' ? planItemMaps.advisory[it.advisoryCode!] : null;
+        await db.query(
+          `insert into plan_template_items
+             (firm_id, plan_template_id, item_kind, playbook_id, content_module_id,
+              advisory_library_item_id, title, description, owner_role, track,
+              target_offset_days, sort_order)
+           values (null, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            planTemplateId, it.kind, playbookId, contentId, advisoryId,
+            it.title ?? null, it.description ?? null, it.ownerRole ?? null,
+            it.track ?? null, it.targetOffsetDays ?? null, sort++,
+          ],
+        );
+        tally('plan_template_items', true);
+      }
     }
 
     // Valuation rules: one active version holding the config, plus the multiples.
@@ -402,9 +564,13 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     valuation_multiples: valuationMultiples.length,
     data_room_sections: dataRoomSections.length,
     data_room_items: dataRoomItems.length,
+    plan_templates: SYSTEM_PLANS.length,
+    plan_template_items: SYSTEM_PLANS.reduce((n, p) => n + p.items.length, 0),
   };
   const countFilter: Record<string, string> = {
     advisory_library_items: 'where firm_id is null',
+    plan_templates: 'where firm_id is null',
+    plan_template_items: 'where firm_id is null',
   };
 
   const rows: SeedTableReport[] = [];
