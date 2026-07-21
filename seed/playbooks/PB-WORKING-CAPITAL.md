@@ -4,7 +4,7 @@ name: Working-Capital Peg Program
 version: 1
 dimension: FIN
 phase: Phase 1 (0-6mo)
-ev_impact: Protects 2-8% of enterprise value that commonly leaks at close when the buyer, not the seller, sets the net-working-capital target.
+ev_impact: Protects the value that commonly leaks at close when the buyer, not the seller, sets the net-working-capital target.
 summary: Build the net-working-capital evidence base that governs the peg negotiated at close, so value is not clawed back on the final true-up.
 sources: SRC-AICPA, SRC-PRACTITIONER
 ---
@@ -13,7 +13,7 @@ sources: SRC-AICPA, SRC-PRACTITIONER
 
 **Roadmap phase:** Phase 1 (0-6mo)
 
-**Value impact:** Protects 2-8% of enterprise value that commonly leaks at close when the buyer sets the net-working-capital (NWC) target from their own read of the balance sheet.
+**Value impact:** Protects the value that commonly leaks at close when the buyer sets the net-working-capital (NWC) target from their own read of the balance sheet.
 
 ## Why buyers care
 

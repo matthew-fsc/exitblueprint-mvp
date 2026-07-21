@@ -4,7 +4,7 @@ name: Quality-of-Earnings Readiness Program
 version: 1
 dimension: FIN
 phase: Phase 2 (6-18mo)
-ev_impact: Prevents the single most common post-LOI price reduction — buyer reversal of unsupported addbacks — by finding and fixing the same issues first.
+ev_impact: Prevents a leading post-LOI price reduction — buyer reversal of unsupported addbacks — by finding and fixing the same issues first.
 summary: Run a sell-side quality-of-earnings pass so the numbers survive the buyer's QoE without a retrade.
 sources: SRC-ASA, SRC-AICPA, SRC-PRACTITIONER
 ---
@@ -13,7 +13,7 @@ sources: SRC-ASA, SRC-AICPA, SRC-PRACTITIONER
 
 **Roadmap phase:** Phase 2 (6-18mo)
 
-**Value impact:** Prevents the single most common post-LOI price reduction — buyer-driven reversal of addbacks that were not supported when the LOI was signed — by surfacing and fixing the same findings first.
+**Value impact:** Prevents a leading post-LOI price reduction — buyer-driven reversal of addbacks that were not supported when the LOI was signed — by surfacing and fixing the same findings first.
 
 ## Why buyers care
 

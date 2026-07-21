@@ -34,8 +34,7 @@ range** and cross-checked across ≥2 sources where it drives a claim:
 
 - **Recast (adjusted) EBITDA is the number buyers pay on**, not reported profit — the
   dominant valuation method in the LMM. _[SRC-PEPPERDINE, SRC-ASA; 2024–2025]_
-- **Unsupported addbacks are the leading source of price reductions between LOI and
-  close.** _[SRC-ASA, SRC-PRACTITIONER; 2024]_
+- **Unsupported addbacks are among the most common sources of price reductions between LOI and close.** _[SRC-ASA, SRC-PRACTITIONER; 2024]_
 - **A Quality-of-Earnings review is standard practice above ~$1–2M EBITDA.**
   _[SRC-ASA, SRC-AICPA, SRC-PRACTITIONER; 2024]_
 - **Customer-concentration risk bands:** under 10% clean; 10–20% draws diligence
@@ -47,7 +46,7 @@ range** and cross-checked across ≥2 sources where it drives a claim:
 - **Contracted, recurring revenue commands a premium multiple over project/transactional
   revenue** because a buyer can underwrite it — a cross-industry driver, stated without
   sector-specific multiples. _[SRC-VALUEBUILDER, SRC-PEPPERDINE; 2023–2025]_
-- **A business that runs without the owner is the top transferable-value driver;** owner
+- **A business that runs without the owner is a leading transferable-value driver;** owner
   dependence is discounted or deal-breaking. _[SRC-VALUEBUILDER, SRC-EPI; 2023]_
 - **Most owners have not aligned business, personal, and financial readiness** — a
   minority have a documented plan or aligned goals — which is a leading cause of failed or

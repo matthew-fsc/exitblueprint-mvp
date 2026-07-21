@@ -25,7 +25,7 @@ summary: Build at least one qualified manager per core function with defined aut
 
 ## Why buyers care
 
-A business that runs without the owner is the top transferable-value driver. When every core
+A business that runs without the owner is a leading transferable-value driver. When every core
 function reports through a named, capable manager rather than to the owner, transition risk
 drops and the multiple rises — and the business survives any single leader's departure.
 

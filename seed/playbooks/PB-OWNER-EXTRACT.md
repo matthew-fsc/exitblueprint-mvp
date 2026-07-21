@@ -26,7 +26,7 @@ summary: Reduce owner hours in operations below 10/week and transition owner-hel
 
 ## Why buyers care
 
-The single biggest value driver a buyer looks for is a business that operates without the
+One of the biggest value drivers a buyer looks for is a business that operates without the
 owner. When the business depends on the owner for relationships, decisions, or daily
 operations, the buyer prices in risk — or walks. Reducing owner dependence is what converts
 a personal enterprise into a transferable asset.
@@ -39,4 +39,4 @@ a personal enterprise into a transferable asset.
 
 ## Sources
 
-Owner-independence as the top transferable-value driver: SRC-VALUEBUILDER, SRC-EPI. See `seed/SOURCES.md`.
+Owner-independence as a leading transferable-value driver: SRC-VALUEBUILDER, SRC-EPI. See `seed/SOURCES.md`.

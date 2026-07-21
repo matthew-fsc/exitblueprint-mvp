@@ -26,8 +26,7 @@ summary: Document every EBITDA addback so it survives a quality-of-earnings revi
 
 ## Why buyers care
 
-A Quality-of-Earnings review challenges every addback, and unsupported addbacks are the
-leading source of price reductions between the letter of intent and close. A documented
+A Quality-of-Earnings review challenges every addback, and unsupported addbacks are among the most common sources of price reductions between the letter of intent and close. A documented
 schedule converts aggressive-looking addbacks into bankable EBITDA and removes the buyer's
 easiest retrade lever.
 
