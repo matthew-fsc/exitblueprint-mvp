@@ -23,3 +23,19 @@ summary: Convert transactional and informal revenue to contracted retainer/subsc
 | 3 | Paper all informal recurring relationships with formal agreements | owner | 120 |
 | 4 | Standardize renewal terms; target 18+ month average remaining term | advisor | 150 |
 | 5 | Report recurring % and contract coverage quarterly | advisor | 180 |
+
+## Why buyers care
+
+Contracted, recurring revenue commands a premium over project or transactional revenue
+because a buyer can underwrite it — a cross-industry driver, not a software-only one. Even
+partial conversion of the highest-tenure relationships lifts both the score and the multiple.
+
+## Evidence this produces
+
+- Revenue segmented into contracted recurring, informal recurring, and project.
+- Retainer or subscription offers for convertible segments, with informal relationships papered.
+- Standardized renewal terms and quarterly recurring-% and coverage reporting.
+
+## Sources
+
+Recurring-revenue premium: SRC-VALUEBUILDER, SRC-PEPPERDINE. See `seed/SOURCES.md`.
