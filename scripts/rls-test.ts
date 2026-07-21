@@ -748,21 +748,34 @@ async function main() {
     }
     check('cannot set firm B service tier', tierBWriteBlocked);
 
-    // firm_professionals (directory): advisor A READS the firm's directory, but
-    // WRITES are admin-only (20260721000100).
+    // firm_professionals (directory): advisor A READS the firm's directory and,
+    // since 20260721001300 (self-serve rolodex), WRITES it too — the person with
+    // the network shouldn't route contacts through an admin. Cross-firm writes
+    // stay blocked by firm isolation.
     const dirA = await db.query('select id, full_name from firm_professionals');
     check('advisor sees only own firm directory',
       dirA.rows.length === 1 && dirA.rows[0].full_name === 'CPA Directory A', `saw ${JSON.stringify(dirA.rows)}`);
-    let advDirWriteBlocked = false;
+    let advDirWriteOk = false;
     try {
       await db.query('savepoint apw');
-      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Sneaky', 'other')`, [ids.firm_a]);
-      await db.query('release savepoint apw');
+      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Advisor Added', 'other')`, [ids.firm_a]);
+      advDirWriteOk = true;
+      await db.query('rollback to savepoint apw');
     } catch {
-      advDirWriteBlocked = true;
       await db.query('rollback to savepoint apw');
     }
-    check('advisor cannot write the firm directory (admin-only)', advDirWriteBlocked);
+    check('advisor can write own firm directory (self-serve)', advDirWriteOk);
+
+    let advDirFirmBBlocked = false;
+    try {
+      await db.query('savepoint apwb');
+      await db.query(`insert into firm_professionals (firm_id, full_name, kind) values ($1, 'Cross-firm', 'other')`, [ids.firm_b]);
+      await db.query('release savepoint apwb');
+    } catch {
+      advDirFirmBBlocked = true;
+      await db.query('rollback to savepoint apwb');
+    }
+    check('advisor cannot write firm B directory', advDirFirmBBlocked);
 
     // engagement_professionals (deal-team link): staff CRUD — advisor A attaches a
     // directory professional to an engagement in their firm. Rolled back so later
@@ -1201,6 +1214,37 @@ async function main() {
       await db.query('rollback to savepoint cw');
     }
     check('collaborator cannot write (read-only role)', collabWriteBlocked);
+
+    // The one exception (20260721001500): a collaborator may post to the shared
+    // engagement discussion — but only on their own engagement, never a sibling.
+    let collabCommentOk = false;
+    try {
+      await db.query('savepoint cc');
+      await db.query(
+        `insert into engagement_comments (firm_id, engagement_id, body) values ($1, $2, 'from the CPA')`,
+        [ids.firm_a, engagementA],
+      );
+      collabCommentOk = true;
+      await db.query('rollback to savepoint cc');
+    } catch {
+      await db.query('rollback to savepoint cc');
+    }
+    check('collaborator can post to their engagement discussion', collabCommentOk);
+
+    let collabCommentBlocked = false;
+    try {
+      await db.query('savepoint cc2');
+      await db.query(
+        `insert into engagement_comments (firm_id, engagement_id, body) values ($1, $2, 'sneak')`,
+        [ids.firm_a, engagementA2],
+      );
+      await db.query('release savepoint cc2');
+    } catch {
+      collabCommentBlocked = true;
+      await db.query('rollback to savepoint cc2');
+    }
+    check('collaborator cannot comment on an engagement they are not on', collabCommentBlocked);
+
     // Internal advisory reasoning is staff-only — a collaborator never sees it.
     const collabLog = await db.query('select id from engagement_log');
     check('collaborator sees no engagement log (staff-only)', collabLog.rows.length === 0, `saw ${collabLog.rows.length}`);

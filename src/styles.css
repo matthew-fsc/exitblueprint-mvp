@@ -5645,3 +5645,117 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
      shrinking the fixed label column (was 190px). */
   .dim-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 3em; gap: var(--space-2); }
 }
+
+/* Advisory library: collapsible advanced-targeting block in the authoring form.
+   Keeps rubric internals (sub-score code, score trigger) out of the way so an
+   advisor can capture knowledge without configuring the DRS. */
+.advisory-form-advanced {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2, transparent);
+}
+.advisory-form-advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted, inherit);
+}
+.advisory-form-advanced[open] > summary {
+  margin-bottom: var(--space-2);
+}
+.advisory-form-advanced-help {
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+}
+
+/* Getting-started: dismiss control for the activation checklist. */
+.gs-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+.gs-dismiss {
+  font-size: 0.85rem;
+  color: var(--text-muted, inherit);
+}
+
+/* Playbooks authoring: task-step editor + read-only step list. */
+.playbook-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+.playbook-task-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.playbook-task-seq {
+  padding-top: var(--space-2);
+  min-width: 1.25rem;
+  text-align: right;
+}
+.playbook-task-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.playbook-task-meta {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.playbook-step-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Engagement discussion thread (staff + owner + collaborators). */
+.comment-thread {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.comment {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+}
+.comment-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.comment-author {
+  font-weight: 600;
+}
+.comment-role {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: var(--radius-1, 4px);
+  background: var(--surface-3, var(--border));
+  color: var(--text-muted, inherit);
+}
+.comment-date {
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+.comment-body {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}
+.comment-composer textarea {
+  width: 100%;
+}

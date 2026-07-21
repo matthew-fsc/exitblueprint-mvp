@@ -58,6 +58,7 @@ import {
   type SubTab,
 } from '../components/ui';
 import { EngagementTeamCard } from '../components/EngagementTeamCard';
+import { EngagementComments } from '../components/EngagementComments';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -385,6 +386,7 @@ export default function EngagementPage() {
         companyId={engagement.company_id}
         firmId={engagement.firm_id}
       />
+      <EngagementComments engagementId={engagementId!} />
       <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
       <DeleteEngagementCard
         engagementId={engagementId!}
