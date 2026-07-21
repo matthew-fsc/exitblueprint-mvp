@@ -23,6 +23,7 @@ import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 import { resolveDbConnection } from './db-ssl';
 import { parseAllowedOrigins, resolveCorsOrigin } from './cors';
+import { createRateLimiter } from './ratelimit';
 import {
   findStaleEngagements,
   findStalledTasks,
@@ -108,6 +109,23 @@ const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 // unset → those endpoints reply 503 (disabled), mirroring the Clerk webhook.
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET?.trim();
 
+// Rate limiting for the two UNAUTHENTICATED external webhook routes
+// (/webhooks/clerk and /webhooks/scheduled/*, docs/24 item D2). They are already
+// signature/secret-gated, but a flood from a single source could still exhaust
+// the DB pool or burn CPU on signature verification before that gate runs. This
+// bounds request volume per client IP. Configurable via env; defaults to 60
+// requests per 60s window. Not an auth boundary — just volume hygiene.
+function envInt(name: string, fallback: number): number {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+const WEBHOOK_RATE_LIMIT = envInt('WEBHOOK_RATE_LIMIT', 60);
+const WEBHOOK_RATE_WINDOW_SEC = envInt('WEBHOOK_RATE_WINDOW_SEC', 60);
+const webhookLimiter = createRateLimiter({
+  limit: WEBHOOK_RATE_LIMIT,
+  windowMs: WEBHOOK_RATE_WINDOW_SEC * 1000,
+});
+
 // Error monitoring + structured request logs (server/observability.ts). No-op
 // until SENTRY_DSN is set, so dev/CI/beta are unaffected; when set, unhandled
 // errors are forwarded to Sentry. Never captures secrets/PII (scrubbed).
@@ -176,6 +194,33 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
+}
+
+// Best-effort client identifier for webhook rate limiting. Behind a trusted
+// proxy (Render terminates TLS and sets X-Forwarded-For), the FIRST hop is the
+// original client; use it when present, else fall back to the socket address.
+// NOTE: X-Forwarded-For is only trustworthy behind a trusted proxy — a direct
+// client can spoof it. That is acceptable here because this is not an auth
+// boundary (the webhooks are signature/secret-gated); it only bounds volume.
+function clientKey(req: IncomingMessage): string {
+  const xff = req.headers['x-forwarded-for'];
+  const header = Array.isArray(xff) ? xff[0] : xff;
+  if (header) {
+    const first = header.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
+// Enforce the per-client webhook rate limit. Returns true if the request was
+// rejected (a 429 with Retry-After has already been sent) so the caller returns
+// immediately. 429 — NOT 503, which in this codebase means "endpoint disabled".
+function rateLimited(req: IncomingMessage, res: ServerResponse): boolean {
+  const { allowed, retryAfterSec } = webhookLimiter.check(clientKey(req));
+  if (allowed) return false;
+  res.setHeader('retry-after', String(retryAfterSec));
+  json(res, 429, { message: 'rate limit exceeded' });
+  return true;
 }
 
 function setCors(req: IncomingMessage, res: ServerResponse) {
@@ -282,6 +327,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // 400 on a bad signature, 5xx on a transient failure so Svix retries.
   if (req.method === 'POST' && url.pathname === '/webhooks/clerk') {
     if (!CLERK_WEBHOOK_SIGNING_SECRET) return json(res, 503, { message: 'clerk webhook not configured' });
+    if (rateLimited(req, res)) return;
     const raw = await readBody(req);
     const header = (name: string): string | undefined => {
       const v = req.headers[name];
@@ -355,6 +401,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // never mutates an immutable assessment (CLAUDE.md rules 4 & 5).
   if (req.method === 'POST' && url.pathname.startsWith('/webhooks/scheduled/')) {
     if (!WEBHOOK_SECRET) return json(res, 503, { message: 'scheduled webhooks not configured' });
+    if (rateLimited(req, res)) return;
     const provided = req.headers['x-webhook-secret'];
     const secret = Array.isArray(provided) ? provided[0] : provided;
     if (!verifyWebhookSecret(secret, WEBHOOK_SECRET)) {

@@ -82,6 +82,14 @@ services:
       # header. Unset → those endpoints reply 503.
       - key: WEBHOOK_SECRET
         sync: false
+      # Rate limiting for the two unauthenticated webhook routes (/webhooks/clerk
+      # and /webhooks/scheduled/*, docs/24 D2). Over the limit → 429 with Retry-After.
+      # Optional; defaults are 60 requests / 60s per client IP. Render sets
+      # X-Forwarded-For, so the limiter keys on the real client's first hop.
+      - key: WEBHOOK_RATE_LIMIT
+        sync: false
+      - key: WEBHOOK_RATE_WINDOW_SEC
+        sync: false
       # Error monitoring (docs/32). Unset → disabled (no SDK active). SENTRY_ENVIRONMENT
       # and SENTRY_TRACES_SAMPLE_RATE are optional refinements.
       - key: SENTRY_DSN
