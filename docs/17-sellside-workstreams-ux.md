@@ -120,8 +120,11 @@ binder, packaged into the buyer-facing marketing document. Two connected pieces:
   carries **strengths and verified facts only** — no gaps, no weaknesses, no
   internal DRS score, and never an asking price or valuation. It generates → edits
   → finalizes → exports as a branded PDF, exactly like the owner report, and is a
-  clearly-labeled draft the advisor reviews before any buyer sees it. Staff-only
-  (never surfaced in the owner portal).
+  clearly-labeled draft the advisor reviews before any buyer sees it. The owner
+  sees the CIM in their portal **once the advisor finalizes it** — the draft stays
+  private to the firm until sign-off (RLS gates the owner's read on `finalized_at`,
+  migration 20260721000600), so the advisor-review guardrail holds while still
+  giving the owner the finished memorandum.
 
 The methodology (the section set and its evidence mapping) lives in
 `shared/cim/template.ts`; the coverage rollup and the generation payload/composer

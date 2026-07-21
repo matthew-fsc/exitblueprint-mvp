@@ -23,7 +23,7 @@ const TABS: NavTab[] = [
   { stream: 'Remediation', to: '/roadmap', label: 'Roadmap' },
   { stream: 'Evidence', to: '/evidence', label: 'Evidence' },
   { stream: 'Value', to: '/valuation', label: 'Valuation' },
-  { stream: 'Deliverables', to: '/delta', label: 'Delta report' },
+  { stream: 'Deliverables', to: '/deliverables', label: 'Deliverables' },
 ];
 
 export function EngagementNav({ engagementId }: { engagementId: string }) {

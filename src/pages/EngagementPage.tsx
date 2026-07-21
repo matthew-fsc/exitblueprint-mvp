@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
+import { documentType } from '../../shared/documents/catalog';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { buildEngagementKnowledge } from '../lib/knowledge';
 import { buildWorkstreamProgress } from '../lib/workstreams';
@@ -756,7 +757,10 @@ export default function EngagementPage() {
             title="No documents yet"
             action={
               latest && (
-                <Link className="button-link button-primary" to={`/assessment/${latest.id}/report`}>
+                <Link
+                  className="button-link button-primary"
+                  to={`/engagement/${engagementId}/deliverables/owner?assessment=${latest.id}`}
+                >
                   Generate the owner report →
                 </Link>
               )
@@ -772,7 +776,10 @@ export default function EngagementPage() {
                 <span className="assessment-score muted">
                   {d.finalized_at ? `finalized ${fmtDate(d.finalized_at)}` : 'draft'} · {fmtDate(d.created_at)}
                 </span>
-                <Link className="button-link" to={`/assessment/${d.assessment_id}/report`}>
+                <Link
+                  className="button-link"
+                  to={`/engagement/${engagementId}/deliverables/${documentType(d.doc_type)?.section ?? 'owner'}?assessment=${d.assessment_id}`}
+                >
                   Open →
                 </Link>
               </li>

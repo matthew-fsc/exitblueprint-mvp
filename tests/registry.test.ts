@@ -74,6 +74,7 @@ describe('function registry', () => {
         'invite-owner',
         'render-cim-pdf',
         'render-delta-pdf',
+        'render-document-pdf',
         'render-owner-pdf',
         'score-assessment',
       ].sort(),

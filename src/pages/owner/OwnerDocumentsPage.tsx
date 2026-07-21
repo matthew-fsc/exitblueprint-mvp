@@ -5,23 +5,31 @@ import { invokeFunctionBlob } from '../../lib/supabase';
 import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import { renderMarkdown } from '../../lib/markdown';
+import { documentType } from '../../../shared/documents/catalog';
 
 export default function OwnerDocumentsPage() {
   const { engagement, loading, isError, error, refetch } = useOwnerContext();
   const docsQ = useEngagementDocuments(engagement?.id);
-  const docs = docsQ.data ?? [];
+  // Only the document types meant for the owner. RLS already filters what the
+  // owner may read (owner report anytime; CIM once finalized); the catalog's
+  // ownerVisible flag is the belt-and-braces client-side filter so the labels and
+  // download types stay in lockstep with the one shared source of truth.
+  const docs = (docsQ.data ?? []).filter((d) => documentType(d.doc_type)?.ownerVisible);
   const toast = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const download = async (assessmentId: string) => {
-    setBusy(assessmentId);
+  const download = async (id: string, assessmentId: string, docType: string, filename: string) => {
+    setBusy(id);
     try {
-      const blob = await invokeFunctionBlob('render-owner-pdf', { assessment_id: assessmentId });
+      const blob = await invokeFunctionBlob('render-document-pdf', {
+        assessment_id: assessmentId,
+        doc_type: docType,
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'exit-readiness-report.pdf';
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -44,27 +52,33 @@ export default function OwnerDocumentsPage() {
       ) : (
         <Card>
           <ul className="owner-doclist">
-            {docs.map((d) => (
-              <li key={d.id} className="owner-doc">
-                <div className="owner-doc-head">
-                  <span>
-                    <strong>Exit Readiness Report</strong>
-                    <span className="muted"> · {fmtDate(d.created_at)}</span>
-                  </span>
-                  <span className="owner-doc-actions">
-                    <button className="btn-ghost" onClick={() => setOpenId(openId === d.id ? null : d.id)}>
-                      {openId === d.id ? 'Hide' : 'Read'}
-                    </button>
-                    <button onClick={() => download(d.assessment_id)} disabled={busy === d.assessment_id}>
-                      {busy === d.assessment_id ? 'Preparing…' : 'Download PDF'}
-                    </button>
-                  </span>
-                </div>
-                {openId === d.id && (
-                  <div className="owner-doc-body md-body">{renderMarkdown(d.content_md)}</div>
-                )}
-              </li>
-            ))}
+            {docs.map((d) => {
+              const meta = documentType(d.doc_type)!;
+              return (
+                <li key={d.id} className="owner-doc">
+                  <div className="owner-doc-head">
+                    <span>
+                      <strong>{meta.title}</strong>
+                      <span className="muted"> · {fmtDate(d.created_at)}</span>
+                    </span>
+                    <span className="owner-doc-actions">
+                      <button className="btn-ghost" onClick={() => setOpenId(openId === d.id ? null : d.id)}>
+                        {openId === d.id ? 'Hide' : 'Read'}
+                      </button>
+                      <button
+                        onClick={() => download(d.id, d.assessment_id, d.doc_type, meta.filename)}
+                        disabled={busy === d.id}
+                      >
+                        {busy === d.id ? 'Preparing…' : 'Download PDF'}
+                      </button>
+                    </span>
+                  </div>
+                  {openId === d.id && (
+                    <div className="owner-doc-body md-body">{renderMarkdown(d.content_md)}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </Card>
       )}
