@@ -46,6 +46,10 @@ const BillingPage = lazy(() => import('./pages/BillingPage'));
 const HealthPage = lazy(() => import('./pages/HealthPage'));
 const VerifyPage = lazy(() => import('./pages/VerifyPage'));
 const ComponentsPage = lazy(() => import('./pages/ComponentsPage'));
+// Internal platform-ops console (docs/38/40). A standalone superadmin surface —
+// its own chrome, read-only over the service-role analytics rail; the server
+// (/internal/metrics, PLATFORM_SUPERADMIN_IDS) enforces the real gate.
+const PlatformConsolePage = lazy(() => import('./pages/PlatformConsolePage'));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 const DpaPage = lazy(() => import('./pages/legal/DpaPage'));
@@ -427,6 +431,21 @@ export default function App() {
               <Route path="/dev/components" element={<main className="page"><ComponentsPage /></main>} />
             </>
           )}
+          {/* Internal platform-ops console — a standalone superadmin surface with
+              its own chrome (no advisor Shell / firm branding), read-only over the
+              analytics rail. RequireAuth only gates "signed in"; the server's
+              PLATFORM_SUPERADMIN_IDS gate is the real authority, and a non-superadmin
+              just sees the access card. Not linked from any tenant nav. */}
+          <Route
+            path="/internal"
+            element={
+              <RequireAuth>
+                <main className="page">
+                  <PlatformConsolePage />
+                </main>
+              </RequireAuth>
+            }
+          />
           <Route
             path="/"
             element={
