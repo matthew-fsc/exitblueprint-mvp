@@ -26,6 +26,7 @@ import { instantiateTasksForGaps } from './roadmap';
 import { fireAdvisoryItems, educationModules } from './advisory';
 import { verificationSummary } from './verification';
 import { syncLedgerToAssessment, enterManualFinancials, type ManualFinancialEntry } from './ledger';
+import { extractFinancials } from './pl-extract';
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
@@ -392,6 +393,24 @@ export const REGISTRY: Record<string, FunctionSpec> = {
         (body.entries as ManualFinancialEntry[]) ?? [],
         !!body.documented,
       ).then(ok),
+  },
+  'extract-financials-from-file': {
+    engine: 'knowledge',
+    scope: 'assessment',
+    // Read-only: parse an uploaded P&L / financials export into PROPOSED answers
+    // for the derivable financial questions. Deterministic, no LLM, writes
+    // nothing — the advisor reviews the proposals and applies them through
+    // enter-manual-financials, which stamps `document` provenance.
+    handler: async ({ body }) => {
+      const bytes = Buffer.from((body.content_base64 as string) ?? '', 'base64');
+      return ok(
+        extractFinancials({
+          bytes,
+          filename: (body.filename as string) ?? '',
+          mimeType: (body.mime_type as string) ?? null,
+        }),
+      );
+    },
   },
   'verification-summary': {
     engine: 'knowledge',

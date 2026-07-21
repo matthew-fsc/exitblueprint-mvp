@@ -4575,6 +4575,27 @@ textarea:focus {
   font-weight: 700; color: var(--status-good); background: color-mix(in srgb, var(--status-good) 15%, transparent);
   border-radius: 999px; padding: 0.1rem 0.45rem; vertical-align: middle; }
 
+/* ---- Fill financials from a P&L (deterministic file import → answers) ---- */
+.pl-import { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1.2rem; overflow: hidden; }
+.pl-import-toggle { display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
+  background: var(--surface-1); border: none; padding: 0.85rem 1.1rem; cursor: pointer; color: inherit; font: inherit; }
+.pl-import-toggle:hover { background: var(--surface-2); }
+.pl-import-toggle-icon { color: var(--text-secondary); font-size: 0.8rem; }
+.pl-import-body { padding: 0 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem;
+  border-top: 1px solid var(--border); }
+.pl-import-body .inline-form { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; margin: 0; }
+.pl-import-result { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.pl-import-figures { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.pl-import-figures li { display: flex; flex-direction: column; gap: 0.15rem; padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border); }
+.pl-import-figures li:last-child { border-bottom: none; padding-bottom: 0; }
+.pl-fig-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.pl-fig-label { font-weight: 600; }
+.pl-fig-value { font-variant-numeric: tabular-nums; color: var(--status-good); font-weight: 600; }
+.pl-fig-detail { font-size: 0.8rem; }
+.pl-import-notes { font-size: 0.82rem; margin: 0; padding-left: 1.1rem; }
+
 /* ---- Valuation (Phase 2) ------------------------------------------------ */
 .val-start { display: flex; gap: 0.7rem; align-items: flex-end; margin-top: 1rem; flex-wrap: wrap; }
 .val-start label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; flex: 1; min-width: 14rem; }
