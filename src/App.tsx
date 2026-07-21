@@ -197,6 +197,67 @@ function ReviewNavLink() {
   );
 }
 
+// Primary navigation wrapper. On desktop the links render as an inline row (the
+// nav below just passes through). On a phone the row would overflow the bar, so
+// the links collapse behind a hamburger that drops them as a full-width sheet;
+// the sheet closes on navigate, Escape, or a tap on the backdrop. The CSS in the
+// "Mobile optimization pass" section switches between the two by viewport width.
+function AppNav({ children, ariaLabel }: { children: ReactNode; ariaLabel: string }) {
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  // A tapped link changes the route — close the sheet so it doesn't linger over
+  // the page the user just navigated to.
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+  return (
+    <div className="app-nav-wrap">
+      <button
+        type="button"
+        className="app-nav-toggle"
+        aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+          {open ? (
+            <>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </>
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
+        </svg>
+      </button>
+      <nav className={open ? 'app-nav app-nav-open' : 'app-nav'} aria-label={ariaLabel}>
+        {children}
+      </nav>
+      {open && (
+        <button
+          type="button"
+          className="app-nav-backdrop"
+          aria-label="Close menu"
+          tabIndex={-1}
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 function AppBar() {
   const { firmName, profile, signOut } = useAuth();
   const { brand } = useBrand();
@@ -206,7 +267,7 @@ function AppBar() {
         <div className="app-bar-left">
           <FirmMark brand={brand} fallbackName={firmName} />
           <span className="app-bar-divider" aria-hidden />
-          <nav className="app-nav" aria-label="Primary">
+          <AppNav ariaLabel="Primary">
             <NavLink to="/" end className="app-nav-link">
               Engagements
             </NavLink>
@@ -217,7 +278,7 @@ function AppBar() {
             <NavLink to="/settings" className="app-nav-link">
               Settings
             </NavLink>
-          </nav>
+          </AppNav>
         </div>
         <div className="app-bar-right">
           {isDevStack && <span className="dev-badge">Dev</span>}
@@ -254,12 +315,12 @@ function OwnerAppBar() {
         <div className="app-bar-left">
           <FirmMark brand={brand} fallbackName={firmName} />
           <span className="app-bar-divider" aria-hidden />
-          <nav className="app-nav" aria-label="Primary">
+          <AppNav ariaLabel="Primary">
             <NavLink to="/portal" end className="app-nav-link">Home</NavLink>
             <NavLink to="/portal/plan" className="app-nav-link">Your plan</NavLink>
             <NavLink to="/portal/learn" className="app-nav-link">Learn</NavLink>
             <NavLink to="/portal/documents" className="app-nav-link">Documents</NavLink>
-          </nav>
+          </AppNav>
         </div>
         <div className="app-bar-right">
           {isDevStack && <span className="dev-badge">Dev</span>}
