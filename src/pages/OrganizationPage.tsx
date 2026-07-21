@@ -288,18 +288,15 @@ function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
               <EmptyState title="No team members yet">Invite your first colleague below.</EmptyState>
             ) : (
               members.map((m) => (
-                <div
-                  key={m.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}
-                >
-                  <div style={{ minWidth: 0 }}>
+                <div key={m.id} className="eb-list-row">
+                  <div className="eb-list-row-main">
                     <div style={{ fontWeight: 600 }}>
                       {m.full_name || m.email || '—'}
                       {m.id === meId && <span className="muted text-sm"> · you</span>}
                     </div>
                     {m.full_name && m.email && <div className="muted text-sm">{m.email}</div>}
                   </div>
-                  <span className="status-chip status-neutral" style={{ marginLeft: 'auto' }}>{STAFF_ROLE_LABEL[m.role] ?? m.role}</span>
+                  <span className="status-chip status-neutral eb-list-row-push">{STAFF_ROLE_LABEL[m.role] ?? m.role}</span>
                 </div>
               ))
             )}
@@ -423,11 +420,8 @@ function DirectoryCard({ firmId, meProfileId }: { firmId?: string; meProfileId?:
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {(pros ?? []).map((p) => (
-              <div
-                key={p.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)', opacity: p.archived ? 0.55 : 1 }}
-              >
-                <div style={{ minWidth: 0 }}>
+              <div key={p.id} className="eb-list-row" style={{ opacity: p.archived ? 0.55 : 1 }}>
+                <div className="eb-list-row-main">
                   <div style={{ fontWeight: 600 }}>
                     {p.full_name}
                     {p.organization && <span className="muted text-sm"> · {p.organization}</span>}
@@ -436,7 +430,7 @@ function DirectoryCard({ firmId, meProfileId }: { firmId?: string; meProfileId?:
                     {[p.email, p.phone].filter(Boolean).join(' · ') || '—'}
                   </div>
                 </div>
-                <span className="status-chip status-neutral" style={{ marginLeft: 'auto' }}>{KIND_LABEL[p.kind]}</span>
+                <span className="status-chip status-neutral eb-list-row-push">{KIND_LABEL[p.kind]}</span>
                 {p.archived && <span className="status-chip status-warning">Archived</span>}
                 <button className="linkish" type="button" onClick={() => startEdit(p)}>Edit</button>
                 {p.archived ? (
@@ -549,17 +543,14 @@ function AssignmentsCard({ firmId }: { firmId?: string }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {(roster ?? []).map((e) => (
-            <div
-              key={e.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}
-            >
-              <div style={{ minWidth: 0 }}>
+            <div key={e.id} className="eb-list-row">
+              <div className="eb-list-row-main">
                 <div style={{ fontWeight: 600 }}>{e.company?.name ?? 'Engagement'}</div>
                 <div className="muted text-sm">
                   {e.advisor ? `Owned by ${e.advisor.full_name || e.advisor.email}` : 'Unassigned'} · {e.status}
                 </div>
               </div>
-              <label className="field" style={{ marginLeft: 'auto', minWidth: '12rem' }}>
+              <label className="field eb-list-row-push" style={{ minWidth: '12rem' }}>
                 <span className="field-label">Owner</span>
                 <select
                   value={e.advisor_id ?? ''}
