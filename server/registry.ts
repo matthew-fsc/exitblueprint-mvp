@@ -48,6 +48,7 @@ import {
   applyPlan,
   engagementPlanProgress,
   recommendPlans,
+  autoApplyQualifyingPlans,
 } from './plans';
 import {
   getDocumentBytes,
@@ -195,12 +196,22 @@ export const REGISTRY: Record<string, FunctionSpec> = {
         body.current_assessment_id as string,
       ).then(ok),
   },
+  // Build the roadmap from gaps AND lay down any substantively-applicable Plan
+  // (docs/37 Q5b): first instantiate the gap-derived tasks, then auto-apply the
+  // Plans whose playbooks mostly target the open gaps, reusing applyPlan's
+  // once-per-engagement idempotency (a claimed task is never doubled). The
+  // applied-Plan summaries ride back so the UI can report what it added.
   'generate-roadmap': {
     engine: 'rules',
     scope: 'engagement',
     gated: true,
-    handler: ({ service, body }) =>
-      instantiateTasksForGaps(service, body.engagement_id as string, (body.anchor_date as string) ?? null).then(ok),
+    handler: async ({ service, body, userId }) => {
+      const engagementId = body.engagement_id as string;
+      const anchorDate = (body.anchor_date as string) ?? null;
+      const roadmap = await instantiateTasksForGaps(service, engagementId, anchorDate);
+      const auto = await autoApplyQualifyingPlans(service, engagementId, userId, anchorDate);
+      return ok({ ...roadmap, plansApplied: auto.applied });
+    },
   },
   'compute-valuation': {
     engine: 'rules',
@@ -407,18 +418,30 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   'sync-ledger': {
     engine: 'knowledge',
     scope: 'assessment',
-    handler: ({ service, body }) => syncLedgerToAssessment(service, body.assessment_id as string).then(ok),
+    handler: async ({ service, body, userId }) => {
+      const actor = await anyActorId(service, userId);
+      return syncLedgerToAssessment(service, body.assessment_id as string, actor).then(ok);
+    },
   },
   'enter-manual-financials': {
     engine: 'knowledge',
     scope: 'assessment',
-    handler: ({ service, body }) =>
-      enterManualFinancials(
+    handler: async ({ service, body, userId }) => {
+      const actor = await anyActorId(service, userId);
+      return enterManualFinancials(
         service,
         body.assessment_id as string,
         (body.entries as ManualFinancialEntry[]) ?? [],
         !!body.documented,
-      ).then(ok),
+        {
+          // The stored P&L this claim is attested against; enforced server-side —
+          // a `documented` claim with no resolvable document downgrades to
+          // self_reported (server/ledger.ts).
+          evidenceDocumentId: (body.evidence_document_id as string) ?? null,
+          actorProfileId: actor,
+        },
+      ).then(ok);
+    },
   },
   'extract-financials-from-file': {
     engine: 'knowledge',

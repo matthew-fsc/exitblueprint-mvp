@@ -94,8 +94,12 @@ describe.skipIf(!url)('document intake + review (portable router)', () => {
     if (pool) await pool.end();
   });
 
+  // Each call produces UNIQUE bytes (still %PDF so the magic-byte sniff passes)
+  // so content-hash de-dup treats every upload as a distinct document rather than
+  // collapsing repeated identical uploads to the same engagement onto one row.
+  let uploadSeq = 0;
   const uploadDoc = async (userId: string, category = 'Financials') => {
-    const content_base64 = Buffer.from('%PDF-1.4 fake financials\n').toString('base64');
+    const content_base64 = Buffer.from(`%PDF-1.4 fake financials ${++uploadSeq}\n`).toString('base64');
     return handleFunctionCall(
       'upload-document',
       {

@@ -20,6 +20,8 @@ interface ExtractResult {
   entries: FinancialEntry[];
   recognized: RecognizedFigure[];
   notes: string[];
+  warnings: string[];
+  verifiable: boolean;
 }
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -152,10 +154,32 @@ export function PLImportPanel({
     setBusy(true);
     setError(null);
     try {
+      // Persist the P&L itself as the STORED evidence, then attest the extracted
+      // figures against it. Without a stored document (or if it fails to upload),
+      // the server records the figures as self_reported rather than verified —
+      // and figures that failed a plausibility check are never claimed verified.
+      let evidenceDocumentId: string | null = null;
+      if (file && engagementId) {
+        try {
+          const content_base64 = await toBase64(file);
+          const up = await invokeFunction<{ document_id?: string; status?: string }>('upload-document', {
+            engagement_id: engagementId,
+            category: 'Financial statement (P&L)',
+            filename: file.name,
+            mime_type: file.type || 'text/csv',
+            content_base64,
+          });
+          if (up?.status !== 'rejected' && up?.document_id) evidenceDocumentId = up.document_id;
+        } catch {
+          evidenceDocumentId = null; // fall through — recorded self_reported below
+        }
+      }
+      const documented = result.verifiable && evidenceDocumentId != null;
       await invokeFunction('enter-manual-financials', {
         assessment_id: assessmentId,
         entries: result.entries,
-        documented: true,
+        documented,
+        evidence_document_id: evidenceDocumentId,
       });
       track({
         type: 'assessment',
@@ -167,13 +191,17 @@ export function PLImportPanel({
           assessment_id: assessmentId,
           format: result.format,
           codes: result.entries.map((e) => e.code),
+          verified: documented,
         },
       });
       onApplied(result.entries);
       setApplied(true);
+      const n = result.entries.length;
       toast.show(
-        `Filled ${result.entries.length} financial field${result.entries.length > 1 ? 's' : ''} from the file`,
-        'good',
+        documented
+          ? `Filled ${n} financial field${n > 1 ? 's' : ''} from the file — recorded as verified`
+          : `Filled ${n} field${n > 1 ? 's' : ''} — recorded as self-reported (no stored document backing them)`,
+        documented ? 'good' : 'default',
       );
     } catch (err) {
       setError((err as Error).message);
@@ -205,9 +233,10 @@ export function PLImportPanel({
       {open && (
         <div className="pl-import-body">
           <p className="muted m-0">
-            Values are read directly from the file (no AI), shown for your review, and written as{' '}
-            <strong>verified</strong> once you apply them — because they come from real financial
-            statements. Everything else stays for you to answer.{' '}
+            Values are read directly from the file (no AI) and shown for your review. On apply, the
+            file is stored as the backing document and the figures are recorded as{' '}
+            <strong>verified</strong> — unless a plausibility check flags them, in which case they are
+            recorded as self-reported for you to confirm. Everything else stays for you to answer.{' '}
             <button type="button" className="linkish" onClick={downloadSample}>
               Download a sample P&amp;L (CSV)
             </button>
@@ -248,6 +277,16 @@ export function PLImportPanel({
                   </li>
                 ))}
               </ul>
+              {result.warnings.length > 0 && (
+                <ul className="pl-import-notes" role="alert">
+                  {result.warnings.map((w, i) => (
+                    <li key={i}>⚠ {w}</li>
+                  ))}
+                  <li className="muted">
+                    These figures will be recorded as self-reported (not verified) until corrected.
+                  </li>
+                </ul>
+              )}
               {result.notes.length > 0 && (
                 <ul className="pl-import-notes muted">
                   {result.notes.map((n, i) => (

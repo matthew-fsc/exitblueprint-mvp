@@ -12,6 +12,7 @@ import {
   NODE_EDGE_FROM_COMPANY,
   RECONCILE_AUTO_THRESHOLD,
   coerceValue,
+  compareValues,
   parseFactKey,
 } from './field-map';
 import { NotImplementedError, type StepContext, type StepFn, type StepResult } from './types';
@@ -220,7 +221,8 @@ const reconcile: StepFn = async (ctx) => {
 
   let queued = 0;
   let autoResolved = 0;
-  for (const [factKey, fieldKey] of Object.entries(ASSESSMENT_FIELD_MAP)) {
+  for (const [factKey, mapping] of Object.entries(ASSESSMENT_FIELD_MAP)) {
+    const fieldKey = mapping.fieldKey;
     const factRow = await ctx.db.query(
       `select id, value, confidence from document_fields
         where extraction_run_id = $1 and field_key = $2
@@ -232,9 +234,13 @@ const reconcile: StepFn = async (ctx) => {
     const verifiedValue = fact.value as string | null;
     const confidence = fact.confidence === null ? null : Number(fact.confidence);
     const selfValue = factKey in selfReported ? selfReported[factKey] : undefined;
-    const hasSelf = selfValue !== undefined;
+    const hasSelf = selfValue !== undefined && selfValue !== null;
 
-    const conflicting = hasSelf && String(selfValue) !== String(verifiedValue);
+    // Typed comparison with a numeric tolerance band (units normalized first);
+    // non-numeric fields fall back to a normalized string compare. within_tolerance
+    // counts as reconciled — only a genuine conflict marks the value conflicting.
+    const outcome = hasSelf ? compareValues(selfValue, verifiedValue, mapping.compare) : 'match';
+    const conflicting = outcome === 'conflict';
     const lowConfidence = confidence !== null && confidence < RECONCILE_AUTO_THRESHOLD;
     const source = conflicting ? 'conflicting' : 'document_verified';
 

@@ -118,7 +118,15 @@ export default function ReviewDocumentPage() {
     return <ErrorState variant="section" title="Not found" message="This document isn’t available." />;
 
   const doc = detailQ.data.document;
-  const isImage = (doc.mime_type ?? '').startsWith('image/');
+  // Decide how to preview from the (sanitized) filename EXTENSION, never the
+  // stored mime_type — a stored text/html mime must not coax us into rendering
+  // uploaded markup inline. Only raster images and PDFs get an inline preview;
+  // anything else is offered as a download. The server independently serves
+  // non-image/pdf as an octet-stream attachment with nosniff, so this is the
+  // second of two layers.
+  const ext = (doc.original_filename ?? '').split('.').pop()?.toLowerCase() ?? '';
+  const isImage = ext === 'png' || ext === 'jpg' || ext === 'jpeg';
+  const isPdf = ext === 'pdf';
 
   return (
     <div className="stack-lg">
@@ -138,8 +146,26 @@ export default function ReviewDocumentPage() {
           {srcUrl ? (
             isImage ? (
               <img className="review-source-view" src={srcUrl} alt={doc.original_filename} />
+            ) : isPdf ? (
+              // Sandboxed with NO allow-scripts/allow-same-origin: even if a file
+              // were somehow served as active content, it cannot run script or
+              // reach our origin. PDFs still render via the browser's viewer.
+              <iframe
+                className="review-source-view"
+                src={srcUrl}
+                title={doc.original_filename}
+                sandbox=""
+              />
             ) : (
-              <iframe className="review-source-view" src={srcUrl} title={doc.original_filename} />
+              <Card>
+                <p className="muted">
+                  This file type can’t be previewed inline.{' '}
+                  <a href={srcUrl} download={doc.original_filename}>
+                    Download to view
+                  </a>
+                  .
+                </p>
+              </Card>
             )
           ) : (
             <Card>

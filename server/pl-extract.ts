@@ -26,6 +26,11 @@ export interface ExtractResult {
   entries: ManualFinancialEntry[]; // ready for enterManualFinancials
   recognized: RecognizedFigure[]; // same data, human-labeled
   notes: string[]; // what was skipped / could not be recognized
+  warnings: string[]; // deterministic plausibility problems (see validate* below)
+  // False when a validation check flagged a plausibility problem. The caller must
+  // NOT treat flagged figures as document-verified — they should be applied as
+  // self_reported (or corrected first). Never means we adjusted a number.
+  verifiable: boolean;
 }
 
 export interface ExtractInput {
@@ -60,6 +65,64 @@ export function parseNumber(raw: string | null | undefined): number | null {
 // A cell contains a percent sign (used to read a pre-computed "% recurring" row).
 function isPercentCell(raw: string | null | undefined): boolean {
   return raw != null && String(raw).includes('%');
+}
+
+// --- deterministic validation ----------------------------------------------
+// These NEVER change a parsed number. They flag plausibility problems so a
+// caller can refuse to treat a figure as verified (downgrade to self_reported)
+// or show a warning. Pure functions — unit-tested directly.
+
+const MIN_PLAUSIBLE_REVENUE = 1_000; // under this a "revenue" line is likely in $000s
+const MAX_PLAUSIBLE_REVENUE = 1_000_000_000_000; // $1T ceiling — above this smells like a units error
+const MAX_PERIOD_JUMP = 10; // >10x swing between consecutive periods = units/order problem
+
+// Revenue series (oldest first). Checks sign/plausibility, units/magnitude, and
+// period-over-period jump (a proxy for a units mismatch or wrong period order).
+export function validateRevenueSeries(series: number[]): string[] {
+  const warnings: string[] = [];
+  if (series.length === 0) return warnings;
+  if (series.some((v) => v <= 0)) {
+    warnings.push('One or more revenue periods are zero or negative — check the statement.');
+  }
+  const positives = series.filter((v) => v > 0);
+  if (positives.some((v) => v < MIN_PLAUSIBLE_REVENUE)) {
+    warnings.push(
+      'Revenue values look unusually small (under $1,000) — check whether the statement is stated in thousands.',
+    );
+  }
+  if (positives.some((v) => v > MAX_PLAUSIBLE_REVENUE)) {
+    warnings.push('Revenue values exceed $1T — check the units/magnitude.');
+  }
+  for (let i = 1; i < series.length; i++) {
+    const prev = series[i - 1];
+    const cur = series[i];
+    if (prev > 0 && cur > 0) {
+      const ratio = cur / prev;
+      if (ratio > MAX_PERIOD_JUMP || ratio < 1 / MAX_PERIOD_JUMP) {
+        warnings.push(
+          'Revenue changes more than 10x between consecutive periods — check the units or period order.',
+        );
+        break;
+      }
+    }
+  }
+  return warnings;
+}
+
+// Top-customer shares (percentages). Checks range and total (concentration can
+// never exceed 100% of revenue — a sum over 100% means double-counting or a
+// units error).
+export function validateShares(shares: number[]): string[] {
+  const warnings: string[] = [];
+  if (shares.length === 0) return warnings;
+  if (shares.some((s) => s < 0 || s > 100)) {
+    warnings.push('A customer share is outside 0–100% — check the report.');
+  }
+  const sum = shares.reduce((acc, s) => acc + s, 0);
+  if (sum > 100.5) {
+    warnings.push('Top-customer shares sum to over 100% — check the report for double-counting.');
+  }
+  return warnings;
 }
 
 // --- row-label recognizers -------------------------------------------------
@@ -151,6 +214,7 @@ function extractPL(table: Table): ExtractResult | null {
 
   const recognized: RecognizedFigure[] = [];
   const entries: ManualFinancialEntry[] = [];
+  const warnings: string[] = validateRevenueSeries(series);
 
   recognized.push({
     code: 'REV-ANNUAL',
@@ -176,6 +240,10 @@ function extractPL(table: Table): ExtractResult | null {
         pct = Math.round(recurringVal);
         detail = 'Recurring-revenue percentage read directly from the statement.';
       } else if (mostRecentRevenue > 0) {
+        // Cross-foot: a dollar recurring line can never exceed total revenue.
+        if (recurringVal > mostRecentRevenue) {
+          warnings.push('Recurring revenue exceeds total revenue for the period — check the statement.');
+        }
         pct = Math.round((recurringVal / mostRecentRevenue) * 100);
         detail = 'Recurring revenue ÷ total revenue for the most recent period.';
       }
@@ -195,7 +263,7 @@ function extractPL(table: Table): ExtractResult | null {
     notes.push('No recurring-revenue line found — enter the recurring % by hand if it applies.');
   }
 
-  return { format: 'pl_csv', entries, recognized, notes };
+  return { format: 'pl_csv', entries, recognized, notes, warnings, verifiable: warnings.length === 0 };
 }
 
 // Revenue-by-customer report → REV-TOP5-SHARES. Detected when a percent/share
@@ -219,6 +287,7 @@ function extractCustomerShares(table: Table): ExtractResult | null {
   }
   if (shares.length === 0) return null;
 
+  const warnings = validateShares(shares);
   const top5 = shares.sort((a, b) => b - a).slice(0, 5);
   return {
     format: 'customer_csv',
@@ -232,6 +301,8 @@ function extractCustomerShares(table: Table): ExtractResult | null {
       },
     ],
     notes: [],
+    warnings,
+    verifiable: warnings.length === 0,
   };
 }
 
@@ -251,11 +322,19 @@ function extractJson(bytes: Buffer): ExtractResult {
   try {
     doc = JSON.parse(bytes.toString('utf8'));
   } catch {
-    return { format: 'unrecognized', entries: [], recognized: [], notes: ['File is not valid JSON.'] };
+    return {
+      format: 'unrecognized',
+      entries: [],
+      recognized: [],
+      notes: ['File is not valid JSON.'],
+      warnings: [],
+      verifiable: true,
+    };
   }
   const recognized: RecognizedFigure[] = [];
   const entries: ManualFinancialEntry[] = [];
   const notes: string[] = [];
+  const warnings: string[] = [];
 
   const series = Array.isArray(doc.revenue_by_year)
     ? doc.revenue_by_year.filter((n) => typeof n === 'number').slice(-4)
@@ -263,6 +342,7 @@ function extractJson(bytes: Buffer): ExtractResult {
   if (series.length > 0) {
     recognized.push({ code: 'REV-ANNUAL', label: 'Annual revenue (last 4 fiscal years)', value: series, detail: 'From revenue_by_year.' });
     entries.push({ code: 'REV-ANNUAL', value: series });
+    warnings.push(...validateRevenueSeries(series));
   }
 
   let recurringPct: number | null = null;
@@ -284,11 +364,12 @@ function extractJson(bytes: Buffer): ExtractResult {
     if (top5.length > 0) {
       recognized.push({ code: 'REV-TOP5-SHARES', label: 'Top-5 customer revenue shares', value: top5, detail: 'From top_customer_shares.' });
       entries.push({ code: 'REV-TOP5-SHARES', value: top5 });
+      warnings.push(...validateShares(top5));
     }
   }
 
   if (recognized.length === 0) notes.push('No recognizable financial fields in the JSON.');
-  return { format: 'json', entries, recognized, notes };
+  return { format: 'json', entries, recognized, notes, warnings, verifiable: warnings.length === 0 };
 }
 
 // --- entry point -----------------------------------------------------------
@@ -325,6 +406,8 @@ export function extractFinancials(input: ExtractInput): ExtractResult {
         entries: [],
         recognized: [],
         notes: ['Could not find a revenue line or a customer-share column. Check the file format.'],
+        warnings: [],
+        verifiable: true,
       };
   }
 
@@ -332,5 +415,8 @@ export function extractFinancials(input: ExtractInput): ExtractResult {
   const allowed = new Set<string>(LEDGER_DERIVABLE_CODES);
   result.entries = result.entries.filter((e) => allowed.has(e.code));
   result.recognized = result.recognized.filter((r) => allowed.has(r.code));
+  // A plausibility warning means the figures must NOT be auto-treated as
+  // verified — the caller applies them self_reported (never silently trusted).
+  result.verifiable = result.warnings.length === 0;
   return result;
 }

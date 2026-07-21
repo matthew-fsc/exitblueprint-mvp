@@ -789,6 +789,9 @@ export interface TaskRow {
   engagement_id: string;
   gap_id: string | null;
   playbook_id: string | null;
+  // The applied Plan (engagement_plans.id) this task belongs to, when it was
+  // laid down or claimed by a Plan; null for purely gap-derived or manual tasks.
+  engagement_plan_id: string | null;
   title: string;
   description: string | null;
   owner_role: string;
@@ -800,6 +803,8 @@ export interface TaskRow {
 export interface MilestoneRow {
   id: string;
   engagement_id: string;
+  // The applied Plan this milestone belongs to; null for advisor-added ones.
+  engagement_plan_id: string | null;
   track: 'business' | 'personal';
   title: string;
   description: string | null;
@@ -967,6 +972,32 @@ export function useAnswerProvenance(
       if (error) throw new Error(error.message);
       return Object.fromEntries(
         (data ?? []).map((r: { question_id: string; source: ProvenanceSource }) => [r.question_id, r.source]),
+      );
+    },
+  });
+}
+
+// Which answers have a STORED evidence document behind their provenance
+// (question_id -> evidence_document_id | null). Additive to useAnswerProvenance:
+// lets the UI show that a verified financial answer is backed by a real file,
+// not just attested. A `document` row with a null value here is legacy/unbacked.
+export function useAnswerEvidence(
+  assessmentId: string | undefined,
+): UseQueryResult<Record<string, string | null>> {
+  return useQuery({
+    queryKey: ['answerEvidence', assessmentId ?? ''],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('answer_provenance')
+        .select('question_id,evidence_document_id')
+        .eq('assessment_id', assessmentId!);
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(
+        (data ?? []).map((r: { question_id: string; evidence_document_id: string | null }) => [
+          r.question_id,
+          r.evidence_document_id,
+        ]),
       );
     },
   });
@@ -1346,13 +1377,31 @@ export function useEngagementPlans(engagementId: string | undefined): UseQueryRe
   });
 }
 
-// Score-driven Plan recommendations for an engagement (docs/37 Q5).
+// Score-driven Plan recommendations for an engagement (docs/37 Q5) — surfaced
+// from open gaps AND fired initiatives, ranked by combined coverage.
 export interface PlanRecommendationRow {
   plan_template_id: string;
   name: string;
   is_system: boolean;
   matched_gap_count: number;
   matched_gap_codes: string[];
+  matched_initiative_count: number;
+  matched_initiative_titles: string[];
+  match_score: number;
+}
+
+// generate-roadmap result: gap-derived tasks created + the substantively-
+// applicable Plans it auto-applied (docs/37 Q5b).
+export interface AutoAppliedPlanSummary {
+  plan_template_id: string;
+  name: string;
+  tasks_created: number;
+  tasks_claimed: number;
+  milestones_created: number;
+}
+export interface GenerateRoadmapResult {
+  tasksCreated: number;
+  plansApplied: AutoAppliedPlanSummary[];
 }
 
 export function useRecommendedPlans(engagementId: string | undefined): UseQueryResult<PlanRecommendationRow[]> {

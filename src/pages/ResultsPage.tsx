@@ -321,7 +321,7 @@ export default function ResultsPage() {
                 ? (d.contributionToDrs / d.maxContributionToDrs) * 100
                 : 100;
               return (
-                <details key={d.code} className="dim-card" open={i === 0 && d.recoverablePoints > 0}>
+                <details key={d.code} className="dim-card">
                   <summary>
                     <span className="dim-head dim-head-gap">
                       <span className="dim-name">

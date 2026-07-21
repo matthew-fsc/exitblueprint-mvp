@@ -35,3 +35,41 @@ export async function logAccess(db: pg.ClientBase, e: AccessEvent): Promise<void
     /* never let audit logging break the operation it records */
   }
 }
+
+// An append-only history entry for a single answer-provenance mutation — who set
+// a financial answer's source to what, against which stored document, and when.
+// Written into answer_provenance_events (immutable: no UPDATE/DELETE grant). Like
+// logAccess, best-effort — recording the trail must never break the write it
+// records.
+export interface ProvenanceEvent {
+  firmId: string;
+  assessmentId: string;
+  questionId?: string | null;
+  source: 'self_reported' | 'document' | 'connected_ledger';
+  evidenceDocumentId?: string | null;
+  event: string; // e.g. 'manual_entry', 'ledger_sync', 'downgraded_no_evidence'
+  actorProfileId?: string | null;
+  note?: string | null;
+}
+
+export async function logProvenanceEvent(db: pg.ClientBase, e: ProvenanceEvent): Promise<void> {
+  try {
+    await db.query(
+      `insert into answer_provenance_events
+         (firm_id, assessment_id, question_id, source, evidence_document_id, event, actor_profile_id, note)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        e.firmId,
+        e.assessmentId,
+        e.questionId ?? null,
+        e.source,
+        e.evidenceDocumentId ?? null,
+        e.event,
+        e.actorProfileId ?? null,
+        e.note ?? null,
+      ],
+    );
+  } catch {
+    /* never let audit logging break the operation it records */
+  }
+}
