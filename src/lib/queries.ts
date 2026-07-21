@@ -1551,3 +1551,32 @@ export function useContentModuleCatalog(): UseQueryResult<ContentModuleCatalogRo
     },
   });
 }
+
+// ---- engagement comments (collaboration thread; 20260721001500) ------------
+export interface EngagementCommentRow {
+  id: string;
+  created_at: string;
+  engagement_id: string;
+  author_profile_id: string | null;
+  author_name: string | null;
+  author_role: string | null;
+  body: string;
+}
+
+export const qkEngagementComments = (engagementId: string) => ['engagement-comments', engagementId] as const;
+
+export function useEngagementComments(engagementId: string | undefined): UseQueryResult<EngagementCommentRow[]> {
+  return useQuery({
+    queryKey: qkEngagementComments(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_comments')
+        .select('id,created_at,engagement_id,author_profile_id,author_name,author_role,body')
+        .eq('engagement_id', engagementId!)
+        .order('created_at', { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as EngagementCommentRow[];
+    },
+  });
+}

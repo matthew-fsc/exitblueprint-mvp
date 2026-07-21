@@ -1,8 +1,21 @@
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, isDevStack } from '../lib/supabase';
-import { qk, useEngagementCollaborators, useOwnerProfile } from '../lib/queries';
+import { useAuth } from '../lib/auth';
+import { qk, useEngagementCollaborators, useFirmProfessionals, useOwnerProfile } from '../lib/queries';
 import { ConfirmDialog, SectionCard, SkeletonLines, useToast } from './ui';
+
+// Directory contacts carry the broader professional_kind enum; the portal invite
+// uses the narrower collaborator_kind. Map to the nearest value when prefilling.
+const PROFESSIONAL_TO_COLLAB_KIND: Record<string, string> = {
+  cpa: 'cpa',
+  attorney: 'attorney',
+  ma_advisor: 'advisor',
+  banker: 'other',
+  wealth_manager: 'other',
+  insurance: 'other',
+  other: 'other',
+};
 
 interface OwnerInviteResult {
   status: 'invited' | 'exists';
@@ -39,10 +52,12 @@ export function EngagementTeamCard({
 }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const { profile } = useAuth();
 
   const ownerQ = useOwnerProfile(companyId);
   const owner = ownerQ.data;
   const collabsQ = useEngagementCollaborators(engagementId);
+  const directoryQ = useFirmProfessionals(profile?.firm_id ?? null);
 
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
@@ -193,6 +208,36 @@ export function EngagementTeamCard({
               ))}
             </ul>
           ) : null}
+
+          {(directoryQ.data ?? []).length > 0 && (
+            <div className="control-row" style={{ marginBottom: 'var(--space-2)', gap: 'var(--space-2)' }}>
+              <label className="muted text-sm" htmlFor="collab-from-directory">
+                From your network
+              </label>
+              <select
+                id="collab-from-directory"
+                defaultValue=""
+                onChange={(e) => {
+                  const p = (directoryQ.data ?? []).find((x) => x.id === e.target.value);
+                  if (!p) return;
+                  setCollabName(p.full_name);
+                  setCollabEmail(p.email ?? '');
+                  setCollabKind(PROFESSIONAL_TO_COLLAB_KIND[p.kind] ?? 'other');
+                  e.target.value = '';
+                }}
+              >
+                <option value="">Pick a contact…</option>
+                {(directoryQ.data ?? [])
+                  .filter((p) => p.email)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                      {p.organization ? ` · ${p.organization}` : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           <form className="collab-invite-form" onSubmit={inviteCollaborator}>
             <input placeholder="Name (optional)" value={collabName} onChange={(e) => setCollabName(e.target.value)} />

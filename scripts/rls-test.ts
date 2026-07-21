@@ -1214,6 +1214,37 @@ async function main() {
       await db.query('rollback to savepoint cw');
     }
     check('collaborator cannot write (read-only role)', collabWriteBlocked);
+
+    // The one exception (20260721001500): a collaborator may post to the shared
+    // engagement discussion — but only on their own engagement, never a sibling.
+    let collabCommentOk = false;
+    try {
+      await db.query('savepoint cc');
+      await db.query(
+        `insert into engagement_comments (firm_id, engagement_id, body) values ($1, $2, 'from the CPA')`,
+        [ids.firm_a, engagementA],
+      );
+      collabCommentOk = true;
+      await db.query('rollback to savepoint cc');
+    } catch {
+      await db.query('rollback to savepoint cc');
+    }
+    check('collaborator can post to their engagement discussion', collabCommentOk);
+
+    let collabCommentBlocked = false;
+    try {
+      await db.query('savepoint cc2');
+      await db.query(
+        `insert into engagement_comments (firm_id, engagement_id, body) values ($1, $2, 'sneak')`,
+        [ids.firm_a, engagementA2],
+      );
+      await db.query('release savepoint cc2');
+    } catch {
+      collabCommentBlocked = true;
+      await db.query('rollback to savepoint cc2');
+    }
+    check('collaborator cannot comment on an engagement they are not on', collabCommentBlocked);
+
     // Internal advisory reasoning is staff-only — a collaborator never sees it.
     const collabLog = await db.query('select id from engagement_log');
     check('collaborator sees no engagement log (staff-only)', collabLog.rows.length === 0, `saw ${collabLog.rows.length}`);

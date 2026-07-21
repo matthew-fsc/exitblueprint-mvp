@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useOwnerContext } from '../../lib/owner';
 import { useExplain, useEngagementGaps, useValuation, useVerification } from '../../lib/queries';
 import { Card, EmptyState, ErrorState, GapSeverityChip, PageHeader, ScoreDial, SkeletonLines, TierBadge } from '../../components/ui';
+import { EngagementComments } from '../../components/EngagementComments';
 import { fmtCurrencyCompact, fmtScore } from '../../lib/format';
 
 const TIER_PLAIN: Record<string, string> = {
@@ -156,6 +157,8 @@ export default function OwnerHomePage() {
           </div>
         </Card>
       </div>
+
+      <EngagementComments engagementId={engagement.id} />
     </div>
   );
 }
