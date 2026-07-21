@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 
 // Engagement sub-navigation: one clean, evenly-spaced row of tabs. The tabs are
 // ordered by the five sell-side preparation work streams (docs/17) — Readiness,
@@ -27,8 +28,17 @@ const TABS: NavTab[] = [
 
 export function EngagementNav({ engagementId }: { engagementId: string }) {
   const base = `/engagement/${engagementId}`;
+  // On a phone the tab bar is a horizontal-scroll strip (styles.css mobile pass).
+  // Keep the current tab in view so deep tabs (Valuation, Delta report) aren't
+  // scrolled off the right edge when you land on them. No-op on desktop.
+  const navRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('.eng-nav-link.active');
+    active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [pathname]);
   return (
-    <nav className="eng-nav" aria-label="Engagement">
+    <nav className="eng-nav" aria-label="Engagement" ref={navRef}>
       {TABS.map((t) => (
         <NavLink key={t.label} to={`${base}${t.to}`} end={t.end} className="eng-nav-link">
           {t.label}
