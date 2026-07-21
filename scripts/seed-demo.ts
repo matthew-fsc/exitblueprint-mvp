@@ -328,6 +328,26 @@ async function main() {
         'This report is prepared for informational purposes by Cascade Wealth Partners and does not constitute investment, tax, or legal advice.',
       ],
     );
+    // Firm professional directory (org controls): a few of the outside
+    // professionals the demo practice works with, so the directory and the
+    // engagement deal-team picker aren't empty out of the box. Idempotent on
+    // (firm_id, full_name).
+    for (const [full_name, organization, kind, email] of [
+      ['Marcus Bell', 'Bell & Associates CPAs', 'cpa', 'marcus@bellcpas.example'],
+      ['Priya Nair', 'Nair Corporate Law', 'attorney', 'priya@nairlaw.example'],
+      ['Tom Okafor', 'Meridian M&A Partners', 'ma_advisor', 'tom@meridianma.example'],
+    ] as [string, string, string, string][]) {
+      await db.query(
+        `insert into firm_professionals (firm_id, full_name, organization, kind, email)
+         select $1, $2, $3, $4::professional_kind, $5
+         where not exists (
+           select 1 from firm_professionals where firm_id = $1 and full_name = $2
+         )`,
+        [firmId, full_name, organization, kind, email],
+      );
+    }
+    console.log('seed-demo: professional directory seeded — 3 outside professionals');
+
     console.log(`seed-demo: done — firm '${DEMO_FIRM}', company '${DEMO_COMPANY}', branded as 'Cascade Wealth Partners'`);
   } finally {
     await db.end();

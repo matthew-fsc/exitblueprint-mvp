@@ -68,7 +68,7 @@ export const CLIENT_DOCUMENT_TYPES: ClientDocumentType[] = [
     audience: 'market',
     filename: 'confidential-information-memorandum.pdf',
     // Surfaced to the owner once the advisor finalizes it — RLS gates the owner's
-    // read on finalized_at (migration 20260721000400), so an unreviewed
+    // read on finalized_at (migration 20260721000600), so an unreviewed
     // auto-generated draft of this buyer-facing document never reaches them.
     ownerVisible: true,
   },

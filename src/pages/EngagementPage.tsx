@@ -58,6 +58,7 @@ import {
 } from '../components/ui';
 import { VerificationCard } from '../components/VerificationCard';
 import { EngagementTeamCard } from '../components/EngagementTeamCard';
+import { EngagementProfessionalsCard } from '../components/EngagementProfessionalsCard';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -367,6 +368,7 @@ export default function EngagementPage() {
         </p>
       </SectionCard>
       <EngagementTeamCard engagementId={engagementId!} companyId={engagement.company_id} />
+      <EngagementProfessionalsCard engagementId={engagementId!} firmId={engagement.firm_id} />
       {latest && <VerificationCard assessmentId={latest.id} firmId={engagement.firm_id} />}
       <ExportEngagementCard engagementId={engagementId!} companyName={companyName} />
       <DeleteEngagementCard

@@ -41,6 +41,7 @@ const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const OrganizationPage = lazy(() => import('./pages/OrganizationPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const HealthPage = lazy(() => import('./pages/HealthPage'));
 const VerifyPage = lazy(() => import('./pages/VerifyPage'));
@@ -133,6 +134,20 @@ function RequireStaff({ children }: { children: ReactNode }) {
   if (!profile || !['advisor', 'admin', 'reviewer'].includes(profile.role)) {
     return <ProfileNotReady />;
   }
+  return <>{children}</>;
+}
+
+// Organization administration (team, branding, directory, engagement ownership):
+// admins only. Advisors have firm-scoped data access but these are org controls,
+// so a non-admin advisor is sent back to their workspace. RLS enforces the same
+// boundary server-side; this guard is the matching UI gate.
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { session, profile, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <main className="page"><LoadingState variant="page" /></main>;
+  if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (profile?.role === 'owner' || profile?.role === 'collaborator') return <Navigate to="/portal" replace />;
+  if (profile?.role !== 'admin') return <Navigate to="/settings" replace />;
   return <>{children}</>;
 }
 
@@ -301,6 +316,11 @@ function AppBar() {
             <NavLink to="/plans" className="app-nav-link">
               Plans
             </NavLink>
+            {profile?.role === 'admin' && (
+              <NavLink to="/organization" className="app-nav-link">
+                Organization
+              </NavLink>
+            )}
             <NavLink to="/settings" className="app-nav-link">
               Settings
             </NavLink>
@@ -625,6 +645,16 @@ export default function App() {
                   <BillingPage />
                 </Shell>
               </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <RequireAdmin>
+                <Shell>
+                  <OrganizationPage />
+                </Shell>
+              </RequireAdmin>
             }
           />
             <Route path="*" element={<Navigate to="/" replace />} />

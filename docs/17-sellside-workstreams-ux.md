@@ -123,7 +123,7 @@ binder, packaged into the buyer-facing marketing document. Two connected pieces:
   clearly-labeled draft the advisor reviews before any buyer sees it. The owner
   sees the CIM in their portal **once the advisor finalizes it** — the draft stays
   private to the firm until sign-off (RLS gates the owner's read on `finalized_at`,
-  migration 20260721000400), so the advisor-review guardrail holds while still
+  migration 20260721000600), so the advisor-review guardrail holds while still
   giving the owner the finished memorandum.
 
 The methodology (the section set and its evidence mapping) lives in
