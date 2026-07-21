@@ -71,6 +71,7 @@ describe('function registry', () => {
         'create-engagement',
         'generate-document',
         'generate-roadmap',
+        'institutional-review',
         'invite-owner',
         'render-cim-pdf',
         'render-delta-pdf',
