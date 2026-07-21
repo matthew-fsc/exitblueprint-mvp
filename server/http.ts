@@ -32,6 +32,8 @@ import {
   verifyWebhookSecret,
 } from './scheduled';
 import { initObservability, captureError, logRequest } from './observability';
+import { isPlatformSuperadmin } from './platform-admin';
+import { platformMetrics } from './platform-metrics';
 import {
   applyStripeEvent,
   verifyStripeSignature,
@@ -286,6 +288,26 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       return json(res, 200, { ok: true, db: true });
     } catch {
       return json(res, 503, { ok: false, db: false });
+    }
+  }
+
+  // Platform monitoring rails (docs/38). The ExitBlueprint team's cross-tenant,
+  // four-domain snapshot (infra/product/business/security), assembled from the
+  // service-role-only `analytics` schema. A PLATFORM OPERATIONS route, not a
+  // tenant function: it reads across every firm, so it is gated by the platform
+  // superadmin allowlist (PLATFORM_SUPERADMIN_IDS — the same cross-tenant gate as
+  // the `platform-admin` scope), NEVER a firm role, and runs on the service-role
+  // pool (RLS bypass) rather than asUser. Unset allowlist → 403, default-deny.
+  if (req.method === 'GET' && url.pathname === '/internal/metrics') {
+    const claims = await bearer(req);
+    if (!claims) return json(res, 401, { message: 'invalid or missing token' });
+    if (!isPlatformSuperadmin(claims.sub)) return json(res, 403, { message: 'platform superadmin required' });
+    try {
+      const metrics = await withTimeout(platformMetrics(pool), 10_000, 'platform metrics');
+      return json(res, 200, metrics);
+    } catch (e) {
+      captureError(e, { route: '/internal/metrics' });
+      return json(res, 500, { message: (e as Error).message });
     }
   }
 

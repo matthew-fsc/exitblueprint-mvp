@@ -79,6 +79,7 @@ Point-in-time audits and superseded runbooks have been moved to
 | [30-clerk-cutover-runbook](./30-clerk-cutover-runbook.md) | **Identity is Clerk.** The auth cutover + provisioning webhook | Runbook |
 | [31-production-debug-db-errors](./31-production-debug-db-errors.md) | Troubleshooting Clerk↔Supabase RLS "database errors" | Runbook |
 | [32-observability](./32-observability.md) | Sentry seam (frontend + compute); no-op until DSN set | Runbook |
+| [38-platform-monitoring](./38-platform-monitoring.md) | Team-side monitoring plan — infra/product/business/security on one analytics rail (`analytics` schema + `/internal/metrics`) | Reference |
 | [08-operations](./08-operations.md) | Environments, Clerk provisioning, secrets, backups | Reference |
 | [14-environment-keys](./14-environment-keys.md) | Annotated env-var catalog (canonical list is `../.env.example`) | Reference |
 
