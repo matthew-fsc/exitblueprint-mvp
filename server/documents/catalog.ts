@@ -16,8 +16,10 @@ import { buildCimPayload } from '../cim';
 import {
   renderCimReportHtml,
   renderDeltaReportHtml,
+  renderManagementPresentationHtml,
   renderOwnerReportHtml,
   renderReportPdf,
+  renderTeaserHtml,
   type ReportBranding,
 } from '../pdf';
 import { documentType } from '../../shared/documents/catalog';
@@ -103,6 +105,25 @@ const HTML_BUILDERS: Record<string, HtmlBuilder> = {
   cim: async (service, assessmentId, narrativeMd, branding, completedAt) => {
     const payload = await buildCimPayload(service, assessmentId);
     return renderCimReportHtml(
+      { companyName: payload.company.name, industry: payload.company.industry, date: completedAt },
+      narrativeMd,
+      branding,
+    );
+  },
+  // The teaser and the management presentation both read the CIM's strengths-only
+  // payload; the teaser cover withholds the company name (blind profile), the
+  // management presentation names it (post-NDA meeting material).
+  teaser: async (service, assessmentId, narrativeMd, branding, completedAt) => {
+    const payload = await buildCimPayload(service, assessmentId);
+    return renderTeaserHtml(
+      { industry: payload.company.industry, state: payload.company.state, date: completedAt },
+      narrativeMd,
+      branding,
+    );
+  },
+  management_presentation: async (service, assessmentId, narrativeMd, branding, completedAt) => {
+    const payload = await buildCimPayload(service, assessmentId);
+    return renderManagementPresentationHtml(
       { companyName: payload.company.name, industry: payload.company.industry, date: completedAt },
       narrativeMd,
       branding,

@@ -431,6 +431,92 @@ export function renderCimReportHtml(
   return docShell(accent, cover + body);
 }
 
+// ---- Teaser (blind profile) -------------------------------------------------
+
+export interface TeaserReportData {
+  industry: string | null;
+  state: string | null;
+  date: string | null;
+}
+
+// The anonymized one-pager sent before the NDA. It reuses the same institutional
+// scaffold as the CIM, but the cover deliberately carries NO company name — the
+// point of a teaser is that the buyer cannot yet identify the business. The
+// narrative markdown already withholds the name; the cover shows only the
+// industry/geography descriptor and a confidential kicker.
+export function renderTeaserHtml(
+  data: TeaserReportData,
+  narrativeMd: string,
+  branding: ReportBranding | null,
+): string {
+  const firmName = branding?.display_name || 'Exit Blueprint';
+  const accent = branding?.accent_color || '#1f7a52';
+
+  const descriptor = data.industry ? `${data.industry} opportunity` : 'Confidential opportunity';
+  const cover = coverBand({
+    firmName,
+    accent,
+    logo: logoHtml(branding, firmName, accent),
+    fromLine: branding?.report_from_line || '',
+    kicker: 'Confidential Teaser · Blind Profile',
+    title: descriptor.charAt(0).toUpperCase() + descriptor.slice(1),
+    meta: `${data.state ? esc(data.state) : ''}${data.date ? `${data.state ? ' &middot; ' : ''}${fmtDate(data.date)}` : ''}`,
+  });
+
+  const disclosure = branding?.footer_disclosure_md
+    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
+    : '';
+
+  const body = `
+  <div class="pad">
+    <div class="narrative">${mdToHtml(narrativeMd)}</div>
+    ${disclosure}
+  </div>`;
+
+  return docShell(accent, cover + body);
+}
+
+// ---- Management presentation ------------------------------------------------
+
+export interface ManagementPresentationData {
+  companyName: string;
+  industry: string | null;
+  date: string | null;
+}
+
+// The management-meeting narrative that follows the CIM (behind an NDA), so the
+// cover names the company. Same institutional scaffold, narrative-only body.
+export function renderManagementPresentationHtml(
+  data: ManagementPresentationData,
+  narrativeMd: string,
+  branding: ReportBranding | null,
+): string {
+  const firmName = branding?.display_name || 'Exit Blueprint';
+  const accent = branding?.accent_color || '#1f7a52';
+
+  const cover = coverBand({
+    firmName,
+    accent,
+    logo: logoHtml(branding, firmName, accent),
+    fromLine: branding?.report_from_line || '',
+    kicker: 'Management Presentation',
+    title: data.companyName,
+    meta: `${esc(data.industry || '')}${data.date ? ` &middot; ${fmtDate(data.date)}` : ''}`,
+  });
+
+  const disclosure = branding?.footer_disclosure_md
+    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
+    : '';
+
+  const body = `
+  <div class="pad">
+    <div class="narrative">${mdToHtml(narrativeMd)}</div>
+    ${disclosure}
+  </div>`;
+
+  return docShell(accent, cover + body);
+}
+
 // ---- renderer ---------------------------------------------------------------
 
 // Scan one Playwright browser-cache dir for a Chromium binary, newest revision

@@ -3437,11 +3437,24 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .subtabs-panel {
   margin-top: var(--space-4);
 }
-/* Inside .report (Deliverables), the flex `gap` already spaces the panel, so the
-   panel's own margin-top would double it. Neutralise the margin only in that
-   context; other pages' SubTabs keep the global spacing above. */
+/* Inside .report (Deliverables), the flex `gap` already spaces the panel above,
+   so the panel's own margin-top would double it. But the panel's own contents —
+   the document toolbar, the "Edit narrative" editor, and the branded sheet below
+   it — are stacked with no rhythm of their own, so the editor block ends up
+   touching both the buttons above and the PDF preview below. Make the panel a
+   matching flex column so every deliverable's chrome and sheet breathe on the
+   same rhythm the rest of the studio uses. */
 .report .subtabs-panel {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+/* The panel now owns that vertical rhythm via `gap`; drop the asides' own
+   trailing margins so they don't stack a second gap above the toolbar. */
+.report .subtabs-panel > .cim-readiness,
+.report .subtabs-panel > .delta-compared-against {
+  margin: 0;
 }
 
 /* ---- work-stream progress rail (docs/archive/22) ----

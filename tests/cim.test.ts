@@ -5,7 +5,15 @@
 // number not present in its payload.
 import { describe, expect, it } from 'vitest';
 import { CIM_SECTIONS, DATA_ROOM_SECTION_CODES } from '../shared/cim/template';
-import { rollupCimCoverage, composeCim, fmtCompactUsd, type CoverageItem, type CimPayload } from '../server/cim';
+import {
+  rollupCimCoverage,
+  composeCim,
+  composeTeaser,
+  composeManagementPresentation,
+  fmtCompactUsd,
+  type CoverageItem,
+  type CimPayload,
+} from '../server/cim';
 import { numeralPostCheck } from '../server/narrative';
 
 describe('fmtCompactUsd', () => {
@@ -113,6 +121,63 @@ describe('composeCim stays inside the numeral firewall', () => {
     expect(md).toContain('# Confidential Information Memorandum — Northwind Fabrication');
     expect(md.toLowerCase()).toContain('no asking price');
     // Buyer-facing: never the internal readiness vocabulary.
+    expect(md.toLowerCase()).not.toContain('gap');
+    expect(md.toLowerCase()).not.toContain('weakness');
+  });
+});
+
+// Both new sell-side documents build FROM the same strengths-only CIM payload, so
+// they carry the same firewall guarantees. The teaser adds one more invariant it
+// must never break: it is a blind profile, so the company name must not appear.
+const sellsidePayload: CimPayload = {
+  company: {
+    name: 'Northwind Fabrication',
+    industry: 'Industrial services',
+    revenue_band: '$10M-$25M',
+    ebitda_band: '$2M-$5M',
+    state: 'Ohio',
+  },
+  highlights: [
+    { area: 'Revenue Quality', facts: ['82% of revenue is contractually recurring.'] },
+    { area: 'Customer Base', facts: ['Customers stay an average of 7 years.'] },
+  ],
+  financial: {
+    adjusted_ebitda: 3200000,
+    reported_ebitda: 2800000,
+    adjusted_ebitda_display: '$3.2M',
+    reported_ebitda_display: '$2.8M',
+  },
+  verified_evidence: ['Monthly financial statements (36+ months)', 'EBITDA bridge & add-back schedule'],
+  sections: CIM_SECTIONS.map((s) => ({ code: s.code, name: s.name, guidance: s.narrativeGuidance })),
+};
+
+describe('composeTeaser stays inside the numeral firewall and stays anonymous', () => {
+  it('emits no numeral that is absent from the payload', () => {
+    const md = composeTeaser(sellsidePayload);
+    expect(numeralPostCheck(md, sellsidePayload)).toEqual([]);
+  });
+
+  it('never names the company (blind profile) and states no asking price', () => {
+    const md = composeTeaser(sellsidePayload);
+    expect(md).toContain('# Confidential Teaser');
+    // A teaser is anonymized — the company name must never leak.
+    expect(md).not.toContain('Northwind Fabrication');
+    expect(md.toLowerCase()).toContain('no asking price');
+    expect(md.toLowerCase()).not.toContain('gap');
+    expect(md.toLowerCase()).not.toContain('weakness');
+  });
+});
+
+describe('composeManagementPresentation stays inside the numeral firewall', () => {
+  it('emits no numeral that is absent from the payload', () => {
+    const md = composeManagementPresentation(sellsidePayload);
+    expect(numeralPostCheck(md, sellsidePayload)).toEqual([]);
+  });
+
+  it('names the company (post-NDA) and never surfaces the internal readiness vocabulary', () => {
+    const md = composeManagementPresentation(sellsidePayload);
+    expect(md).toContain('# Management Presentation — Northwind Fabrication');
+    expect(md.toLowerCase()).toContain('no asking price');
     expect(md.toLowerCase()).not.toContain('gap');
     expect(md.toLowerCase()).not.toContain('weakness');
   });

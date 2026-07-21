@@ -16,7 +16,9 @@ import { engagementCrumbs } from '../lib/nav';
 import { CLIENT_DOCUMENT_TYPES, documentTypeForSection } from '../../shared/documents/catalog';
 import { OwnerReportPanel } from './ReportPage';
 import { DeltaReportPanel } from './DeltaReportPage';
+import { TeaserPanel } from './TeaserPage';
 import { CimPanel } from './CimPage';
+import { ManagementPresentationPanel } from './ManagementPresentationPage';
 
 // The Deliverables studio — the one place an advisor curates every client
 // document (docs/17 §5). It consolidates what used to be three scattered pages
@@ -118,7 +120,9 @@ export default function DeliverablesPage() {
           >
             {active === 'owner' && <OwnerReportPanel assessmentId={selectedId} />}
             {active === 'delta' && <DeltaReportPanel assessmentId={selectedId} engagementId={engagementId} />}
+            {active === 'teaser' && <TeaserPanel assessmentId={selectedId} />}
             {active === 'cim' && <CimPanel assessmentId={selectedId} engagementId={engagementId} />}
+            {active === 'management' && <ManagementPresentationPanel assessmentId={selectedId} />}
           </div>
         </>
       )}
