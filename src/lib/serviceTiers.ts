@@ -5,6 +5,13 @@
 // and any later surface read the same labels and copy.
 //
 // The codes here MUST match the firm_service_tier_code check constraint.
+//
+// Direction (Matthew, 2026-07-21): the tier is PER-FIRM and standalone for now,
+// but is expected to eventually route to Stripe — i.e. converge with the billing
+// plan catalog (plans: solo/practice/firm) so the selected tier becomes the thing
+// the firm pays for. When that slice lands, reconcile this catalog with `plans`
+// (or point firm_service_tier at a plan code) rather than keeping two parallel
+// lists. The advisor-plans-vs-firm-plans distinction is deferred to that work.
 
 export type ServiceTierCode = 'essentials' | 'standard' | 'premium';
 
