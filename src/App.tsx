@@ -29,7 +29,6 @@ const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const PlaybooksPage = lazy(() => import('./pages/PlaybooksPage'));
-const NetworkPage = lazy(() => import('./pages/NetworkPage'));
 const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
@@ -325,9 +324,6 @@ function AppBar() {
             <NavLink to="/playbooks" className="app-nav-link">
               Playbooks
             </NavLink>
-            <NavLink to="/network" className="app-nav-link">
-              Network
-            </NavLink>
             {profile?.role === 'admin' && (
               <NavLink to="/organization" className="app-nav-link">
                 Organization
@@ -611,16 +607,10 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          <Route
-            path="/network"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <NetworkPage />
-                </Shell>
-              </RequireAdvisor>
-            }
-          />
+          {/* The standalone Network tab was removed — the professional directory
+              it showed already lives on the Organization page, so old links fold
+              back there rather than 404. */}
+          <Route path="/network" element={<Navigate to="/organization" replace />} />
           {/* Security page merged into Settings (MFA lives there now; the data-
               protection summary moved to the legal footer). Old links redirect. */}
           <Route path="/security" element={<Navigate to="/settings" replace />} />
