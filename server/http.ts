@@ -34,6 +34,8 @@ import {
 import { initObservability, captureError, logRequest } from './observability';
 import { isPlatformSuperadmin } from './platform-admin';
 import { platformMetrics } from './platform-metrics';
+import { financialCorpus } from './financial-corpus';
+import { moatMetrics } from './moat-metrics';
 import {
   applyStripeEvent,
   verifyStripeSignature,
@@ -303,8 +305,16 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     if (!claims) return json(res, 401, { message: 'invalid or missing token' });
     if (!isPlatformSuperadmin(claims.sub)) return json(res, 403, { message: 'platform superadmin required' });
     try {
-      const metrics = await withTimeout(platformMetrics(pool), 10_000, 'platform metrics');
-      return json(res, 200, metrics);
+      // One superadmin-gated, service-role readout: the four-domain platform
+      // snapshot plus the two moat rails — the verified-financial corpus (moat 2)
+      // and the calibration-corpus KPIs (docs/40 §4a "the moats are the business
+      // plan"). All read-only over the analytics schema; operator-only.
+      const [metrics, corpus, moats] = await Promise.all([
+        withTimeout(platformMetrics(pool), 10_000, 'platform metrics'),
+        withTimeout(financialCorpus(pool), 10_000, 'financial corpus'),
+        withTimeout(moatMetrics(pool), 10_000, 'moat metrics'),
+      ]);
+      return json(res, 200, { ...metrics, corpus, moats });
     } catch (e) {
       captureError(e, { route: '/internal/metrics' });
       return json(res, 500, { message: (e as Error).message });

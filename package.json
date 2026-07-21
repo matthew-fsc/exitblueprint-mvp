@@ -16,6 +16,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:portfolio": "tsx scripts/seed-portfolio.ts",
+    "seed:internal": "tsx scripts/seed-internal-tenant.ts",
     "admin": "tsx scripts/admin.ts",
     "test": "vitest run",
     "test:rls": "tsx scripts/rls-test.ts",

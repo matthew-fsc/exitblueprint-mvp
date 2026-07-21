@@ -30,6 +30,8 @@ import { extractFinancials } from './pl-extract';
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
+import { engagementGraph } from './engagement-graph';
+import { generateInstitutionalReview } from './institutional-review';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
@@ -228,6 +230,16 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'firm',
     handler: ({ service, firmId }) => firmCalibration(service, firmId as string).then(ok),
   },
+  // Cross-engagement gap-remediation effectiveness (docs/09 moat 3, "the
+  // engagement graph"): which cleared gaps moved the score, across the firm's
+  // engagements. Deterministic, read-only descriptive analytics over existing
+  // rows (same-rubric deltas only, mirroring compare-assessments); no LLM, no
+  // write. Firm-scoped; not a paid action, so ungated.
+  'engagement-graph': {
+    engine: 'rules',
+    scope: 'firm',
+    handler: ({ service, firmId }) => engagementGraph(service, firmId as string).then(ok),
+  },
   // Platform administration — load the canonical /seed methodology (rubric,
   // playbooks, valuation rules, data-room template, …) into the DB from inside
   // the system, so a hosted beta seeds itself without anyone running the CLI
@@ -277,6 +289,20 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'assessment',
     gated: true,
     handler: ({ service, body }) => documentPdf(service, 'cim', body.assessment_id as string),
+  },
+  // AI-as-institutional-reviewer (docs/20 "AI as an intelligence layer", docs/04).
+  // Reviews the assembled structured data — scores, gaps, evidence posture, fired
+  // buyer-lens items — and drafts blind spots / missing evidence / likely
+  // diligence questions. Narrative-only (CLAUDE.md rules 1-2): it surfaces
+  // patterns FROM deterministic output, never computes/adjusts/grades a score;
+  // output is always labeled draft and prompt_version'd. Assessment-scoped, gated
+  // like the other reasoning deliverables.
+  'institutional-review': {
+    engine: 'reasoning',
+    scope: 'assessment',
+    gated: true,
+    handler: ({ service, body }) =>
+      generateInstitutionalReview(service, body.assessment_id as string).then(ok),
   },
 
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
