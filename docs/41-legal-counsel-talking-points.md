@@ -7,8 +7,8 @@ This is the agenda to walk counsel through before go-live on exitblueprint.net
 (docs/29). It covers the four things asked for — **Terms of Service**, the
 **in-product legal disclaimers**, **trade-secret** protection, and **trademark**
 protection — plus the adjacent items counsel will need to see the whole picture
-(privacy/DPA, the AI layer, the advisor channel, regulatory exposure, and the
-future benchmarking layer).
+(privacy/DPA, the AI layer, third-party data licensing, the advisor channel,
+regulatory exposure, and the future benchmarking layer).
 
 ## What already exists (hand counsel these first)
 
@@ -267,7 +267,58 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 8. Regulatory / licensing exposure to screen
+## 8. Third-party / external paid data — licensing the data we buy to improve the system
+
+We license external **paid datasets** (e.g., valuation comparables / market
+multiples, industry benchmarks, market/economic data) to refine the valuation
+engine (`server/valuation.ts`, `server/comparables.ts`, `seed/valuation-multiples.csv`)
+and, over time, to calibrate the rubric/DRS. "Betterment of our system" means
+feeding that purchased data into product-wide improvements — and **every such
+dataset comes with a license whose use restrictions can limit, or forfeit, that
+use.** Counsel must review each data license against how we actually use it.
+
+- **Permitted-use scope.** For each license: internal use only vs. incorporation
+  into a **commercial product**; internal modeling vs. **display to customers**;
+  redistribution restrictions (may advisors/owners see the data itself, or only
+  derived outputs?); per-seat vs. enterprise scope. Many financial-data licenses
+  forbid redistribution and forbid use of the data in a derived **index or
+  benchmark** — exactly the direction we're heading (§7).
+- **Derivative works & our ownership (the moat issue).** Does the license permit
+  creating **derived/blended datasets and models** — blending purchased comps
+  into our own valuation multiples and calibration corpus — and **who owns the
+  derivative?** Some licenses claim rights in derivatives or bar using the data to
+  build a competing/independent product; that would **taint our own proprietary
+  corpus** (§5) and the benchmarking layer (§7). Preserve our ownership of derived
+  analytics and avoid contaminating the moat with restricted inputs.
+- **"Improve the system for all customers."** Using licensed data to benefit every
+  tenant (a shared benchmark / calibration) is precisely what many licenses
+  restrict — and it also has to sit inside our customers' own data-use consents
+  (§4, §7). Confirm the purchased data may be **pooled/aggregated** the way we
+  intend.
+- **AI/ML training restrictions.** Data licenses increasingly prohibit feeding the
+  data into AI/ML **training**. Our scoring is deterministic (not AI), but confirm
+  (a) purchased data used to calibrate the rubric is permitted, and (b) it is not
+  passed to Anthropic in any way that breaches the license (ties to §9).
+- **Survivability / termination.** If a data license ends, must we **purge the
+  data and its derivatives**? That could gut an improved model — and outputs
+  already delivered. Negotiate **perpetual rights to already-derived aggregated
+  results**, and clarify the status of valuations/reports already delivered to
+  customers.
+- **Accuracy, provenance & pass-through.** Vendors disclaim accuracy; where a
+  valuation estimate is partly driven by purchased data, our disclaimers (§3) and
+  reps must not over-promise. Secure the vendor's **accuracy / IP-infringement
+  indemnity**, and be deliberate about what raw vendor data (vs. our derived
+  output) we pass through to advisors/owners.
+- **Personal data in purchased datasets.** If external data contains PII
+  (owner/executive/contact records), privacy-law duties attach (CCPA "sale/share,"
+  GDPR lawful basis) — fold into §4.
+- **"Free"/scraped-data caveat.** If any external data is **scraped** rather than
+  licensed, that is a separate and larger risk (source-site ToS, CFAA,
+  copyright/database rights). Flag anything not covered by a paid license.
+
+---
+
+## 9. Regulatory / licensing exposure to screen
 
 - **Not investment advice (Advisers Act).** The valuation + "worth ~Nx" framing
   must stay clearly on the side of decision-support, not investment advice or a
@@ -286,7 +337,7 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 9. AI-specific legal
+## 10. AI-specific legal
 
 - **Anthropic terms.** Confirm the contractual "no training on our data"
   position and data-handling terms hold at our tier; the sub-processor entry
@@ -303,7 +354,7 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 10. Advisor channel / distribution & white-label
+## 11. Advisor channel / distribution & white-label
 
 - **Flow-down of terms to owners.** When an advisor invites an owner into the
   portal, how does the owner accept terms, and what are they bound to?
@@ -324,7 +375,7 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 11. Beta-specific terms
+## 12. Beta-specific terms
 
 - Beta / complimentary access terms: **"as is," no SLA**, right to change or
   discontinue features, a **feedback license**, and how beta terms convert to
@@ -333,7 +384,7 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 12. Insurance (raise with counsel + broker)
+## 13. Insurance (raise with counsel + broker)
 
 - **Technology E&O / professional liability**, **cyber liability**, and general
   liability — sizing given the sensitivity of the data and the reliance-risk
@@ -341,7 +392,7 @@ cannot build it later without re-papering every firm. Points:
 
 ---
 
-## 13. Suggested priority for go-live (exitblueprint.net, docs/29)
+## 14. Suggested priority for go-live (exitblueprint.net, docs/29)
 
 **Must-have before public go-live / first paying firm**
 
@@ -357,7 +408,9 @@ cannot build it later without re-papering every firm. Points:
 **Fast-follow**
 
 6. Trademark filings (§6); breach-notification deadline finalized in the DPA
-   (§4); insurance placed (§12); white-label attribution terms (§10).
+   (§4); insurance placed (§13); white-label attribution terms (§11);
+   **review of any external paid-data licenses** before that data is blended into
+   the valuation engine or calibration corpus (§8).
 
 ---
 

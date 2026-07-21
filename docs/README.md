@@ -92,7 +92,7 @@ A developer index: the durable features and the files that own them. Pair with
 | [13-security-summary](./13-security-summary.md) | Customer one-pager of implemented controls (backs the `/security` page) | Reference |
 | [16-vendor-security-dd](./16-vendor-security-dd.md) | Full vendor-security-DD questionnaire response + open-items list | Reference |
 | [15-buyer-expectations-and-vendor-dd](./15-buyer-expectations-and-vendor-dd.md) | Analysis of real DD artifacts → rubric/data-room/vendor-DD work | Reference |
-| [41-legal-counsel-talking-points](./41-legal-counsel-talking-points.md) | Briefing agenda for outside counsel — ToS, in-product disclaimers, trade-secret & trademark protection, privacy/DPA, AI, advisor-channel, go-live priority | Reference |
+| [41-legal-counsel-talking-points](./41-legal-counsel-talking-points.md) | Briefing agenda for outside counsel — ToS, in-product disclaimers, trade-secret & trademark protection, privacy/DPA, AI, third-party data licensing, advisor-channel, go-live priority | Reference |
 | [42-lwg-vendor-dd-response](./42-lwg-vendor-dd-response.md) | Completed LWG Vendor Due Diligence Questionnaire (L2) — form-shaped answers to the real packet; the specific instance of 16's generic pack | Reference |
 
 > ✅ **Subprocessor register reconciled (P5.4 done).** `seed/subprocessors.csv`,
