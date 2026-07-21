@@ -22,3 +22,20 @@ summary: Obtain signed non-compete/non-solicit agreements from all key employees
 | 2 | Engage employment counsel; confirm state enforceability posture | owner | 30 |
 | 3 | Roll out agreements, paired with retention incentives where needed | owner | 75 |
 | 4 | Track coverage to 100% of key employees | advisor | 90 |
+
+## Why buyers care
+
+Without agreements, a buyer sees the risk that key people leave with the value. Retention
+plus enforceable non-competes de-risk that. Enforceability varies by state and has been the
+subject of federal regulatory action, so confirm current law with counsel rather than
+relying on a template.
+
+## Evidence this produces
+
+- A key-employee list (revenue-generating and function-critical).
+- Executed non-compete / non-solicit agreements paired with retention where needed.
+- Coverage tracked toward 100% of key employees.
+
+## Sources
+
+Key-person retention and non-compete enforceability caveat: SRC-PRACTITIONER. See `seed/SOURCES.md`.

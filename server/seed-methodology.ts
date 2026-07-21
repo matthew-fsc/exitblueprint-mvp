@@ -128,6 +128,107 @@ export const SYSTEM_PLANS: SeedPlan[] = [
       },
     ],
   },
+  {
+    code: 'PL-RECURRING',
+    name: 'Recurring-Revenue Conversion',
+    summary:
+      'Move project and transactional revenue toward contracted, recurring relationships a buyer will underwrite — and make that revenue bankable.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-RECURRING-CONVERT' },
+      { kind: 'playbook', playbookCode: 'PB-RETENTION-NRR' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-DURABILITY' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-RECURRING' },
+      {
+        kind: 'milestone',
+        title: 'Majority of revenue is under contract or recurring, with renewal history',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-GROWTH',
+    name: 'Growth & Positioning',
+    summary:
+      'Turn the growth story into evidence a buyer can count on: a measured pipeline, repeatable delivery, and a defensible reason customers choose you.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-GROWTH-ENGINE' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-POSITIONING' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-GROWTH' },
+      {
+        kind: 'milestone',
+        title: 'Forward pipeline covers the next-year growth target with tracked conversion',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-QOE',
+    name: 'Quality-of-Earnings Readiness',
+    summary:
+      'Get the numbers ready to survive the buyer’s Quality of Earnings without a retrade: clean books, substantiated addbacks, and a defensible working-capital peg.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-CLEAN-BOOKS' },
+      { kind: 'playbook', playbookCode: 'PB-ADDBACK-DOC' },
+      { kind: 'playbook', playbookCode: 'PB-QOE-PREP' },
+      { kind: 'playbook', playbookCode: 'PB-WORKING-CAPITAL' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-QOE' },
+      {
+        kind: 'milestone',
+        title: 'Sell-side quality-of-earnings complete; addbacks substantiated and peg set',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-MGMT',
+    name: 'Management & Key-Person Bench',
+    summary:
+      'Build the management layer and secure the people a buyer is buying, so the business survives the owner and any single leader’s departure.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-MGMT-DEPTH' },
+      { kind: 'playbook', playbookCode: 'PB-NONCOMPETES' },
+      { kind: 'playbook', playbookCode: 'PB-COMP-BENCHMARK' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-KEY-PERSON' },
+      {
+        kind: 'milestone',
+        title: 'Every core function has a named, retained owner below the seller',
+        track: 'business',
+      },
+    ],
+  },
+  {
+    code: 'PL-OWNER-READY',
+    name: 'Owner Personal Readiness',
+    summary:
+      'Align the owner’s personal and financial readiness with the business plan — quantify the value gap and set the target against the owner’s number and timeline.',
+    items: [
+      { kind: 'playbook', playbookCode: 'PB-VALUE-GAP-PLAN' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-OWNER-READINESS' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-WEALTH-GAP' },
+      {
+        kind: 'milestone',
+        title: 'Value gap quantified and target set with the owner’s financial advisor',
+        track: 'personal',
+      },
+    ],
+  },
+  {
+    code: 'PL-GTM',
+    name: 'Go-to-Market Readiness',
+    summary:
+      'Prepare the owner for how a sale actually runs — the process, the buyer types, and the deal structure — so diligence holds no surprises.',
+    items: [
+      { kind: 'education', contentModuleCode: 'CM-EDU-DEAL-PROCESS' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-BUYER-TYPES' },
+      { kind: 'education', contentModuleCode: 'CM-EDU-DEAL-STRUCTURE' },
+      { kind: 'advisory', advisoryCode: 'AL-BQ-WORKCAP' },
+      {
+        kind: 'milestone',
+        title: 'Owner and advisor aligned on process, target buyer, and deal structure',
+        track: 'personal',
+      },
+    ],
+  },
 ];
 
 // Validate every system Plan item references a real seeded code, and that inline

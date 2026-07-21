@@ -22,3 +22,19 @@ summary: Build at least one qualified manager per core function with defined aut
 | 2 | Define hiring/promotion plan for uncovered functions | owner | 60 |
 | 3 | Delegate decision authority with documented thresholds | owner | 120 |
 | 4 | Implement management reporting rhythm (weekly ops, monthly financial) | ops | 150 |
+
+## Why buyers care
+
+A business that runs without the owner is a leading transferable-value driver. When every core
+function reports through a named, capable manager rather than to the owner, transition risk
+drops and the multiple rises — and the business survives any single leader's departure.
+
+## Evidence this produces
+
+- A core-function-to-manager coverage map.
+- A hiring or promotion plan for uncovered functions.
+- Documented decision-authority thresholds and a management reporting rhythm.
+
+## Sources
+
+Owner-independence and management depth: SRC-VALUEBUILDER, SRC-EPI. See `seed/SOURCES.md`.
