@@ -257,6 +257,10 @@ body {
      reads naturally — columns of figures opt into tabular via .tnum. */
   font-feature-settings: 'calt' 1;
   transition: background-color 0.2s ease, color 0.2s ease;
+  /* A long unbroken token — an email, a URL, a filename, an API id — should
+     wrap rather than force its container wider than the phone's screen. Only
+     kicks in when a word would actually overflow, so normal prose is untouched. */
+  overflow-wrap: break-word;
 }
 
 a {
@@ -4510,8 +4514,11 @@ textarea:focus {
 .val-recast-totals { margin-top: 0.7rem; font-size: 0.82rem; }
 
 .val-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.7rem 0 1rem; }
-.val-inputs label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; font-weight: 600; }
-.val-inputs input, .val-inputs select { font-weight: 400; padding: 0.4rem 0.5rem; }
+.val-inputs label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; font-weight: 600; min-width: 0; }
+.val-inputs input, .val-inputs select { font-weight: 400; padding: 0.4rem 0.5rem; min-width: 0; }
+/* On a phone two columns force each field (and its label) narrower than its
+   content, so the second column ran off the screen edge. Stack to one column. */
+@media (max-width: 560px) { .val-inputs { grid-template-columns: 1fr; } }
 .val-net { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
 .val-net td { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
 .val-net td:last-child { text-align: right; }
@@ -5109,6 +5116,37 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish) {
      the timeline is visible before the user has to scroll it sideways. */
   .gantt { --gantt-label: 150px; }
   .gantt-inner { min-width: 520px; }
+
+  /* --- tab bars become one-line horizontal-scroll strips ---
+     Both the engagement tab bar (.eng-nav) and the in-page panel switcher
+     (.subtabs) are laid out to wrap on desktop, which on a phone stacks 6–7
+     tabs into an awkward 2–3 row block. Instead keep them a single row that
+     scrolls sideways within its own box (the standard mobile tab pattern): the
+     partially-clipped last tab is the affordance that there's more, the active
+     tab is scrolled into view by EngagementNav/SubTabs, and the scrollbar is
+     hidden so the strip reads as chrome, not a scroller. */
+  .eng-nav,
+  .subtabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;          /* Firefox */
+  }
+  .eng-nav::-webkit-scrollbar,
+  .subtabs::-webkit-scrollbar { display: none; }  /* WebKit/Blink */
+  .eng-nav-link,
+  .subtab {
+    flex: 0 0 auto;                 /* never shrink a tab below its label */
+    scroll-snap-align: start;
+    scroll-margin: var(--space-2);  /* leave a sliver of breathing room when scrolled to */
+  }
+
+  /* The assessment/document record rows pack a seq, a score, a date and two
+     links into one flex row — a hair too much for a phone. Let it wrap so the
+     links drop to a second line instead of nudging off the edge. */
+  .assessment-card { flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+  .assessment-score { flex-basis: 100%; }
 
   /* --- the primary nav becomes a tap-to-open sheet --- */
   .app-nav-toggle {
