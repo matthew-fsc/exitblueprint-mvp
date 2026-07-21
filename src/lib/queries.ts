@@ -54,6 +54,10 @@ export const qk = {
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
   engagementCollaborators: (engagementId: string) => ['engagementCollaborators', engagementId] as const,
+  firmProfessionals: (firmId: string) => ['firmProfessionals', firmId] as const,
+  engagementProfessionals: (engagementId: string) => ['engagementProfessionals', engagementId] as const,
+  firmEngagementRoster: (firmId: string) => ['firmEngagementRoster', firmId] as const,
+  firmStaff: (firmId: string) => ['firmStaff', firmId] as const,
   education: (engagementId: string) => ['education', engagementId] as const,
   ledgerConnections: (companyId: string) => ['ledgerConnections', companyId] as const,
   valuation: (engagementId: string) => ['valuation', engagementId] as const,
@@ -1293,5 +1297,142 @@ export function useRecommendedPlans(engagementId: string | undefined): UseQueryR
       (await invokeFunction<{ recommendations: PlanRecommendationRow[] }>('recommend-plans', {
         engagement_id: engagementId,
       })).recommendations,
+  });
+}
+
+// ── Firm professional directory ──────────────────────────────────────────────
+// The firm-level address book of the clients' outside professionals (CPAs,
+// attorneys, M&A advisors, …). Read under RLS (staff-only), managed by admins.
+export type ProfessionalKind =
+  | 'cpa'
+  | 'attorney'
+  | 'ma_advisor'
+  | 'banker'
+  | 'wealth_manager'
+  | 'insurance'
+  | 'other';
+
+export interface FirmProfessionalRow {
+  id: string;
+  full_name: string;
+  organization: string | null;
+  kind: ProfessionalKind;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  archived: boolean;
+  created_at: string;
+}
+
+export function useFirmProfessionals(
+  firmId: string | undefined | null,
+  opts: { includeArchived?: boolean } = {},
+): UseQueryResult<FirmProfessionalRow[]> {
+  return useQuery({
+    queryKey: qk.firmProfessionals(firmId ?? ''),
+    enabled: !!firmId,
+    queryFn: async () => {
+      let q = supabase
+        .from('firm_professionals')
+        .select('id,full_name,organization,kind,email,phone,notes,archived,created_at')
+        .eq('firm_id', firmId!)
+        .order('full_name');
+      if (!opts.includeArchived) q = q.eq('archived', false);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      return (data as FirmProfessionalRow[]) ?? [];
+    },
+  });
+}
+
+// The directory professionals attached to one engagement's deal team, joined to
+// the directory row so the card can show name/org/kind without a second fetch.
+export interface EngagementProfessionalRow {
+  id: string;
+  professional_id: string;
+  engagement_role: string | null;
+  created_at: string;
+  professional: {
+    full_name: string;
+    organization: string | null;
+    kind: ProfessionalKind;
+    email: string | null;
+    phone: string | null;
+  } | null;
+}
+
+export function useEngagementProfessionals(
+  engagementId: string | undefined,
+): UseQueryResult<EngagementProfessionalRow[]> {
+  return useQuery({
+    queryKey: qk.engagementProfessionals(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagement_professionals')
+        .select(
+          'id,professional_id,engagement_role,created_at,professional:firm_professionals(full_name,organization,kind,email,phone)',
+        )
+        .eq('engagement_id', engagementId!)
+        .order('created_at');
+      if (error) throw new Error(error.message);
+      return (data as unknown as EngagementProfessionalRow[]) ?? [];
+    },
+  });
+}
+
+// Firm-wide engagement roster for the admin assignment view: every engagement,
+// its company, and its current owning advisor. Read under RLS (firm-scoped).
+export interface FirmEngagementRosterRow {
+  id: string;
+  status: string;
+  advisor_id: string | null;
+  company: { name: string } | null;
+  advisor: { full_name: string | null; email: string | null } | null;
+}
+
+export function useFirmEngagementRoster(
+  firmId: string | undefined | null,
+): UseQueryResult<FirmEngagementRosterRow[]> {
+  return useQuery({
+    queryKey: qk.firmEngagementRoster(firmId ?? ''),
+    enabled: !!firmId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('engagements')
+        .select(
+          'id,status,advisor_id,company:companies(name),advisor:profiles!engagements_advisor_id_fkey(full_name,email)',
+        )
+        .eq('firm_id', firmId!)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as unknown as FirmEngagementRosterRow[]) ?? [];
+    },
+  });
+}
+
+// The firm's staff who can own an engagement (advisor/admin) — the assignment
+// dropdown's options.
+export interface FirmStaffRow {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+}
+
+export function useFirmStaff(firmId: string | undefined | null): UseQueryResult<FirmStaffRow[]> {
+  return useQuery({
+    queryKey: qk.firmStaff(firmId ?? ''),
+    enabled: !!firmId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id,full_name,email,role')
+        .eq('firm_id', firmId!)
+        .in('role', ['advisor', 'admin'])
+        .order('full_name');
+      if (error) throw new Error(error.message);
+      return (data as FirmStaffRow[]) ?? [];
+    },
   });
 }

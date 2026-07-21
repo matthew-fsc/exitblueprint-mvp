@@ -26,11 +26,14 @@ export EB_PARSER="${EB_PARSER:-fixture}"
 npm run --silent db:migrate
 npm run --silent db:seed | tail -1
 npm run --silent seed:demo | tail -1
-# Demo advisor for the demo firm (created by seed:demo). Idempotent.
+# Demo advisor for the demo firm (created by seed:demo). Idempotent. Provisioned
+# as an ADMIN so the demo login can reach the Organization area (team, branding,
+# professional directory, engagement assignments) — those org controls are
+# admin-only, both in the UI and in RLS.
 # (No truncating pipe here: closing the CLI's stdout early causes an EPIPE
 # that would abort the boot under pipefail.)
 npm run --silent admin -- create-advisor --firm "Blueprint Demo Advisors" \
-  --email demo@blueprintdemo.test --name "Demo Advisor"
+  --email demo@blueprintdemo.test --name "Demo Advisor" --role admin
 
 echo
 echo "=============================================================="

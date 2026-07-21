@@ -9,6 +9,7 @@ import { GATED_FNS } from '../server/entitlements';
 
 const VALID_SCOPES: AuthScope[] = [
   'firm',
+  'admin',
   'create-engagement',
   'delete-engagement',
   'export-engagement',

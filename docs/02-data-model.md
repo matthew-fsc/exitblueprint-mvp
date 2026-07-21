@@ -24,6 +24,39 @@ All tables have id uuid pk default gen_random_uuid(), created_at timestamptz def
   user_id (set once the identity is provisioned), revoked_at; unique (engagement_id, email)
 - Written by the invite/revoke functions (service role); staff read it under RLS
   to render + manage the team. A collaborator NEVER reads this table.
+- This is a scoped-login roster; the firm-level *contact directory* of the same
+  outside professionals is **firm_professionals** (below), a separate concern.
+
+## Organizational controls (white-labeling for bigger firms)
+
+For a practice of several people, **admin** is a real organizational role, not a
+label: org-level assets are admin-administered while advisors do the client work.
+Enforced in RLS + a matching UI guard (RequireAdmin, the `/organization` area),
+not by convention. The two firm-scoped org assets:
+
+**firm_professionals** - the firm's reusable directory of the clients' outside
+professionals (CPAs, attorneys, M&A advisors, bankers, …)
+- firm_id, full_name, organization, kind (professional_kind: cpa|attorney|
+  ma_advisor|banker|wealth_manager|insurance|other), email, phone, notes,
+  archived (bool), created_by, updated_at
+- A CONTACT record, not a login (contrast engagement_collaborators). RLS: all firm
+  staff (advisor/reviewer/admin) READ; only **admins** WRITE (org asset). Curated
+  once, attached to any engagement.
+
+**engagement_professionals** - which directory professional is on which
+engagement's deal team
+- firm_id, engagement_id (on delete cascade), professional_id (fk firm_professionals,
+  on delete cascade), engagement_role (free text — their role on this deal),
+  added_by; unique (engagement_id, professional_id)
+- RLS: firm staff full CRUD (attaching a professional is client work, not org
+  administration).
+
+Two more enforcement points make admin an org control (migration
+`20260721000500`): **firm_branding** is now admin-only to WRITE (any firm member
+still READS it so client-facing surfaces render), and an engagement's owning
+**advisor_id** is frozen against end-user roles by a guard trigger — reassignment
+goes only through the admin-scoped `assign-engagement` server function
+(service_role). Team management (`invite-advisor`) is likewise admin-scoped.
 
 ## Clients and engagements
 

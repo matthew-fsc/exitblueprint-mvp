@@ -31,4 +31,6 @@ Exit readiness platform for lower middle market business owners, distributed thr
 
 ## Out of scope until explicitly requested
 
-Benchmarking analytics, billing, white-labeling, mobile apps, integrations with external financial data providers, owner-portal self-signup.
+Benchmarking analytics, mobile apps, integrations with external financial data providers, owner-portal self-signup.
+
+(White-labeling + org controls shipped 2026-07-21 — firm branding, an admin organizational role, a firm professional directory, and engagement assignment; see docs/02 "Organizational controls" and docs/06. Consumer communication channels remain out of scope. Billing/Stripe also shipped.)
