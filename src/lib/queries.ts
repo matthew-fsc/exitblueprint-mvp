@@ -1464,3 +1464,90 @@ export function useFirmStaff(firmId: string | undefined | null): UseQueryResult<
     },
   });
 }
+
+// ---- firm-authorable playbooks & content modules (20260721001400) ----------
+// System rows (firm_id null) are shared methodology; firm rows (source 'advisor')
+// are the firm's own, editable by its staff. Both are returned so the catalog and
+// the Plan builder show them together.
+export interface PlaybookTaskTemplateRow {
+  id: string;
+  playbook_id: string;
+  title: string;
+  description: string | null;
+  default_owner_role: string;
+  sequence: number;
+  target_offset_days: number | null;
+}
+export interface PlaybookCatalogRow {
+  id: string;
+  firm_id: string | null;
+  source: string;
+  code: string;
+  name: string;
+  version: number;
+  summary: string | null;
+  dimension_code: string | null;
+  phase: string | null;
+  ev_impact: string | null;
+  body_md: string | null;
+  tasks: PlaybookTaskTemplateRow[];
+}
+
+export const qkPlaybookCatalog = ['playbook-catalog'] as const;
+
+export function usePlaybookCatalog(): UseQueryResult<PlaybookCatalogRow[]> {
+  return useQuery({
+    queryKey: qkPlaybookCatalog,
+    queryFn: async () => {
+      const { data: pbs, error } = await supabase
+        .from('playbooks')
+        .select('id,firm_id,source,code,name,version,summary,dimension_code,phase,ev_impact,body_md')
+        .order('name', { ascending: true });
+      if (error) throw new Error(error.message);
+      const ids = (pbs ?? []).map((p: { id: string }) => p.id);
+      let tasks: PlaybookTaskTemplateRow[] = [];
+      if (ids.length) {
+        const { data: t, error: te } = await supabase
+          .from('playbook_task_templates')
+          .select('id,playbook_id,title,description,default_owner_role,sequence,target_offset_days')
+          .in('playbook_id', ids)
+          .order('sequence', { ascending: true });
+        if (te) throw new Error(te.message);
+        tasks = (t ?? []) as PlaybookTaskTemplateRow[];
+      }
+      const byPb = new Map<string, PlaybookTaskTemplateRow[]>();
+      for (const t of tasks) {
+        const arr = byPb.get(t.playbook_id) ?? [];
+        arr.push(t);
+        byPb.set(t.playbook_id, arr);
+      }
+      return (pbs ?? []).map((p: { id: string }) => ({ ...p, tasks: byPb.get(p.id) ?? [] })) as PlaybookCatalogRow[];
+    },
+  });
+}
+
+export interface ContentModuleCatalogRow {
+  id: string;
+  firm_id: string | null;
+  source: string;
+  code: string;
+  title: string;
+  dimension_code: string | null;
+  body_md: string | null;
+}
+
+export const qkContentModuleCatalog = ['content-module-catalog'] as const;
+
+export function useContentModuleCatalog(): UseQueryResult<ContentModuleCatalogRow[]> {
+  return useQuery({
+    queryKey: qkContentModuleCatalog,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('content_modules')
+        .select('id,firm_id,source,code,title,dimension_code,body_md')
+        .order('title', { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as ContentModuleCatalogRow[];
+    },
+  });
+}
