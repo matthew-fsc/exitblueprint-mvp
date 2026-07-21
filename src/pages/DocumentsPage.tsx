@@ -33,6 +33,39 @@ function useEngagementSourceDocs(engagementId: string | undefined): UseQueryResu
   });
 }
 
+// The authoritative document→request-list-item link: engagement_data_room_items
+// carries the document_id FK, so the SAME physical file the advisor attached in
+// the Data room appears here as a linked document — not an unrelated upload. We
+// read the data room (shared cache key, so it reuses what the Data room tab
+// already loaded) and build a real document_id → item map, rather than only
+// parsing the `data_room:<code>` category string.
+interface DataRoomItemLink {
+  item_code: string;
+  label: string;
+  document_id: string | null;
+  readiness_state: string;
+}
+// Shares the exact cache entry + queryFn shape the Data room tab uses (queryKey
+// qk.dataRoom, full DataRoomView), then derives a document_id → item map with
+// `select` — so there is no duplicate fetch and no cache-shape collision.
+function useDataRoomItemsByDocument(
+  engagementId: string | undefined,
+): UseQueryResult<Map<string, DataRoomItemLink>> {
+  return useQuery({
+    queryKey: engagementId ? qk.dataRoom(engagementId) : ['dataRoom', ''],
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<{ items: DataRoomItemLink[] }>('list-data-room', {
+        engagement_id: engagementId,
+      }),
+    select: (view: { items: DataRoomItemLink[] }) => {
+      const byDoc = new Map<string, DataRoomItemLink>();
+      for (const it of view.items) if (it.document_id) byDoc.set(it.document_id, it);
+      return byDoc;
+    },
+  });
+}
+
 const toBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -86,11 +119,17 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 // A document uploaded from the Data room tab is tagged `data_room:<item_code>`;
-// a generic upload here carries a free-text category or none. Deriving a human
-// "Attached to" label from that tag is what makes the SAME file recognisable
-// across both surfaces, instead of looking like two unrelated lists.
+// a generic upload here carries a free-text category or none. The authoritative
+// link is the engagement_data_room_items.document_id FK (passed in as `item`);
+// the `data_room:<code>` category is a fallback for the window between upload and
+// the item being linked. Either way we surface a human "Attached to" label so the
+// SAME file reads as one thing across both surfaces, not two unrelated lists.
 const DATA_ROOM_PREFIX = 'data_room:';
-function docLinkage(category: string | null): { label: string; linked: boolean } {
+function docLinkage(
+  category: string | null,
+  item: DataRoomItemLink | null,
+): { label: string; linked: boolean } {
+  if (item) return { label: `Attached to: ${item.label}`, linked: true };
   if (category && category.startsWith(DATA_ROOM_PREFIX)) {
     return {
       label: `Attached to a data-room item · ${humanizeKey(category.slice(DATA_ROOM_PREFIX.length))}`,
@@ -107,6 +146,7 @@ export function DocumentsPanel() {
   const toast = useToast();
   const { profile } = useAuth();
   const docsQ = useEngagementSourceDocs(engagementId);
+  const linkMapQ = useDataRoomItemsByDocument(engagementId);
 
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState('');
@@ -159,6 +199,48 @@ export function DocumentsPanel() {
   };
 
   const docs = docsQ.data ?? [];
+  const linkMap = linkMapQ.data ?? new Map<string, DataRoomItemLink>();
+  // Split by the real FK link so "attached to a request-list item" reads
+  // separately from genuinely unlinked extras, instead of one flat list.
+  const linkedDocs = docs.filter((d) => docLinkage(d.category, linkMap.get(d.id) ?? null).linked);
+  const unlinkedDocs = docs.filter((d) => !docLinkage(d.category, linkMap.get(d.id) ?? null).linked);
+
+  const renderDoc = (d: DocumentRow) => {
+    const item = linkMap.get(d.id) ?? null;
+    const link = docLinkage(d.category, item);
+    return (
+      <li key={d.id} className="doc-row">
+        <div>
+          <span className="doc-name">{d.original_filename}</span>
+          <span className="doc-meta">
+            {link.label} · {fmtDate(d.created_at)}
+          </span>
+        </div>
+        <div className="row-gap">
+          {link.linked && (
+            <span
+              className="status-chip status-neutral"
+              title={
+                item
+                  ? `Linked to data-room item ${item.item_code}`
+                  : 'Uploaded against a data-room request-list item'
+              }
+            >
+              Data room
+            </span>
+          )}
+          <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
+            {d.scan_status === 'infected'
+              ? 'Infected'
+              : STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
+          </span>
+          <Link className="button-link" to={`/review/${d.id}`}>
+            Review →
+          </Link>
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div className="stack-lg">
@@ -198,36 +280,30 @@ export function DocumentsPanel() {
           Upload financial statements, contracts, or org charts to begin building verified facts.
         </EmptyState>
       ) : (
-        <ul className="doc-list">
-          {docs.map((d) => {
-            const link = docLinkage(d.category);
-            return (
-              <li key={d.id} className="doc-row">
-                <div>
-                  <span className="doc-name">{d.original_filename}</span>
-                  <span className="doc-meta">
-                    {link.label} · {fmtDate(d.created_at)}
-                  </span>
-                </div>
-                <div className="row-gap">
-                  {link.linked && (
-                    <span className="status-chip status-neutral" title="Uploaded against a data-room request-list item">
-                      Data room
-                    </span>
-                  )}
-                  <span className={`status-chip status-${STATUS_TONE[d.status] ?? 'neutral'}`}>
-                    {d.scan_status === 'infected'
-                      ? 'Infected'
-                      : STATUS_LABEL[d.status] ?? humanizeKey(d.status)}
-                  </span>
-                  <Link className="button-link" to={`/review/${d.id}`}>
-                    Review →
-                  </Link>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="stack-lg">
+          {linkedDocs.length > 0 && (
+            <div>
+              <h3 className="mt-0">Attached to a request-list item</h3>
+              <p className="muted m-0">
+                The same files you attached in the{' '}
+                <Link to={`/engagement/${engagementId}/evidence/data-room`}>Data room</Link> — shown
+                here with their pipeline status. Verifying one advances its request-list item toward
+                Ready.
+              </p>
+              <ul className="doc-list">{linkedDocs.map(renderDoc)}</ul>
+            </div>
+          )}
+          {unlinkedDocs.length > 0 && (
+            <div>
+              <h3 className={linkedDocs.length > 0 ? '' : 'mt-0'}>Unlinked documents</h3>
+              <p className="muted m-0">
+                Extra files not mapped to a buyer request-list item. Attach a file from the Data room
+                tab to have it tracked toward readiness.
+              </p>
+              <ul className="doc-list">{unlinkedDocs.map(renderDoc)}</ul>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

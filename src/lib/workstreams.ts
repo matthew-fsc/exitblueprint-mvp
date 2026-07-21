@@ -32,7 +32,15 @@ export interface WorkstreamInput {
   openGapCount: number | null; // null when not assessed
   tasksTotal: number;
   tasksDone: number;
-  verifiedPct: number | null; // 0–100 share of financial inputs proven; null = unknown
+  // 0–100 share of the diligence binder that is PROVEN — a data-room item that is
+  // Ready AND has a document-verified proof; null = unknown. This is the
+  // ENGAGEMENT-level evidence-coverage figure (fed from the `evidence-coverage`
+  // function, the same metric the Evidence surface headlines) — deliberately NOT
+  // the assessment-scoped financial answer-provenance % (that narrower "financials
+  // verified" number lives on the readiness snapshot, not here). See docs/26 and
+  // the Evidence surface framing (EvidencePage). The field name is retained for
+  // compatibility; its meaning is proven binder coverage, not answer verification.
+  verifiedPct: number | null;
   valuationSet: boolean; // enterprise value has been modeled (recast present)
   valueGap: number | null; // dollar value-creation gap, when sized
   reportDraftCount: number; // generated narratives not yet finalized
@@ -70,14 +78,20 @@ function remediation(i: WorkstreamInput): WorkstreamStatus {
   return { ...base, state: 'active', headline: `${i.tasksDone}/${i.tasksTotal} tasks done`, detail: `${gaps} gap${gaps === 1 ? '' : 's'} still open — work the roadmap to close them.` };
 }
 
-// The proof layer: how much of the self-reported story is document-verified?
+// The evidence layer: how much of the diligence binder is PROVEN — each data-room
+// item Ready AND backed by a document-verified proof? This reflects the WHOLE
+// Evidence work stream — data room + documents + verification — not just the
+// financial answer-provenance %, so the meter isn't read as full-binder coverage
+// when it only covered financial answers. Fed from the engagement-level
+// `evidence-coverage` metric (useEvidenceCoverage.pct), the same figure the
+// Evidence surface headlines, so the two never disagree.
 function evidence(i: WorkstreamInput): WorkstreamStatus {
   const base = { key: 'evidence' as const, label: 'Evidence', to: '/evidence' };
-  if (!i.assessed) return { ...base, state: 'blocked', headline: 'Awaiting assessment', detail: 'Inputs are verified against a scored assessment.' };
+  if (!i.assessed) return { ...base, state: 'blocked', headline: 'Awaiting assessment', detail: 'The binder is proven against a scored assessment.' };
   const pct = i.verifiedPct ?? 0;
-  if (pct >= EVIDENCE_DONE_PCT) return { ...base, state: 'done', headline: `${pct}% verified`, detail: 'The diligence binder is substantially proven.' };
-  if (pct > 0) return { ...base, state: 'active', headline: `${pct}% verified`, detail: 'Upload source documents to prove the rest.' };
-  return { ...base, state: 'todo', headline: 'Nothing verified', detail: 'Assemble the data room and upload evidence.' };
+  if (pct >= EVIDENCE_DONE_PCT) return { ...base, state: 'done', headline: `${pct}% proven`, detail: 'The diligence binder is substantially proven.' };
+  if (pct > 0) return { ...base, state: 'active', headline: `${pct}% proven`, detail: 'Work the data-room request list and verify the proof behind each item.' };
+  return { ...base, state: 'todo', headline: 'Nothing proven', detail: 'Assemble the data room and verify evidence.' };
 }
 
 // The quantification layer: has enterprise value been modeled?

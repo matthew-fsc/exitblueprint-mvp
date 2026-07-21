@@ -3,12 +3,14 @@ import {
   useAssessmentsByEngagement,
   useCompany,
   useEngagement,
+  useEvidenceCoverage,
   useVerification,
 } from '../lib/queries';
 import { EngagementNav, PageHeader, SubTabs, subTabId, subTabPanelId, type SubTab } from '../components/ui';
 import { DataRoomPanel } from './DataRoomPage';
 import { DocumentsPanel } from './DocumentsPage';
 import { VerificationPanel } from './VerificationPage';
+import { ReviewPanel } from './ReviewQueuePage';
 
 // The binder never explains itself: an advisor lands on a big checklist and a
 // verification % with no sense of how the two connect or how to move the number.
@@ -82,12 +84,13 @@ function EvidenceGuide({ active }: { active: Section }) {
 // a sub-tab switcher for the three views. The three panels keep their own logic
 // (imported from the original files); only the chrome is consolidated.
 
-const SECTIONS = ['data-room', 'documents', 'verification'] as const;
+const SECTIONS = ['data-room', 'documents', 'review', 'verification'] as const;
 type Section = (typeof SECTIONS)[number];
 
 const TABS: SubTab[] = [
   { key: 'data-room', label: 'Data room' },
   { key: 'documents', label: 'Documents' },
+  { key: 'review', label: 'Review' },
   { key: 'verification', label: 'Verification' },
 ];
 
@@ -103,6 +106,7 @@ export default function EvidencePage() {
   );
   const latest = completed[completed.length - 1] ?? null;
   const verifQ = useVerification(latest?.id);
+  const coverageQ = useEvidenceCoverage(engagementId);
 
   const active: Section = SECTIONS.includes(section as Section)
     ? (section as Section)
@@ -110,6 +114,7 @@ export default function EvidencePage() {
 
   const companyName = companyQ.data?.name ?? '';
   const v = verifQ.data ?? null;
+  const cov = coverageQ.data ?? null;
 
   return (
     <div className="page-shell">
@@ -126,13 +131,20 @@ export default function EvidencePage() {
               One binder, built in three stages — assemble the buyer's request list, upload
               and review source files, then verify the figures behind the score. The tabs
               below are stages of this one job, each with its own progress figure.
-              {v != null && (
+              {cov != null && (
                 <>
                   {' '}
                   <strong>
-                    {v.verified_inputs} of {v.total_inputs} scored inputs verified ({v.pct}%)
+                    Diligence binder: {cov.verified} of {cov.total} items proven ({cov.pct}%)
                   </strong>{' '}
-                  — the proof behind the score.
+                  — request-list items marked Ready and backed by a verified document.
+                  {v != null && (
+                    <>
+                      {' '}
+                      Separately, {v.verified_inputs} of {v.total_inputs} scored financial
+                      inputs are verified ({v.pct}%) — the proof behind the score.
+                    </>
+                  )}
                 </>
               )}
             </>
@@ -169,6 +181,7 @@ export default function EvidencePage() {
       >
         {active === 'data-room' && <DataRoomPanel />}
         {active === 'documents' && <DocumentsPanel />}
+        {active === 'review' && <ReviewPanel engagementId={engagementId} />}
         {active === 'verification' && <VerificationPanel />}
       </div>
     </div>

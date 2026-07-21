@@ -19,6 +19,7 @@ export const qk = {
   agreementVersions: () => ['agreementVersions'] as const,
   sourceDocuments: (engagementId: string) => ['sourceDocuments', engagementId] as const,
   dataRoom: (engagementId: string) => ['dataRoom', engagementId] as const,
+  evidenceCoverage: (engagementId: string) => ['evidenceCoverage', engagementId] as const,
   engagementLog: (engagementId: string) => ['engagementLog', engagementId] as const,
   comparables: (engagementId: string) => ['comparables', engagementId] as const,
   reviewQueue: () => ['reviewQueue'] as const,
@@ -332,6 +333,29 @@ export interface CimCoverageShape {
     itemsVerified: number;
     pct: number;
   };
+}
+
+// Evidence binder coverage: the single "diligence binder" figure for an
+// engagement — of the applicable request-list items, how many are PROVEN (marked
+// Ready AND backed by a verified document). This is the Evidence masthead
+// headline; distinct from data-room readiness_pct (self-reported Ready) and from
+// the assessment-scoped financial verification summary. Read-only.
+export interface EvidenceCoverageShape {
+  total: number;
+  ready: number;
+  verified: number;
+  pct: number;
+}
+
+export function useEvidenceCoverage(
+  engagementId: string | undefined,
+): UseQueryResult<EvidenceCoverageShape> {
+  return useQuery({
+    queryKey: qk.evidenceCoverage(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<EvidenceCoverageShape>('evidence-coverage', { engagement_id: engagementId }),
+  });
 }
 
 export function useCimCoverage(engagementId: string | undefined): UseQueryResult<CimCoverageShape> {
