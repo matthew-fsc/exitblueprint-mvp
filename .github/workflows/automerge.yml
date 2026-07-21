@@ -1,0 +1,34 @@
+name: Auto-merge agent PRs
+
+# Enables GitHub's native auto-merge on pull requests opened from `claude/*`
+# branches. Once enabled, GitHub merges the PR automatically as soon as the
+# required status checks (CI) pass and any required approvals are satisfied —
+# nothing merges before CI is green.
+#
+# Requirements:
+#  - The repository's "Allow auto-merge" setting must be enabled
+#    (Settings → General → Pull Requests). This workflow cannot toggle it.
+#  - A branch protection / ruleset on `main` requiring the CI checks is what
+#    actually gates the merge; without it, auto-merge would fire immediately.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+    # Only agent branches, and never while the PR is still a draft.
+    if: >-
+      startsWith(github.event.pull_request.head.ref, 'claude/') &&
+      github.event.pull_request.draft == false
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
