@@ -1,5 +1,11 @@
 # Observability — error monitoring runbook
 
+> **Scope note.** This doc covers *error monitoring* (the Sentry seam). For the
+> broader ExitBlueprint team-side **monitoring plan** — infra/uptime, product/usage,
+> business/billing, and security/compliance on one shared analytics rail — see
+> [`docs/38-platform-monitoring.md`](./38-platform-monitoring.md). This seam is the
+> "errors" input to that plan.
+
 Error monitoring for the two deployables: the **React frontend** (Vercel) and the
 **Node compute service** `server/http.ts` (Render). This is the code-complete
 companion to `docs/24` §C4 (Sentry on frontend + Node service). It is built as a

@@ -412,6 +412,20 @@ async function main() {
       await db.query('rollback to savepoint be');
     }
     check('cannot read billing_events (service-role only)', billingEventsDenied);
+    // Platform monitoring rails (docs/38): the cross-tenant `analytics` schema is
+    // granted to service_role ONLY. An authenticated tenant role has no USAGE on
+    // the schema, so a read is a hard permission error, not an empty RLS result.
+    // This asserts the rails can never become a cross-firm leak.
+    let analyticsDenied = false;
+    try {
+      await db.query('savepoint an');
+      await db.query('select * from analytics.platform_totals');
+      await db.query('release savepoint an');
+    } catch {
+      analyticsDenied = true;
+      await db.query('rollback to savepoint an');
+    }
+    check('cannot read analytics schema (service-role only)', analyticsDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');
