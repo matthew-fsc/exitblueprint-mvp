@@ -47,11 +47,22 @@ export class ManualParserAdapter implements ParserAdapter {
 export class FixtureParserAdapter implements ParserAdapter {
   readonly name = 'fixture';
   async parse(input: ParseInput): Promise<ParseResult> {
+    // An engagement can legitimately hold documents that aren't fixtures for
+    // this adapter — e.g. a P&L or revenue-by-customer CSV an advisor keeps as a
+    // source file. The pipeline's parse step runs every non-rejected document
+    // through the active parser, so a non-JSON source file must be a no-op
+    // ("nothing to extract"), the same way the manual adapter treats any bytes —
+    // not a hard failure that aborts the whole run. A document that CLAIMS to be
+    // JSON (by mime type or extension) but doesn't parse is still a loud error,
+    // so a genuinely broken fixture in a golden test fails as before.
+    const claimsJson =
+      input.mimeType === 'application/json' || input.filename.toLowerCase().endsWith('.json');
     let doc: { classification?: string | null; fields?: ExtractedField[] };
     try {
       doc = JSON.parse(input.bytes.toString('utf8'));
     } catch {
-      throw new Error('fixture parser: document bytes are not valid JSON');
+      if (claimsJson) throw new Error('fixture parser: document bytes are not valid JSON');
+      return { parserName: this.name, classification: input.category, fields: [] };
     }
     return {
       parserName: this.name,
