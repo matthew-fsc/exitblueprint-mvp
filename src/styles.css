@@ -4263,6 +4263,36 @@ textarea:focus {
 .advisory-form-head { display: flex; flex-direction: column; gap: 0.2rem; }
 .advisory-form-actions { display: flex; gap: 0.6rem; align-items: center; }
 
+/* ---- Advisory items read as stacked cards on phones -------------------- */
+/* The three-column head (severity chip · titles · score) squeezes the
+   long-form buyer questions and advisory-library body into a narrow middle
+   column on small screens. Below ~640px each item becomes a discrete card and
+   the head stacks: the severity chip and score share a meta row, and the title
+   plus body run the full width beneath them. */
+@media (max-width: 640px) {
+  .advisory-list { gap: 0.7rem; }
+  .advisory-item {
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    padding: 0.85rem 0.9rem;
+  }
+  /* Undo the flat row treatment so the last item stays a full card too. */
+  .advisory-item:last-child { border-bottom: 1px solid var(--border); }
+
+  .advisory-item-head { flex-wrap: wrap; column-gap: 0.6rem; row-gap: 0.5rem; }
+  .sev-chip { order: 1; }
+  .advisory-item-score {
+    order: 2; margin-left: auto; padding-top: 0; align-self: center;
+    white-space: normal; text-align: right;
+  }
+  .advisory-item-titles { order: 3; flex-basis: 100%; }
+
+  /* Give the detail panel contrast against the now surface-2 card. */
+  .advisory-item-detail { background: var(--surface-3); }
+}
+
 /* ---- Header action links render as buttons, not bare text -------------- */
 /* Any link placed in a PageHeader's actions area looks like a secondary
    button so it sits consistently beside real <button> actions. In-card and
