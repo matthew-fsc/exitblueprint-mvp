@@ -12,37 +12,23 @@ import { useAsyncAction } from '../lib/useAsyncAction';
 import {
   qk,
   useBranding,
-  useFirmProfessionals,
   useFirmEngagementRoster,
   useFirmStaff,
-  type ProfessionalKind,
-  type FirmProfessionalRow,
 } from '../lib/queries';
 import {
   Card,
-  ConfirmDialog,
   EmptyState,
   ErrorState,
   FirmMark,
   LoadingState,
   PageHeader,
   SectionCard,
-  Switch,
   TierBadge,
   useToast,
 } from '../components/ui';
+import { ProfessionalDirectoryCard } from '../components/ProfessionalDirectoryCard';
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
-const KIND_LABEL: Record<ProfessionalKind, string> = {
-  cpa: 'CPA / accountant',
-  attorney: 'Attorney',
-  ma_advisor: 'M&A advisor',
-  banker: 'Banker',
-  wealth_manager: 'Wealth manager',
-  insurance: 'Insurance',
-  other: 'Other',
-};
 
 // ── Branding (white-label identity) ───────────────────────────────────────────
 // Moved here from Settings: the firm's identity on every client-facing report and
@@ -335,183 +321,6 @@ function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
   );
 }
 
-// ── Professional directory ────────────────────────────────────────────────────
-// The firm's reusable address book of the clients' outside professionals (CPAs,
-// attorneys, M&A advisors, …). Admin-managed; advisors pick from it when building
-// an engagement's deal team. Writes go direct under RLS (admin-only).
-const EMPTY_FORM = { full_name: '', organization: '', kind: 'cpa' as ProfessionalKind, email: '', phone: '', notes: '' };
-
-function DirectoryCard({ firmId, meProfileId }: { firmId?: string; meProfileId?: string }) {
-  const qc = useQueryClient();
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const { data: pros, isLoading } = useFirmProfessionals(firmId, { includeArchived });
-
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [archiving, setArchiving] = useState<FirmProfessionalRow | null>(null);
-  const { busy, run } = useAsyncAction();
-
-  const reset = () => {
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-  };
-
-  const invalidate = () => firmId && qc.invalidateQueries({ queryKey: qk.firmProfessionals(firmId) });
-
-  const startEdit = (p: FirmProfessionalRow) => {
-    setEditingId(p.id);
-    setForm({
-      full_name: p.full_name,
-      organization: p.organization ?? '',
-      kind: p.kind,
-      email: p.email ?? '',
-      phone: p.phone ?? '',
-      notes: p.notes ?? '',
-    });
-  };
-
-  const submit = () =>
-    run(
-      async () => {
-        if (!firmId || !form.full_name.trim()) throw new Error('A name is required.');
-        const payload = {
-          firm_id: firmId,
-          full_name: form.full_name.trim(),
-          organization: form.organization.trim() || null,
-          kind: form.kind,
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          notes: form.notes.trim() || null,
-        };
-        if (editingId) {
-          const { error } = await supabase.from('firm_professionals').update(payload).eq('id', editingId);
-          if (error) throw new Error(error.message);
-        } else {
-          const { error } = await supabase.from('firm_professionals').insert({ ...payload, created_by: meProfileId ?? null });
-          if (error) throw new Error(error.message);
-        }
-        reset();
-        invalidate();
-      },
-      { success: editingId ? 'Contact updated' : 'Contact added' },
-    );
-
-  const setArchived = (p: FirmProfessionalRow, archived: boolean) =>
-    run(
-      async () => {
-        const { error } = await supabase.from('firm_professionals').update({ archived }).eq('id', p.id);
-        if (error) throw new Error(error.message);
-        setArchiving(null);
-        invalidate();
-      },
-      { success: archived ? 'Contact archived' : 'Contact restored' },
-    );
-
-  return (
-    <SectionCard
-      title="Professional directory"
-      subtitle="Your clients' outside professionals — CPAs, attorneys, M&A advisors, bankers. Curate them once here, then attach them to any engagement's deal team."
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {isLoading ? (
-          <LoadingState variant="inline" />
-        ) : (pros ?? []).length === 0 ? (
-          <EmptyState title="No professionals yet">Add the first outside professional your firm works with below.</EmptyState>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {(pros ?? []).map((p) => (
-              <div key={p.id} className="eb-list-row" style={{ opacity: p.archived ? 0.55 : 1 }}>
-                <div className="eb-list-row-main">
-                  <div style={{ fontWeight: 600 }}>
-                    {p.full_name}
-                    {p.organization && <span className="muted text-sm"> · {p.organization}</span>}
-                  </div>
-                  <div className="muted text-sm">
-                    {[p.email, p.phone].filter(Boolean).join(' · ') || '—'}
-                  </div>
-                </div>
-                <span className="status-chip status-neutral eb-list-row-push">{KIND_LABEL[p.kind]}</span>
-                {p.archived && <span className="status-chip status-warning">Archived</span>}
-                <button className="linkish" type="button" onClick={() => startEdit(p)}>Edit</button>
-                {p.archived ? (
-                  <button className="linkish" type="button" onClick={() => setArchived(p, false)} disabled={busy}>Restore</button>
-                ) : (
-                  <button className="linkish" type="button" onClick={() => setArchiving(p)}>Archive</button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
-          <span className="stat-block-label">{editingId ? 'Edit contact' : 'Add a professional'}</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }} className="settings-grid">
-            <label className="field">
-              <span className="field-label">Name</span>
-              <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Dana Reyes" />
-            </label>
-            <label className="field">
-              <span className="field-label">Organization</span>
-              <input value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} placeholder="Reyes & Co. CPAs" />
-            </label>
-            <label className="field">
-              <span className="field-label">Type</span>
-              <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as ProfessionalKind })}>
-                {(Object.keys(KIND_LABEL) as ProfessionalKind[]).map((k) => (
-                  <option key={k} value={k}>{KIND_LABEL[k]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span className="field-label">Email</span>
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="dana@reyescpa.com" />
-            </label>
-            <label className="field">
-              <span className="field-label">Phone</span>
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 123-4567" />
-            </label>
-            <label className="field" style={{ gridColumn: '1 / -1' }}>
-              <span className="field-label">Notes</span>
-              <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Relationship, specialty, or how you work together." />
-            </label>
-          </div>
-          <div className="control-row" style={{ marginTop: 'var(--space-3)', gap: 'var(--space-2)' }}>
-            <button onClick={submit} disabled={busy || !form.full_name.trim()}>
-              {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add professional'}
-            </button>
-            {editingId && (
-              <button className="button-secondary" type="button" onClick={reset} disabled={busy}>Cancel</button>
-            )}
-            <span className="control-row" style={{ marginLeft: 'auto', gap: 'var(--space-2)' }}>
-              <Switch
-                size="sm"
-                checked={includeArchived}
-                onChange={setIncludeArchived}
-                label={<span className="muted text-sm">Show archived</span>}
-              />
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <ConfirmDialog
-        open={!!archiving}
-        title="Archive this professional?"
-        confirmLabel="Archive"
-        cancelLabel="Cancel"
-        busy={busy}
-        onCancel={() => !busy && setArchiving(null)}
-        onConfirm={() => archiving && setArchived(archiving, true)}
-      >
-        <p className="m-0">
-          {archiving?.full_name} will be hidden from the directory and can't be attached to new engagements. Existing
-          engagement links are kept. You can restore them later.
-        </p>
-      </ConfirmDialog>
-    </SectionCard>
-  );
-}
-
 // ── Engagement assignments ────────────────────────────────────────────────────
 // Firm-wide roster of who owns what. Reassignment goes through the admin-scoped
 // assign-engagement function (the only path past the advisor_id guard trigger).
@@ -587,7 +396,7 @@ export default function OrganizationPage() {
       />
       <TeamCard firmId={firmId} meId={profile?.id} />
       <BrandingCard firmId={firmId} firmName={firmName} />
-      <DirectoryCard firmId={firmId} meProfileId={profile?.id} />
+      <ProfessionalDirectoryCard firmId={firmId} meProfileId={profile?.id} />
       <AssignmentsCard firmId={firmId} />
     </div>
   );

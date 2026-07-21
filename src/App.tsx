@@ -28,6 +28,7 @@ const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
+const NetworkPage = lazy(() => import('./pages/NetworkPage'));
 const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
@@ -316,6 +317,9 @@ function AppBar() {
             <NavLink to="/plans" className="app-nav-link">
               Plans
             </NavLink>
+            <NavLink to="/network" className="app-nav-link">
+              Network
+            </NavLink>
             {profile?.role === 'admin' && (
               <NavLink to="/organization" className="app-nav-link">
                 Organization
@@ -570,6 +574,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <PlansPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/network"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <NetworkPage />
                 </Shell>
               </RequireAdvisor>
             }

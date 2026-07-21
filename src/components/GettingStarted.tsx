@@ -178,7 +178,7 @@ export function GettingStarted({
           : 'Load the attorneys, accountants, bankers, and advisors you work with so you can attach them to engagements and collaborate.',
       done: professionalCount > 0,
       action: (
-        <Link className="button-link button-primary" to="/organization">
+        <Link className="button-link button-primary" to="/network">
           Add professionals
         </Link>
       ),
