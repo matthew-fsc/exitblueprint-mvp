@@ -316,35 +316,32 @@ detail; the isolation guarantee is structural.
 
 ---
 
-## 6. Open product questions for Matthew (decisions I must not make)
+## 6. Product decisions (resolved 2026-07-21, Matthew)
 
-1. **Q1 — Term.** Confirm **"Plan"** (this doc's recommendation) vs "Program". If
-   "Program", the seeded playbook *titles* ("… Program") should be renamed in the same
-   pass to remove the collision (§1.1).
-2. **Q2 — Seed scope.** Do we ship **canonical starter Plans** from `/seed` (methodology
-   IP, and a strong onboarding aid), purely firm-authored, or both? (This doc assumes
-   **both**; the starter set is small and composes only global assets.)
-3. **Q3 — Owner visibility.** Are Applied Plans **owner-visible** in the portal (like
-   `roadmap_milestones` and tasks), or **staff-only** (like `engagement_log`)? This
-   decides whether `engagement_plans`/`engagement_plan_items` get an owner-read RLS
-   policy. Default here: **staff-authored, owner sees the resulting tasks/milestones**
-   (which are already owner-visible) but not the plan wrapper — confirm.
-4. **Q4 — Auto-generation vs. grouping.** When a Plan item is a **playbook**, should
-   applying it **generate its tasks** (this doc's assumption), or should a Plan be
-   **pure grouping/labeling** over tasks the gap path already created? (Recommendation:
-   generate, reusing the shared instantiation + once-per-engagement idempotency.)
-5. **Q5 — Gap ↔ Plan relationship.** Should a Plan be **recommendable from scores**
-   (e.g. surface "Phase 1 Risk Elimination" when Financial Integrity is low, the way
-   `advisory.ts` fires items), or is application always a **manual advisor choice**?
-   (This doc builds manual-only first; score-driven recommendation is a clean later
-   slice and stays read-only w.r.t. scoring.)
-6. **Q6 — Clone-to-customize.** Can a firm clone a **system** Plan into an editable
-   firm Plan? (Assumed yes; matches the advisory-library precedent. Firms still cannot
-   edit the system row in place.)
-7. **Q7 — Cross-cycle reuse.** When an engagement is re-assessed and gaps change,
-   should an active Applied Plan **re-reconcile** (add newly-relevant items, flag
-   completed ones), or stay a fixed snapshot until the advisor re-applies? (Assumed:
-   fixed snapshot; re-apply is explicit. Immutability-friendly.)
+All seven questions are answered. The build follows these; the term is **"Plan"**.
+
+1. **Q1 — Term → "Plan".** Confirmed over "Program" (avoids the seeded-playbook-title
+   collision, §1.1).
+2. **Q2 — Seed scope → both.** Ship canonical starter system Plans from `/seed` **and**
+   allow firm-authored Plans (the `firm_id`-null vs. firm pattern, §5).
+3. **Q3 — Owner visibility → owner-visible.** Applied Plans are visible in the owner
+   portal. `engagement_plans` and `engagement_plan_items` therefore **get an owner-read
+   RLS policy** mirroring `roadmap_milestones.owner_engagement_read` (pulled into PL1,
+   §2.4).
+4. **Q4 — Auto-generation vs. grouping → generate.** Applying a playbook item
+   **generates its tasks**, reusing the shared instantiation + once-per-engagement
+   `(playbook_id, sequence)` idempotency, tagging rows with `engagement_plan_id` for
+   provenance (§1.4, §2.3, PL3). A Plan is an active driver, not a passive label.
+5. **Q5 — Gap ↔ Plan → score-suggested.** Plans **are** recommendable from scores (like
+   `advisory.ts` firing). Application stays a deliberate advisor action; the
+   recommendation is read-only w.r.t. scoring and lands as the post-PL4 slice.
+6. **Q6 — Clone-to-customize → yes.** A firm may clone a system Plan into an editable
+   firm Plan; the system row itself stays service-role-only (uneditable in place).
+7. **Q7 — Cross-cycle reuse → reconcile.** An active Applied Plan **re-reconciles** on
+   re-assessment (surface newly-relevant items, flag completed ones) rather than staying
+   a fixed snapshot. This is additive-only at the row level (new `engagement_plan_items`
+   rows; the `engagement_plans` version pin and the `assessments` immutability rule are
+   untouched) and is implemented in **PL4** — it does not change the PL1 schema.
 
 ---
 
@@ -356,9 +353,10 @@ one-line entry in `docs/06-decisions.md`.
 
 **Slice PL1 — Schema + seed (templates & instances).**
 Migration for `plans`, `plan_items`, `engagement_plans`, `engagement_plan_items` +
-the two `engagement_plan_id` columns; RLS per §2.4; `rls-test.ts` firm-isolation +
-cross-firm-reference + (if Q3=owner-visible) owner-visibility cases; seed the starter
-system Plans from `/seed` (idempotent, integrity-validated).
+the two `engagement_plan_id` columns; RLS per §2.4, **including the owner-read policy
+on the instance tables (Q3=owner-visible)**; `rls-test.ts` firm-isolation +
+cross-firm-reference + owner-visibility cases; seed the starter system Plans from
+`/seed` (idempotent, integrity-validated).
 *Accept:* migration applies to a fresh DB; seed loads idempotently; an advisor firm
 cannot read/edit another firm's Plans or a system Plan's row; `npm run test:rls` green.
 
@@ -380,16 +378,21 @@ never double-creates a playbook's tasks; applying a Plan whose playbook a gap al
 instantiated **claims/tags** the existing rows rather than duplicating them; no
 scoring/assessment/gap row is written (assert in test).
 
-**Slice PL4 — Tracking + roadmap grouping.**
+**Slice PL4 — Tracking + roadmap grouping + re-assessment reconcile.**
 Computed per-Applied-Plan progress; group/filter the Roadmap board by applied plan;
 plan-applied tasks flow into the existing stalled-task/"Needs attention" surfacing;
-soft `status='removed'`.
+soft `status='removed'`. **Re-assessment reconcile (Q7):** when an engagement is
+re-assessed, an active Applied Plan re-reconciles — additively surfacing newly-relevant
+items and flagging ones whose work is now complete — writing only new
+`engagement_plan_items` rows, never rewriting the version pin or any scoring row.
 *Accept:* an advisor sees Applied-Plan progress and can group the board by plan;
 completing all a plan's tasks marks it complete; removing a plan hides its grouping
-without deleting client task history.
+without deleting client task history; re-assessing an engagement reconciles its active
+Plans additively.
 
-**Later (post-Q5):** score-driven Plan **recommendation** (read-only over scores, like
-`advisory.ts`) and, if Q3 warrants, an owner-portal Plan view.
+**Owner portal (Q3):** an owner-portal Applied-Plan view, on top of the owner-read RLS
+landed in PL1. **Post-PL4 (Q5):** score-driven Plan **recommendation** (read-only over
+scores, like `advisory.ts`).
 
 ---
 
