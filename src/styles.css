@@ -3108,10 +3108,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .review-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
 /* ---- Security / MFA (beta R5) ---- */
-.mfa-enroll { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
-.mfa-qr { width: 180px; height: 180px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem; }
-.mfa-secret { font-family: ui-monospace, monospace; font-size: 0.85rem; background: var(--brand-tint); padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); }
-.mfa-verify { display: flex; gap: 0.5rem; align-items: center; }
+.mfa-enroll { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; max-width: 100%; }
+.mfa-qr { width: 180px; height: 180px; max-width: 100%; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.4rem; }
+/* The TOTP secret is a long unbroken base32 string; let it wrap inside the card
+   instead of pushing the page sideways on a phone. */
+.mfa-secret { font-family: ui-monospace, monospace; font-size: 0.85rem; background: var(--brand-tint); padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+/* Wrap the code field + verify button when they can't sit side by side. */
+.mfa-verify { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; max-width: 100%; }
+.mfa-verify input { flex: 1 1 10rem; min-width: 0; }
 .security-summary { margin: 0.5rem 0 0.75rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
 .security-summary li { line-height: 1.55; }
 
@@ -3544,6 +3548,32 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .section-card-titles { min-width: 0; }
 .section-card-sub { margin: var(--space-1) 0 0; font-size: 0.88rem; }
 .section-card-action { flex-shrink: 0; }
+/* On a phone a title + action can't always share one row — let the action drop
+   below the title instead of forcing the card wider than the screen. */
+@media (max-width: 560px) {
+  .section-card-head { flex-wrap: wrap; }
+}
+
+/* Shared "info + trailing chips/actions" row used by the Organization lists
+   (team, directory, engagement owners). One row pattern, defined once: it packs
+   a left info block and right-aligned chips/buttons on desktop, and wraps them
+   onto their own lines on a phone so nothing runs off the edge. */
+.eb-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.eb-list-row-main { min-width: 0; flex: 1 1 auto; }
+.eb-list-row-push { margin-left: auto; }
+@media (max-width: 680px) {
+  .eb-list-row { flex-wrap: wrap; row-gap: var(--space-2); }
+  /* Once the row wraps, the trailing block starts a fresh line at the left
+     rather than being shoved to the far right of an empty line. */
+  .eb-list-row-push { margin-left: 0; }
+  .eb-list-row .field { width: 100%; min-width: 0; }
+}
 
 /* ---- engagement command view (F3) ---- */
 .eng-grid {
