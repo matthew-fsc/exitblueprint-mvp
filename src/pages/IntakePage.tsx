@@ -15,6 +15,7 @@ import {
   useRubric,
 } from '../lib/queries';
 import { EngagementNav, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
+import { PLImportPanel, type FinancialEntry } from '../components/PLImportPanel';
 import {
   QuestionControl,
   draftFromValue,
@@ -113,6 +114,32 @@ export default function IntakePage() {
 
   const setDraft = (questionId: string, draft: Draft) => {
     setDrafts((prev) => new Map(prev).set(questionId, draft));
+  };
+
+  // Stable index from a question's rubric code to its row, so figures extracted
+  // from a P&L (keyed by code) can be dropped onto the matching intake fields.
+  const questionsByCode = useMemo(() => {
+    const m = new Map<string, QuestionRow>();
+    if (rubric) {
+      for (const qs of rubric.questionsByDimension.values()) for (const q of qs) m.set(q.code, q);
+    }
+    return m;
+  }, [rubric]);
+
+  // A P&L import wrote verified financial answers server-side (enter-manual-
+  // financials). Reflect them in the open drafts and refresh provenance so the
+  // fields show their new values and the verified source immediately.
+  const onFinancialsApplied = (entries: FinancialEntry[]) => {
+    setDrafts((prev) => {
+      const next = new Map(prev);
+      for (const { code, value } of entries) {
+        const q = questionsByCode.get(code);
+        if (q) next.set(q.id, draftFromValue(q, value));
+      }
+      return next;
+    });
+    qc.invalidateQueries({ queryKey: ['answers', assessmentId ?? ''] });
+    qc.invalidateQueries({ queryKey: ['answerProvenance', assessmentId ?? ''] });
   };
 
   const isAnswered = (q: QuestionRow): boolean => {
@@ -281,6 +308,16 @@ export default function IntakePage() {
             </span>
           </div>
         </div>
+      )}
+
+      {assessmentId && (
+        <PLImportPanel
+          assessmentId={assessmentId}
+          firmId={engagementQ.data?.firm_id}
+          engagementId={engagementId}
+          profileId={profile?.id}
+          onApplied={onFinancialsApplied}
+        />
       )}
 
       <ol className="stepper">

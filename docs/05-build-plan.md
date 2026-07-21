@@ -21,7 +21,7 @@ was made. Do not scaffold ahead of the current slice.
 > controls** — a real `admin` organizational role, a firm professional directory,
 > and admin-only engagement assignment (docs/02 "Organizational controls"); a
 > mobile optimization pass (2 rounds), an advisor first-run onboarding checklist,
-> and a one-command hosted **sales-demo** tenant (docs/38). See the decisions log
+> and a one-command hosted **sales-demo** tenant (docs/39). See the decisions log
 > (docs/06) for each. **P5.4 (subprocessor reconciliation) is done** — the register
 > now names Supabase/Clerk/Render/Vercel/Stripe/Anthropic (see below).
 

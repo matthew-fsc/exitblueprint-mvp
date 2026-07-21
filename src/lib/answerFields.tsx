@@ -125,6 +125,7 @@ export function QuestionControl({
   const options = (q.options ?? '').split('|').filter(Boolean);
   const unit = fieldUnit(q);
   const fromLedger = source === 'connected_ledger';
+  const fromDocument = source === 'document';
 
   return (
     <div
@@ -136,6 +137,11 @@ export function QuestionControl({
         {q.prompt}
         {!q.scored && <span className="context-badge">optional context</span>}
         {fromLedger && <span className="ledger-badge" title="Imported from your connected accounting">✓ from QuickBooks</span>}
+        {fromDocument && (
+          <span className="ledger-badge" title="Verified from an uploaded financial statement">
+            ✓ from financials
+          </span>
+        )}
       </label>
       {q.help_text && <p className="question-help">{q.help_text}</p>}
 

@@ -233,6 +233,41 @@ async function main() {
       `seed-demo: verification run — ${verify.metrics.reconciled_total} reconciled, ${verify.findings} finding(s)`,
     );
 
+    // Source financial files on the demo engagement, so the file-driven intake
+    // ("Fill financials from a P&L") has real documents to demonstrate: a P&L
+    // that fills the revenue trend + recurring share, and a revenue-by-customer
+    // report that fills the top-5 concentration. Their figures match the demo
+    // client's answers, so the numbers tie out. Idempotent on (engagement,
+    // filename); status 'uploaded' — these are source files an advisor keeps on
+    // the engagement, not run through the review pipeline.
+    const demoFiles: [string, string][] = [
+      ['cascade-pl-2022-2025.csv', 'financial_statement'],
+      ['cascade-revenue-by-customer.csv', 'financial_statement'],
+    ];
+    for (const [name, category] of demoFiles) {
+      const bytes = readFileSync(join(root, 'seed', 'demo', 'files', name));
+      let docId = (
+        await db.query(`select id from documents where engagement_id = $1 and original_filename = $2`, [
+          engagementId,
+          name,
+        ])
+      ).rows[0]?.id as string | undefined;
+      docId ??= (
+        await db.query(
+          `insert into documents
+             (firm_id, engagement_id, category, original_filename, mime_type, byte_size, status)
+           values ($1, $2, $3, $4, 'text/csv', $5, 'uploaded') returning id`,
+          [firmId, engagementId, category, name, bytes.length],
+        )
+      ).rows[0].id;
+      await db.query(
+        `insert into document_blobs (document_id, firm_id, bytes) values ($1, $2, $3)
+         on conflict (document_id) do update set bytes = excluded.bytes`,
+        [docId, firmId, bytes],
+      );
+    }
+    console.log(`seed-demo: attached ${demoFiles.length} source financial files (P&L + revenue-by-customer)`);
+
     // Data Room readiness (docs/15 work stream B): populate a few states so the
     // tab renders a realistic mix out of the box. Idempotent on (engagement, item).
     const dataRoomStates: [string, string][] = [

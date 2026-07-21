@@ -412,6 +412,20 @@ async function main() {
       await db.query('rollback to savepoint be');
     }
     check('cannot read billing_events (service-role only)', billingEventsDenied);
+    // Platform monitoring rails (docs/38): the cross-tenant `analytics` schema is
+    // granted to service_role ONLY. An authenticated tenant role has no USAGE on
+    // the schema, so a read is a hard permission error, not an empty RLS result.
+    // This asserts the rails can never become a cross-firm leak.
+    let analyticsDenied = false;
+    try {
+      await db.query('savepoint an');
+      await db.query('select * from analytics.platform_totals');
+      await db.query('release savepoint an');
+    } catch {
+      analyticsDenied = true;
+      await db.query('rollback to savepoint an');
+    }
+    check('cannot read analytics schema (service-role only)', analyticsDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');
@@ -700,6 +714,39 @@ async function main() {
       await db.query('rollback to savepoint bb');
     }
     check('cannot modify firm B branding', brandBWriteBlocked);
+
+    // firm_service_tier: onboarding staff (advisor) WRITE own firm's tier and read
+    // it back; cannot write firm B's tier. (This row persists in the rolled-back
+    // tx so the owner-read check below sees it.)
+    let tierWriteOk = false;
+    try {
+      await db.query('savepoint st');
+      await db.query(
+        `insert into firm_service_tier (firm_id, tier) values ($1, 'standard')
+           on conflict (firm_id) do update set tier = excluded.tier`,
+        [ids.firm_a],
+      );
+      const r = await db.query('select tier from firm_service_tier where firm_id = $1', [ids.firm_a]);
+      tierWriteOk = r.rows.length === 1 && r.rows[0].tier === 'standard';
+      await db.query('release savepoint st');
+    } catch {
+      await db.query('rollback to savepoint st');
+    }
+    check('advisor sets own firm service tier', tierWriteOk);
+    let tierBWriteBlocked = false;
+    try {
+      await db.query('savepoint stb');
+      const ins = await db.query(
+        `insert into firm_service_tier (firm_id, tier) values ($1, 'premium')`,
+        [ids.firm_b],
+      );
+      tierBWriteBlocked = (ins.rowCount ?? 0) === 0;
+      await db.query('release savepoint stb');
+    } catch {
+      tierBWriteBlocked = true; // WITH CHECK rejects the cross-firm insert
+      await db.query('rollback to savepoint stb');
+    }
+    check('cannot set firm B service tier', tierBWriteBlocked);
 
     // firm_professionals (directory): advisor A READS the firm's directory, but
     // WRITES are admin-only (20260721000100).
@@ -1018,6 +1065,28 @@ async function main() {
       await db.query('rollback to savepoint ob');
     }
     check('owner cannot write branding', ownerBrandWriteBlocked);
+    // firm_service_tier: owner READS their firm's tier (set by the advisor above)
+    // but cannot WRITE it.
+    const ownerTier = await db.query('select tier from firm_service_tier');
+    check(
+      'owner reads only their firm service tier',
+      ownerTier.rows.length === 1 && ownerTier.rows[0].tier === 'standard',
+      `saw ${JSON.stringify(ownerTier.rows)}`,
+    );
+    let ownerTierWriteBlocked = false;
+    try {
+      await db.query('savepoint ost');
+      const upd = await db.query(
+        `update firm_service_tier set tier = 'premium' where firm_id = $1`,
+        [ids.firm_a],
+      );
+      ownerTierWriteBlocked = (upd.rowCount ?? 0) === 0;
+      await db.query('release savepoint ost');
+    } catch {
+      ownerTierWriteBlocked = true;
+      await db.query('rollback to savepoint ost');
+    }
+    check('owner cannot write service tier', ownerTierWriteBlocked);
     const ownerMilestones = await db.query('select title from roadmap_milestones');
     check(
       'owner reads only their firm milestones',

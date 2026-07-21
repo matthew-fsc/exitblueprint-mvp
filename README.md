@@ -38,7 +38,7 @@ DATABASE_URL='postgresql://…' CLERK_SECRET_KEY='sk_…' \
 ```
 
 One idempotent, firm-scoped command; it never migrates or drops anything. See
-**`docs/38-sales-demo-runbook.md`** for prerequisites, first sign-in, and a
+**`docs/39-sales-demo-runbook.md`** for prerequisites, first sign-in, and a
 suggested demo path.
 
 ## Stack
