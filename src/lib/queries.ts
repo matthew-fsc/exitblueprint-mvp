@@ -13,7 +13,6 @@ export type { PortfolioRow } from './portfolio';
 export const qk = {
   firm: (id: string) => ['firm', id] as const,
   branding: (firmId: string) => ['branding', firmId] as const,
-  serviceTier: (firmId: string) => ['serviceTier', firmId] as const,
   companies: () => ['companies'] as const,
   company: (id: string) => ['company', id] as const,
   agreementVersions: () => ['agreementVersions'] as const,
@@ -1263,33 +1262,6 @@ export function useBranding(firmId: string | undefined | null): UseQueryResult<B
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data as BrandingRow) ?? null;
-    },
-  });
-}
-
-export interface ServiceTierRow {
-  firm_id: string;
-  tier: string;
-  selected_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// The firm's selected service tier (first-run onboarding). Null until chosen.
-export function useServiceTier(
-  firmId: string | undefined | null,
-): UseQueryResult<ServiceTierRow | null> {
-  return useQuery({
-    queryKey: qk.serviceTier(firmId ?? ''),
-    enabled: !!firmId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('firm_service_tier')
-        .select('*')
-        .eq('firm_id', firmId!)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return (data as ServiceTierRow) ?? null;
     },
   });
 }
