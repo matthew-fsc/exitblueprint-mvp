@@ -5615,3 +5615,14 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
   margin: 0 0 var(--space-2);
   font-size: 0.85rem;
 }
+
+/* Getting-started: dismiss control for the activation checklist. */
+.gs-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+.gs-dismiss {
+  font-size: 0.85rem;
+  color: var(--text-muted, inherit);
+}
