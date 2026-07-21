@@ -27,6 +27,7 @@ import {
   LoadingState,
   PageHeader,
   SectionCard,
+  Switch,
   TierBadge,
   useToast,
 } from '../components/ui';
@@ -487,10 +488,14 @@ function DirectoryCard({ firmId, meProfileId }: { firmId?: string; meProfileId?:
             {editingId && (
               <button className="button-secondary" type="button" onClick={reset} disabled={busy}>Cancel</button>
             )}
-            <label className="control-row" style={{ marginLeft: 'auto', gap: 'var(--space-2)' }}>
-              <input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} />
-              <span className="muted text-sm">Show archived</span>
-            </label>
+            <span className="control-row" style={{ marginLeft: 'auto', gap: 'var(--space-2)' }}>
+              <Switch
+                size="sm"
+                checked={includeArchived}
+                onChange={setIncludeArchived}
+                label={<span className="muted text-sm">Show archived</span>}
+              />
+            </span>
           </div>
         </div>
       </div>

@@ -39,8 +39,18 @@ tokens, so changing the token restyles every label. **New label → use `.eyebro
   with a custom marker.
 - **`EmptyState`, `SkeletonLines`, `TierBadge`, `DeltaChip`, `GapSeverityChip`,
   status chips (`.status-chip .status-*`).**
+- **`Switch`** — the on/off slider for a **single boolean that applies
+  immediately** (a filter, a setting). A checkbox is for picking items in a set
+  or acknowledging a form field; a `Switch` is for flipping one thing on/off.
+  Checkboxes and radios are restyled globally (on-brand, no markup change) — never
+  ship the raw OS widget.
 - **`LoadingState` / `ErrorState` / `AsyncBoundary`** — the loading & error
   ladder. See the rule below.
+- **Buttons & icon actions.** Primary is the default `<button>`; `.btn-secondary`
+  / `.btn-ghost` / `.btn-danger` for hierarchy, `.btn-sm` for dense rows. A
+  single-glyph action is a `.icon-btn` (`.icon-btn-sm`), the one square icon
+  button — don't re-roll a bespoke square-icon control per surface. All size off
+  `--control-h` / `--control-h-sm`.
 
 ## Loading & error states — never bare text
 A loading or error message is a **component**, never a raw `<p>Loading…</p>` or

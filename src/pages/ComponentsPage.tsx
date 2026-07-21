@@ -16,6 +16,7 @@ import {
   SkeletonLines,
   StatBlock,
   StatRow,
+  Switch,
   TierBadge,
   Timeline,
   TrajectoryChart,
@@ -54,6 +55,10 @@ function GallerySection({ title, children }: { title: string; children: React.Re
 
 export default function ComponentsPage() {
   const [confirm, setConfirm] = useState(false);
+  const [notify, setNotify] = useState(true);
+  const [archived, setArchived] = useState(false);
+  const [terms, setTerms] = useState(true);
+  const [plan, setPlan] = useState('quarterly');
   const toast = useToast();
 
   return (
@@ -196,6 +201,73 @@ export default function ComponentsPage() {
         <div className="gallery-row">
           <Card>Default card · {fmtCurrency(4600000)}</Card>
           <Card pad="lg">Large padding card</Card>
+        </div>
+      </GallerySection>
+
+      <GallerySection title="Buttons (hierarchy + sizes)">
+        <div className="gallery-row">
+          <button>Primary</button>
+          <button className="btn-secondary">Secondary</button>
+          <button className="btn-ghost">Ghost</button>
+          <button className="btn-danger">Danger</button>
+          <button disabled>Disabled</button>
+        </div>
+        <div className="gallery-row">
+          <span className="gallery-label">small</span>
+          <button className="btn-sm">Primary</button>
+          <button className="btn-sm btn-secondary">Secondary</button>
+          <span className="gallery-label">icon</span>
+          <button className="icon-btn" aria-label="Add" title="Add">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <button className="icon-btn icon-btn-sm" aria-label="Close" title="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </GallerySection>
+
+      <GallerySection title="Switch (single boolean, applies immediately)">
+        <div className="gallery-row">
+          <Switch checked={notify} onChange={setNotify} label="Email notifications" hint="On completed reassessments" />
+          <Switch checked={archived} onChange={setArchived} label="Show archived" />
+          <Switch size="sm" checked={notify} onChange={setNotify} ariaLabel="Compact toggle" />
+          <Switch checked disabled onChange={() => {}} label="Locked on" />
+        </div>
+      </GallerySection>
+
+      <GallerySection title="Checkbox · radio · select (on-brand native controls)">
+        <div className="gallery-row" style={{ gap: '1.5rem' }}>
+          <label className="control-row" style={{ gap: '0.5rem' }}>
+            <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
+            <span className="text-sm">Benchmarking use</span>
+          </label>
+          <label className="control-row" style={{ gap: '0.5rem' }}>
+            <input type="checkbox" checked={false} readOnly />
+            <span className="text-sm">Unchecked</span>
+          </label>
+          <label className="control-row" style={{ gap: '0.5rem' }}>
+            <input type="checkbox" checked disabled readOnly />
+            <span className="text-sm muted">Disabled</span>
+          </label>
+        </div>
+        <div className="gallery-row" style={{ gap: '1.5rem' }}>
+          {['monthly', 'quarterly', 'annual'].map((p) => (
+            <label key={p} className="control-row" style={{ gap: '0.5rem' }}>
+              <input type="radio" name="demo-plan" checked={plan === p} onChange={() => setPlan(p)} />
+              <span className="text-sm" style={{ textTransform: 'capitalize' }}>{p}</span>
+            </label>
+          ))}
+          <select value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Cadence">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annual">Annual</option>
+          </select>
         </div>
       </GallerySection>
 

@@ -21,6 +21,7 @@ export { PageHeader, type Crumb } from './PageHeader';
 export { PageSection } from './PageSection';
 export { ScoreDial } from './ScoreDial';
 export { SubTabs, subTabId, subTabPanelId, type SubTab } from './SubTabs';
+export { Switch } from './Switch';
 export { Skeleton, SkeletonLines } from './Skeleton';
 export { Sparkline } from './Sparkline';
 export { StatBlock, StatRow } from './StatBlock';
