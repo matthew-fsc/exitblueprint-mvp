@@ -27,6 +27,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
   let contentId: string;
   let advisoryOwnId: string;
   let advisoryOtherId: string;
+  let engagementId: string;
 
   const asUserWith =
     (claims: Record<string, unknown>) =>
@@ -80,11 +81,33 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         [otherFirmId],
       )
     ).rows[0].id;
+    // Two playbook task templates so apply materializes real task rows.
+    await service.query(
+      `insert into playbook_task_templates (playbook_id, title, default_owner_role, sequence, target_offset_days)
+       values ($1, 'PB task 1', 'owner', 1, 0), ($1, 'PB task 2', 'advisor', 2, 30)`,
+      [playbookId],
+    );
+    const companyId = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Plans Co') returning id`, [firmId])
+    ).rows[0].id;
+    engagementId = (
+      await service.query(
+        `insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`,
+        [firmId, companyId],
+      )
+    ).rows[0].id;
   });
 
   afterAll(async () => {
+    await service.query(`delete from engagement_plan_items where firm_id = $1`, [firmId]);
+    await service.query(`delete from roadmap_milestones where firm_id = $1`, [firmId]);
+    await service.query(`delete from tasks where firm_id = $1`, [firmId]);
+    await service.query(`delete from engagement_plans where firm_id = $1`, [firmId]);
+    await service.query(`delete from engagements where firm_id = $1`, [firmId]);
+    await service.query(`delete from companies where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_template_items where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_templates where firm_id = $1`, [firmId]);
+    await service.query(`delete from playbook_task_templates where playbook_id = $1`, [playbookId]);
     await service.query(`delete from advisory_library_items where firm_id = any($1)`, [[firmId, otherFirmId]]);
     await service.query(`delete from content_modules where code = 'PL-TEST-CM'`);
     await service.query(`delete from playbooks where code = 'PL-TEST-PB'`);
@@ -223,5 +246,97 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     const r = await handleFunctionCall('update-plan', { id: foreign, name: 'hijack' }, ctxFor(advisorUserId));
     expect(r).toMatchObject({ kind: 'json', status: 400 });
     await service.query(`delete from plan_templates where id = $1`, [foreign]);
+  });
+
+  it('applies a plan: materializes tasks + milestone + item records, idempotently', async () => {
+    // A plan with one of every kind.
+    const created = await handleFunctionCall(
+      'create-plan',
+      {
+        name: 'Apply Me',
+        status: 'active',
+        items: [
+          { kind: 'playbook', playbook_id: playbookId },
+          { kind: 'manual_task', title: 'a manual task', owner_role: 'owner' },
+          { kind: 'milestone', title: 'a milestone', track: 'business', target_offset_days: 60 },
+          { kind: 'education', content_module_id: contentId },
+          { kind: 'advisory', advisory_library_item_id: advisoryOwnId },
+        ],
+      },
+      ctxFor(advisorUserId),
+    );
+    const planId = (created as { body: PlanBody }).body.id;
+
+    const r = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: engagementId, plan_template_id: planId, anchor_date: '2026-08-01' },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+    const applied = (r as { body: { engagement_plan: { id: string; applied_plan_version: number }; tasks_created: number; milestones_created: number } }).body;
+    // 2 playbook tasks + 1 manual task = 3 created; 1 milestone.
+    expect(applied.tasks_created).toBe(3);
+    expect(applied.milestones_created).toBe(1);
+    const epId = applied.engagement_plan.id;
+
+    // Tasks tagged with the applied plan; milestone present; 5 item records.
+    const taggedTasks = await service.query(`select count(*)::int c from tasks where engagement_plan_id = $1`, [epId]);
+    expect(taggedTasks.rows[0].c).toBe(3);
+    const ms = await service.query(`select count(*)::int c from roadmap_milestones where engagement_plan_id = $1`, [epId]);
+    expect(ms.rows[0].c).toBe(1);
+    const epItems = await service.query(`select count(*)::int c from engagement_plan_items where engagement_plan_id = $1`, [epId]);
+    expect(epItems.rows[0].c).toBe(5);
+
+    // Re-apply is an idempotent no-op: same snapshot, nothing new created.
+    const again = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: engagementId, plan_template_id: planId, anchor_date: '2026-08-01' },
+      ctxFor(advisorUserId),
+    );
+    const applied2 = (again as { body: { engagement_plan: { id: string }; tasks_created: number; milestones_created: number } }).body;
+    expect(applied2.engagement_plan.id).toBe(epId);
+    expect(applied2.tasks_created).toBe(0);
+    expect(applied2.milestones_created).toBe(0);
+    const tasksAfter = await service.query(`select count(*)::int c from tasks where engagement_plan_id = $1`, [epId]);
+    expect(tasksAfter.rows[0].c).toBe(3); // not duplicated
+  });
+
+  it('claims a playbook’s tasks a gap already created rather than duplicating them', async () => {
+    // A fresh engagement so this test is isolated from the apply test above.
+    const companyId2 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Claim Co') returning id`, [firmId])
+    ).rows[0].id;
+    const engagement2 = (
+      await service.query(
+        `insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`,
+        [firmId, companyId2],
+      )
+    ).rows[0].id;
+    // Pre-create a task as if a gap instantiated this playbook (sequence 1).
+    await service.query(
+      `insert into tasks (firm_id, engagement_id, playbook_id, title, status, sequence)
+       values ($1, $2, $3, 'PB task 1', 'todo', 1)`,
+      [firmId, engagement2, playbookId],
+    );
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Claim Test', status: 'active', items: [{ kind: 'playbook', playbook_id: playbookId }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+    const r = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: engagement2, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const applied = (r as { body: { engagement_plan: { id: string }; tasks_created: number; tasks_claimed: number } }).body;
+    // Sequence 1 exists → claimed; sequence 2 → created. No duplicate for seq 1.
+    expect(applied.tasks_claimed).toBe(1);
+    expect(applied.tasks_created).toBe(1);
+    const seq1 = await service.query(
+      `select count(*)::int c from tasks where engagement_id = $1 and playbook_id = $2 and sequence = 1`,
+      [engagement2, playbookId],
+    );
+    expect(seq1.rows[0].c).toBe(1); // not duplicated
   });
 });

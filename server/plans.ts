@@ -6,10 +6,9 @@
 // the caller's resolved firmId EXPLICITLY, and every referenced asset is checked
 // visible to the firm (global rows, or the firm's own) before it is written.
 //
-// Applying a Plan to an engagement is a separate slice (PL3, server/…apply).
-// Editing an already-active Plan (mint a new plan_version) is deferred pending a
-// product decision on firm-plan version lineage (docs/37 §3.1) — this slice
-// creates and lists.
+// This module covers Plan authoring (list/create/update, PL2 — editing an active
+// Plan mints a new lineage version) and applying a Plan to an engagement (PL3,
+// applyPlan at the bottom).
 import type pg from 'pg';
 
 const ITEM_KINDS = ['playbook', 'education', 'advisory', 'milestone', 'manual_task'] as const;
@@ -359,4 +358,230 @@ async function carryForwardItems(db: pg.ClientBase, planId: string): Promise<Nor
     track: r.track,
     target_offset_days: r.target_offset_days,
   }));
+}
+
+// ── PL3: apply a Plan to an engagement ───────────────────────────────────────
+// Materialize a Plan onto an engagement: create the immutable engagement_plans
+// snapshot (pinning applied_plan_version + name) and turn each item into concrete
+// execution rows tagged with engagement_plan_id — playbook/manual_task → tasks,
+// milestone → roadmap_milestones, education/advisory → an engagement_plan_items
+// reference. Honors the once-per-engagement (playbook_id, sequence) idempotency
+// from server/roadmap.ts (docs/37 §1.4): a playbook a gap already instantiated is
+// CLAIMED (tagged), never duplicated. Re-applying the same version is idempotent
+// (the existing snapshot is reused and its items rebuilt). No scoring/gap write.
+export interface ApplyPlanResult {
+  engagement_plan: {
+    id: string;
+    engagement_id: string;
+    plan_template_id: string;
+    applied_plan_version: number;
+    name: string;
+    anchor_date: string | null;
+    status: string;
+  };
+  tasks_created: number;
+  tasks_claimed: number;
+  milestones_created: number;
+}
+
+export async function applyPlan(
+  db: pg.ClientBase,
+  firmId: string,
+  body: Record<string, unknown>,
+  userId: string,
+): Promise<ApplyPlanResult> {
+  const engagementId = String(body.engagement_id ?? '');
+  const planTemplateId = String(body.plan_template_id ?? body.plan_id ?? '');
+  if (!engagementId) throw new Error('engagement_id required');
+  if (!planTemplateId) throw new Error('plan_template_id required');
+
+  const eng = (
+    await db.query(`select id, firm_id, started_at from engagements where id = $1 and firm_id = $2`, [
+      engagementId, firmId,
+    ])
+  ).rows[0];
+  if (!eng) throw new Error('engagement not found');
+  // The template must be visible to the firm: a system Plan or the firm's own.
+  const tmpl = (
+    await db.query(
+      `select id, name, plan_version from plan_templates
+       where id = $1 and (firm_id is null or firm_id = $2)`,
+      [planTemplateId, firmId],
+    )
+  ).rows[0];
+  if (!tmpl) throw new Error('plan not found');
+
+  const anchor = (body.anchor_date ? String(body.anchor_date) : null) ?? eng.started_at;
+  const appliedBy = await profileId(db, userId, firmId);
+
+  // Idempotent re-apply: if this exact plan version is already applied (and not
+  // removed), return the existing snapshot untouched rather than re-materializing
+  // — manual-task/milestone items have no natural key, so a rebuild would
+  // duplicate them. Applying a NEWER version is a new snapshot; re-anchoring is a
+  // later concern (docs/37 PL4).
+  const already = (
+    await db.query(
+      `select id from engagement_plans
+       where engagement_id = $1 and plan_template_id = $2 and status <> 'removed' limit 1`,
+      [engagementId, planTemplateId],
+    )
+  ).rows[0]?.id as string | undefined;
+  if (already) {
+    const applied = (
+      await db.query(
+        `select id, engagement_id, plan_template_id, applied_plan_version, name, anchor_date, status
+         from engagement_plans where id = $1`,
+        [already],
+      )
+    ).rows[0];
+    return { engagement_plan: applied, tasks_created: 0, tasks_claimed: 0, milestones_created: 0 };
+  }
+
+  const items = (
+    await db.query(`select ${ITEM_COLS} from plan_template_items where plan_template_id = $1 order by sort_order`, [
+      planTemplateId,
+    ])
+  ).rows;
+
+  try {
+    await db.query('begin');
+
+    const ep = (
+      await db.query(
+        `insert into engagement_plans
+           (firm_id, engagement_id, plan_template_id, applied_plan_version, name, anchor_date, applied_by, status)
+         values ($1, $2, $3, $4, $5, $6, $7, 'active') returning id`,
+        [firmId, engagementId, planTemplateId, tmpl.plan_version, tmpl.name, anchor, appliedBy],
+      )
+    ).rows[0].id;
+
+    // Existing playbook-derived tasks (from gaps or a prior apply) keyed for
+    // claim-or-create — the shared idempotency key with server/roadmap.ts.
+    const existing = new Map<string, string>();
+    for (const r of (
+      await db.query(
+        `select id, playbook_id, sequence from tasks where engagement_id = $1 and playbook_id is not null`,
+        [engagementId],
+      )
+    ).rows) {
+      existing.set(`${r.playbook_id}:${r.sequence}`, r.id);
+    }
+
+    let tasksCreated = 0;
+    let tasksClaimed = 0;
+    let milestonesCreated = 0;
+    const dueFromAnchor = `($1::date + ((coalesce($2, 0))::text || ' days')::interval)::date`;
+
+    for (const it of items) {
+      if (it.item_kind === 'playbook') {
+        const templates = (
+          await db.query(
+            `select title, description, default_owner_role, sequence, target_offset_days
+             from playbook_task_templates where playbook_id = $1 order by sequence`,
+            [it.playbook_id],
+          )
+        ).rows;
+        for (const t of templates) {
+          const key = `${it.playbook_id}:${t.sequence}`;
+          const existingId = existing.get(key);
+          if (existingId) {
+            await db.query(
+              `update tasks set engagement_plan_id = coalesce(engagement_plan_id, $2) where id = $1`,
+              [existingId, ep],
+            );
+            tasksClaimed++;
+          } else {
+            const newId = (
+              await db.query(
+                `insert into tasks
+                   (firm_id, engagement_id, gap_id, playbook_id, engagement_plan_id, title, description,
+                    owner_role, status, due_date, sequence)
+                 values ($3, $4, null, $5, $6, $7, $8, $9, 'todo', ${dueFromAnchor}, $10) returning id`,
+                [
+                  anchor, t.target_offset_days ?? 0, firmId, engagementId, it.playbook_id, ep,
+                  t.title, t.description, t.default_owner_role, t.sequence,
+                ],
+              )
+            ).rows[0].id;
+            existing.set(key, newId);
+            tasksCreated++;
+          }
+        }
+        await db.query(
+          `insert into engagement_plan_items (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind)
+           values ($1, $2, $3, 'playbook')`,
+          [firmId, ep, it.id],
+        );
+      } else if (it.item_kind === 'manual_task') {
+        const taskId = (
+          await db.query(
+            `insert into tasks
+               (firm_id, engagement_id, gap_id, playbook_id, engagement_plan_id, title, description,
+                owner_role, status, due_date)
+             values ($3, $4, null, null, $5, $6, $7, coalesce($8, 'owner')::task_owner_role, 'todo', ${dueFromAnchor})
+             returning id`,
+            [anchor, it.target_offset_days, firmId, engagementId, ep, it.title, it.description, it.owner_role],
+          )
+        ).rows[0].id;
+        tasksCreated++;
+        await db.query(
+          `insert into engagement_plan_items
+             (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind, task_id)
+           values ($1, $2, $3, 'manual_task', $4)`,
+          [firmId, ep, it.id, taskId],
+        );
+      } else if (it.item_kind === 'milestone') {
+        const milestoneId = (
+          await db.query(
+            `insert into roadmap_milestones
+               (firm_id, engagement_id, track, title, description, target_date, engagement_plan_id)
+             values ($1, $2, $3::milestone_track, $4, $5,
+                     case when $6::int is null then null
+                          else ($7::date + (($6)::text || ' days')::interval)::date end, $8)
+             returning id`,
+            [firmId, engagementId, it.track, it.title, it.description, it.target_offset_days, anchor, ep],
+          )
+        ).rows[0].id;
+        milestonesCreated++;
+        await db.query(
+          `insert into engagement_plan_items
+             (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind, milestone_id)
+           values ($1, $2, $3, 'milestone', $4)`,
+          [firmId, ep, it.id, milestoneId],
+        );
+      } else if (it.item_kind === 'education') {
+        await db.query(
+          `insert into engagement_plan_items
+             (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind, content_module_id)
+           values ($1, $2, $3, 'education', $4)`,
+          [firmId, ep, it.id, it.content_module_id],
+        );
+      } else if (it.item_kind === 'advisory') {
+        await db.query(
+          `insert into engagement_plan_items
+             (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind, advisory_library_item_id)
+           values ($1, $2, $3, 'advisory', $4)`,
+          [firmId, ep, it.id, it.advisory_library_item_id],
+        );
+      }
+    }
+
+    await db.query('commit');
+    const applied = (
+      await db.query(
+        `select id, engagement_id, plan_template_id, applied_plan_version, name, anchor_date, status
+         from engagement_plans where id = $1`,
+        [ep],
+      )
+    ).rows[0];
+    return {
+      engagement_plan: applied,
+      tasks_created: tasksCreated,
+      tasks_claimed: tasksClaimed,
+      milestones_created: milestonesCreated,
+    };
+  } catch (err) {
+    await db.query('rollback').catch(() => {});
+    throw err;
+  }
 }
