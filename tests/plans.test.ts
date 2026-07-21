@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
 import { findReassessmentReady } from '../server/scheduled';
+import { reconcileEngagementPlans } from '../server/plans';
 import { acceptAgreement } from './helpers';
 
 const url = process.env.DATABASE_URL;
@@ -105,6 +106,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(`delete from roadmap_milestones where firm_id = $1`, [firmId]);
     await service.query(`delete from tasks where firm_id = $1`, [firmId]);
     await service.query(`delete from engagement_plans where firm_id = $1`, [firmId]);
+    await service.query(`delete from gaps where firm_id = $1`, [firmId]);
     await service.query(`delete from assessments where firm_id = $1`, [firmId]);
     await service.query(`delete from engagement_agreements where firm_id = $1`, [firmId]);
     await service.query(`delete from engagements where firm_id = $1`, [firmId]);
@@ -446,5 +448,59 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect(item).toBeDefined();
     expect(item!.readyPlanCount).toBe(1);
     expect(item!.readyPlanNames).toContain('Ready Plan');
+  });
+
+  it('reconcile marks a plan completed once its targeted gaps all resolve (PL4c, Q7)', async () => {
+    // Use a seeded playbook↔gap mapping so the plan targets a real gap.
+    const map = (
+      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+    ).rows[0];
+    const companyId5 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Reconcile Co') returning id`, [firmId])
+    ).rows[0].id;
+    const eng5 = (
+      await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [firmId, companyId5])
+    ).rows[0].id;
+    await acceptAgreement(service, eng5);
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const a1 = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status, completed_at)
+         values ($1, $2, $3, 1, 'completed', now()) returning id`,
+        [firmId, eng5, rv],
+      )
+    ).rows[0].id;
+    // An OPEN gap the plan's playbook targets.
+    const gapId = (
+      await service.query(
+        `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
+         values ($1, $2, $3, $4, 'open') returning id`,
+        [firmId, eng5, map.gap_definition_id, a1],
+      )
+    ).rows[0].id;
+
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Gap Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+    const applied = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: eng5, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const epId = (applied as { body: { engagement_plan: { id: string } } }).body.engagement_plan.id;
+
+    // Gap still open → reconcile leaves the plan active.
+    const r1 = await reconcileEngagementPlans(service, eng5);
+    expect(r1.completed).not.toContain(epId);
+    expect((await service.query(`select status from engagement_plans where id = $1`, [epId])).rows[0].status).toBe('active');
+
+    // Resolve the gap → reconcile completes the plan.
+    await service.query(`update gaps set status = 'resolved', resolved_by_assessment_id = $2 where id = $1`, [gapId, a1]);
+    const r2 = await reconcileEngagementPlans(service, eng5);
+    expect(r2.completed).toContain(epId);
+    expect((await service.query(`select status from engagement_plans where id = $1`, [epId])).rows[0].status).toBe('completed');
   });
 });

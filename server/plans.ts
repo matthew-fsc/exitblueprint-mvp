@@ -647,3 +647,51 @@ export async function engagementPlanProgress(
     };
   });
 }
+
+// Reconcile active Applied Plans against the engagement's current gap state
+// (docs/37 Q7). Called after a reassessment resolves gaps: a Plan whose targeted
+// gaps — the gaps its playbook items map to (gap_playbook_map) — are now ALL
+// resolved has achieved its remediation goal, so it is marked 'completed'. This is
+// the score-based completion (distinct from work-based "all tasks done", which
+// PL4 progress computes on read). Additive + idempotent; never reopens or deletes,
+// never writes a score/gap (rules 1 & 4). Surfacing plans for NEWLY-opened gaps is
+// the separate score-driven recommendation slice (Q5), not this.
+export interface PlanReconcileResult {
+  reconciled: number; // active plans examined
+  completed: string[]; // engagement_plan ids newly marked completed
+}
+
+export async function reconcileEngagementPlans(
+  db: pg.ClientBase,
+  engagementId: string,
+): Promise<PlanReconcileResult> {
+  const plans = (
+    await db.query(`select id from engagement_plans where engagement_id = $1 and status = 'active'`, [engagementId])
+  ).rows;
+  const completed: string[] = [];
+  for (const ep of plans) {
+    // The gaps this plan targets on this engagement, via its playbook items'
+    // gap mappings, and how many are resolved.
+    const g = (
+      await db.query(
+        `select count(*)::int as total,
+                count(*) filter (where status = 'resolved')::int as resolved
+         from (
+           select distinct gp.id, gp.status
+           from engagement_plan_items epi
+           join plan_template_items pti
+             on pti.id = epi.source_plan_template_item_id and pti.item_kind = 'playbook'
+           join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
+           join gaps gp on gp.gap_definition_id = gpm.gap_definition_id and gp.engagement_id = $2
+           where epi.engagement_plan_id = $1
+         ) t`,
+        [ep.id, engagementId],
+      )
+    ).rows[0];
+    if (Number(g.total) > 0 && Number(g.resolved) === Number(g.total)) {
+      await db.query(`update engagement_plans set status = 'completed' where id = $1`, [ep.id]);
+      completed.push(ep.id);
+    }
+  }
+  return { reconciled: plans.length, completed };
+}
