@@ -22,6 +22,7 @@ Point-in-time audits and superseded runbooks have been moved to
 | Doc | What it is | Status |
 | --- | --- | --- |
 | [00-product-brief](./00-product-brief.md) | The problem, the Assess→Diagnose→Prescribe→Educate→Re-assess loop, users, MVP bar | Reference |
+| [40-vision-and-business-integration](./40-vision-and-business-integration.md) | **Horizon.** Where the software goes + how the company runs its own business plan/internal systems on the same rails (the frame above 20/38) | Strategy |
 | [05-build-plan](./05-build-plan.md) | **Roadmap.** MVP (S1–S15) shipped; current work is production hardening + beta | Reference |
 | [28-architecture-map](./28-architecture-map.md) | The whole system at a glance (Mermaid): layers, request lifecycle, six engines | Canonical |
 | `../CLAUDE.md` | Non-negotiable architecture rules — wins over every doc here | Canonical |
@@ -76,6 +77,7 @@ A developer index: the durable features and the files that own them. Pair with
 ## Strategy & positioning
 | Doc | What it is | Status |
 | --- | --- | --- |
+| [40-vision-and-business-integration](./40-vision-and-business-integration.md) | Horizon frame above the apex — the three loops (product/business/ops) as one nervous system; dogfooding; moats as the financial thesis | Strategy |
 | [20-strategic-positioning](./20-strategic-positioning.md) | Apex strategy — intelligence layer above advisory workflows; 7-layer moat | Strategy |
 | [09-moats](./09-moats.md) | The three data moats (outcome calibration, financial corpus, engagement graph) — the detail 20's moat list folds in | Strategy |
 | [36-competitive-positioning-cfp](./36-competitive-positioning-cfp.md) | Competitive landscape + the CFP-planner go-to-market wedge (market facts are time-sensitive) | Strategy |
