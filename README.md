@@ -26,6 +26,21 @@ and owner report views all have real data. This dev stack runs the built-in
 Supabase emulator with real RLS; it accepts the fixed password 'demo' and is
 for demos and development only.
 
+### Hosted sales demo (sign in from any laptop)
+
+To run a live sales demo on a deployed environment, provision the same demo
+tenant into it and get two logins you control — an **advisor** (full workspace)
+and an **owner** (client portal) on the same engagement:
+
+```sh
+DATABASE_URL='postgresql://…' CLERK_SECRET_KEY='sk_…' \
+  npm run demo:sales -- you@firm.com you+owner@firm.com
+```
+
+One idempotent, firm-scoped command; it never migrates or drops anything. See
+**`docs/37-sales-demo-runbook.md`** for prerequisites, first sign-in, and a
+suggested demo path.
+
 ## Stack
 
 - Supabase (Postgres, Auth, RLS) — single source of truth
