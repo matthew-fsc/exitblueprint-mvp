@@ -92,6 +92,17 @@ function AttentionPanel({ data }: { data: AttentionShape }) {
     <PageSection title="Needs attention" note={`${data.counts.total} item${data.counts.total === 1 ? '' : 's'}`}>
       <div className="attn-grid">
         <AttentionGroup
+          title="Reassessment ready"
+          items={data.reassessmentReady}
+          emphasis
+          onOpen={open}
+          render={(it) =>
+            it.readyPlanCount === 1
+              ? `${it.readyPlanNames} complete — reassess to capture the gains`
+              : `${it.readyPlanCount} plans complete — reassess to capture the gains`
+          }
+        />
+        <AttentionGroup
           title="Reassessment due"
           items={data.reassessmentDue}
           onOpen={open}

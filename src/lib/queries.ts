@@ -48,6 +48,8 @@ export const qk = {
   tasks: (engagementId: string) => ['tasks', engagementId] as const,
   engagementEvents: (engagementId: string) => ['engagementEvents', engagementId] as const,
   advisoryLibrary: () => ['advisoryLibrary'] as const,
+  plans: () => ['plans'] as const,
+  contentModules: () => ['contentModules'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
@@ -339,7 +341,22 @@ export function useCimCoverage(engagementId: string | undefined): UseQueryResult
 export interface AttentionShape {
   generatedAt: string;
   thresholds: { staleDays: number; stalledDays: number; reassessDays: number };
-  counts: { reassessmentDue: number; stalledTasks: number; staleEngagements: number; total: number };
+  counts: {
+    reassessmentReady: number;
+    reassessmentDue: number;
+    stalledTasks: number;
+    staleEngagements: number;
+    total: number;
+  };
+  // "Properly placed" reassessments — a Plan's work finished since the last
+  // measurement (docs/37 PL4). Listed ahead of the time-cadence due list.
+  reassessmentReady: {
+    engagementId: string;
+    companyName: string | null;
+    planCompletedAt: string | null;
+    readyPlanCount: number;
+    readyPlanNames: string | null;
+  }[];
   reassessmentDue: {
     engagementId: string;
     companyName: string | null;
@@ -1174,5 +1191,107 @@ export function useBranding(firmId: string | undefined | null): UseQueryResult<B
       if (error) throw new Error(error.message);
       return (data as BrandingRow) ?? null;
     },
+  });
+}
+
+// ── Plans (docs/37) ──────────────────────────────────────────────────────────
+export type PlanItemKind = 'playbook' | 'education' | 'advisory' | 'milestone' | 'manual_task';
+
+export interface PlanItemView {
+  id: string;
+  item_kind: PlanItemKind;
+  playbook_id: string | null;
+  content_module_id: string | null;
+  advisory_library_item_id: string | null;
+  title: string | null;
+  description: string | null;
+  owner_role: string | null;
+  track: string | null;
+  target_offset_days: number | null;
+  sort_order: number;
+}
+
+export interface PlanView {
+  id: string;
+  firm_id: string | null;
+  is_system: boolean;
+  source: string;
+  code: string | null;
+  lineage_id: string | null;
+  name: string;
+  summary: string | null;
+  plan_version: number;
+  status: string;
+  items: PlanItemView[];
+}
+
+// System Plans + the caller firm's own (server list-plans; RLS + firm filter).
+export function usePlans(): UseQueryResult<PlanView[]> {
+  return useQuery({
+    queryKey: qk.plans(),
+    queryFn: async () => (await invokeFunction<{ plans: PlanView[] }>('list-plans', {})).plans,
+  });
+}
+
+export interface ContentModuleRow {
+  id: string;
+  code: string;
+  title: string;
+}
+
+// The education catalog (global methodology), for the Plan item picker.
+export function useContentModules(): UseQueryResult<ContentModuleRow[]> {
+  return useQuery({
+    queryKey: qk.contentModules(),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('content_modules').select('id,code,title').order('title');
+      if (error) throw error;
+      return (data ?? []) as ContentModuleRow[];
+    },
+  });
+}
+
+// Applied-Plan progress for an engagement (docs/37 PL4).
+export interface EngagementPlanProgressRow {
+  id: string;
+  plan_template_id: string;
+  name: string;
+  status: string;
+  applied_plan_version: number;
+  anchor_date: string | null;
+  total: number;
+  done: number;
+  pct: number;
+  completed_at: string | null;
+}
+
+export function useEngagementPlans(engagementId: string | undefined): UseQueryResult<EngagementPlanProgressRow[]> {
+  return useQuery({
+    queryKey: ['engagementPlans', engagementId ?? ''],
+    enabled: !!engagementId,
+    queryFn: async () =>
+      (await invokeFunction<{ plans: EngagementPlanProgressRow[] }>('list-engagement-plans', {
+        engagement_id: engagementId,
+      })).plans,
+  });
+}
+
+// Score-driven Plan recommendations for an engagement (docs/37 Q5).
+export interface PlanRecommendationRow {
+  plan_template_id: string;
+  name: string;
+  is_system: boolean;
+  matched_gap_count: number;
+  matched_gap_codes: string[];
+}
+
+export function useRecommendedPlans(engagementId: string | undefined): UseQueryResult<PlanRecommendationRow[]> {
+  return useQuery({
+    queryKey: ['recommendedPlans', engagementId ?? ''],
+    enabled: !!engagementId,
+    queryFn: async () =>
+      (await invokeFunction<{ recommendations: PlanRecommendationRow[] }>('recommend-plans', {
+        engagement_id: engagementId,
+      })).recommendations,
   });
 }

@@ -42,8 +42,11 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
 
 | Sub-processor | Purpose | Data exposure | Region |
 | --- | --- | --- | --- |
-| **Supabase** | Postgres database, authentication, object storage | All client records (encrypted at rest; RLS-isolated) | US |
-| **Vercel** | Frontend hosting + serverless compute (functions, PDF render) | Transient request/response only | US |
+| **Supabase** | Postgres database, row-level security, object storage | All client records (encrypted at rest; RLS-isolated) | US |
+| **Clerk** | Identity provider — authentication, MFA, org/user management | User identity + session data (names, emails, auth tokens); no client business records | US |
+| **Render** | Compute service hosting (valuation, report + PDF render, webhooks) | Transient request/response only; no client data at rest | US |
+| **Vercel** | Static frontend hosting (Vite single-page app) | Serves the browser app; no client data at rest | US |
+| **Stripe** | Subscription billing + payments for advisor firms | Firm billing/payment data; no client assessment records | US |
 | **Anthropic** | AI narrative drafted from already-structured data | Report inputs only; never trains on data; never scores | US |
 
 - Sub-processors are limited to those above; each is a reputable provider with its
@@ -72,7 +75,7 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
   (encrypted volumes).
 - **Encryption in transit (§1):** ✅ all traffic over TLS/HTTPS; modern TLS only.
 - **Third-party credential storage (§2):** No — we do not store customers' external
-  usernames/passwords. Auth is delegated to Supabase (hashed, salted).
+  usernames/passwords. Auth is delegated to Clerk, our identity provider.
 - **Third-party access to customer data (§3):** limited to the sub-processors in §3;
   no human at those providers has application-level access to firm records under RLS.
 - **Backups (§4):** ✅ Supabase managed backups with point-in-time recovery;
@@ -95,8 +98,8 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
 - **Vendor risk assessment before access (§3–5):** 📄 sub-processors are vetted at
   onboarding; 🟡 a formal annual re-assessment percentage target is not yet tracked.
 - **AV / firewall / patching / NAC / IDS (§6–12):** infrastructure controls are
-  inherited from Supabase and Vercel (managed platforms with provider-run WAF,
-  patching, and network controls). Application dependencies are 🟡 to be put under a
+  inherited from our managed platform providers (Supabase, Render, Vercel, Clerk —
+  with provider-run WAF, patching, and network controls). Application dependencies are 🟡 to be put under a
   scheduled vulnerability-scan (e.g. `npm audit` in CI) — named here as the next
   concrete CI hardening step.
 - **TLS version (§9):** ✅ TLS 1.2+ only; no SSL/legacy TLS.
@@ -108,14 +111,14 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
 - **Primary data location (§1):** United States (Supabase US region).
 - **Access-rights review (§2):** ✅ access is governed by RLS + roles (admin,
   advisor, reviewer, owner); 📄 a formal periodic access-review cadence is defined.
-- **Password controls (§3):** ✅ delegated to Supabase Auth (hashing, salting,
-  strength enforcement).
+- **Password controls (§3):** ✅ delegated to Clerk (hashing, salting, strength
+  enforcement, and passwordless options).
 - **Privileged-user review (§4):** 📄 admin accounts are limited and reviewed; the
   admin role's reach is defined by RLS policy, not ad-hoc grants.
 - **Automatic shutdown of inactive sessions (§5):** ✅ implemented — the app signs a
   user out after 30 minutes of inactivity (`src/lib/auth.tsx`, `IDLE_TIMEOUT_MS`).
 - **MFA:** ✅ TOTP MFA is **required for advisor and admin accounts**, enforced at
-  sign-in via Supabase authenticator assurance level.
+  sign-in via Clerk's MFA policy.
 
 ## 8. Business continuity
 
@@ -124,9 +127,9 @@ one-page advisor-facing summary); this document is the questionnaire-shaped view
 - **Data durability:** Supabase managed Postgres with automated backups + PITR;
   application code and infrastructure config are versioned in git and redeployable
   from source.
-- **Availability:** Vercel provides redundant, multi-region edge hosting for the
-  frontend; the compute layer is stateless and horizontally redeployable behind the
-  `FunctionContext` seam (docs/archive/10) — a host change requires no code change.
+- **Availability:** Vercel hosts the static frontend; the compute service runs on
+  Render and is stateless and horizontally redeployable behind the `FunctionContext`
+  seam (docs/archive/10) — a host change requires no code change.
 - **Recovery:** RTO/RPO targets are documented here; recovery is: restore Supabase
   to a point in time, redeploy from git, re-point DNS. 🟡 a scheduled DR *test* with
   a recorded last-tested date is the next step (the packet asks for test cadence).
