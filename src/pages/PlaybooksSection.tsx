@@ -12,12 +12,16 @@ import {
   type PlaybookCatalogRow,
   type PlaybookTaskTemplateRow,
 } from '../lib/queries';
-import { Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, SkeletonLines } from '../components/ui';
+import { Card, ConfirmDialog, EmptyState, ErrorState, SkeletonLines } from '../components/ui';
 
 // Firm-authorable playbooks + content modules. System rows are shared
 // methodology (read-only, but one-click "Adapt" clones an editable firm copy);
 // firm rows are the firm's own IP. This mirrors the Advisory Library authoring
 // surface (LibraryPage) and feeds the same catalog the Plan builder reads.
+//
+// Rendered as the "Playbooks" sub-view of the Plans page (they were merged into
+// one tab — a Plan bundles playbooks, so they belong together); no PageHeader of
+// its own, just a lead-in line and its own "Add firm playbook" action.
 
 const DIMENSION_LABEL: Record<string, string> = {
   REV: 'Revenue Quality',
@@ -221,7 +225,7 @@ function PlaybookForm({
   );
 }
 
-export default function PlaybooksPage() {
+export function PlaybooksSection() {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const firmId = profile?.firm_id ?? null;
@@ -343,16 +347,17 @@ export default function PlaybooksPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader
-        title="Playbooks"
-        crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Playbooks' }]}
-        subtitle="Remediation playbooks and their task steps. System playbooks are shared methodology; your firm authors and maintains its own, and firm playbooks appear in the Plan builder alongside them."
-        actions={
-          canAuthor && (
-            <button onClick={openCreate}>{form?.mode === 'create' ? 'Cancel' : 'Add firm playbook'}</button>
-          )
-        }
-      />
+      <div className="control-row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+        <p className="muted m-0">
+          Remediation playbooks and their task steps. System playbooks are shared methodology; your firm authors and
+          maintains its own, and firm playbooks appear in the Plan builder alongside them.
+        </p>
+        {canAuthor && (
+          <button onClick={openCreate} style={{ flexShrink: 0 }}>
+            {form?.mode === 'create' ? 'Cancel' : 'Add firm playbook'}
+          </button>
+        )}
+      </div>
 
       {form && canAuthor && (
         <PlaybookForm
