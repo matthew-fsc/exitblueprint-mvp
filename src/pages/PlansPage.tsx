@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction } from '../lib/supabase';
@@ -11,6 +12,7 @@ import {
   usePlans,
   usePlaybooks,
   type PlanItemKind,
+  type PlanItemView,
   type PlanView,
 } from '../lib/queries';
 import {
@@ -21,9 +23,13 @@ import {
   PageHeader,
   SectionCard,
   SkeletonLines,
+  SubTabs,
+  subTabId,
+  subTabPanelId,
   useToast,
 } from '../components/ui';
 import { humanizeKey } from '../lib/format';
+import { PlaybooksSection } from './PlaybooksSection';
 
 // Plans (docs/37): reusable initiative bundles an advisor curates and applies to
 // an engagement. This surface lists system + firm Plans, lets an advisor author a
@@ -84,6 +90,20 @@ interface DraftItem {
 }
 const emptyItem = (): DraftItem => ({ kind: 'playbook', ref_id: '', title: '', track: 'business', owner_role: 'owner' });
 
+// Inverse of toPayloadItem: seed an editable draft row from a stored plan item so
+// an existing Plan can be re-opened in the authoring form (edit mode).
+function toDraftItem(it: PlanItemView): DraftItem {
+  return {
+    kind: it.item_kind,
+    ref_id: it.playbook_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '',
+    title: it.title ?? '',
+    track: (TRACKS as readonly string[]).includes(it.track ?? '') ? (it.track as DraftItem['track']) : 'business',
+    owner_role: (OWNER_ROLES as readonly string[]).includes(it.owner_role ?? '')
+      ? (it.owner_role as DraftItem['owner_role'])
+      : 'owner',
+  };
+}
+
 // Map a draft row to the create-plan item payload for its kind.
 function toPayloadItem(d: DraftItem): Record<string, unknown> | null {
   switch (d.kind) {
@@ -118,6 +138,17 @@ export default function PlansPage() {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
+  // Sub-view: Plans (bundles) vs Playbooks (their building blocks). Kept in the
+  // URL (?view=) so /playbooks can redirect here and links are shareable.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view: 'plans' | 'playbooks' = searchParams.get('view') === 'playbooks' ? 'playbooks' : 'plans';
+  const selectView = (key: string) =>
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (key === 'playbooks') next.set('view', 'playbooks');
+      else next.delete('view');
+      return next;
+    });
   const plansQ = usePlans();
   const engagementsQ = useEngagements();
   const companiesQ = useCompanies();
@@ -145,8 +176,9 @@ export default function PlansPage() {
     return m;
   }, [companiesQ.data]);
 
-  // Authoring form state.
-  const [showForm, setShowForm] = useState(false);
+  // Authoring form state. `form` is null when closed, else create- or edit-mode
+  // (edit carries the source Plan). The field state below is shared by both modes.
+  const [form, setForm] = useState<{ mode: 'create' | 'edit'; plan?: PlanView } | null>(null);
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
   const [items, setItems] = useState<DraftItem[]>([emptyItem()]);
@@ -154,25 +186,50 @@ export default function PlansPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Which plan's item list is expanded (view what's inside a Plan).
+  const [expandedFor, setExpandedFor] = useState<string | null>(null);
+
   // Apply state, keyed by the plan being applied.
   const [applyFor, setApplyFor] = useState<string | null>(null);
   const [applyEngagement, setApplyEngagement] = useState('');
   const [applyAnchor, setApplyAnchor] = useState('');
 
-  const resetForm = () => {
+  const closeForm = () => {
     setName('');
     setSummary('');
     setItems([emptyItem()]);
     setStatus('active');
     setFormError(null);
-    setShowForm(false);
+    setForm(null);
+  };
+
+  const openCreate = () => {
+    setName('');
+    setSummary('');
+    setItems([emptyItem()]);
+    setStatus('active');
+    setFormError(null);
+    setApplyFor(null);
+    setForm({ mode: 'create' });
+  };
+
+  // Seed the shared form state from an existing Plan and open it in edit mode.
+  const openEdit = (plan: PlanView) => {
+    setName(plan.name);
+    setSummary(plan.summary ?? '');
+    setItems(plan.items.length ? plan.items.map(toDraftItem) : [emptyItem()]);
+    setStatus(plan.status === 'active' ? 'active' : 'draft');
+    setFormError(null);
+    setApplyFor(null);
+    setForm({ mode: 'edit', plan });
   };
 
   const setItem = (idx: number, patch: Partial<DraftItem>) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
-  const submitCreate = async (e: FormEvent) => {
+  const submitForm = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form) return;
     if (!name.trim()) {
       setFormError('a plan name is required');
       return;
@@ -191,17 +248,37 @@ export default function PlansPage() {
     setBusy(true);
     setFormError(null);
     try {
-      await invokeFunction('create-plan', {
-        name: name.trim(),
-        summary: summary.trim() || null,
-        status,
-        items: payloadItems,
-      });
-      toast.show(status === 'draft' ? 'Draft plan saved' : 'Plan created', 'good');
-      resetForm();
+      if (form.mode === 'edit' && form.plan) {
+        // update-plan edits a draft in place; an active Plan is immutable, so the
+        // server mints a new version and retires the current one (server/plans.ts).
+        await invokeFunction('update-plan', {
+          id: form.plan.id,
+          name: name.trim(),
+          summary: summary.trim() || null,
+          status,
+          items: payloadItems,
+        });
+        toast.show(
+          form.plan.status === 'active'
+            ? `Saved as version ${form.plan.plan_version + 1}`
+            : status === 'active'
+              ? 'Plan updated and activated'
+              : 'Draft plan updated',
+          'good',
+        );
+      } else {
+        await invokeFunction('create-plan', {
+          name: name.trim(),
+          summary: summary.trim() || null,
+          status,
+          items: payloadItems,
+        });
+        toast.show(status === 'draft' ? 'Draft plan saved' : 'Plan created', 'good');
+      }
+      closeForm();
       qc.invalidateQueries({ queryKey: qk.plans() });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'could not create the plan');
+      setFormError(err instanceof Error ? err.message : 'could not save the plan');
     } finally {
       setBusy(false);
     }
@@ -255,6 +332,21 @@ export default function PlansPage() {
   const findOption = (kind: PlanItemKind, id: string): RefOption | undefined =>
     id ? refOptions(kind).find((o) => o.id === id) : undefined;
 
+  // Resolve a stored plan item to a readable line for the "what's inside" view.
+  // Ref kinds resolve their label/metadata through the loaded catalogs; milestone
+  // and manual_task carry their content inline.
+  const describeItem = (
+    it: PlanItemView,
+  ): { label: string; dimension: string | null; severity: string | null; meta: string | null } => {
+    if (it.item_kind === 'milestone')
+      return { label: it.title ?? '(untitled milestone)', dimension: null, severity: null, meta: it.track };
+    if (it.item_kind === 'manual_task')
+      return { label: it.title ?? '(untitled task)', dimension: null, severity: null, meta: it.owner_role };
+    const refId = it.playbook_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '';
+    const opt = findOption(it.item_kind, refId);
+    return { label: opt?.label ?? 'Unknown item', dimension: opt?.dimension ?? null, severity: opt?.severity ?? null, meta: null };
+  };
+
   // Resolve a draft row to a readable preview line (null when still incomplete).
   const resolvePreview = (
     d: DraftItem,
@@ -274,20 +366,49 @@ export default function PlansPage() {
       <PageHeader
         title="Plans"
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Plans' }]}
-        subtitle="Reusable bundles of playbooks, education, advisory items, milestones, and tasks. System Plans are shared methodology; your firm authors its own. Apply a Plan to an engagement to lay its work onto the roadmap."
-        actions={
-          canAuthor && (
-            <button onClick={() => (showForm ? resetForm() : setShowForm(true))}>
-              {showForm ? 'Cancel' : 'New plan'}
-            </button>
-          )
-        }
+        subtitle="Reusable bundles of playbooks, education, advisory items, milestones, and tasks — and the playbooks they’re built from. System content is shared methodology; your firm authors its own. Apply a Plan to an engagement to lay its work onto the roadmap."
       />
 
-      {showForm && canAuthor && (
+      <div className="plans-toolbar">
+        <SubTabs
+          tabs={[
+            { key: 'plans', label: 'Plans', badge: plans.length || undefined },
+            { key: 'playbooks', label: 'Playbooks', badge: playbooksQ.data?.size || undefined },
+          ]}
+          activeKey={view}
+          ariaLabel="Plans sections"
+          onSelect={selectView}
+        />
+        {view === 'plans' && canAuthor && (
+          <button onClick={() => (form ? closeForm() : openCreate())}>
+            {form ? 'Cancel' : 'New plan'}
+          </button>
+        )}
+      </div>
+
+      <div
+        className="subtabs-panel"
+        role="tabpanel"
+        id={subTabPanelId(view)}
+        aria-labelledby={subTabId(view)}
+        tabIndex={0}
+      >
+        {view === 'playbooks' ? (
+          <PlaybooksSection />
+        ) : (
+          <div className="stack-lg">
+            {form && canAuthor && (
         <Card>
-          <form className="advisory-form" onSubmit={submitCreate}>
-            <h3 className="m-0">New firm plan</h3>
+          <form className="advisory-form" onSubmit={submitForm}>
+            <h3 className="m-0">
+              {form.mode === 'edit' ? `Edit plan — ${form.plan?.name}` : 'New firm plan'}
+            </h3>
+            {form.mode === 'edit' && form.plan?.status === 'active' && (
+              <p className="muted text-xs m-0">
+                This plan is active. Saving creates version {form.plan.plan_version + 1} and retires the current
+                version — engagements you’ve already applied it to keep their pinned version.
+              </p>
+            )}
             <label>
               Name
               <input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -405,17 +526,31 @@ export default function PlansPage() {
 
             {formError && <ErrorState variant="inline" error={formError} />}
             <div className="advisory-form-actions">
-              <label>
-                Save as
-                <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
-                  <option value="active">Active — visible to apply now</option>
-                  <option value="draft">Draft — keep authoring, not yet applicable</option>
-                </select>
-              </label>
+              {/* Editing an active plan always mints a new active version — no status
+                  choice there. Creating or editing a draft can pick draft vs active. */}
+              {!(form.mode === 'edit' && form.plan?.status === 'active') && (
+                <label>
+                  Save as
+                  <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
+                    <option value="active">Active — visible to apply now</option>
+                    <option value="draft">Draft — keep authoring, not yet applicable</option>
+                  </select>
+                </label>
+              )}
               <button type="submit" disabled={busy}>
-                {busy ? 'Saving…' : status === 'draft' ? 'Save draft' : 'Create plan'}
+                {busy
+                  ? 'Saving…'
+                  : form.mode === 'edit'
+                    ? form.plan?.status === 'active'
+                      ? 'Save new version'
+                      : status === 'active'
+                        ? 'Activate plan'
+                        : 'Save changes'
+                    : status === 'draft'
+                      ? 'Save draft'
+                      : 'Create plan'}
               </button>
-              <button type="button" className="button-secondary" onClick={resetForm}>
+              <button type="button" className="button-secondary" onClick={closeForm}>
                 Cancel
               </button>
             </div>
@@ -448,19 +583,56 @@ export default function PlansPage() {
                     {plan.status !== 'active' && <span className="advisory-tag advisory-tag-inactive">{plan.status}</span>}
                   </p>
                   {plan.summary && <p className="advisory-item-body">{plan.summary}</p>}
-                  <PlanItemSummary plan={plan} />
+                  <div className="plan-item-row">
+                    <PlanItemSummary plan={plan} />
+                    {plan.items.length > 0 && (
+                      <button
+                        type="button"
+                        className="linkish"
+                        onClick={() => setExpandedFor(expandedFor === plan.id ? null : plan.id)}
+                        aria-expanded={expandedFor === plan.id}
+                      >
+                        {expandedFor === plan.id ? 'Hide items' : 'View items'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <button
-                  className="button-secondary"
-                  onClick={() => {
-                    setApplyFor(applyFor === plan.id ? null : plan.id);
-                    setApplyEngagement('');
-                    setApplyAnchor('');
-                  }}
-                >
-                  {applyFor === plan.id ? 'Cancel' : 'Apply to engagement'}
-                </button>
+                <div className="plans-card-actions">
+                  {canAuthor && !plan.is_system && (
+                    <button className="button-secondary" onClick={() => openEdit(plan)}>
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    className="button-secondary"
+                    onClick={() => {
+                      setApplyFor(applyFor === plan.id ? null : plan.id);
+                      setApplyEngagement('');
+                      setApplyAnchor('');
+                    }}
+                  >
+                    {applyFor === plan.id ? 'Cancel' : 'Apply to engagement'}
+                  </button>
+                </div>
               </div>
+
+              {expandedFor === plan.id && (
+                <div className="plan-items-detail plans-items">
+                  <span className="advisory-detail-label">In this plan</span>
+                  {plan.items.map((it) => {
+                    const d = describeItem(it);
+                    return (
+                      <div key={it.id} className="plan-item-row">
+                        <span className="advisory-tag">{KIND_LABEL[it.item_kind]}</span>
+                        <strong>{d.label}</strong>
+                        {d.dimension && <span className="advisory-tag">{humanizeKey(d.dimension)}</span>}
+                        {d.severity && <GapSeverityChip severity={d.severity} />}
+                        {d.meta && <span className="muted text-xs">{humanizeKey(d.meta)}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {applyFor === plan.id && (
                 <div className="plan-apply-row">
@@ -488,6 +660,9 @@ export default function PlansPage() {
           ))}
         </div>
       )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
