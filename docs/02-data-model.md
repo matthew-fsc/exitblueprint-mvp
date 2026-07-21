@@ -240,10 +240,43 @@ action: meetings, decisions, and the rationale behind recommendations.
 
 **tasks**
 - firm_id, engagement_id, gap_id nullable, playbook_id nullable, title, description, owner_role, assigned_to_name, status (todo|doing|done|blocked), due_date, sequence
+- **engagement_plan_id nullable** (fk engagement_plans) — provenance annotation: a task can be gap-derived (gap_id set) or plan-applied (engagement_plan_id set), living in the same table (see Plans below).
+- **completed_at nullable** — stamped when status → done; powers Applied-Plan progress and stalled-task detection.
 
 **generated_documents**
-- firm_id, engagement_id, assessment_id, doc_type (owner_report|advisor_brief|engagement_summary), content_md, prompt_version, model, created_at
-- finalized_at timestamptz null — AI output is a labeled draft until the advisor edits and finalizes (S8)
+- firm_id, engagement_id, assessment_id, doc_type (owner_report|advisor_brief|delta_report|cim|engagement_summary), content_md, prompt_version, model, created_at
+- finalized_at timestamptz null — AI output is a labeled draft until the advisor edits and finalizes (S8). The **CIM** owner-read is gated on finalized_at (migration 20260721000600) so the buyer-facing draft stays firm-private until sign-off.
+- The document suite (which doc types exist, their title/filename/audience/owner-visibility) is declared once in `shared/documents/catalog.ts` and rendered by the **Deliverables studio** (docs/17 §5); the server render path is `render-document-pdf` (`server/documents/catalog.ts`).
+
+## Plans (prescription bundles — docs/37)
+
+A **Plan** is a curated, versioned, reusable bundle of references to existing
+primitives (playbooks, education/advisory items, inline milestones/manual tasks) —
+prescription authored **top-down**, alongside the gap-driven roadmap's **bottom-up**
+prescription. Plans write **only** to prescription tables (`tasks`,
+`roadmap_milestones`); they never touch scoring (rule 1) and need no `rubric_version`.
+Full design + as-built reference: **docs/37**. Shipped in
+`20260721000100_plans.sql` (+ `…000200_plan_lineage.sql`, `…000300_task_completed_at.sql`).
+
+**plan_templates** — the reusable Plan header (template)
+- firm_id **nullable** (null = system/seed methodology Plan; set = firm-authored), source (system|advisor), code (system idempotency), name, summary, plan_version (rule 6), status (draft|active|retired), created_by
+- RLS mirrors `advisory_library_items`: everyone reads system rows (firm_id null, service-role writes only); a firm has full CRUD on its own.
+
+**plan_template_items** — the ordered contents of a Plan template
+- firm_id (mirrors parent), plan_template_id, item_kind (playbook|education|advisory|milestone|manual_task), the matching reference column per kind (playbook_id / content_module_id / advisory_library_item_id) or inline copy (title/description/owner_role/track/target_offset_days), sort_order
+- A check constraint enforces the right reference column per item_kind.
+
+**engagement_plans** — the **immutable** applied-plan instance (mirrors assessments→rubric_version, rule 4)
+- firm_id, engagement_id, plan_template_id, applied_plan_version (the version pinned at apply time), name (snapshot), anchor_date, applied_by, applied_at, status (active|completed|removed)
+- Owner-readable (Q3): owner-read RLS mirrors `roadmap_milestones.owner_engagement_read`.
+
+**engagement_plan_items** — immutable snapshot of what was applied, with pointers to the concrete rows produced (task_id / milestone_id / content/advisory ids), source_plan_template_item_id for lineage, snapshotted item_kind.
+
+Applying a Plan (`apply-plan`, engine `workflow`) reuses the shared playbook→tasks
+instantiation with the **once-per-engagement `(playbook_id, sequence)` idempotency**
+(`server/roadmap.ts`), tags the rows with `engagement_plan_id`, and never duplicates a
+playbook a gap already instantiated. Progress is **computed**, not stored. Removing a
+Plan is a soft `status='removed'`.
 
 ## Outcome capture (schema only in v1 — no UI, no API)
 

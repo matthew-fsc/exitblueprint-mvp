@@ -26,6 +26,34 @@ Point-in-time audits and superseded runbooks have been moved to
 | [28-architecture-map](./28-architecture-map.md) | The whole system at a glance (Mermaid): layers, request lifecycle, six engines | Canonical |
 | `../CLAUDE.md` | Non-negotiable architecture rules — wins over every doc here | Canonical |
 
+## Find the code fast — feature → where it lives
+
+A developer index: the durable features and the files that own them. Pair with
+[28-architecture-map](./28-architecture-map.md) (the visual module map) and
+[27-engineering-patterns](./27-engineering-patterns.md) (how to add one).
+
+| Feature | Owns it (code) | Doc |
+| --- | --- | --- |
+| Compute gateway + function registry | `server/functions.ts`, `server/registry.ts` | 28 §2, 27 |
+| Identity (Clerk) + RLS | `server/auth-jwt.ts`, `server/http.ts`, migrations | 30, 28 |
+| Deterministic scoring (DRS/ORI) | `shared/scoring/engine.ts` · `seed/fixtures/reference_scorer.py` | 03, 07 |
+| Assessment lifecycle (immutable) | `server/scoring.ts`, `supabase/migrations/*` | 02, 03 |
+| Roadmap & tasks | `server/roadmap.ts` | 02, 17 §2 |
+| **Plans** (initiative bundles) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |
+| **Deliverables studio** (owner report · delta · CIM) | `src/pages/DeliverablesPage.tsx` · `src/components/DocumentCurator.tsx` · `shared/documents/catalog.ts` · `server/documents/catalog.ts` | 17 §5 |
+| CIM (readiness + generation) | `shared/cim/template.ts`, `server/cim.ts` | 17 §5 |
+| Narrative (AI, draft-only) | `server/narrative.ts` | 04 |
+| Valuation & comparables | `server/valuation.ts`, `server/comparables.ts` | 17 §4 |
+| Evidence (data room · docs · verification) | `server/data-room.ts`, `server/documents/*`, `server/verification.ts` | 02, 17 §3 |
+| Secure document storage + scan | `server/documents/{storage,scanner,crypto,signed-url}.ts` | 02 |
+| Billing (Stripe) + entitlements gate | `server/stripe.ts`, `server/entitlements.ts` | 24 |
+| **Org controls** (admin role · pro directory · assignment) | `server/organization.ts` · `src/pages/OrganizationPage.tsx` · `src/components/EngagementProfessionalsCard.tsx` | 02 |
+| Advisor onboarding checklist | `src/components/GettingStarted.tsx` | 06 (log) |
+| Mobile responsive pass | `src/styles.css` (Mobile section), `AppNav` | 06 (log) |
+| Design system (tokens/components/format) | `src/components/ui/*`, `src/lib/format.ts` | 26 |
+| Scheduled webhooks (n8n) | `server/scheduled.ts` | 08 |
+| Observability (Sentry seam) | `server/observability.ts`, frontend seam | 32 |
+
 ## Build canon (read before you change the matching thing)
 | Doc | What it is | Status |
 | --- | --- | --- |
@@ -43,7 +71,7 @@ Point-in-time audits and superseded runbooks have been moved to
 | [17-sellside-workstreams-ux](./17-sellside-workstreams-ux.md) | The five sell-side work streams and the nav that groups them | Reference |
 | [19-vision-workstreams-ux](./19-vision-workstreams-ux.md) | North-star: vision + methodology + work streams + IA in one place (superset of 17) | Strategy |
 | [18-cfp-cepa-workflow-alignment](./18-cfp-cepa-workflow-alignment.md) | Maps CEPA / CFP workflows onto the product's work streams | Strategy |
-| [37-programs-plans-design](./37-programs-plans-design.md) | Design proposal for reusable "Plans" — advisor-curated bundles of playbooks/tasks/education/milestones applied to an engagement | Strategy |
+| [37-plans](./37-programs-plans-design.md) | **Plans (shipped)** — reusable advisor-curated bundles of playbooks/tasks/education/milestones applied to an engagement; the design record **and** as-built reference | Reference |
 
 ## Strategy & positioning
 | Doc | What it is | Status |
@@ -63,19 +91,18 @@ Point-in-time audits and superseded runbooks have been moved to
 | [16-vendor-security-dd](./16-vendor-security-dd.md) | Full vendor-security-DD questionnaire response + open-items list | Reference |
 | [15-buyer-expectations-and-vendor-dd](./15-buyer-expectations-and-vendor-dd.md) | Analysis of real DD artifacts → rubric/data-room/vendor-DD work | Reference |
 
-> ⚠️ **Known gap (needs Matthew sign-off):** the subprocessor register
-> (`seed/subprocessors.csv`, surfaced by 13 & 16) predates the Clerk + Stripe +
-> Render migration — it still credits Supabase for "authentication" and Vercel for
-> "compute" and omits **Clerk**, **Render**, and **Stripe**. Tracked as roadmap
-> item **P5.4** in [05-build-plan](./05-build-plan.md). Not edited here because it
-> is customer-facing compliance language.
+> ✅ **Subprocessor register reconciled (P5.4 done).** `seed/subprocessors.csv`,
+> 13, and 16 now name the same current vendor set — **Supabase** (Postgres/RLS/storage),
+> **Clerk** (identity/MFA), **Render** (compute), **Vercel** (frontend), **Stripe**
+> (billing), **Anthropic** (narrative) — with Supabase no longer credited for
+> authentication. Keep the three in sync when the vendor set changes.
 
 ## Production & operations
 | Doc | What it is | Status |
 | --- | --- | --- |
 | [24-production-readiness-clerk-stripe](./24-production-readiness-clerk-stripe.md) | The v2 master plan — Clerk + Stripe + remaining ops/legal gaps (re-baselines archived doc 10) | Reference |
 | [29-exitblueprint-net-golive](./29-exitblueprint-net-golive.md) | The live go-live runbook for exitblueprint.net (auth steps → 30) | Runbook |
-| [37-sales-demo-runbook](./37-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`) | Runbook |
+| [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`) | Runbook |
 | [30-clerk-cutover-runbook](./30-clerk-cutover-runbook.md) | **Identity is Clerk.** The auth cutover + provisioning webhook | Runbook |
 | [31-production-debug-db-errors](./31-production-debug-db-errors.md) | Troubleshooting Clerk↔Supabase RLS "database errors" | Runbook |
 | [32-observability](./32-observability.md) | Sentry seam (frontend + compute); no-op until DSN set | Runbook |

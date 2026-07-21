@@ -12,6 +12,18 @@ was made. Do not scaffold ahead of the current slice.
 > MVP slice list is kept at the bottom for provenance, corrected where the shipped
 > reality diverged from the original wording (auth is **Clerk**, not Supabase Auth;
 > the advisor brief shipped as **`delta_report.v1`**, not `advisor_brief.v1`).
+>
+> **Shipped since (July 2026), beyond Phase 5:** **Plans** — reusable
+> advisor-curated initiative bundles (PL1–PL4 + owner view + score-suggested;
+> **docs/37**); the **Deliverables studio** — the three client documents (owner
+> report · delta report · CIM) consolidated into one studio + a single render
+> catalog, CIM now owner-visible on finalize (docs/17 §5); **white-label org
+> controls** — a real `admin` organizational role, a firm professional directory,
+> and admin-only engagement assignment (docs/02 "Organizational controls"); a
+> mobile optimization pass (2 rounds), an advisor first-run onboarding checklist,
+> and a one-command hosted **sales-demo** tenant (docs/39). See the decisions log
+> (docs/06) for each. **P5.4 (subprocessor reconciliation) is done** — the register
+> now names Supabase/Clerk/Render/Vercel/Stripe/Anthropic (see below).
 
 ## Where the source of truth now lives
 
@@ -54,14 +66,12 @@ Slice (Matthew-owned): ratify the data-handling language and legal pages, then
 drop the draft banners.
 Accept: no user-facing page renders a "draft/pending counsel" banner in production.
 
-**P5.4 Subprocessor & security-doc reconciliation.** The subprocessor register
-(`seed/subprocessors.csv`, surfaced by `docs/13` and `docs/16`) predates the Clerk
-+ Stripe + Render migration: it still lists Supabase for "authentication" and
-Vercel for "compute," and omits **Clerk** (identity/MFA), **Render** (compute),
-and **Stripe** (billing). Slice (Matthew-owned, customer-facing): reconcile the
-register and the `docs/13`/`docs/16` security responses to the real vendor set.
-Accept: `docs/13`, `docs/16`, and `seed/subprocessors.csv` name the same,
-currently-accurate subprocessors.
+**P5.4 Subprocessor & security-doc reconciliation.** ✅ **Done.** The register
+(`seed/subprocessors.csv`) and the `docs/13`/`docs/16` security responses now name
+the same, currently-accurate vendor set — **Supabase** (Postgres/RLS/storage),
+**Clerk** (identity/MFA), **Render** (compute), **Vercel** (static frontend),
+**Stripe** (billing), **Anthropic** (narrative) — with Supabase no longer credited
+for authentication. Any further tuning is copy, not a gap.
 
 **P5.5 Open security items.** Track the 🟡 items in `docs/16` to closure or an
 explicit "post-beta" decision: SOC 2 path, penetration test, BCP test cadence,
@@ -74,8 +84,9 @@ Accept: each open item is either closed or has a dated owner + target in `docs/1
   (`server/ledger-oauth.ts`), but the owner `/portal/connect` route is deliberately
   disabled (redirects to `/portal`) — "not offered yet." Promote when there's
   demand.
-- Benchmarking analytics across firms, white-label theming, firm-admin console
-  beyond the current platform-admin surface, external financial-data ingestion.
+- Benchmarking analytics across firms and external financial-data ingestion.
+  (White-label branding + firm-admin org controls **shipped** — see "Shipped since"
+  above and docs/02 "Organizational controls"; no longer on this list.)
 - Decision point on outside engineering help (e.g. real-time analytics) sits after
   meaningful assessment volume exists.
 
