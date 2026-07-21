@@ -233,10 +233,11 @@ export default function DashboardPage() {
 
   const isLoading = portfolioQ.isLoading;
   const engagements = engagementsQ.data ?? [];
-  // First-run activation checklist: shown until the firm records its first
-  // assessment, then it self-dismisses so an established book never sees it.
-  const showGettingStarted =
-    !isLoading && !engagementsQ.isLoading && assessed.length === 0;
+  // First-run activation checklist. It stays until every activation step is
+  // done (including embedding firm knowledge and loading the professional
+  // network) or the advisor dismisses it — GettingStarted itself renders null
+  // in those cases, so here we only gate on the data being loaded.
+  const showGettingStarted = !isLoading && !engagementsQ.isLoading;
   const filtersActive = tier !== 'all' || move !== 'all';
   // Two distinct empty states: a genuinely empty book vs. filters that excluded
   // everything — telling a user with a full book to "add your first client"
@@ -297,6 +298,7 @@ export default function DashboardPage() {
           engagementCount={engagements.length}
           hasAgreement={!!agreement}
           firstEngagementId={engagements[0]?.id ?? null}
+          assessedCount={assessed.length}
           onAddEngagement={() => setAdding(true)}
         />
       )}

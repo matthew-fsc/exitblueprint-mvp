@@ -18,6 +18,17 @@ const TYPE_LABEL: Record<AdvisoryItemType, string> = {
   education: 'Education',
 };
 const DIMENSIONS = ['REV', 'FIN', 'OPS', 'CUS', 'MGT', 'GRW'];
+// Human-readable dimension names (canonical, from seed/drs-rubric-dimensions.csv).
+// The form shows these; the underlying code is what gets stored.
+const DIMENSION_LABEL: Record<string, string> = {
+  REV: 'Revenue Quality',
+  FIN: 'Financial Integrity',
+  OPS: 'Operational Independence',
+  CUS: 'Customer Risk',
+  MGT: 'Management and Team',
+  GRW: 'Growth Drivers',
+};
+const dimensionLabel = (code: string) => DIMENSION_LABEL[code] ?? code;
 const SEVERITIES = ['critical', 'high', 'med', 'low'];
 
 // The authoring form's field state. Kept as strings for the controlled inputs;
@@ -102,22 +113,14 @@ function AuthoringForm({
             </select>
           </label>
           <label>
-            Dimension
+            Readiness area
             <select value={v.dimension_code} onChange={(e) => set('dimension_code', e.target.value)}>
               {DIMENSIONS.map((d) => (
                 <option key={d} value={d}>
-                  {d}
+                  {dimensionLabel(d)}
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Sub-score code (optional)
-            <input
-              value={v.sub_score_code}
-              onChange={(e) => set('sub_score_code', e.target.value)}
-              placeholder="e.g. OPS-HOURS"
-            />
           </label>
           <label>
             Severity
@@ -128,16 +131,6 @@ function AuthoringForm({
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Fires at score ≤
-            <input
-              type="number"
-              value={v.score_trigger}
-              onChange={(e) => set('score_trigger', e.target.value)}
-              min={0}
-              max={100}
-            />
           </label>
         </div>
         <label>
@@ -165,6 +158,37 @@ function AuthoringForm({
           Documentation needed (optional)
           <textarea value={v.data_needed} onChange={(e) => set('data_needed', e.target.value)} rows={2} />
         </label>
+        {/* Rubric-internal targeting. Collapsed by default so an advisor can save
+            an item without understanding the DRS internals — sensible defaults
+            (dimension above + trigger 70) already make it fire. */}
+        <details className="advisory-form-advanced">
+          <summary>Advanced targeting (optional)</summary>
+          <p className="muted advisory-form-advanced-help">
+            This item surfaces on an engagement when the related score falls to or below the trigger.
+            Leave these as-is unless you want to tie it to a specific sub-score. The readiness area above
+            is enough on its own.
+          </p>
+          <div className="advisory-form-grid">
+            <label>
+              Sub-score code (optional)
+              <input
+                value={v.sub_score_code}
+                onChange={(e) => set('sub_score_code', e.target.value)}
+                placeholder="e.g. OPS-HOURS"
+              />
+            </label>
+            <label>
+              Surfaces at score ≤
+              <input
+                type="number"
+                value={v.score_trigger}
+                onChange={(e) => set('score_trigger', e.target.value)}
+                min={0}
+                max={100}
+              />
+            </label>
+          </div>
+        </details>
         {error && <ErrorState variant="inline" error={error} />}
         <div className="advisory-form-actions">
           <button type="submit">{submitLabel}</button>
@@ -329,10 +353,10 @@ export default function LibraryPage() {
           ))}
         </select>
         <select value={qDim} onChange={(e) => setQDim(e.target.value)}>
-          <option value="all">All dimensions</option>
+          <option value="all">All readiness areas</option>
           {DIMENSIONS.map((d) => (
             <option key={d} value={d}>
-              {d}
+              {dimensionLabel(d)}
             </option>
           ))}
         </select>

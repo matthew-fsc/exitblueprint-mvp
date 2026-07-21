@@ -466,7 +466,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
         'playbooks',
         `insert into playbooks (code, name, version, summary, dimension_code, phase, ev_impact, body_md)
          values ($1, $2, $3, $4, $5, $6, $7, $8)
-         on conflict (code, version) do update
+         on conflict (code, version) where firm_id is null do update
            set name = excluded.name, summary = excluded.summary,
                dimension_code = excluded.dimension_code, phase = excluded.phase,
                ev_impact = excluded.ev_impact, body_md = excluded.body_md
@@ -498,7 +498,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
         'content_modules',
         `insert into content_modules (code, title, dimension_code, body_md)
          values ($1, $2, $3, $4)
-         on conflict (code) do update
+         on conflict (code) where firm_id is null do update
            set title = excluded.title, dimension_code = excluded.dimension_code,
                body_md = excluded.body_md
          returning id, (xmax = 0) as inserted`,
