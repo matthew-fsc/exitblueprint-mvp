@@ -270,7 +270,7 @@ export default function DashboardPage() {
       }
     >
       Start a readiness engagement for a client to begin tracking it here. Each
-      engagement measures a Deal Readiness Score (DRS) and Owner Readiness Index
+      engagement measures a Diligence Readiness Score (DRS) and Owner Readiness Index
       (ORI), then tracks them over time.
     </EmptyState>
   );

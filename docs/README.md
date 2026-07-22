@@ -15,6 +15,13 @@ Point-in-time audits and superseded runbooks have been moved to
 > **Doc-numbering note.** Doc numbers are referenced from source code (top-of-file
 > `// docs/NN` pointers, `render.yaml`, scripts), so numbers are stable and never
 > reused. Archived docs keep their number under `archive/`.
+>
+> ⚠️ **Number collision — needs Matthew.** Two docs currently share number **41**:
+> [`41-advisor-library-research-plan.md`](./41-advisor-library-research-plan.md)
+> (registered as `docs/41` in the decisions log, 2026-07-21) and
+> [`41-legal-counsel-talking-points.md`](./41-legal-counsel-talking-points.md)
+> (added the same day with no decisions-log entry). Numbering is Matthew-owned —
+> one of these needs a fresh, never-reused number assigned. Not resolved here.
 
 ---
 

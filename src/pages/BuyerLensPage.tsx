@@ -10,6 +10,7 @@ import {
 import { Card, Collapsible, EmptyState, EngagementNav, ErrorState, PageHeader, PageSection, SkeletonLines } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
+import { humanizeKey } from '../lib/format';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -42,7 +43,7 @@ function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
           <p className="advisory-item-body">{item.body}</p>
         </div>
         <span className="advisory-item-score" title="Live score vs. the trigger that fired this">
-          {item.governing_code} {Number(item.governing_score)}
+          {humanizeKey(item.governing_code)} {Number(item.governing_score)}
           <span className="muted"> / ≤{item.score_trigger}</span>
         </span>
       </div>

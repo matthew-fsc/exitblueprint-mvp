@@ -26,7 +26,7 @@ it visually (a trust boundary, a separation line, an "immutable" marker, etc.).
 WHAT EXITBLUEPRINT IS
 ════════════════════════════════════════════════════════════════════════
 An exit-readiness platform for lower-middle-market business owners, sold THROUGH
-M&A advisors (CEPA/CFP). It measures a deterministic "Deal Readiness Score" (DRS)
+M&A advisors (CEPA/CFP). It measures a deterministic "Diligence Readiness Score" (DRS)
 and a separate "Owner Readiness Index" (ORI), diagnoses named gaps, prescribes
 remediation playbooks/tasks, builds a document-verified diligence binder, and
 generates advisor deliverables — over a 12–36 month pre-deal engagement.

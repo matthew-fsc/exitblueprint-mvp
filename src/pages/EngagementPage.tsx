@@ -671,7 +671,7 @@ export default function EngagementPage() {
                       <div className="chain-head">
                         <GapSeverityChip severity={c.severity} />
                         <strong>{c.gapName}</strong>
-                        {c.status !== 'open' && <span className="chain-status">{c.status}</span>}
+                        {c.status !== 'open' && <span className="chain-status">{humanizeKey(c.status)}</span>}
                         <span className="chain-progress muted">
                           {c.total > 0 ? `${c.done}/${c.total} tasks` : 'no tasks yet'}
                         </span>
