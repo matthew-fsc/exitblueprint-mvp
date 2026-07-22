@@ -4940,47 +4940,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 }
 .dr-doc-btn:disabled { opacity: 0.6; cursor: default; }
 
-/* Three legs of the stool — CEPA alignment panel (docs/18) */
-.legs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.legs-title { margin: 0; font-size: 1.05rem; }
-.legs-sub { margin: 0.25rem 0 0; font-size: 0.86rem; color: var(--text-secondary); max-width: 62ch; }
-.legs-gate {
-  flex-shrink: 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 0.28rem 0.6rem; border-radius: 999px; border: 1px solid var(--border-strong, var(--border));
-  color: var(--text-secondary); white-space: nowrap;
-}
-.legs-gate-decide { color: var(--chip-good-fg); background: var(--chip-good-bg); border-color: transparent; }
-.legs-gate-prepare { color: var(--chip-warn-fg); background: var(--chip-warn-bg); border-color: transparent; }
-.legs-gate-discover { color: var(--chip-neutral-fg); background: var(--chip-neutral-bg); border-color: transparent; }
-.legs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; }
-@media (max-width: 720px) { .legs-grid { grid-template-columns: 1fr; } }
-.leg {
-  border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 0.95rem;
-  border-top: 3px solid var(--status-neutral); background: var(--surface-2, transparent);
-}
-.leg-strong { border-top-color: var(--status-good); }
-.leg-building { border-top-color: var(--status-warning); }
-.leg-attention { border-top-color: var(--status-critical); }
-.leg-unknown { border-top-color: var(--status-neutral); }
-.leg-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.leg-label { font-weight: 650; font-size: 0.95rem; }
-.leg-chip { font-size: 0.68rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 999px; white-space: nowrap; }
-.leg-chip-strong { background: var(--chip-good-bg); color: var(--chip-good-fg); }
-.leg-chip-building { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
-.leg-chip-attention { background: var(--chip-critical-bg); color: var(--chip-critical-fg); }
-.leg-chip-unknown { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
-.leg-headline {
-  margin: 0.55rem 0 0.35rem; font-family: var(--font-display, inherit); font-weight: 800;
-  font-size: 1.15rem; letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
-}
-.leg-detail { margin: 0; font-size: 0.83rem; color: var(--text-secondary); line-height: 1.45; }
-.legs-verdict {
-  margin: 1rem 0 0; padding: 0.75rem 0.9rem; border-radius: 8px; font-size: 0.9rem;
-  background: var(--chip-neutral-bg); color: var(--text-primary); border-left: 3px solid var(--status-neutral);
-}
-.legs-verdict-alert { background: var(--chip-warn-bg); border-left-color: var(--status-warning); }
-
-/* Wealth-goal first-class capture (Value screen) + alignment leg CTA */
+/* Wealth-goal first-class capture (Value screen) */
 .val-gap-prompt { gap: 0.4rem; }
 .val-goal-form { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
 .val-goal-form input {
@@ -4991,12 +4951,6 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
   padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-weight: 650;
   border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap;
 }
-.leg-cta {
-  display: inline-block; margin-top: 0.55rem; font-size: 0.8rem; font-weight: 650;
-  color: var(--accent-strong, var(--accent)); text-decoration: none;
-}
-.leg-cta:hover { text-decoration: underline; }
-
 /* 90-day sprint grouping on the roadmap (docs/18) */
 .rm-sprint { margin-bottom: 1.1rem; }
 .rm-sprint-head {
@@ -5006,20 +4960,6 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 }
 .rm-sprint-done .rm-sprint-head { opacity: 0.7; }
 .rm-sprint-note { font-size: 0.84rem; margin-bottom: 0.9rem; }
-
-/* Four intangible capitals lens (docs/18) */
-.capitals-lens { margin-top: 1rem; }
-.capitals-head { margin: 0 0 0.6rem; font-size: 0.9rem; font-weight: 650; }
-.capitals-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; }
-@media (max-width: 720px) { .capitals-grid { grid-template-columns: 1fr 1fr; } }
-.capital { border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.8rem; }
-.capital-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-.capital-label { font-weight: 650; font-size: 0.9rem; }
-.capital-score {
-  font-family: var(--font-display, inherit); font-weight: 800; font-size: 1.2rem;
-  letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
-}
-.capital-blurb { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; }
 
 /* Roadmap catch-up controls (editable due dates, manual tasks, engagement timeline) */
 .rm-task-body { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
