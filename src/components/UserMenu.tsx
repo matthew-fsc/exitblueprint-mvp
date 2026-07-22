@@ -10,9 +10,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+// A menu item is either navigation (to a route) or an imperative action (e.g.
+// opening the Clerk account modal). Exactly one of `to` / `onClick` is set.
 export interface UserMenuLink {
-  to: string;
   label: string;
+  to?: string;
+  onClick?: () => void;
 }
 
 function initials(email?: string | null): string {
@@ -110,19 +113,36 @@ export function UserMenu({
       {open && (
         <div className="user-menu-panel" role="menu" aria-label="Account">
           {email && <div className="user-menu-header">{email}</div>}
-          {links.map((link, i) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              role="menuitem"
-              className="user-menu-item"
-              ref={(el) => (itemRefs.current[i] = el)}
-              onClick={() => close(false)}
-              onKeyDown={(e) => onItemKeyDown(e, i)}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link, i) =>
+            link.to ? (
+              <Link
+                key={link.label}
+                to={link.to}
+                role="menuitem"
+                className="user-menu-item"
+                ref={(el) => (itemRefs.current[i] = el)}
+                onClick={() => close(false)}
+                onKeyDown={(e) => onItemKeyDown(e, i)}
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <button
+                key={link.label}
+                type="button"
+                role="menuitem"
+                className="user-menu-item"
+                ref={(el) => (itemRefs.current[i] = el)}
+                onClick={() => {
+                  close(false);
+                  link.onClick?.();
+                }}
+                onKeyDown={(e) => onItemKeyDown(e, i)}
+              >
+                {link.label}
+              </button>
+            ),
+          )}
           <button
             type="button"
             role="menuitem"

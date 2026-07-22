@@ -5,14 +5,14 @@ import { notifySessionExpired } from './lib/sessionExpiry';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider, ThemeToggle } from './lib/theme';
-import { isDevStack, invokeFunction } from './lib/supabase';
+import { isDevStack, isClerkStack, invokeFunction } from './lib/supabase';
+import { openUserProfile } from './lib/clerkActions';
 import { useActiveAssessment } from './lib/queries';
 import { FirmMark, ToastProvider, LoadingState, ErrorState } from './components/ui';
 import { UserMenu } from './components/UserMenu';
 import { BrandingProvider, useBrand } from './lib/branding';
 import { Analytics } from '@vercel/analytics/react';
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { getMfaState, type MfaState } from './lib/mfa';
 import { LegalFooter } from './components/LegalFooter';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
@@ -40,7 +40,6 @@ const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
-const AccountPage = lazy(() => import('./pages/AccountPage'));
 const OrganizationPage = lazy(() => import('./pages/OrganizationPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const HealthPage = lazy(() => import('./pages/HealthPage'));
@@ -71,23 +70,6 @@ const queryClient = new QueryClient({
   }),
 });
 
-// R5: advisor/admin accounts must satisfy MFA (bypassed on the dev stack). An
-// un-enrolled or unverified advisor is sent to /account (which hosts MFA setup)
-// before anything else.
-function useMfaGate(session: unknown): MfaState | 'loading' {
-  const [state, setState] = useState<MfaState | 'loading'>('loading');
-  useEffect(() => {
-    let alive = true;
-    getMfaState()
-      .then((s) => alive && setState(s))
-      .catch(() => alive && setState('satisfied'));
-    return () => {
-      alive = false;
-    };
-  }, [session]);
-  return state;
-}
-
 // Shown when a signed-in user has no usable profile yet. Provisioning is
 // automatic (the Clerk webhook writes the profile just after sign-in) but
 // eventually-consistent, so this is usually a brief timing gap right after a
@@ -110,7 +92,6 @@ function ProfileNotReady() {
 function RequireAdvisor({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
-  const mfa = useMfaGate(session);
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   // Owners and view-only collaborators both live in the read-only portal.
@@ -120,11 +101,9 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
   if (!profile || (profile.role !== 'advisor' && profile.role !== 'admin')) {
     return <ProfileNotReady />;
   }
-  if (mfa === 'loading') return <main className="page"><LoadingState variant="page" /></main>;
-  // /account is where MFA is set up, so it must stay reachable during the gate.
-  if (mfa !== 'satisfied' && location.pathname !== '/account') {
-    return <Navigate to="/account" replace />;
-  }
+  // R5 (MFA) is enforced by Clerk as a session/org policy now that identity lives
+  // there (docs/30) — personal security is managed in the Clerk account modal,
+  // not an in-app page — so there's no in-app enrollment gate to run here.
   return <>{children}</>;
 }
 
@@ -151,7 +130,8 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner' || profile?.role === 'collaborator') return <Navigate to="/portal" replace />;
-  if (profile?.role !== 'admin') return <Navigate to="/account" replace />;
+  // A non-admin advisor has no org controls — send them back to their workspace.
+  if (profile?.role !== 'admin') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -331,16 +311,15 @@ function AppBar() {
           {isDevStack && <span className="dev-badge">Dev</span>}
           <ThemeToggle />
           <span className="app-bar-divider" aria-hidden />
-          {/* Account-level concerns live in the avatar menu, not the primary nav:
-              personal sign-in & security (Account), the firm's plan (Billing),
-              and — for admins — the firm controls (Organization). Removing the
-              Settings nav item keeps the bar to daily-workflow destinations. */}
+          {/* The avatar menu carries the personal + billing concerns that don't
+              belong in the daily-workflow nav: Profile opens the Clerk account
+              modal (name, password, two-factor), and Billing is the firm plan.
+              Organization is a primary nav tab (admins only), not a menu item. */}
           <UserMenu
             email={profile?.email}
             links={[
-              { to: '/account', label: 'Account & security' },
+              ...(isClerkStack ? [{ label: 'Profile', onClick: openUserProfile }] : []),
               { to: '/billing', label: 'Billing' },
-              ...(profile?.role === 'admin' ? [{ to: '/organization', label: 'Organization' }] : []),
             ]}
             onSignOut={signOut}
           />
@@ -605,13 +584,12 @@ export default function App() {
               it showed already lives on the Organization page, so old links fold
               back there rather than 404. */}
           <Route path="/network" element={<Navigate to="/organization" replace />} />
-          {/* Security merged into the Account page (MFA lives there now; the data-
-              protection summary moved to the legal footer). Old links redirect. */}
-          <Route path="/security" element={<Navigate to="/account" replace />} />
-          {/* Settings was split by ownership: personal → Account, firm plan →
-              Billing (both reached from the avatar menu, not the nav). Old links
-              fold forward. */}
-          <Route path="/settings" element={<Navigate to="/account" replace />} />
+          {/* Personal security (MFA, password) lives in the Clerk account modal,
+              reached from the avatar menu's Profile item — there is no in-app
+              account page. Old /security and /settings links fold to the
+              workspace; the firm plan keeps its own /billing route. */}
+          <Route path="/security" element={<Navigate to="/" replace />} />
+          <Route path="/settings" element={<Navigate to="/" replace />} />
           <Route path="/settings/billing" element={<Navigate to="/billing" replace />} />
           <Route path="/portal" element={<RequirePortal><OwnerShell><OwnerHomePage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/plan" element={<RequirePortal><OwnerShell><OwnerPlanPage /></OwnerShell></RequirePortal>} />
@@ -662,16 +640,6 @@ export default function App() {
           <Route
             path="/assessment/:assessmentId/cim"
             element={<RequireAdvisor><RedirectAssessmentDeliverable section="cim" /></RequireAdvisor>}
-          />
-          <Route
-            path="/account"
-            element={
-              <RequireAdvisor>
-                <Shell>
-                  <AccountPage />
-                </Shell>
-              </RequireAdvisor>
-            }
           />
           <Route
             path="/billing"
