@@ -15,7 +15,7 @@ import {
   compareValues,
   parseFactKey,
 } from './field-map';
-import { NotImplementedError, type StepContext, type StepFn, type StepResult } from './types';
+import { NotImplementedError, type StepFn, type StepResult } from './types';
 
 // intake: validate the engagement and mint the extraction run id every later
 // step scopes its writes to. Idempotent: reuses an existing run id on resume.

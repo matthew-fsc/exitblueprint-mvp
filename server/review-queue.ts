@@ -16,21 +16,6 @@ export interface ReviewItemRow {
   assigned_to: string | null;
 }
 
-export async function listReviewItems(
-  db: pg.ClientBase,
-  engagementId: string,
-  status?: string,
-): Promise<ReviewItemRow[]> {
-  const rows = await db.query(
-    `select id, engagement_id, type, payload, status, assigned_to
-       from review_items
-      where engagement_id = $1 ${status ? 'and status = $2' : ''}
-      order by created_at asc`,
-    status ? [engagementId, status] : [engagementId],
-  );
-  return rows.rows as ReviewItemRow[];
-}
-
 async function loadItem(db: pg.ClientBase, itemId: string): Promise<ReviewItemRow> {
   const r = await db.query(
     `select id, engagement_id, type, payload, status, assigned_to, firm_id from review_items where id = $1`,
