@@ -64,6 +64,23 @@ create policy library_tasks_firm_write on library_tasks for all to authenticated
 alter table plan_template_items add column library_task_id uuid references library_tasks (id);
 alter table plan_template_items drop constraint plan_template_items_kind_ref;
 alter table plan_template_items drop column playbook_id;
+
+-- Retire existing 'playbook' plan items BEFORE the new constraint (which no longer
+-- admits item_kind='playbook') — otherwise ADD CONSTRAINT fails on any live
+-- pre-migration row ("check constraint ... is violated by some row"). This is the
+-- data half of retiring the playbook primitive: the seed rebuilds SYSTEM plan
+-- items as 'task' items, and tenant playbook items are dropped (as this file's
+-- header notes). First sever the null-safe lineage from any applied plan items to
+-- these template rows (item_kind and the concrete task/etc. ids are snapshotted on
+-- engagement_plan_items, so applied-plan history survives), then delete them.
+-- On a fresh DB plan_template_items is still empty here, so both are no-ops.
+update engagement_plan_items ei
+  set source_plan_template_item_id = null
+  from plan_template_items pti
+  where ei.source_plan_template_item_id = pti.id
+    and pti.item_kind = 'playbook';
+delete from plan_template_items where item_kind = 'playbook';
+
 alter table plan_template_items add constraint plan_template_items_kind_ref check (
   (item_kind = 'task'
      and library_task_id is not null and content_module_id is null and advisory_library_item_id is null)
