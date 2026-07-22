@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { documentType } from '../../shared/documents/catalog';
+import { EXIT_WINDOWS, EXIT_WINDOW_LABEL } from '../../shared/engagement';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { buildEngagementKnowledge } from '../lib/knowledge';
 import { buildWorkstreamProgress } from '../lib/workstreams';
@@ -360,10 +361,11 @@ export default function EngagementPage() {
               onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
             >
               <option value="">Not set</option>
-              <option value="under 12 months">Under 12 months</option>
-              <option value="12-24 months">12–24 months</option>
-              <option value="24-36 months">24–36 months</option>
-              <option value="36+ months">36+ months</option>
+              {EXIT_WINDOWS.map((w) => (
+                <option key={w} value={w}>
+                  {EXIT_WINDOW_LABEL[w]}
+                </option>
+              ))}
             </select>
           </label>
           <label>

@@ -87,14 +87,19 @@ async function authorize(
       return { firmId };
     }
     case 'create-engagement': {
-      // Resolve the caller's own advisor firm, then confirm the target company is
-      // visible to them under RLS. The engagement doesn't exist yet, so it can't
-      // be authorized by its own id.
+      // Resolve the caller's own advisor firm. The engagement doesn't exist yet,
+      // so it can't be authorized by its own id. Two shapes: an existing company
+      // (confirm it's visible under RLS) or a brand-new company (created server
+      // side under the trusted firmId, so there's nothing to RLS-check yet).
       const firmId = await firmFromProfile(ctx, ['advisor', 'admin']);
       if (!firmId) return { error: err(403, 'advisor profile required') };
       const companyId = typeof body.company_id === 'string' ? body.company_id : null;
-      if (!companyId) return { error: err(400, 'company_id required') };
-      if (!(await visibleUnderRls(ctx, 'companies', companyId))) return { error: err(404, 'company not found') };
+      const hasNewCompany =
+        !!body.new_company && typeof (body.new_company as { name?: unknown }).name === 'string';
+      if (!companyId && !hasNewCompany) return { error: err(400, 'company_id or new_company required') };
+      if (companyId && !(await visibleUnderRls(ctx, 'companies', companyId))) {
+        return { error: err(404, 'company not found') };
+      }
       return { firmId };
     }
     case 'delete-engagement': {

@@ -3081,6 +3081,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .agreement-consents legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
 .agreement-consents label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; padding: 0.2rem 0; }
 .agreement-consents input { width: auto; }
+/* Engagement-timeline fieldset in the Add-engagement dialog: start date, target
+   exit window, and optional target sale date, captured up front. */
+.agreement-timeline { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.agreement-timeline legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
 /* New-company inline inputs inside the Add-engagement dialog (docs/archive/34). */
 .add-eng-newco { display: flex; flex-direction: column; gap: 0.5rem; }
 .add-eng-newco input { width: 100%; }

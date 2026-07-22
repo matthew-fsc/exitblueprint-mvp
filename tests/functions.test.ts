@@ -367,6 +367,97 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     expect(r).toMatchObject({ kind: 'json', status: 404 });
   });
 
+  it('create-engagement: creates a brand-new company + setup dates in one transaction', async () => {
+    const av = (
+      await service.query(
+        `select id from agreement_versions where firm_id = $1 and status = 'active' limit 1`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'create-engagement',
+      {
+        new_company: { name: 'Brand New Co', industry: 'SaaS' },
+        agreement_version_id: av,
+        signer_name: 'Sam Owner',
+        started_at: '2026-01-15',
+        target_exit_window: '24-36 months',
+        target_close_date: '2028-01-15',
+      },
+      ctxFor(advisorUserId),
+    );
+    expect(r.kind).toBe('json');
+    if (r.kind !== 'json') return;
+    expect(r.status).toBe(200);
+    const engId = (r.body as { engagement_id: string }).engagement_id;
+    const row = (
+      await service.query(
+        `select c.name, c.industry, c.firm_id, e.target_exit_window,
+                e.started_at::date::text as started_date, e.target_close_date::text as close_date
+         from engagements e join companies c on c.id = e.company_id where e.id = $1`,
+        [engId],
+      )
+    ).rows[0];
+    expect(row).toMatchObject({
+      name: 'Brand New Co',
+      industry: 'SaaS',
+      firm_id: firmId,
+      target_exit_window: '24-36 months',
+      started_date: '2026-01-15',
+      close_date: '2028-01-15',
+    });
+  });
+
+  it('create-engagement: rejects an out-of-band exit window', async () => {
+    const av = (
+      await service.query(
+        `select id from agreement_versions where firm_id = $1 and status = 'active' limit 1`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'create-engagement',
+      { new_company: { name: 'Bad Window Co' }, agreement_version_id: av, target_exit_window: 'someday' },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 400 });
+  });
+
+  it('create-engagement: rejects a target close date before the start date', async () => {
+    const av = (
+      await service.query(
+        `select id from agreement_versions where firm_id = $1 and status = 'active' limit 1`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'create-engagement',
+      {
+        new_company: { name: 'Bad Dates Co' },
+        agreement_version_id: av,
+        started_at: '2026-06-01',
+        target_close_date: '2026-01-01',
+      },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 400 });
+  });
+
+  it('create-engagement: rejects when neither company_id nor new_company is given', async () => {
+    const av = (
+      await service.query(
+        `select id from agreement_versions where firm_id = $1 and status = 'active' limit 1`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const r = await handleFunctionCall(
+      'create-engagement',
+      { agreement_version_id: av },
+      ctxFor(advisorUserId),
+    );
+    expect(r).toMatchObject({ kind: 'json', status: 400 });
+  });
+
   it('unknown function name → 404', async () => {
     const r = await handleFunctionCall('no-such-function', { engagement_id: engagementId }, ctxFor(advisorUserId));
     expect(r).toMatchObject({ kind: 'json', status: 404 });

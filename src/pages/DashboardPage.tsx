@@ -31,7 +31,8 @@ import {
 } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { GettingStarted } from '../components/GettingStarted';
-import { invokeFunction, supabase } from '../lib/supabase';
+import { invokeFunction } from '../lib/supabase';
+import { EXIT_WINDOWS, EXIT_WINDOW_LABEL } from '../../shared/engagement';
 import { track } from '../lib/analytics';
 import { TIER_ORDER } from '../lib/tokens';
 import { daysSince, fmtScore } from '../lib/format';
@@ -408,9 +409,13 @@ function AddEngagementDialog({
   // everything else is created fresh.
   const eligible = companies.filter((c) => !engagements.some((e) => e.company_id === c.id));
 
+  const today = new Date().toISOString().slice(0, 10);
   const [companyId, setCompanyId] = useState<string>(NEW_COMPANY);
   const [newName, setNewName] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
+  const [startedAt, setStartedAt] = useState(today);
+  const [exitWindow, setExitWindow] = useState('');
+  const [targetCloseDate, setTargetCloseDate] = useState('');
   const [signer, setSigner] = useState('');
   // Data-use consents are pre-selected (opt-out): the three de-identified /
   // aggregate uses are common, so the default is checked to keep onboarding
@@ -438,29 +443,31 @@ function AddEngagementDialog({
       setError('Enter who accepted the agreement on the client’s behalf.');
       return;
     }
+    if (targetCloseDate && targetCloseDate < startedAt) {
+      setError('Target sale date can’t be before the start date.');
+      return;
+    }
     setSubmitting(true);
     try {
-      let cid = companyId;
-      if (isNew) {
-        const { data: created, error: cErr } = await supabase
-          .from('companies')
-          .insert([{ firm_id: profile!.firm_id, name: newName.trim(), industry: newIndustry.trim() || null }])
-          .select('id')
-          .single();
-        if (cErr) throw new Error(cErr.message);
-        cid = created.id;
-        qc.invalidateQueries({ queryKey: qk.companies() });
-      }
+      // Company + engagement + acceptance are created together server-side in one
+      // transaction (create-engagement), so there's no orphaned company if the
+      // engagement insert fails and nothing bypasses the function gateway.
       const createdEng = await invokeFunction<{ engagement_id: string }>('create-engagement', {
-        company_id: cid,
+        ...(isNew
+          ? { new_company: { name: newName.trim(), industry: newIndustry.trim() || null } }
+          : { company_id: companyId }),
         agreement_version_id: agreement.id,
         signer_name: signer.trim(),
+        started_at: startedAt || null,
+        target_exit_window: exitWindow || null,
+        target_close_date: targetCloseDate || null,
         consent: {
           benchmarking: consentBenchmarking,
           anonymized_aggregation: consentAggregation,
           outcome_tracking: consentOutcome,
         },
       });
+      if (isNew) qc.invalidateQueries({ queryKey: qk.companies() });
       track({
         type: 'onboarding',
         name: 'engagement_started',
@@ -542,6 +549,43 @@ function AddEngagementDialog({
               placeholder="e.g. Jane Owner, CEO"
             />
           </label>
+
+          <fieldset className="agreement-timeline">
+            <legend>Engagement timeline</legend>
+            <p className="muted" style={{ margin: '0 0 var(--space-2)' }}>
+              Sets the readiness trajectory and re-assessment cadence. You can change
+              any of these later on the engagement’s Setup tab.
+            </p>
+            <label className="agreement-signer">
+              <span>Start date</span>
+              <input
+                type="date"
+                value={startedAt}
+                max={today}
+                onChange={(e) => setStartedAt(e.target.value)}
+              />
+            </label>
+            <label className="agreement-signer">
+              <span>Target exit window</span>
+              <select value={exitWindow} onChange={(e) => setExitWindow(e.target.value)}>
+                <option value="">Not set</option>
+                {EXIT_WINDOWS.map((w) => (
+                  <option key={w} value={w}>
+                    {EXIT_WINDOW_LABEL[w]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="agreement-signer">
+              <span>Target sale date (optional)</span>
+              <input
+                type="date"
+                value={targetCloseDate}
+                min={startedAt || today}
+                onChange={(e) => setTargetCloseDate(e.target.value)}
+              />
+            </label>
+          </fieldset>
 
           <fieldset className="agreement-consents">
             <legend>Data-use consent (as authorized by the client)</legend>
