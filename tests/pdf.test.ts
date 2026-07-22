@@ -7,7 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveChromium, renderTeaserHtml, renderManagementPresentationHtml } from '../server/pdf';
+import {
+  resolveChromium,
+  renderTeaserHtml,
+  renderManagementPresentationHtml,
+  renderCimReportHtml,
+} from '../server/pdf';
 
 describe('resolveChromium', () => {
   it('never throws and returns a string path or undefined', () => {
@@ -105,5 +110,33 @@ describe('sell-side document HTML', () => {
     );
     expect(html).toContain('Management Presentation');
     expect(html).toContain('Northwind Fabrication');
+  });
+});
+
+// Architecture rule 2: AI output is always labeled draft narrative. The baseline
+// disclaimer must travel into the exported PDF even when a firm sets no custom
+// footer — otherwise a client-facing artifact ships with no AI-draft / not-advice
+// notice (the gap this closes).
+describe('client-facing PDF disclaimer', () => {
+  const data = { companyName: 'Northwind Fabrication', industry: 'Industrial services', date: '2026-07-21' };
+  const narrative = '## Summary\n\nA services business.';
+
+  it('always renders the baseline AI-draft / not-advice disclaimer with no firm branding', () => {
+    const html = renderCimReportHtml(data, narrative, null);
+    expect(html).toContain('class="disclosure"');
+    expect(html).toContain('drafted by AI');
+    expect(html).toContain('not financial, legal, tax, or investment advice');
+  });
+
+  it('appends the firm custom disclosure while keeping the baseline', () => {
+    const html = renderCimReportHtml(data, narrative, {
+      display_name: 'Summit Advisors',
+      logo_url: null,
+      accent_color: null,
+      report_from_line: null,
+      footer_disclosure_md: 'Summit Advisors LLC is a registered M&A advisory firm.',
+    });
+    expect(html).toContain('drafted by AI'); // baseline still present
+    expect(html).toContain('Summit Advisors LLC is a registered M&amp;A advisory firm.'); // firm text, escaped
   });
 });
