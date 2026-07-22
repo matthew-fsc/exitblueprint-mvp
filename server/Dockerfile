@@ -37,6 +37,13 @@ COPY shared ./shared
 # The `seed-methodology` function reads these at runtime to load the DB from
 # inside the system, so they must ship in the image alongside the code.
 COPY seed ./seed
+# Schema migrations (+ the plain-Postgres shim). `seed-methodology` applies any
+# pending migrations before seeding (server/migrate.ts), so a schema-changing
+# methodology update — a brand-new table like library_tasks — can be brought
+# current in-system without running the CLI against production. The shim is only
+# used on plain Postgres (auth schema absent); a no-op cost to ship here.
+COPY supabase/migrations ./supabase/migrations
+COPY db ./db
 
 EXPOSE 8787
 CMD ["npm", "run", "serve:functions"]
