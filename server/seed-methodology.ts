@@ -742,6 +742,21 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     if (!rowOk) ok = false;
     rows.push({ table, inserted, updated, total, expected: want, ok: rowOk });
   }
+
+  // Tell PostgREST to reload its schema cache. In production, loading methodology
+  // is a self-service, in-system step (the superadmin `seed-methodology` function
+  // / "Load methodology" on /health) precisely so nobody runs the CLI against a
+  // production connection string — but that also means the migrate.ts reload
+  // (scripts/migrate.ts) may never run on the hosted DB when migrations are
+  // applied out-of-band (Supabase CLI/dashboard). A methodology load introduces
+  // brand-new tables (e.g. library_tasks, docs/37) that PostgREST doesn't know
+  // about, so the app's REST reads 404 with "Could not find the table
+  // 'public.<name>' in the schema cache". Signalling a reload here — over the
+  // service-role connection, right after the write — keeps the REST API in sync
+  // through the same self-service path. Best-effort: a stale cache must not
+  // discard an otherwise-successful seed report. Harmless no-op on plain Postgres.
+  await db.query("notify pgrst, 'reload schema'").catch(() => {});
+
   return { rows, ok };
 }
 
