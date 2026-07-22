@@ -33,6 +33,10 @@ export interface FinancialCorpus {
   // Realized multiples from closed deal_outcomes, per industry × band — the
   // own-book calibration signal.
   own_book_multiples: Record<string, unknown>[];
+  // The same realized multiples keyed by the VALUATION industry_key (not raw
+  // industry) — the recalibration signal in valuation's own key-space
+  // (20260722215029_own_book_valuation_multiples.sql).
+  own_book_valuation_multiples: Record<string, unknown>[];
   // Connected-ledger (QuickBooks/Xero) breadth per industry × band — the
   // ground-truth layer.
   ledger_coverage: Record<string, unknown>[];
@@ -76,6 +80,15 @@ export async function financialCorpus(db: Queryable): Promise<FinancialCorpus> {
     )
   ).rows;
 
+  const ownBookValuationMultiples = (
+    await db.query(
+      `select industry_key, size_band, closed_deals, contributing_firms, avg_multiple,
+              median_multiple, p25_multiple, p75_multiple, min_multiple, max_multiple
+         from analytics.own_book_valuation_multiples
+        order by closed_deals desc, industry_key, size_band`,
+    )
+  ).rows;
+
   const ledgerCoverage = (
     await db.query(
       `select industry, size_band, ledger_connected_companies, contributing_firms,
@@ -90,6 +103,7 @@ export async function financialCorpus(db: Queryable): Promise<FinancialCorpus> {
     verified_coverage: verifiedCoverage,
     verified_metrics: verifiedMetrics,
     own_book_multiples: ownBookMultiples,
+    own_book_valuation_multiples: ownBookValuationMultiples,
     ledger_coverage: ledgerCoverage,
     note: CORPUS_NOTE,
   };

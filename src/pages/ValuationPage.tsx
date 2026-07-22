@@ -33,6 +33,13 @@ const CHALLENGE = [
 
 const DEFENSIBLE = new Set(['low', 'medium']);
 
+// How the base multiple was chosen — surfaced next to the own-book comparison.
+const MULTIPLE_SOURCE_LABEL: Record<string, string> = {
+  table: 'Generic table multiple',
+  override: 'Manual override',
+  own_book: 'Own-book median',
+};
+
 // size_band keys are coded revenue/EBITDA ranges (e.g. lt_1m, 1m_5m, gt_5m).
 // Render them as legible money ranges rather than raw snake_case.
 function fmtSizeBand(band: string | null | undefined): string {
@@ -224,6 +231,54 @@ export default function ValuationPage() {
                 </div>
               </div>
             </Card>
+          )}
+
+          {/* own-book comparables (docs/09 §2, moat 2) */}
+          {val?.has_recast && (
+            <SectionCard title="Own-book comparables">
+              <div className="val-ob">
+                <div className="val-ob-cols">
+                  <div className="val-ob-col">
+                    <span className="stat-block-label">Multiple applied</span>
+                    <span className="val-ob-mult">{val.base_multiple.toFixed(1)}×</span>
+                    <span className="muted">{MULTIPLE_SOURCE_LABEL[val.multiple_source] ?? val.multiple_source}</span>
+                  </div>
+                  <div className="val-ob-col">
+                    <span className="stat-block-label">Your closed deals</span>
+                    {val.own_book_multiple != null ? (
+                      <>
+                        <span className="val-ob-mult">
+                          {val.own_book_multiple.toFixed(1)}×
+                          {val.own_book_driving && <span className="val-ob-tag">in use</span>}
+                        </span>
+                        <span className="muted">
+                          {val.own_book_p25?.toFixed(1)}–{val.own_book_p75?.toFixed(1)}× range
+                          {' · '}
+                          {val.own_book_sample_size} closed deal{val.own_book_sample_size === 1 ? '' : 's'}
+                          {val.own_book_same_band ? ` (${val.own_book_same_band} in band)` : ''}
+                        </span>
+                        {val.own_book_confidence && (
+                          <span className={`val-ob-conf val-ob-conf-${val.own_book_confidence}`}>
+                            {humanizeKey(val.own_book_confidence)} confidence
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="muted">No closed deals in this industry yet to draw an own-book multiple from.</span>
+                    )}
+                  </div>
+                </div>
+                <p className="muted val-ob-note">
+                  {val.own_book_driving
+                    ? 'The estimate draws its multiple from your own realized deals. '
+                    : val.multiple_source === 'override'
+                      ? 'A manual multiple override is in effect; your own-book median is shown for reference. '
+                      : 'The estimate uses the generic table multiple; your own realized median is shown for reference. '}
+                  Own-book multiples come from this firm’s closed deals only. Adopting them into the estimate
+                  ships as a new valuation rules version.
+                </p>
+              </div>
+            </SectionCard>
           )}
 
           <div className="eng-grid eng-grid-top">

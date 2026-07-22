@@ -30,12 +30,15 @@ import {
 import { daysSince, fmtCurrency, fmtDate, fmtScore, formatFieldValue, humanizeKey } from '../lib/format';
 import { functionsBaseUrl, getAccessToken } from '../lib/supabase';
 import {
+  activationSteps,
+  calibrationBands,
+  churnBook,
   firmActivityStatus,
   funnelSteps,
   PlatformFetchError,
-  sumColumn,
   toNumber,
   topEvents,
+  unitEconomics,
   type FirmActivity,
   type PlatformSnapshot,
 } from '../lib/platformConsole';
@@ -138,6 +141,66 @@ const MOAT_TILES: { key: string; label: string; fmt: (n: number) => string }[] =
   { key: 'retrade_rate_pct', label: 'Retrade rate', fmt: (n) => `${fmtScore(n)}%` },
   { key: 'avg_days_on_market', label: 'Avg days on market', fmt: (n) => `${Math.round(n)} days` },
 ];
+
+// ---- DRS calibration bands (the FICO moat: docs/09 §1) ----
+
+const calPct = (v: unknown) => (v == null ? '—' : `${fmtScore(toNumber(v))}%`);
+const calMult = (v: unknown) => (v == null ? '—' : `${fmtScore(toNumber(v))}×`);
+
+// The versioned calibration artifact, one row per score band, rendered with the
+// right unit per column (multiple ×, rates %, days) and a low-confidence chip for
+// thin cells. `groupHeader` names the band column ("DRS band" / "ORI band").
+function CalibrationBandsTable({ rows, groupHeader }: { rows: Row[]; groupHeader: string }) {
+  if (!rows.length) return <EmptyState icon="empty" title="No bands in this group yet" />;
+  const columns: Column<Row>[] = [
+    {
+      key: 'band_label',
+      header: groupHeader,
+      render: (r) => (
+        <span>
+          <strong>{String(r.band_label ?? '—')}</strong>
+          {r.low_confidence === true && (
+            <span className="status-chip status-neutral" style={{ marginLeft: '0.4rem' }}>
+              Low confidence
+            </span>
+          )}
+        </span>
+      ),
+      sortValue: (r) => toNumber(r.band_low),
+    },
+    { key: 'sample_n', header: 'Deals', numeric: true, render: (r) => String(toNumber(r.sample_n)), sortValue: (r) => toNumber(r.sample_n) },
+    { key: 'close_rate_pct', header: 'Close rate', numeric: true, render: (r) => calPct(r.close_rate_pct), sortValue: (r) => toNumber(r.close_rate_pct) },
+    {
+      key: 'median_multiple',
+      header: 'Multiple (P25–P75)',
+      numeric: true,
+      render: (r) =>
+        r.median_multiple == null ? (
+          '—'
+        ) : (
+          <span>
+            {calMult(r.median_multiple)}
+            <span className="muted text-sm" style={{ display: 'block' }}>
+              {calMult(r.p25_multiple)}–{calMult(r.p75_multiple)}
+            </span>
+          </span>
+        ),
+      sortValue: (r) => toNumber(r.median_multiple),
+    },
+    {
+      key: 'median_days_to_close',
+      header: 'Time to close',
+      numeric: true,
+      render: (r) => (r.median_days_to_close == null ? '—' : `${toNumber(r.median_days_to_close)} days`),
+      sortValue: (r) => toNumber(r.median_days_to_close),
+    },
+    { key: 'within_range_hit_rate_pct', header: 'Within range', numeric: true, render: (r) => calPct(r.within_range_hit_rate_pct), sortValue: (r) => toNumber(r.within_range_hit_rate_pct) },
+    { key: 'ev_variance_pct', header: 'EV variance', numeric: true, render: (r) => calPct(r.ev_variance_pct), sortValue: (r) => toNumber(r.ev_variance_pct) },
+    { key: 'retrade_rate_pct', header: 'Retrade rate', numeric: true, render: (r) => calPct(r.retrade_rate_pct), sortValue: (r) => toNumber(r.retrade_rate_pct) },
+    { key: 'contributing_firms', header: 'Firms', numeric: true, render: (r) => String(toNumber(r.contributing_firms)), sortValue: (r) => toNumber(r.contributing_firms) },
+  ];
+  return <DataTable columns={columns} rows={rows} keyFor={(r) => String(r.band_label)} initialSort={{ key: 'band_label', dir: 'desc' }} />;
+}
 
 // ---- the firm account / churn book (the BD readout) ----
 
@@ -303,9 +366,15 @@ export default function PlatformConsolePage() {
 
   const s = q.data;
   const funnel = funnelSteps(s.product.funnel);
-  const aiSpend = sumColumn(s.ops.ai_cost_30d, 'cost_usd');
+  const activation = activationSteps(s.operating.activation);
+  const econ = unitEconomics(s.operating.unit_economics);
+  const churn = churnBook(s.business.firms);
+  const rev = s.operating.revenue;
+  const health = s.operating.engagement_health;
   const events = topEvents(s.product.usage_30d);
   const moatTiles = MOAT_TILES.filter((t) => t.key in s.moats.corpus);
+  const calDrsBands = calibrationBands(s.calibration.bands, 'drs');
+  const calOriBands = calibrationBands(s.calibration.bands, 'ori');
 
   return (
     <div className="stack-lg">
@@ -345,26 +414,64 @@ export default function PlatformConsolePage() {
         </StatRow>
       </SectionCard>
 
-      {/* Business development — the funnel, the revenue units, the account book */}
+      {/* Activation funnel — the go-to-market leading indicator (docs/40 §4b) */}
       <SectionCard
-        title="Business development"
-        subtitle="Activation funnel, subscription units, and the firm account / churn book"
+        title="Activation funnel"
+        subtitle="Go-to-market leading indicator: firm created → advisor activated → first assessment → first deliverable"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <StatRow>
-            {funnel.map((step) => (
+            {activation.map((step) => (
               <StatBlock
                 key={step.key}
                 label={humanizeKey(step.key)}
                 value={String(step.value)}
-                hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of engagements`}
+                hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of firms`}
               />
             ))}
           </StatRow>
-
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              Subscriptions
+              Assessment funnel — engagements → started → completed → scored
+            </p>
+            <StatRow>
+              {funnel.map((step) => (
+                <StatBlock
+                  key={step.key}
+                  label={humanizeKey(step.key)}
+                  value={String(step.value)}
+                  hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of engagements`}
+                />
+              ))}
+            </StatRow>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Revenue plan — subscription units + Stripe state (docs/40 §4b) */}
+      <SectionCard
+        title="Revenue plan"
+        subtitle="Subscription units and Stripe state — dollar revenue lives in Stripe; this rail carries the unit counts"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock
+              label="Paying firms"
+              value={String(toNumber(rev.paying_firms))}
+              hint={`${toNumber(rev.subscribed_firms)} subscribed`}
+            />
+            <StatBlock label="Comped firms" value={String(toNumber(rev.comped_firms))} />
+            <StatBlock label="Trialing" value={String(toNumber(rev.trialing_firms))} />
+            <StatBlock
+              label="Past due"
+              value={String(toNumber(rev.past_due_firms))}
+              hint={`${toNumber(rev.canceling_firms)} canceling`}
+            />
+            <StatBlock label="Active seats" value={String(toNumber(rev.active_seats))} />
+          </StatRow>
+          <div>
+            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              Subscriptions by plan
             </p>
             <AutoTable
               rows={s.business.subscriptions}
@@ -372,7 +479,67 @@ export default function PlatformConsolePage() {
               emptyLabel="No subscriptions yet"
             />
           </div>
+        </div>
+      </SectionCard>
 
+      {/* Unit economics / COGS — AI cost per unit (docs/40 §4b) */}
+      <SectionCard
+        title="Unit economics"
+        subtitle="AI cost is the dominant variable COGS; per-unit ratios show what each firm and assessment costs to serve"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock label="AI spend (30d)" value={fmtCurrency(econ.ai_cost_30d)} />
+            <StatBlock
+              label="Cost / active firm (30d)"
+              value={fmtCurrency(econ.cost_per_active_firm_30d)}
+            />
+            <StatBlock
+              label="Cost / completed assessment"
+              value={fmtCurrency(econ.cost_per_completed_assessment)}
+              hint="lifetime"
+            />
+            <StatBlock
+              label="Cost / engagement"
+              value={fmtCurrency(econ.cost_per_engagement)}
+              hint="lifetime"
+            />
+            <StatBlock label="AI spend (lifetime)" value={fmtCurrency(econ.ai_cost_total)} />
+          </StatRow>
+          <div>
+            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              AI cost by day (last 30 days)
+            </p>
+            <AutoTable
+              rows={s.ops.ai_cost_30d}
+              initialSort={{ key: 'day', dir: 'desc' }}
+              emptyLabel="No AI calls in the window"
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Churn-risk book — firm last-activity + stalled engagements (docs/40 §4b) */}
+      <SectionCard
+        title="Churn-risk book"
+        subtitle="Firm activity health and stalled delivery — the accounts at risk of churning"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock label="Active firms" value={String(churn.active)} />
+            <StatBlock label="Idle firms" value={String(churn.idle)} hint="quiet 30–60 days" />
+            <StatBlock label="Dormant firms" value={String(churn.dormant)} />
+            <StatBlock
+              label="Paying at risk"
+              value={String(churn.atRiskPaying)}
+              hint="paying but idle / dormant"
+            />
+            <StatBlock
+              label="Stalled engagements"
+              value={String(toNumber(health.stalled_engagements))}
+              hint={`${toNumber(health.active_engagements)} active`}
+            />
+          </StatRow>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
               Firm account book — dormant firms first
@@ -452,30 +619,72 @@ export default function PlatformConsolePage() {
               <AutoTable rows={s.corpus.own_book_multiples} />
             </div>
           )}
+          {s.corpus.own_book_valuation_multiples.length > 0 && (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                Own-book multiples — by valuation industry_key (recalibration signal)
+              </p>
+              <AutoTable rows={s.corpus.own_book_valuation_multiples} />
+            </div>
+          )}
           <p className="muted text-sm">{s.corpus.note}</p>
         </div>
       </SectionCard>
 
-      {/* Ops & AI cost */}
-      <SectionCard title="Ops &amp; AI cost" subtitle="Webhook health and Anthropic COGS over 30 days">
+      {/* DRS calibration — the FICO moat (docs/09 §1): the versioned artifact */}
+      <SectionCard
+        title="DRS calibration"
+        subtitle={
+          s.calibration.calibration_version != null
+            ? `Versioned calibration artifact v${s.calibration.calibration_version} · ${fmtDate(
+                s.calibration.computed_at,
+              )} — how each DRS/ORI band's predictions tracked reality across ${toNumber(
+                s.calibration.total_closed,
+              )} closed deals.`
+            : 'How each DRS/ORI band’s predictions track reality across closed deals — the calibrated score (docs/09 §1).'
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <StatRow>
-            <StatBlock label="AI spend (30d)" value={fmtCurrency(aiSpend)} />
             <StatBlock
-              label="AI calls (30d)"
-              value={String(Math.round(sumColumn(s.ops.ai_cost_30d, 'calls')))}
+              label="Calibration version"
+              value={s.calibration.calibration_version != null ? `v${s.calibration.calibration_version}` : '—'}
             />
+            <StatBlock label="Outcomes in corpus" value={String(toNumber(s.calibration.total_outcomes))} />
+            <StatBlock label="Closed deals" value={String(toNumber(s.calibration.total_closed))} />
+            <StatBlock label="Contributing firms" value={String(toNumber(s.calibration.contributing_firms))} />
           </StatRow>
-          <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              AI cost by day
-            </p>
-            <AutoTable
-              rows={s.ops.ai_cost_30d}
-              initialSort={{ key: 'day', dir: 'desc' }}
-              emptyLabel="No AI calls in the window"
-            />
-          </div>
+
+          {calDrsBands.length === 0 ? (
+            <EmptyState icon="clock" title="No calibration computed yet">
+              The versioned calibration artifact is produced by the superadmin
+              <code> compute-calibration</code> function from the deal-outcomes corpus; DRS bands
+              light up once it has run over closed deals.
+            </EmptyState>
+          ) : (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                DRS score bands
+              </p>
+              <CalibrationBandsTable rows={calDrsBands} groupHeader="DRS band" />
+            </div>
+          )}
+
+          {calOriBands.length > 0 && (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                Owner Readiness Index bands
+              </p>
+              <CalibrationBandsTable rows={calOriBands} groupHeader="ORI band" />
+            </div>
+          )}
+          <p className="muted text-sm">{s.calibration.note}</p>
+        </div>
+      </SectionCard>
+
+      {/* Ops — webhook health (AI cost/COGS lives in Unit economics above) */}
+      <SectionCard title="Ops" subtitle="Webhook health — a stuck webhook is an outage /ready won't catch">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
               Webhook health

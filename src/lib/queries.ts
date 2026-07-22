@@ -52,6 +52,7 @@ export const qk = {
   plans: () => ['plans'] as const,
   contentModules: () => ['contentModules'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
+  diligenceSimulation: (engagementId: string) => ['diligenceSimulation', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
   engagementCollaborators: (engagementId: string) => ['engagementCollaborators', engagementId] as const,
@@ -937,6 +938,63 @@ export function useFiredAdvisory(
   });
 }
 
+// ---- diligence simulation --------------------------------------------------
+// The proactive buyer lens: a persisted, ranked blind-spot report built on top of
+// the institutional reviewer. Findings and their severity are deterministic
+// (server-side); the narrative is draft prose.
+export type DiligenceSourceKind = 'gap' | 'evidence' | 'buyer_question' | 'untracked';
+export type DiligenceSeverity = 'critical' | 'high' | 'med' | 'low';
+
+export interface DiligenceRemediation {
+  kind: 'plan' | 'library' | 'evidence' | 'roadmap';
+  label: string;
+  ref: string | null;
+}
+
+export interface DiligenceFinding {
+  rank: number;
+  severity: DiligenceSeverity;
+  area: string;
+  source_kind: DiligenceSourceKind;
+  title: string;
+  why: string;
+  remediation: DiligenceRemediation | null;
+}
+
+export interface DiligenceRunView {
+  id: string;
+  created_at: string;
+  prompt_version: string;
+  model: string;
+  is_draft: true;
+  narrative_md: string;
+  finding_count: number;
+  company: { name: string; industry: string | null };
+  band: string;
+  overall_score: number;
+  owner_readiness_index: number;
+  findings: DiligenceFinding[];
+}
+
+export interface DiligenceRunResult {
+  assessment_id: string | null;
+  run: DiligenceRunView | null;
+}
+
+// The latest persisted simulation run for an engagement (read-only). Triggering a
+// new run is a direct invokeFunction('simulate-diligence', ...) from the page,
+// which then invalidates this query.
+export function useDiligenceSimulation(
+  engagementId: string | undefined,
+): UseQueryResult<DiligenceRunResult> {
+  return useQuery({
+    queryKey: qk.diligenceSimulation(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<DiligenceRunResult>('diligence-simulation', { engagement_id: engagementId }),
+  });
+}
+
 // ---- financial verification (Phase 1) --------------------------------------
 export type ProvenanceSource = 'self_reported' | 'document' | 'connected_ledger';
 export type VerificationTier = 'self_reported' | 'partly_verified' | 'document_verified';
@@ -1094,7 +1152,14 @@ export interface ValuationResult {
   industry_key: string;
   size_band: string;
   base_multiple: number;
-  multiple_source: 'table' | 'override';
+  multiple_source: 'table' | 'override' | 'own_book';
+  own_book_sample_size: number | null;
+  own_book_same_band: number | null;
+  own_book_multiple: number | null;
+  own_book_p25: number | null;
+  own_book_p75: number | null;
+  own_book_confidence: 'low' | 'moderate' | 'high' | null;
+  own_book_driving: boolean;
   drs_score: number | null;
   drs_tier: string | null;
   readiness_factor: number;

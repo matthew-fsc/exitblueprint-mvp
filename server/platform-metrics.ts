@@ -38,6 +38,19 @@ export interface PlatformMetrics {
     ai_cost_30d: Record<string, unknown>[];
     note: string;
   };
+  // Company operating plan (docs/40 §4b) — the business plan as a live readout:
+  // the firm-level activation funnel (go-to-market leading indicator), the
+  // revenue plan as unit counts, the raw unit-economics/COGS components, and the
+  // engagement-health delivery signal for the churn book. Each is a one-row
+  // rollup, numified. Per-unit ratios are derived in the console's unit-tested
+  // helper (src/lib/platformConsole.ts), never here — this block carries the raw
+  // components so that division stays testable.
+  operating: {
+    activation: Record<string, number>;
+    revenue: Record<string, number>;
+    unit_economics: Record<string, number>;
+    engagement_health: Record<string, number>;
+  };
 }
 
 // Postgres returns count()/numeric as strings; coerce a one-row scalar object to
@@ -94,6 +107,12 @@ export async function platformMetrics(db: Queryable): Promise<PlatformMetrics> {
     )
   ).rows;
 
+  // Company operating plan (docs/40 §4b) — four one-row rollups on the same rail.
+  const activation = (await db.query('select * from analytics.activation_funnel')).rows[0];
+  const revenue = (await db.query('select * from analytics.revenue_summary')).rows[0];
+  const unitEconomics = (await db.query('select * from analytics.unit_economics')).rows[0];
+  const engagementHealth = (await db.query('select * from analytics.engagement_health')).rows[0];
+
   return {
     generated_at: new Date().toISOString(),
     totals: numify(totals),
@@ -101,5 +120,11 @@ export async function platformMetrics(db: Queryable): Promise<PlatformMetrics> {
     business: { firms, subscriptions },
     security: { access_30d: access },
     ops: { webhooks, ai_cost_30d: aiCost, note: OPS_NOTE },
+    operating: {
+      activation: numify(activation),
+      revenue: numify(revenue),
+      unit_economics: numify(unitEconomics),
+      engagement_health: numify(engagementHealth),
+    },
   };
 }

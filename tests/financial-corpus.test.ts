@@ -66,6 +66,21 @@ describe('financialCorpus', () => {
         ],
       ],
       [
+        'analytics.own_book_valuation_multiples',
+        [
+          {
+            industry_key: 'field_services',
+            size_band: '2m_5m',
+            closed_deals: '3',
+            contributing_firms: '2',
+            avg_multiple: '4.90',
+            median_multiple: '4.85',
+            p25_multiple: '4.50',
+            p75_multiple: '5.20',
+          },
+        ],
+      ],
+      [
         'analytics.ledger_verified_coverage',
         [
           {
@@ -91,6 +106,10 @@ describe('financialCorpus', () => {
     });
     expect(corpus.verified_metrics[0]).toMatchObject({ metric_code: 'REV_TOP_CUST_PCT' });
     expect(corpus.own_book_multiples[0]).toMatchObject({ avg_multiple: '4.80', closed_deals: '3' });
+    expect(corpus.own_book_valuation_multiples[0]).toMatchObject({
+      industry_key: 'field_services',
+      median_multiple: '4.85',
+    });
     expect(corpus.ledger_coverage[0]).toMatchObject({ industry: 'manufacturing', xero_connections: '1' });
 
     // De-identification note + stamped generation time.
@@ -104,6 +123,7 @@ describe('financialCorpus', () => {
     expect(corpus.verified_coverage).toEqual([]);
     expect(corpus.verified_metrics).toEqual([]);
     expect(corpus.own_book_multiples).toEqual([]);
+    expect(corpus.own_book_valuation_multiples).toEqual([]);
     expect(corpus.ledger_coverage).toEqual([]);
     expect(corpus.note).toContain('calibration');
   });

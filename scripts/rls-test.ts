@@ -374,6 +374,22 @@ async function main() {
        values ($1, $2, 'customer_concentration', 'high')`,
       [ids.firm_b, engagementB],
     );
+    // Firm B diligence-simulation run + finding for the isolation checks.
+    const dsimRunB = (
+      await db.query(
+        `insert into diligence_simulation_runs
+           (firm_id, engagement_id, prompt_version, model, finding_count, narrative_md)
+         values ($1, $2, 'diligence_simulation.v1', 'rule-based:diligence_simulation.v1', 1, 'Secret run')
+         returning id`,
+        [ids.firm_b, engagementB],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into diligence_simulation_findings
+         (firm_id, run_id, rank, severity, area, source_kind, title, why)
+       values ($1, $2, 1, 'critical', 'Owner Independence', 'gap', 'Secret finding', 'Secret why')`,
+      [ids.firm_b, dsimRunB],
+    );
     await db.query(
       `insert into jobs (firm_id, engagement_id, pipeline, step) values ($1, $2, 'sellside_intake', 'intake')`,
       [ids.firm_b, engagementB],
@@ -445,6 +461,31 @@ async function main() {
       await db.query('rollback to savepoint an');
     }
     check('cannot read analytics schema (service-role only)', analyticsDenied);
+    // The calibration artifact (docs/09 moat 1) lives in the same walled analytics
+    // schema — assert a tenant role cannot read the calibration bands either.
+    let calibrationDenied = false;
+    try {
+      await db.query('savepoint cal');
+      await db.query('select * from analytics.calibration_bands');
+      await db.query('release savepoint cal');
+    } catch {
+      calibrationDenied = true;
+      await db.query('rollback to savepoint cal');
+    }
+    check('cannot read analytics.calibration_bands (service-role only)', calibrationDenied);
+    // The own-book valuation-multiples corpus view (docs/09 moat 2) is one more
+    // object in that same service-role-only schema; assert the tenant denial on it
+    // directly so the cross-firm calibration signal can never leak to a firm.
+    let ownBookCorpusDenied = false;
+    try {
+      await db.query('savepoint obc');
+      await db.query('select * from analytics.own_book_valuation_multiples');
+      await db.query('release savepoint obc');
+    } catch {
+      ownBookCorpusDenied = true;
+      await db.query('rollback to savepoint obc');
+    }
+    check('cannot read analytics.own_book_valuation_multiples (service-role only)', ownBookCorpusDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');
@@ -659,6 +700,14 @@ async function main() {
       (await db.query('select id from assessment_values')).rows.length === 0,
     );
     check('sees no firm B findings', (await db.query('select id from findings')).rows.length === 0);
+    check(
+      'sees no firm B diligence_simulation_runs',
+      (await db.query('select id from diligence_simulation_runs')).rows.length === 0,
+    );
+    check(
+      'sees no firm B diligence_simulation_findings',
+      (await db.query('select id from diligence_simulation_findings')).rows.length === 0,
+    );
     check('sees no firm B jobs', (await db.query('select id from jobs')).rows.length === 0);
     check('sees no firm B review_items', (await db.query('select id from review_items')).rows.length === 0);
     check('sees no firm B llm_calls', (await db.query('select id from llm_calls')).rows.length === 0);

@@ -30,8 +30,10 @@ import { extractFinancials } from './pl-extract';
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
+import { computeCalibration, readCalibration } from './calibration';
 import { engagementGraph } from './engagement-graph';
 import { generateInstitutionalReview } from './institutional-review';
+import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
@@ -262,6 +264,32 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'platform-admin',
     handler: async ({ service }) => ok(await seedMethodology(service)),
   },
+  // Outcome Calibration Engine — the "FICO moat" (docs/09 moat 1, docs/40 §3).
+  // compute-calibration reads the cross-firm deal_outcomes corpus and PERSISTS a
+  // new, versioned calibration artifact: DRS/ORI score band → close rate, realized
+  // multiple (median + interquartile), time-to-close, within-range hit rate, EV
+  // variance, retrade rate. Deterministic rule-based code (shared/calibration/
+  // compute.ts), never an LLM (rule #1); it appends an immutable snapshot and never
+  // edits a score or a rubric in place (rules #3, #4). CROSS-FIRM aggregate
+  // intelligence, so it is superadmin-gated (`platform-admin` scope) and runs on the
+  // service-role connection ONLY — the artifact it writes is de-identified (no
+  // firm_id, no PII), mirroring seed-methodology and the analytics rail (rule #5).
+  'compute-calibration': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service, body }) =>
+      computeCalibration(service, {
+        band_width: (body.band_width as number) ?? undefined,
+        min_sample: (body.min_sample as number) ?? undefined,
+      }).then(ok),
+  },
+  // Read the latest persisted calibration snapshot. Same superadmin gate — the
+  // artifact is cross-firm aggregate intelligence, never a firm-facing read.
+  'read-calibration': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service }) => readCalibration(service).then(ok),
+  },
 
   // ── Reasoning Engine — AI narratives & assembled documents (always draft)
   'generate-document': {
@@ -313,6 +341,28 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body }) =>
       generateInstitutionalReview(service, body.assessment_id as string).then(ok),
+  },
+  // Diligence Simulation (docs/20, docs/40 §3) — the proactive extension of the
+  // institutional reviewer. Reuses buildInstitutionalReviewPayload, turns it into a
+  // RANKED, severity-keyed blind-spot report with remediation pointers, persists it
+  // as an immutable run, and drafts the (labeled) narrative that frames it.
+  // Narrative-only (CLAUDE.md rules 1-2): findings and their severity come from the
+  // engine + catalog, never the model; the model never grades a score and its output
+  // is always draft and prompt_version'd. The run WRITES firm-scoped rows, so it is
+  // manage-engagement (staff; firm resolved from the profile) and gated like the
+  // other reasoning deliverables. The read counterpart is engagement-scoped.
+  'simulate-diligence': {
+    engine: 'reasoning',
+    scope: 'manage-engagement',
+    gated: true,
+    handler: ({ service, body, firmId }) =>
+      runDiligenceSimulation(service, firmId as string, body.engagement_id as string).then(ok),
+  },
+  'diligence-simulation': {
+    engine: 'reasoning',
+    scope: 'engagement',
+    handler: ({ service, body }) =>
+      latestDiligenceSimulation(service, body.engagement_id as string).then(ok),
   },
 
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
