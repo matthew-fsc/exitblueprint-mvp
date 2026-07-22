@@ -52,6 +52,7 @@ export const qk = {
   plans: () => ['plans'] as const,
   contentModules: () => ['contentModules'] as const,
   firedAdvisory: (engagementId: string) => ['firedAdvisory', engagementId] as const,
+  diligenceSimulation: (engagementId: string) => ['diligenceSimulation', engagementId] as const,
   verification: (assessmentId: string) => ['verification', assessmentId] as const,
   ownerEngagement: (companyId: string) => ['ownerEngagement', companyId] as const,
   engagementCollaborators: (engagementId: string) => ['engagementCollaborators', engagementId] as const,
@@ -934,6 +935,63 @@ export function useFiredAdvisory(
     enabled: !!engagementId,
     queryFn: () =>
       invokeFunction<FiredAdvisoryResult>('advisory-items', { engagement_id: engagementId }),
+  });
+}
+
+// ---- diligence simulation --------------------------------------------------
+// The proactive buyer lens: a persisted, ranked blind-spot report built on top of
+// the institutional reviewer. Findings and their severity are deterministic
+// (server-side); the narrative is draft prose.
+export type DiligenceSourceKind = 'gap' | 'evidence' | 'buyer_question' | 'untracked';
+export type DiligenceSeverity = 'critical' | 'high' | 'med' | 'low';
+
+export interface DiligenceRemediation {
+  kind: 'plan' | 'library' | 'evidence' | 'roadmap';
+  label: string;
+  ref: string | null;
+}
+
+export interface DiligenceFinding {
+  rank: number;
+  severity: DiligenceSeverity;
+  area: string;
+  source_kind: DiligenceSourceKind;
+  title: string;
+  why: string;
+  remediation: DiligenceRemediation | null;
+}
+
+export interface DiligenceRunView {
+  id: string;
+  created_at: string;
+  prompt_version: string;
+  model: string;
+  is_draft: true;
+  narrative_md: string;
+  finding_count: number;
+  company: { name: string; industry: string | null };
+  band: string;
+  overall_score: number;
+  owner_readiness_index: number;
+  findings: DiligenceFinding[];
+}
+
+export interface DiligenceRunResult {
+  assessment_id: string | null;
+  run: DiligenceRunView | null;
+}
+
+// The latest persisted simulation run for an engagement (read-only). Triggering a
+// new run is a direct invokeFunction('simulate-diligence', ...) from the page,
+// which then invalidates this query.
+export function useDiligenceSimulation(
+  engagementId: string | undefined,
+): UseQueryResult<DiligenceRunResult> {
+  return useQuery({
+    queryKey: qk.diligenceSimulation(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<DiligenceRunResult>('diligence-simulation', { engagement_id: engagementId }),
   });
 }
 

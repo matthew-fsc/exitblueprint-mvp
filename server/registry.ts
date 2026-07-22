@@ -32,6 +32,7 @@ import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { engagementGraph } from './engagement-graph';
 import { generateInstitutionalReview } from './institutional-review';
+import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
@@ -313,6 +314,28 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     gated: true,
     handler: ({ service, body }) =>
       generateInstitutionalReview(service, body.assessment_id as string).then(ok),
+  },
+  // Diligence Simulation (docs/20, docs/40 §3) — the proactive extension of the
+  // institutional reviewer. Reuses buildInstitutionalReviewPayload, turns it into a
+  // RANKED, severity-keyed blind-spot report with remediation pointers, persists it
+  // as an immutable run, and drafts the (labeled) narrative that frames it.
+  // Narrative-only (CLAUDE.md rules 1-2): findings and their severity come from the
+  // engine + catalog, never the model; the model never grades a score and its output
+  // is always draft and prompt_version'd. The run WRITES firm-scoped rows, so it is
+  // manage-engagement (staff; firm resolved from the profile) and gated like the
+  // other reasoning deliverables. The read counterpart is engagement-scoped.
+  'simulate-diligence': {
+    engine: 'reasoning',
+    scope: 'manage-engagement',
+    gated: true,
+    handler: ({ service, body, firmId }) =>
+      runDiligenceSimulation(service, firmId as string, body.engagement_id as string).then(ok),
+  },
+  'diligence-simulation': {
+    engine: 'reasoning',
+    scope: 'engagement',
+    handler: ({ service, body }) =>
+      latestDiligenceSimulation(service, body.engagement_id as string).then(ok),
   },
 
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
