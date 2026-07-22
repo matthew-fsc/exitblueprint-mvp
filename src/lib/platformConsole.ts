@@ -47,6 +47,28 @@ export interface PlatformSnapshot {
     note: string;
   };
   moats: { corpus: Record<string, number>; corpus_monthly: Row[] };
+  // The versioned DRS-band calibration artifact (docs/09 moat 1, the FICO moat):
+  // for each score band, how the platform's predictions have tracked reality. Bands
+  // are de-identified aggregates; calibration_version is null until first computed.
+  calibration: {
+    calibration_version: number | null;
+    computed_at: string | null;
+    band_width: number | null;
+    total_outcomes: number | null;
+    total_closed: number | null;
+    contributing_firms: number | null;
+    bands: Row[];
+    note: string;
+  };
+}
+
+// Split the calibration bands into a score group ('drs' | 'ori'), ascending by
+// band_low — so the console renders DRS bands and ORI bands as separate tables
+// (rule #3a, never mixed). Pure; unit-tested in tests/platform-console.test.ts.
+export function calibrationBands(bands: Row[], group: 'drs' | 'ori'): Row[] {
+  return bands
+    .filter((b) => b.group_key === group)
+    .sort((a, b) => toNumber(a.band_low) - toNumber(b.band_low));
 }
 
 // A fetch failure that carries the HTTP status, so the page can tell "you are
