@@ -29,7 +29,7 @@ acknowledges:
    outcome tracking. These permissions are optional and independent of this
    engagement.
 
-4. No guarantee of outcome. The Deal Readiness Score is an assessment tool, not a
+4. No guarantee of outcome. The Diligence Readiness Score is an assessment tool, not a
    valuation, offer, or assurance of any transaction result.
 
 Acceptance of this agreement is required before any assessment data is collected.`;

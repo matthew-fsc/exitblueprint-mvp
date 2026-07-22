@@ -39,7 +39,7 @@ the disclaimers, and (c) advise on the IP/trademark strategy in §5–§6.
 ## 1. Product primer for counsel (so the advice fits the facts)
 
 - **What it is.** A SaaS platform that measures a private company's *exit
-  readiness* (the deterministic **DRS** — Deal Readiness Score — and a separate
+  readiness* (the deterministic **DRS** — Diligence Readiness Score — and a separate
   **Owner Readiness Index / ORI**), diagnoses gaps, prescribes remediation
   playbooks, and educates the owner over a 12–36-month pre-deal engagement.
 - **The three parties.**
@@ -225,7 +225,7 @@ verified financial corpus, and the engagement graph**. Talking points:
 
 - **Marks to clear and register.** "**Exit Blueprint**" / "**ExitBlueprint**"
   (word mark + any logo), the domain **exitblueprint.net** (docs/29), and the
-  **proprietary index names**: "**DRS**" / "**Deal Readiness Score**" and
+  **proprietary index names**: "**DRS**" / "**Diligence Readiness Score**" and
   "**Owner Readiness Index**" / "**ORI**." docs/09 explicitly positions the DRS
   as a **FICO-style** branded score — that analogy is the reason to protect the
   index names aggressively and early.

@@ -121,7 +121,7 @@ export function GettingStarted({
       key: 'assessment',
       title: 'Run the baseline assessment',
       body:
-        'The baseline sets the starting Deal Readiness Score (DRS) and Owner Readiness Index (ORI) and opens the engagement’s trajectory.',
+        'The baseline sets the starting Diligence Readiness Score (DRS) and Owner Readiness Index (ORI) and opens the engagement’s trajectory.',
       done: hasAssessment,
       locked: !hasEngagement,
       action: hasEngagement ? (
