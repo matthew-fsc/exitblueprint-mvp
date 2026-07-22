@@ -556,6 +556,14 @@ export default function PlatformConsolePage() {
               <AutoTable rows={s.corpus.own_book_multiples} />
             </div>
           )}
+          {s.corpus.own_book_valuation_multiples.length > 0 && (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                Own-book multiples — by valuation industry_key (recalibration signal)
+              </p>
+              <AutoTable rows={s.corpus.own_book_valuation_multiples} />
+            </div>
+          )}
           <p className="muted text-sm">{s.corpus.note}</p>
         </div>
       </SectionCard>

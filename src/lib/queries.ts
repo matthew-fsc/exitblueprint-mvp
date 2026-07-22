@@ -1094,7 +1094,14 @@ export interface ValuationResult {
   industry_key: string;
   size_band: string;
   base_multiple: number;
-  multiple_source: 'table' | 'override';
+  multiple_source: 'table' | 'override' | 'own_book';
+  own_book_sample_size: number | null;
+  own_book_same_band: number | null;
+  own_book_multiple: number | null;
+  own_book_p25: number | null;
+  own_book_p75: number | null;
+  own_book_confidence: 'low' | 'moderate' | 'high' | null;
+  own_book_driving: boolean;
   drs_score: number | null;
   drs_tier: string | null;
   readiness_factor: number;

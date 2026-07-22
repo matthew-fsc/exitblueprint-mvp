@@ -445,6 +445,19 @@ async function main() {
       await db.query('rollback to savepoint an');
     }
     check('cannot read analytics schema (service-role only)', analyticsDenied);
+    // The own-book valuation-multiples corpus view (docs/09 moat 2) is one more
+    // object in that same service-role-only schema; assert the tenant denial on it
+    // directly so the cross-firm calibration signal can never leak to a firm.
+    let ownBookCorpusDenied = false;
+    try {
+      await db.query('savepoint obc');
+      await db.query('select * from analytics.own_book_valuation_multiples');
+      await db.query('release savepoint obc');
+    } catch {
+      ownBookCorpusDenied = true;
+      await db.query('rollback to savepoint obc');
+    }
+    check('cannot read analytics.own_book_valuation_multiples (service-role only)', ownBookCorpusDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');

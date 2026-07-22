@@ -5819,3 +5819,28 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
 .comment-composer textarea {
   width: 100%;
 }
+
+/* Own-book comparables panel (docs/09 §2, moat 2) — the firm's realized multiple
+   vs. the generic table multiple, with sample size and a confidence indicator. */
+.val-ob { display: flex; flex-direction: column; gap: var(--space-4); }
+.val-ob-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+@media (max-width: 640px) { .val-ob-cols { grid-template-columns: 1fr; } }
+.val-ob-col {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-4); border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.val-ob-mult {
+  font-size: 1.5rem; font-weight: 600; color: var(--accent-strong);
+  display: flex; align-items: baseline; gap: var(--space-2);
+}
+.val-ob-tag, .val-ob-conf {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem; border-radius: var(--radius-sm);
+}
+.val-ob-tag { background: var(--accent-strong); color: #fff; text-transform: uppercase; }
+.val-ob-conf { align-self: flex-start; margin-top: var(--space-1); }
+.val-ob-conf-high { background: color-mix(in srgb, var(--status-good) 18%, transparent); color: var(--status-good); }
+.val-ob-conf-moderate { background: color-mix(in srgb, var(--status-warning) 20%, transparent); color: var(--status-warning); }
+.val-ob-conf-low { background: color-mix(in srgb, var(--status-neutral) 20%, transparent); color: var(--status-neutral); }
+.val-ob-note { margin: 0; }

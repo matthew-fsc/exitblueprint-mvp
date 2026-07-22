@@ -43,6 +43,7 @@ export interface PlatformSnapshot {
     verified_coverage: Row[];
     verified_metrics: Row[];
     own_book_multiples: Row[];
+    own_book_valuation_multiples: Row[];
     ledger_coverage: Row[];
     note: string;
   };
