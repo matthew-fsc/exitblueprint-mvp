@@ -1,8 +1,9 @@
-// Beta Requirement 5: MFA is required for advisor/admin accounts. Enforcement is
-// via Supabase Auth's TOTP factors + authenticator assurance level (AAL). The dev
-// emulator has no MFA endpoint, so enforcement is bypassed on the dev stack; on a
-// real Supabase project the gate (RequireAdvisor) sends un-enrolled/unverified
-// staff to /account (which hosts MFA setup) before they can use the workspace.
+// Beta Requirement 5: MFA is required for advisor/admin accounts. On the Clerk
+// stack (the production standard, docs/30) it is enforced as a Clerk session/org
+// policy and managed in the Clerk account modal, so getMfaState() reports
+// 'satisfied' by definition; the dev emulator has no MFA endpoint and is likewise
+// bypassed. The Supabase-Auth AAL path below remains for that (now unsupported)
+// stack, and getMfaState still drives the onboarding checklist's "secured" tick.
 import { isClerkStack, isDevStack, supabase } from './supabase';
 
 export type MfaState = 'satisfied' | 'needs_enroll' | 'needs_verify';

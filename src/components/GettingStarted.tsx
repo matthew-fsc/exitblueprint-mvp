@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PageSection } from './ui';
 import { getMfaState } from '../lib/mfa';
+import { openUserProfile } from '../lib/clerkActions';
 import { isDevStack } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useAdvisoryLibrary, useFirmProfessionals } from '../lib/queries';
@@ -16,8 +17,8 @@ import { useAdvisoryLibrary, useFirmProfessionals } from '../lib/queries';
 // measured at the high-stickiness milestone rather than the low one.
 //
 // Deliberately not a wizard: each step links to where the work already happens
-// (Account for MFA, the add-engagement dialog, the engagement page, Library,
-// Organization). It reads the same signals the dashboard already has, adding
+// (the Clerk account modal for MFA, the add-engagement dialog, the engagement
+// page, Library, Organization). It reads the same signals the dashboard has, adding
 // the MFA lookup plus the firm library and professional-directory counts.
 
 // Per-firm dismissal, so an advisor who has intentionally skipped the remaining
@@ -101,9 +102,9 @@ export function GettingStarted({
       body: 'Turn on two-factor authentication so client data stays protected.',
       done: mfaDone,
       action: (
-        <Link className="button-link button-primary" to="/account">
+        <button className="button-primary" onClick={openUserProfile}>
           Set up two-factor
-        </Link>
+        </button>
       ),
     },
     {

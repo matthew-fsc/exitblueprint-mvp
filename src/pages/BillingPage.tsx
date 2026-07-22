@@ -15,14 +15,14 @@ import {
 } from '../components/ui';
 import { resolveEntitlement, type EntitlementReason } from '../../shared/entitlements';
 
-// Settings → Billing. Read-only status of the firm's subscription (the cache the
-// Stripe webhook keeps fresh, docs/24 §5.2) plus the two self-serve actions:
-// "Manage billing" (Stripe portal — card/plan/cancel) and choosing a plan
-// (Checkout). Both are POST functions that return a { url } we redirect to.
-// Writing billing state is never done from the client — only through Stripe.
+// Billing, reached from the avatar menu. Read-only status of the firm's
+// subscription (the cache the Stripe webhook keeps fresh, docs/24 §5.2) plus the
+// two self-serve actions: "Manage billing" (Stripe portal — card/plan/cancel)
+// and choosing a plan (Checkout). Both are POST functions that return a { url }
+// we redirect to. Writing billing state is never done from the client — only
+// through Stripe.
 
-// Access status → chip label + tone. Mirrors AccountPage's BillingCard so the
-// two surfaces read the same; the plan/status detail lives here.
+// Access status → chip label + tone; the plan/status detail lives here.
 const REASON_LABEL: Record<EntitlementReason, { label: string; cls: string }> = {
   comp: { label: 'Beta access — complimentary', cls: 'status-good' },
   active: { label: 'Active', cls: 'status-good' },
