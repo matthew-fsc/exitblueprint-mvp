@@ -243,7 +243,7 @@ export default function ValuationPage() {
                           {CHALLENGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
                       </td>
-                      <td><button className="button-danger-link" onClick={() => removeAddback(a.id)}>×</button></td>
+                      <td><button className="button-danger-link" onClick={() => removeAddback(a.id)} aria-label={`Remove add-back: ${a.label}`} title="Remove add-back">×</button></td>
                     </tr>
                   ))}
                 </tbody>

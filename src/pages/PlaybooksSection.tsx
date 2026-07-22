@@ -13,6 +13,7 @@ import {
   type PlaybookTaskTemplateRow,
 } from '../lib/queries';
 import { Card, ConfirmDialog, EmptyState, ErrorState, SkeletonLines } from '../components/ui';
+import { humanizeKey } from '../lib/format';
 
 // Firm-authorable playbooks + content modules. System rows are shared
 // methodology (read-only, but one-click "Adapt" clones an editable firm copy);
@@ -185,7 +186,7 @@ function PlaybookForm({
                     <select value={t.default_owner_role} onChange={(e) => setTask(i, 'default_owner_role', e.target.value)}>
                       {OWNER_ROLES.map((r) => (
                         <option key={r} value={r}>
-                          {r}
+                          {humanizeKey(r)}
                         </option>
                       ))}
                     </select>
@@ -418,7 +419,7 @@ export function PlaybooksSection() {
                       {p.tasks.map((t) => (
                         <li key={t.id}>
                           <span>{t.title}</span>
-                          <span className="muted text-sm"> · {t.default_owner_role}</span>
+                          <span className="muted text-sm"> · {humanizeKey(t.default_owner_role)}</span>
                         </li>
                       ))}
                     </ol>
