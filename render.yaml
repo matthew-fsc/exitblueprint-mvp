@@ -47,6 +47,15 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: EB_DOCUMENT_KEY
         sync: false
+      # Signing key for the short-expiry document download URLs (HMAC over
+      # documentId+expiry, server/documents/signed-url.ts). REQUIRED in production:
+      # the server hard-fails at startup (server/http.ts) if it's unset, because a
+      # missing key would fall back to a publicly-known dev secret that makes
+      # download tokens forgeable. Unlike EB_DOCUMENT_KEY it signs only ephemeral
+      # (5-min) tokens, so Render can auto-generate a strong value — no manual step,
+      # and rotating it only invalidates in-flight download links.
+      - key: EB_SIGNING_KEY
+        generateValue: true
       # Clerk (standard identity provider, docs/30). CLERK_JWKS_URL verifies Clerk
       # session tokens; it's the public Clerk domain for exitblueprint.net, so it's
       # pinned here (not a secret). CLERK_SECRET_KEY (sk_...) enables Clerk owner
