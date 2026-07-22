@@ -2,53 +2,20 @@
 // On plain Postgres (no Supabase stack) it first applies db/supabase-shim.sql
 // so migrations that depend on the auth schema and Supabase roles still run.
 // On a real Supabase database the shim is skipped.
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+//
+// The apply logic lives in server/migrate.ts (applyMigrations) so the compute
+// service can run the same runner over its service-role connection — "Load
+// methodology" applies pending migrations before seeding (server/seed-methodology.ts).
+// This wrapper adds the CLI concerns: its own connection and the PostgREST reload.
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const migrationsDir = join(root, 'supabase', 'migrations');
+import { applyMigrations } from '../server/migrate';
 
 export async function migrate(databaseUrl: string): Promise<string[]> {
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
-  const applied: string[] = [];
   try {
-    const authExists = await client.query(
-      "select 1 from pg_namespace where nspname = 'auth'",
-    );
-    if (authExists.rowCount === 0) {
-      await client.query(readFileSync(join(root, 'db', 'supabase-shim.sql'), 'utf8'));
-      applied.push('supabase-shim (plain Postgres detected)');
-    }
-
-    await client.query(`
-      create table if not exists public.schema_migrations (
-        version text primary key,
-        applied_at timestamptz not null default now()
-      )`);
-
-    const files = existsSync(migrationsDir)
-      ? readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()
-      : [];
-    for (const file of files) {
-      const done = await client.query(
-        'select 1 from public.schema_migrations where version = $1',
-        [file],
-      );
-      if (done.rowCount) continue;
-      await client.query('begin');
-      try {
-        await client.query(readFileSync(join(migrationsDir, file), 'utf8'));
-        await client.query('insert into public.schema_migrations (version) values ($1)', [file]);
-        await client.query('commit');
-        applied.push(file);
-      } catch (err) {
-        await client.query('rollback');
-        throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
-      }
-    }
+    const applied = await applyMigrations(client);
 
     // Tell PostgREST to reload its schema cache. Migrations are applied over a
     // raw pg connection (not the Supabase CLI), so on a hosted Supabase project
@@ -57,10 +24,10 @@ export async function migrate(databaseUrl: string): Promise<string[]> {
     // cache". Signalling a reload here keeps the REST API in sync after every
     // migrate run. Harmless (a no-op) on plain Postgres with no PostgREST.
     await client.query("notify pgrst, 'reload schema'");
+    return applied;
   } finally {
     await client.end();
   }
-  return applied;
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];

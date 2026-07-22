@@ -31,6 +31,10 @@ interface SeedTableReport {
 interface SeedResult {
   rows: SeedTableReport[];
   ok: boolean;
+  // Migration files applied before seeding (empty when the schema was already
+  // current). "Load methodology" migrates then seeds, so a schema-changing
+  // methodology update lands without CLI access to the DB.
+  migrations?: string[];
 }
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -392,16 +396,17 @@ export default function HealthPage() {
           </button>
         </div>
 
-        {/* Methodology bootstrap & sync — idempotent; re-running against an
-            already-seeded DB pulls in methodology/advisory-library content added
-            since it was last seeded (new library items, plans, education,
-            playbooks). Superadmin-gated server-side; a non-superadmin gets a
-            clear 403 surfaced below. */}
+        {/* Methodology bootstrap & sync — idempotent; applies any pending schema
+            migrations first (so a schema-changing methodology update lands without
+            CLI access to the DB), then pulls in methodology/advisory-library
+            content added since it was last seeded (new library items, plans,
+            education, playbooks). Superadmin-gated server-side; a non-superadmin
+            gets a clear 403 surfaced below. */}
         <div className="stack-sm">
           <p className="check-detail">
             {methodologyMissing
-              ? 'This database has no methodology loaded. Load it to enable assessments and populate the advisory library.'
-              : 'Re-sync to pull in methodology and advisory-library content added since this database was last seeded. Idempotent — existing rows are updated in place and new items are added.'}
+              ? 'This database has no methodology loaded. Load it to apply any pending schema migrations, enable assessments, and populate the advisory library.'
+              : 'Re-sync to apply any pending schema migrations and pull in methodology and advisory-library content added since this database was last seeded. Idempotent — migrations run at most once, existing rows are updated in place, and new items are added.'}
           </p>
           <button type="button" onClick={loadMethodology} disabled={seeding}>
             {seeding
@@ -420,6 +425,9 @@ export default function HealthPage() {
           {seedResult && (
             <div className={`check check-${seedResult.ok ? 'ok' : 'fail'}`}>
               <span className="check-detail">
+                {seedResult.migrations && seedResult.migrations.length > 0
+                  ? `Applied ${seedResult.migrations.length} pending migration(s) before seeding: ${seedResult.migrations.join(', ')}. `
+                  : ''}
                 {seedResult.ok
                   ? 'Methodology synced — reload the app to see the latest library and assessment content.'
                   : 'Loaded, but some row counts did not match the seed files (see below).'}

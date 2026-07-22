@@ -15,6 +15,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
+import { applyMigrations } from './migrate';
 import {
   buildRubric,
   parseAdvisoryLibrary,
@@ -299,6 +300,10 @@ export interface SeedTableReport {
 export interface SeedResult {
   rows: SeedTableReport[];
   ok: boolean;
+  // Migration files applied by this call before seeding (empty when the schema
+  // was already current). Set only on the seedMethodology path — writeSeedBundle
+  // alone never migrates.
+  migrations?: string[];
 }
 
 // Parsed, validated methodology ready to write. Kept as a separate step so the
@@ -760,12 +765,20 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
   return { rows, ok };
 }
 
-// Load, validate, and write in one call. Throws SeedValidationError (nothing
-// written) on referential-integrity problems; returns the count report otherwise.
+// Migrate, load, validate, and write in one call. Applies any pending migrations
+// FIRST (idempotent) so a schema-changing methodology update can be brought current
+// entirely in-system: without this, seeding a brand-new table (e.g. library_tasks,
+// docs/37) fails with `relation "..." does not exist` because "Load methodology"
+// runs where the CLI `db:migrate` never did. Then loads + writes the seed; the
+// write step signals the PostgREST schema-cache reload. Throws SeedValidationError
+// (nothing written) on referential-integrity problems; returns the count report,
+// annotated with any migrations applied, otherwise.
 export async function seedMethodology(
   db: pg.ClientBase,
-  opts: { seedDir?: string } = {},
+  opts: { seedDir?: string; migrationsDir?: string } = {},
 ): Promise<SeedResult> {
+  const migrations = await applyMigrations(db, { migrationsDir: opts.migrationsDir });
   const bundle = loadSeedBundle(opts.seedDir ?? resolveSeedDir());
-  return writeSeedBundle(db, bundle);
+  const result = await writeSeedBundle(db, bundle);
+  return { ...result, migrations };
 }
