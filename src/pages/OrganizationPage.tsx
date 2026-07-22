@@ -23,9 +23,13 @@ import {
   LoadingState,
   PageHeader,
   SectionCard,
+  SubTabs,
+  subTabId,
+  subTabPanelId,
   TierBadge,
   useToast,
 } from '../components/ui';
+import type { SubTab } from '../components/ui/SubTabs';
 import { ProfessionalDirectoryCard } from '../components/ProfessionalDirectoryCard';
 import { accentVars } from '../lib/color';
 
@@ -384,9 +388,21 @@ function AssignmentsCard({ firmId }: { firmId?: string }) {
   );
 }
 
+// The four org controls used to stack as one long scroll. They're distinct
+// admin jobs (grow the team, dress the reports, curate the network, hand off
+// engagements), so they split cleanly into sub-tabs — one job in view, the
+// rest one click away rather than a scroll hunt (mirrors Evidence/Library).
+const ORG_TABS: SubTab[] = [
+  { key: 'team', label: 'Team & seats' },
+  { key: 'branding', label: 'Branding' },
+  { key: 'directory', label: 'Directory' },
+  { key: 'assignments', label: 'Assignments' },
+];
+
 export default function OrganizationPage() {
   const { profile, firmName } = useAuth();
   const firmId = profile?.firm_id ?? undefined;
+  const [tab, setTab] = useState('team');
 
   return (
     <div className="stack-lg">
@@ -395,10 +411,13 @@ export default function OrganizationPage() {
         subtitle="Your firm's team, branding, professional network, and engagement ownership — the controls that run the practice."
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Organization' }]}
       />
-      <TeamCard firmId={firmId} meId={profile?.id} />
-      <BrandingCard firmId={firmId} firmName={firmName} />
-      <ProfessionalDirectoryCard firmId={firmId} meProfileId={profile?.id} />
-      <AssignmentsCard firmId={firmId} />
+      <SubTabs tabs={ORG_TABS} activeKey={tab} onSelect={setTab} ariaLabel="Organization controls" />
+      <div role="tabpanel" id={subTabPanelId(tab)} aria-labelledby={subTabId(tab)}>
+        {tab === 'team' && <TeamCard firmId={firmId} meId={profile?.id} />}
+        {tab === 'branding' && <BrandingCard firmId={firmId} firmName={firmName} />}
+        {tab === 'directory' && <ProfessionalDirectoryCard firmId={firmId} meProfileId={profile?.id} />}
+        {tab === 'assignments' && <AssignmentsCard firmId={firmId} />}
+      </div>
     </div>
   );
 }

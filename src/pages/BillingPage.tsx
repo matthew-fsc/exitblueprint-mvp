@@ -21,7 +21,7 @@ import { resolveEntitlement, type EntitlementReason } from '../../shared/entitle
 // (Checkout). Both are POST functions that return a { url } we redirect to.
 // Writing billing state is never done from the client — only through Stripe.
 
-// Access status → chip label + tone. Mirrors SettingsPage's BillingCard so the
+// Access status → chip label + tone. Mirrors AccountPage's BillingCard so the
 // two surfaces read the same; the plan/status detail lives here.
 const REASON_LABEL: Record<EntitlementReason, { label: string; cls: string }> = {
   comp: { label: 'Beta access — complimentary', cls: 'status-good' },
@@ -138,7 +138,7 @@ export default function BillingPage() {
       async () => {
         const { url } = await invokeFunction<{ url: string }>('create-checkout-session', {
           plan_code: planCode,
-          success_url: `${window.location.origin}/settings/billing?checkout=success`,
+          success_url: `${window.location.origin}/billing?checkout=success`,
           cancel_url: window.location.href,
         });
         window.location.assign(url);
@@ -150,7 +150,7 @@ export default function BillingPage() {
     <PageHeader
       title="Billing"
       subtitle="Your firm's subscription, seats, and invoices — managed securely through Stripe."
-      crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Settings', to: '/settings' }, { label: 'Billing' }]}
+      crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Billing' }]}
     />
   );
 

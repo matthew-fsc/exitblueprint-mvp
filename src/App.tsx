@@ -40,7 +40,7 @@ const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const ReviewDocumentPage = lazy(() => import('./pages/ReviewDocumentPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
 const OrganizationPage = lazy(() => import('./pages/OrganizationPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const HealthPage = lazy(() => import('./pages/HealthPage'));
@@ -72,7 +72,7 @@ const queryClient = new QueryClient({
 });
 
 // R5: advisor/admin accounts must satisfy MFA (bypassed on the dev stack). An
-// un-enrolled or unverified advisor is sent to /settings (which hosts MFA setup)
+// un-enrolled or unverified advisor is sent to /account (which hosts MFA setup)
 // before anything else.
 function useMfaGate(session: unknown): MfaState | 'loading' {
   const [state, setState] = useState<MfaState | 'loading'>('loading');
@@ -121,9 +121,9 @@ function RequireAdvisor({ children }: { children: ReactNode }) {
     return <ProfileNotReady />;
   }
   if (mfa === 'loading') return <main className="page"><LoadingState variant="page" /></main>;
-  // /settings is where MFA is set up, so it must stay reachable during the gate.
-  if (mfa !== 'satisfied' && location.pathname !== '/settings') {
-    return <Navigate to="/settings" replace />;
+  // /account is where MFA is set up, so it must stay reachable during the gate.
+  if (mfa !== 'satisfied' && location.pathname !== '/account') {
+    return <Navigate to="/account" replace />;
   }
   return <>{children}</>;
 }
@@ -151,7 +151,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   if (loading) return <main className="page"><LoadingState variant="page" /></main>;
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profile?.role === 'owner' || profile?.role === 'collaborator') return <Navigate to="/portal" replace />;
-  if (profile?.role !== 'admin') return <Navigate to="/settings" replace />;
+  if (profile?.role !== 'admin') return <Navigate to="/account" replace />;
   return <>{children}</>;
 }
 
@@ -325,19 +325,25 @@ function AppBar() {
                 Organization
               </NavLink>
             )}
-            <NavLink to="/settings" className="app-nav-link">
-              Settings
-            </NavLink>
           </AppNav>
         </div>
         <div className="app-bar-right">
           {isDevStack && <span className="dev-badge">Dev</span>}
           <ThemeToggle />
           <span className="app-bar-divider" aria-hidden />
-          {/* The standalone Security page was merged into Settings (MFA lives
-              there now), so the account menu carries just Sign out; account &
-              security settings are reachable from the Settings nav item. */}
-          <UserMenu email={profile?.email} links={[]} onSignOut={signOut} />
+          {/* Account-level concerns live in the avatar menu, not the primary nav:
+              personal sign-in & security (Account), the firm's plan (Billing),
+              and — for admins — the firm controls (Organization). Removing the
+              Settings nav item keeps the bar to daily-workflow destinations. */}
+          <UserMenu
+            email={profile?.email}
+            links={[
+              { to: '/account', label: 'Account & security' },
+              { to: '/billing', label: 'Billing' },
+              ...(profile?.role === 'admin' ? [{ to: '/organization', label: 'Organization' }] : []),
+            ]}
+            onSignOut={signOut}
+          />
         </div>
       </div>
     </header>
@@ -599,9 +605,14 @@ export default function App() {
               it showed already lives on the Organization page, so old links fold
               back there rather than 404. */}
           <Route path="/network" element={<Navigate to="/organization" replace />} />
-          {/* Security page merged into Settings (MFA lives there now; the data-
+          {/* Security merged into the Account page (MFA lives there now; the data-
               protection summary moved to the legal footer). Old links redirect. */}
-          <Route path="/security" element={<Navigate to="/settings" replace />} />
+          <Route path="/security" element={<Navigate to="/account" replace />} />
+          {/* Settings was split by ownership: personal → Account, firm plan →
+              Billing (both reached from the avatar menu, not the nav). Old links
+              fold forward. */}
+          <Route path="/settings" element={<Navigate to="/account" replace />} />
+          <Route path="/settings/billing" element={<Navigate to="/billing" replace />} />
           <Route path="/portal" element={<RequirePortal><OwnerShell><OwnerHomePage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/plan" element={<RequirePortal><OwnerShell><OwnerPlanPage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/learn" element={<RequirePortal><OwnerShell><OwnerLearnPage /></OwnerShell></RequirePortal>} />
@@ -653,17 +664,17 @@ export default function App() {
             element={<RequireAdvisor><RedirectAssessmentDeliverable section="cim" /></RequireAdvisor>}
           />
           <Route
-            path="/settings"
+            path="/account"
             element={
               <RequireAdvisor>
                 <Shell>
-                  <SettingsPage />
+                  <AccountPage />
                 </Shell>
               </RequireAdvisor>
             }
           />
           <Route
-            path="/settings/billing"
+            path="/billing"
             element={
               <RequireAdvisor>
                 <Shell>

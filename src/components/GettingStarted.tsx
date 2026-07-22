@@ -16,7 +16,7 @@ import { useAdvisoryLibrary, useFirmProfessionals } from '../lib/queries';
 // measured at the high-stickiness milestone rather than the low one.
 //
 // Deliberately not a wizard: each step links to where the work already happens
-// (Settings for MFA, the add-engagement dialog, the engagement page, Library,
+// (Account for MFA, the add-engagement dialog, the engagement page, Library,
 // Organization). It reads the same signals the dashboard already has, adding
 // the MFA lookup plus the firm library and professional-directory counts.
 
@@ -101,7 +101,7 @@ export function GettingStarted({
       body: 'Turn on two-factor authentication so client data stays protected.',
       done: mfaDone,
       action: (
-        <Link className="button-link button-primary" to="/settings">
+        <Link className="button-link button-primary" to="/account">
           Set up two-factor
         </Link>
       ),
