@@ -53,8 +53,8 @@ function BillingCard({ firmId }: { firmId?: string }) {
             {state.planName ? `${state.planName} plan` : 'No plan attached'}
             {state.seatLimit != null ? ` · ${state.seatLimit} seat${state.seatLimit === 1 ? '' : 's'}` : ''}
           </span>
-          <Link to="/settings/billing" style={{ marginLeft: 'auto' }}>
-            Manage billing →
+          <Link to="/billing" style={{ marginLeft: 'auto' }}>
+            View billing →
           </Link>
         </div>
       )}
@@ -170,41 +170,21 @@ function ClerkAccountCard() {
   );
 }
 
-// A pointer to the admin-only Organization area, shown to admins so the firm's
-// team, branding, directory, and engagement ownership have a clear home.
-function OrganizationCard() {
-  return (
-    <SectionCard
-      title="Organization"
-      subtitle="Your firm's team & seats, white-label branding, professional directory, and engagement ownership."
-    >
-      <div className="control-row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-        <Link to="/organization">Open Organization →</Link>
-      </div>
-      <p className="muted text-sm" style={{ marginTop: 'var(--space-3)' }}>
-        These are firm-wide administrative controls, so they're managed by admins.
-      </p>
-    </SectionCard>
-  );
-}
-
-export default function SettingsPage() {
+export default function AccountPage() {
   const { profile } = useAuth();
   const firmId = profile?.firm_id ?? undefined;
-  const isAdmin = profile?.role === 'admin';
 
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Settings"
-        subtitle="Your account, your firm's plan, and — for admins — the Organization controls."
-        crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Settings' }]}
+        title="Account"
+        subtitle="Your personal sign-in, security, and your firm's access status. Firm-wide controls live in Organization."
+        crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Account' }]}
       />
 
-      <BillingCard firmId={firmId} />
       {isClerkStack && <ClerkAccountCard />}
-      {isAdmin && <OrganizationCard />}
       <MfaCard />
+      <BillingCard firmId={firmId} />
     </div>
   );
 }

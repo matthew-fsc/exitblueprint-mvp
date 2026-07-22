@@ -58,7 +58,8 @@ A developer index: the durable features and the files that own them. Pair with
 | Evidence (data room · docs · verification) | `server/data-room.ts`, `server/documents/*`, `server/verification.ts` | 02, 17 §3 |
 | Secure document storage + scan | `server/documents/{storage,scanner,crypto,signed-url}.ts` | 02 |
 | Billing (Stripe) + entitlements gate | `server/stripe.ts`, `server/entitlements.ts` | 24 |
-| **Org controls** (admin role · pro directory · assignment) | `server/organization.ts` · `src/pages/OrganizationPage.tsx` · `src/components/EngagementProfessionalsCard.tsx` | 02 |
+| **Org controls** (admin role · pro directory · assignment; sub-tabbed) | `server/organization.ts` · `src/pages/OrganizationPage.tsx` · `src/components/EngagementProfessionalsCard.tsx` | 02 |
+| **Account & billing** (personal sign-in/MFA + firm plan; reached from the avatar menu, not the nav) | `src/pages/AccountPage.tsx` (`/account`) · `src/pages/BillingPage.tsx` (`/billing`) · `src/components/UserMenu.tsx` | 06 (log) |
 | Advisor onboarding checklist | `src/components/GettingStarted.tsx` | 06 (log) |
 | Mobile responsive pass | `src/styles.css` (Mobile section), `AppNav` | 06 (log) |
 | Design system (tokens/components/format) | `src/components/ui/*`, `src/lib/format.ts` | 26 |
