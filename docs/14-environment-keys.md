@@ -88,6 +88,8 @@ check during rotation.
 | `WEBHOOK_SECRET` | — (503) | **Generate:** `openssl rand -hex 32`. Shared secret for the n8n continuous-evaluation webhooks (`POST /webhooks/scheduled/*`), sent as the `x-webhook-secret` header (`docs/07`). Unset → those endpoints reply 503. |
 | `WEBHOOK_RATE_LIMIT` | `60` | Max requests per client IP per window for the two unauthenticated webhook routes (`/webhooks/clerk` and `/webhooks/scheduled/*`, `docs/24` D2). Over the limit → `429` with a `Retry-After` header. Behind Render the limiter keys on the first `X-Forwarded-For` hop. |
 | `WEBHOOK_RATE_WINDOW_SEC` | `60` | Rate-limit window length in seconds for the routes above. |
+| `API_RATE_LIMIT` | `300` | Max requests per client IP per window for the authenticated function surface (`/functions/v1/*`), checked **before** token verification so a flood of bad/expensive tokens can't burn JWKS-verify CPU or reach the DB pool. Over the limit → `429` with a `Retry-After` header. Raise it for a NAT'd firm where many advisors share one egress IP. |
+| `API_RATE_WINDOW_SEC` | `60` | Rate-limit window length in seconds for `/functions/v1/*`. |
 | `PLATFORM_SUPERADMIN_IDS` | — (403) | Comma-separated Clerk user ids allowed to load methodology from inside the system (superadmin-gated `seed-methodology`, "Load methodology" on `/health`). |
 
 ### Optional — Ledger (QuickBooks / Xero) live connection
@@ -140,6 +142,7 @@ To point local dev at a real Supabase project instead, set `VITE_SUPABASE_URL` +
 | `ANTHROPIC_API_KEY` | Compute | **yes** | optional |
 | `SENTRY_DSN` / `WEBHOOK_SECRET` / `PLATFORM_SUPERADMIN_IDS` | Compute | mixed | optional |
 | `WEBHOOK_RATE_LIMIT` / `WEBHOOK_RATE_WINDOW_SEC` | Compute | no | optional |
+| `API_RATE_LIMIT` / `API_RATE_WINDOW_SEC` | Compute | no | optional |
 | `PORT`, `EB_CHROMIUM_PATH`, `EB_PARSER`, `EB_STORAGE`, `EB_SCANNER`, `EB_CLAMD_*` | Compute | no | optional |
 | `SUPABASE_SERVICE_ROLE_KEY` | Compute | **yes** | if `EB_STORAGE=supabase` |
 | `LEDGER_OAUTH_REDIRECT_URI` | Compute | no | optional |

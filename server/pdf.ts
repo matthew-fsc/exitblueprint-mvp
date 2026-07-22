@@ -227,11 +227,27 @@ function institutionalCss(accent: string): string {
     .narrative ul { margin: 7px 0; padding-left: 18px; }
     .page-break { page-break-before: always; }
     .disclosure { margin-top: 22px; padding-top: 10px; border-top: 1px solid ${HAIR}; font-size: 9px; color: ${MUTED}; line-height: 1.5; }
+    .disclosure p { margin: 0 0 6px; }
+    .disclosure p:last-child { margin-bottom: 0; }
   `;
 }
 
 function docShell(accent: string, coverAndBody: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>${institutionalCss(accent)}</style></head><body>${coverAndBody}</body></html>`;
+}
+
+// Every client-facing artifact carries a baseline disclaimer — the narrative is
+// AI-drafted from structured data and released as a draft for advisor review,
+// not advice (architecture rule 2: AI output is always labeled draft narrative).
+// A firm may append its own disclosure via branding.footer_disclosure_md, but
+// the baseline always renders so no export can ship without it.
+const BASELINE_DISCLOSURE =
+  'This document includes narrative drafted by AI from structured assessment data and is provided as a draft for advisor review before release. It is not financial, legal, tax, or investment advice. Figures are self-reported or estimated unless independently verified.';
+
+function disclosureHtml(branding: ReportBranding | null): string {
+  const firm = branding?.footer_disclosure_md?.trim();
+  const paras = firm ? [BASELINE_DISCLOSURE, esc(firm)] : [BASELINE_DISCLOSURE];
+  return `<div class="disclosure">${paras.map((p) => `<p>${p}</p>`).join('')}</div>`;
 }
 
 // ---- delta report -----------------------------------------------------------
@@ -276,9 +292,7 @@ export function renderDeltaReportHtml(
     ? `<div class="gapcol"><h3>Focus next period (${payload.open_gaps.length})</h3><ul>${payload.open_gaps.slice(0, 8).map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>`
     : '';
 
-  const disclosure = branding?.footer_disclosure_md
-    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
-    : '';
+  const disclosure = disclosureHtml(branding);
 
   const body = `
   <div class="pad">
@@ -363,9 +377,7 @@ export function renderOwnerReportHtml(
     ? `<h2>Worth noting</h2><ul>${data.flags.map((f) => `<li>${esc(f)} — scored conservatively until it is measured.</li>`).join('')}</ul>`
     : '';
 
-  const disclosure = branding?.footer_disclosure_md
-    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
-    : '';
+  const disclosure = disclosureHtml(branding);
 
   const body = `
   <div class="pad">
@@ -418,9 +430,7 @@ export function renderCimReportHtml(
     meta: `${esc(data.industry || '')}${data.date ? ` &middot; ${fmtDate(data.date)}` : ''}`,
   });
 
-  const disclosure = branding?.footer_disclosure_md
-    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
-    : '';
+  const disclosure = disclosureHtml(branding);
 
   const body = `
   <div class="pad">
@@ -463,9 +473,7 @@ export function renderTeaserHtml(
     meta: `${data.state ? esc(data.state) : ''}${data.date ? `${data.state ? ' &middot; ' : ''}${fmtDate(data.date)}` : ''}`,
   });
 
-  const disclosure = branding?.footer_disclosure_md
-    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
-    : '';
+  const disclosure = disclosureHtml(branding);
 
   const body = `
   <div class="pad">
@@ -504,9 +512,7 @@ export function renderManagementPresentationHtml(
     meta: `${esc(data.industry || '')}${data.date ? ` &middot; ${fmtDate(data.date)}` : ''}`,
   });
 
-  const disclosure = branding?.footer_disclosure_md
-    ? `<div class="disclosure">${esc(branding.footer_disclosure_md)}</div>`
-    : '';
+  const disclosure = disclosureHtml(branding);
 
   const body = `
   <div class="pad">

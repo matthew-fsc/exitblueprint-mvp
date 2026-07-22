@@ -23,7 +23,7 @@ import { logAccess } from './audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from './clerk-webhook';
 import { resolveDbConnection } from './db-ssl';
 import { parseAllowedOrigins, resolveCorsOrigin } from './cors';
-import { createRateLimiter } from './ratelimit';
+import { createRateLimiter, type RateLimiter } from './ratelimit';
 import {
   findStaleEngagements,
   findStalledTasks,
@@ -131,6 +131,20 @@ const webhookLimiter = createRateLimiter({
   windowMs: WEBHOOK_RATE_WINDOW_SEC * 1000,
 });
 
+// The authenticated function surface (/functions/v1/*) gets its own, more
+// generous per-IP window. It runs BEFORE token verification, so it caps the CPU
+// a flood of bad/expensive tokens can burn on JWKS verify and the DB pool it
+// would otherwise reach — without throttling a real advisor whose dashboard
+// fires a burst of calls. Keyed by IP (pre-auth, so no principal yet); like the
+// webhook limiter it is in-memory per-instance (volume hygiene, not an auth
+// boundary). Tunable via env for a NAT'd firm that needs more headroom.
+const API_RATE_LIMIT = envInt('API_RATE_LIMIT', 300);
+const API_RATE_WINDOW_SEC = envInt('API_RATE_WINDOW_SEC', 60);
+const apiLimiter = createRateLimiter({
+  limit: API_RATE_LIMIT,
+  windowMs: API_RATE_WINDOW_SEC * 1000,
+});
+
 // Error monitoring + structured request logs (server/observability.ts). No-op
 // until SENTRY_DSN is set, so dev/CI/beta are unaffected; when set, unhandled
 // errors are forwarded to Sentry. Never captures secrets/PII (scrubbed).
@@ -230,8 +244,12 @@ function clientKey(req: IncomingMessage): string {
 // Enforce the per-client webhook rate limit. Returns true if the request was
 // rejected (a 429 with Retry-After has already been sent) so the caller returns
 // immediately. 429 — NOT 503, which in this codebase means "endpoint disabled".
-function rateLimited(req: IncomingMessage, res: ServerResponse): boolean {
-  const { allowed, retryAfterSec } = webhookLimiter.check(clientKey(req));
+function rateLimited(
+  req: IncomingMessage,
+  res: ServerResponse,
+  limiter: RateLimiter = webhookLimiter,
+): boolean {
+  const { allowed, retryAfterSec } = limiter.check(clientKey(req));
   if (allowed) return false;
   res.setHeader('retry-after', String(retryAfterSec));
   json(res, 429, { message: 'rate limit exceeded' });
@@ -435,6 +453,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // 200 on handled/duplicate, 400 only on a bad signature.
   if (req.method === 'POST' && url.pathname === '/webhooks/stripe') {
     if (!stripeConfigured()) return json(res, 503, { message: 'stripe webhook not configured' });
+    if (rateLimited(req, res)) return;
     const raw = await readBody(req);
     const sig = req.headers['stripe-signature'];
     const sigHeader = Array.isArray(sig) ? sig[0] : sig;
@@ -500,6 +519,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   }
 
   if (req.method === 'POST' && url.pathname.startsWith('/functions/v1/')) {
+    // Bound volume per IP BEFORE verifying the token, so a flood of bad/expensive
+    // tokens can't burn JWKS-verify CPU or reach the DB pool unthrottled.
+    if (rateLimited(req, res, apiLimiter)) return;
     const claims = await bearer(req);
     if (!claims) return json(res, 401, { message: 'invalid or missing token' });
     const name = url.pathname.replace('/functions/v1/', '');

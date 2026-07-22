@@ -99,6 +99,13 @@ services:
         sync: false
       - key: WEBHOOK_RATE_WINDOW_SEC
         sync: false
+      # Per-IP limit for the authenticated function surface (/functions/v1/*),
+      # checked before token verification. Optional; defaults 300 requests / 60s.
+      # Raise for a NAT'd firm where many advisors share one egress IP.
+      - key: API_RATE_LIMIT
+        sync: false
+      - key: API_RATE_WINDOW_SEC
+        sync: false
       # Error monitoring (docs/32). Unset → disabled (no SDK active). SENTRY_ENVIRONMENT
       # and SENTRY_TRACES_SAMPLE_RATE are optional refinements.
       - key: SENTRY_DSN
