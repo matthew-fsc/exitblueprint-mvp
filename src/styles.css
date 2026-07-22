@@ -5819,3 +5819,72 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
 .comment-composer textarea {
   width: 100%;
 }
+
+/* Diligence simulation — the proactive buyer lens (ranked blind-spot report).
+   Reuses the advisory sev-* left-border language so the two lenses read as one
+   family; findings are numbered by rank to make the "worst first" order legible. */
+.dsim-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.dsim-toolbar-status { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.dsim-findings { display: flex; flex-direction: column; }
+.dsim-finding {
+  padding: 0.9rem 0 0.9rem 0.85rem;
+  border-left: 3px solid var(--status-neutral);
+  border-bottom: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+}
+.dsim-finding:last-child { border-bottom: none; }
+.dsim-finding.sev-critical { border-left-color: var(--status-critical); }
+.dsim-finding.sev-high { border-left-color: var(--status-serious); }
+.dsim-finding.sev-med { border-left-color: var(--status-warning); }
+.dsim-finding.sev-low { border-left-color: var(--status-neutral); }
+.dsim-finding-head { display: flex; gap: 0.7rem; align-items: flex-start; }
+.dsim-finding-rank {
+  flex: none;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-2, rgba(0, 0, 0, 0.05));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.dsim-finding-titles { flex: 1; min-width: 0; }
+.dsim-finding-title { margin: 0; font-weight: 600; }
+.dsim-finding-meta { margin: 0.15rem 0 0; font-size: 0.85rem; }
+.dsim-finding-why { margin: 0.5rem 0 0; font-size: 0.92rem; line-height: 1.45; color: var(--text-2, inherit); }
+.dsim-finding-fix { margin: 0.4rem 0 0; font-size: 0.88rem; }
+.dsim-finding-fix-label { color: var(--text-2, var(--status-neutral)); }
+.dsim-narrative { margin-top: 0.5rem; }
+/* Own-book comparables panel (docs/09 §2, moat 2) — the firm's realized multiple
+   vs. the generic table multiple, with sample size and a confidence indicator. */
+.val-ob { display: flex; flex-direction: column; gap: var(--space-4); }
+.val-ob-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+@media (max-width: 640px) { .val-ob-cols { grid-template-columns: 1fr; } }
+.val-ob-col {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-4); border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.val-ob-mult {
+  font-size: 1.5rem; font-weight: 600; color: var(--accent-strong);
+  display: flex; align-items: baseline; gap: var(--space-2);
+}
+.val-ob-tag, .val-ob-conf {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem; border-radius: var(--radius-sm);
+}
+.val-ob-tag { background: var(--accent-strong); color: #fff; text-transform: uppercase; }
+.val-ob-conf { align-self: flex-start; margin-top: var(--space-1); }
+.val-ob-conf-high { background: color-mix(in srgb, var(--status-good) 18%, transparent); color: var(--status-good); }
+.val-ob-conf-moderate { background: color-mix(in srgb, var(--status-warning) 20%, transparent); color: var(--status-warning); }
+.val-ob-conf-low { background: color-mix(in srgb, var(--status-neutral) 20%, transparent); color: var(--status-neutral); }
+.val-ob-note { margin: 0; }

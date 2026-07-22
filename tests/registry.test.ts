@@ -78,6 +78,7 @@ describe('function registry', () => {
         'render-document-pdf',
         'render-owner-pdf',
         'score-assessment',
+        'simulate-diligence',
       ].sort(),
     );
   });

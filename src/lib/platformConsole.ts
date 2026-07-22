@@ -31,14 +31,45 @@ export interface PlatformSnapshot {
   business: { firms: Row[]; subscriptions: Row[] };
   security: { access_30d: Row[] };
   ops: { webhooks: Row[]; ai_cost_30d: Row[]; note: string };
+  // Company operating plan (docs/40 §4b) — activation funnel, revenue plan, raw
+  // unit-economics components, and the engagement-health delivery signal.
+  operating: {
+    activation: Record<string, number>;
+    revenue: Record<string, number>;
+    unit_economics: Record<string, number>;
+    engagement_health: Record<string, number>;
+  };
   corpus: {
     verified_coverage: Row[];
     verified_metrics: Row[];
     own_book_multiples: Row[];
+    own_book_valuation_multiples: Row[];
     ledger_coverage: Row[];
     note: string;
   };
   moats: { corpus: Record<string, number>; corpus_monthly: Row[] };
+  // The versioned DRS-band calibration artifact (docs/09 moat 1, the FICO moat):
+  // for each score band, how the platform's predictions have tracked reality. Bands
+  // are de-identified aggregates; calibration_version is null until first computed.
+  calibration: {
+    calibration_version: number | null;
+    computed_at: string | null;
+    band_width: number | null;
+    total_outcomes: number | null;
+    total_closed: number | null;
+    contributing_firms: number | null;
+    bands: Row[];
+    note: string;
+  };
+}
+
+// Split the calibration bands into a score group ('drs' | 'ori'), ascending by
+// band_low — so the console renders DRS bands and ORI bands as separate tables
+// (rule #3a, never mixed). Pure; unit-tested in tests/platform-console.test.ts.
+export function calibrationBands(bands: Row[], group: 'drs' | 'ori'): Row[] {
+  return bands
+    .filter((b) => b.group_key === group)
+    .sort((a, b) => toNumber(a.band_low) - toNumber(b.band_low));
 }
 
 // A fetch failure that carries the HTTP status, so the page can tell "you are
@@ -87,6 +118,19 @@ export interface FunnelStep {
   value: number;
   pctOfStart: number | null;
 }
+// Turn a one-row funnel rollup into ordered steps, each with its conversion off
+// the FIRST present step. Shared by the assessment funnel and the firm-level
+// activation funnel — pass the ordered keys the caller cares about.
+export function orderedFunnel(funnel: Record<string, number>, order: string[]): FunnelStep[] {
+  const present = order.filter((k) => k in funnel);
+  const start = present.length ? (funnel[present[0]] ?? 0) : 0;
+  return present.map((k) => ({
+    key: k,
+    value: funnel[k] ?? 0,
+    pctOfStart: start > 0 ? Math.round(((funnel[k] ?? 0) / start) * 100) : null,
+  }));
+}
+
 const FUNNEL_ORDER = [
   'engagements',
   'assessments_started',
@@ -94,12 +138,20 @@ const FUNNEL_ORDER = [
   'assessments_scored',
 ];
 export function funnelSteps(funnel: Record<string, number>): FunnelStep[] {
-  const start = funnel[FUNNEL_ORDER[0]] ?? 0;
-  return FUNNEL_ORDER.filter((k) => k in funnel).map((k) => ({
-    key: k,
-    value: funnel[k] ?? 0,
-    pctOfStart: start > 0 ? Math.round(((funnel[k] ?? 0) / start) * 100) : null,
-  }));
+  return orderedFunnel(funnel, FUNNEL_ORDER);
+}
+
+// The go-to-market activation funnel (docs/40 §4b), FIRM-level: firm created →
+// an advisor did something → first assessment → first deliverable. Leading
+// indicator of where firms fall out of the activation path.
+const ACTIVATION_ORDER = [
+  'firms_created',
+  'firms_activated',
+  'firms_first_assessment',
+  'firms_first_deliverable',
+];
+export function activationSteps(activation: Record<string, number>): FunnelStep[] {
+  return orderedFunnel(activation, ACTIVATION_ORDER);
 }
 
 // Sum a numeric column across rows (e.g. total AI spend over the window).
@@ -127,4 +179,72 @@ export function topEvents(
     .map(([label, v]) => ({ label, ...v }))
     .sort((a, b) => b.events - a.events)
     .slice(0, limit);
+}
+
+// ---- Unit economics / COGS (docs/40 §4b) ----
+
+// Per-unit COGS derived from the raw components the analytics.unit_economics view
+// exposes. AI spend is the dominant variable cost; dividing it by the value units
+// (active firms, completed assessments) gives the unit economics the operating
+// plan tracks. Kept as a PURE derivation (null-safe division) so the ratios are
+// unit-tested here rather than computed in SQL. A zero denominator yields null (a
+// ratio that doesn't exist yet), never Infinity/NaN.
+export interface UnitEconomics {
+  ai_cost_30d: number;
+  ai_cost_total: number;
+  cost_per_active_firm_30d: number | null;
+  cost_per_completed_assessment: number | null;
+  cost_per_engagement: number | null;
+}
+function ratio(numerator: number, denominator: number): number | null {
+  if (!(denominator > 0)) return null;
+  return Math.round((numerator / denominator) * 100) / 100;
+}
+export function unitEconomics(raw: Record<string, number>): UnitEconomics {
+  const cost30d = toNumber(raw.ai_cost_30d);
+  const costTotal = toNumber(raw.ai_cost_total);
+  return {
+    ai_cost_30d: cost30d,
+    ai_cost_total: costTotal,
+    cost_per_active_firm_30d: ratio(cost30d, toNumber(raw.active_firms)),
+    cost_per_completed_assessment: ratio(costTotal, toNumber(raw.completed_assessments)),
+    cost_per_engagement: ratio(costTotal, toNumber(raw.engagements)),
+  };
+}
+
+// ---- Churn-risk book (docs/40 §4b) ----
+
+// Roll the per-firm overview rows up into the churn book's headline counts, using
+// the SAME firmActivityStatus classification the firm table renders, so the tiles
+// and the table can never disagree. `atRiskPaying` is the number that matters: a
+// paying/comped firm that has gone idle or dormant — money at risk of churning.
+export interface ChurnBook {
+  active: number;
+  idle: number;
+  dormant: number;
+  atRiskPaying: number;
+}
+const PAYING_STATUSES = new Set(['active', 'trialing', 'past_due']);
+export function churnBook(firms: Row[]): ChurnBook {
+  const book: ChurnBook = { active: 0, idle: 0, dormant: 0, atRiskPaying: 0 };
+  for (const f of firms) {
+    const status = firmActivityStatus(
+      toNumber(f.active_engagements),
+      daysSinceRow(f.last_activity_at),
+    );
+    book[status] += 1;
+    const paying =
+      f.comp === true || PAYING_STATUSES.has(String(f.subscription_status ?? ''));
+    if (paying && status !== 'active') book.atRiskPaying += 1;
+  }
+  return book;
+}
+
+// Whole days since an ISO timestamp (or null). Local to this dependency-free
+// module so churnBook stays testable without importing the browser format lib.
+function daysSinceRow(v: unknown): number | null {
+  if (v == null) return null;
+  const t = new Date(String(v)).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
 }

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activationSteps,
+  churnBook,
   firmActivityStatus,
   funnelSteps,
   sumColumn,
   toNumber,
   topEvents,
+  unitEconomics,
 } from '../src/lib/platformConsole';
 
 describe('firmActivityStatus', () => {
@@ -79,5 +82,71 @@ describe('topEvents', () => {
   it('respects the limit', () => {
     const rows = Array.from({ length: 12 }, (_, i) => ({ event_name: `e${i}`, events: i, firms: 1 }));
     expect(topEvents(rows, 5)).toHaveLength(5);
+  });
+});
+
+describe('activationSteps', () => {
+  it('orders the firm-level activation funnel and converts off firms created', () => {
+    const steps = activationSteps({
+      firms_created: 10,
+      firms_activated: 8,
+      firms_first_assessment: 6,
+      firms_first_deliverable: 4,
+    });
+    expect(steps.map((s) => s.key)).toEqual([
+      'firms_created',
+      'firms_activated',
+      'firms_first_assessment',
+      'firms_first_deliverable',
+    ]);
+    expect(steps[0].pctOfStart).toBe(100);
+    expect(steps[3]).toMatchObject({ value: 4, pctOfStart: 40 });
+  });
+  it('reports null conversion (not divide-by-zero) with no firms', () => {
+    expect(activationSteps({ firms_created: 0, firms_activated: 0 })[0].pctOfStart).toBeNull();
+  });
+});
+
+describe('unitEconomics', () => {
+  it('derives null-safe per-unit COGS ratios from the raw components', () => {
+    const e = unitEconomics({
+      ai_cost_30d: 12.5,
+      ai_cost_total: 90,
+      active_firms: 5,
+      completed_assessments: 9,
+      engagements: 12,
+    });
+    expect(e.cost_per_active_firm_30d).toBe(2.5);
+    expect(e.cost_per_completed_assessment).toBe(10);
+    expect(e.cost_per_engagement).toBe(7.5);
+  });
+  it('returns null (never Infinity/NaN) when a denominator is zero', () => {
+    const e = unitEconomics({ ai_cost_30d: 5, ai_cost_total: 5, active_firms: 0, completed_assessments: 0, engagements: 0 });
+    expect(e.cost_per_active_firm_30d).toBeNull();
+    expect(e.cost_per_completed_assessment).toBeNull();
+    expect(e.cost_per_engagement).toBeNull();
+    expect(e.ai_cost_30d).toBe(5);
+  });
+});
+
+describe('churnBook', () => {
+  const recent = new Date().toISOString();
+  const days = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+
+  it('classifies firms with the same status logic the table renders', () => {
+    const book = churnBook([
+      { active_engagements: 2, last_activity_at: recent, subscription_status: 'active' },
+      { active_engagements: 2, last_activity_at: days(45), subscription_status: 'active' }, // idle + paying → at risk
+      { active_engagements: 0, last_activity_at: recent, subscription_status: 'active' }, // dormant + paying → at risk
+      { active_engagements: 1, last_activity_at: days(90), comp: true }, // dormant + comped → at risk
+      { active_engagements: 1, last_activity_at: days(90), subscription_status: null }, // dormant, not paying
+    ]);
+    expect(book.active).toBe(1);
+    expect(book.idle).toBe(1);
+    expect(book.dormant).toBe(3);
+    expect(book.atRiskPaying).toBe(3);
+  });
+  it('is all-zero on an empty book', () => {
+    expect(churnBook([])).toEqual({ active: 0, idle: 0, dormant: 0, atRiskPaying: 0 });
   });
 });

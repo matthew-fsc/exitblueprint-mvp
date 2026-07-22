@@ -52,7 +52,9 @@ A developer index: the durable features and the files that own them. Pair with
 | **Deliverables studio** (owner report · delta · CIM) | `src/pages/DeliverablesPage.tsx` · `src/components/DocumentCurator.tsx` · `shared/documents/catalog.ts` · `server/documents/catalog.ts` | 17 §5 |
 | CIM (readiness + generation) | `shared/cim/template.ts`, `server/cim.ts` | 17 §5 |
 | Narrative (AI, draft-only) | `server/narrative.ts` | 04 |
+| **Buyer lens + Diligence simulation** (institutional reviewer → ranked, persisted blind-spot report) | `server/institutional-review.ts` · `server/diligence-simulation.ts` · `prompts/diligence_simulation.v1.md` · `diligence_simulation_runs`/`_findings` · `src/pages/BuyerLensPage.tsx` | 20, 40 §3, 04 |
 | Valuation & comparables | `server/valuation.ts`, `server/comparables.ts` | 17 §4 |
+| **Own-book valuation multiples** (moat 2: valuation draws a multiple from the firm's own closed deals alongside generic comps, versioned-config gated; cross-firm calibration view stays service-role-only) | `shared/own-book.ts` · `server/comparables.ts` (`ownBookMultiple`) · `server/valuation.ts` · `server/financial-corpus.ts` · `supabase/migrations/*_own_book_valuation_multiples.sql` · `src/pages/ValuationPage.tsx` | **09 §2**, 17 §4 |
 | Evidence (data room · docs · verification) | `server/data-room.ts`, `server/documents/*`, `server/verification.ts` | 02, 17 §3 |
 | Secure document storage + scan | `server/documents/{storage,scanner,crypto,signed-url}.ts` | 02 |
 | Billing (Stripe) + entitlements gate | `server/stripe.ts`, `server/entitlements.ts` | 24 |
@@ -62,6 +64,9 @@ A developer index: the durable features and the files that own them. Pair with
 | Design system (tokens/components/format) | `src/components/ui/*`, `src/lib/format.ts` | 26 |
 | Scheduled webhooks (n8n) | `server/scheduled.ts` | 08 |
 | Observability (Sentry seam) | `server/observability.ts`, frontend seam | 32 |
+| **Operating dashboard** (superadmin `analytics` rail: activation funnel · revenue plan · unit economics/COGS · churn book · moat KPIs) | `supabase/migrations/*_platform_analytics.sql` · `*_moat_kpis.sql` · `*_operating_dashboard.sql` · `server/platform-metrics.ts` · `server/moat-metrics.ts` · `src/lib/platformConsole.ts` · `src/pages/PlatformConsolePage.tsx` (gate `PLATFORM_SUPERADMIN_IDS`) | 38, **40 §4b** |
+| **Dogfooding** (ExitBlueprint as its own firm-isolated tenant: firm/company/engagement scaffold + full self-run — advisor, DRS/ORI trajectory, plan, evidence, library) | `scripts/seed-internal-tenant.ts` (`npm run seed:internal`) · `scripts/dogfood.ts` (`npm run dogfood`) · `seed/dogfood/*.json` | 40 §4c/§6, 39 |
+| **Outcome Calibration Engine** (the FICO moat: versioned DRS/ORI-band calibration artifact — close rate · multiple range · time-to-close · within-range hit rate · EV variance · retrade rate; de-identified cross-firm, superadmin `analytics` rail) | `shared/calibration/compute.ts` · `server/calibration.ts` · `supabase/migrations/*_calibration_engine.sql` (`analytics.calibration_versions`/`calibration_bands`) · `compute-calibration`/`read-calibration` in `server/registry.ts` · `src/pages/PlatformConsolePage.tsx` (DRS-calibration panel) | **09 §1**, 40 §3 |
 
 ## Build canon (read before you change the matching thing)
 | Doc | What it is | Status |
@@ -115,7 +120,7 @@ A developer index: the durable features and the files that own them. Pair with
 | --- | --- | --- |
 | [24-production-readiness-clerk-stripe](./24-production-readiness-clerk-stripe.md) | The v2 master plan — Clerk + Stripe + remaining ops/legal gaps (re-baselines archived doc 10) | Reference |
 | [29-exitblueprint-net-golive](./29-exitblueprint-net-golive.md) | The live go-live runbook for exitblueprint.net (auth steps → 30) | Runbook |
-| [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`) | Runbook |
+| [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`); plus the **Dogfooding** section — ExitBlueprint as its own tenant (`npm run dogfood`) | Runbook |
 | [30-clerk-cutover-runbook](./30-clerk-cutover-runbook.md) | **Identity is Clerk.** The auth cutover + provisioning webhook | Runbook |
 | [31-production-debug-db-errors](./31-production-debug-db-errors.md) | Troubleshooting Clerk↔Supabase RLS "database errors" | Runbook |
 | [32-observability](./32-observability.md) | Sentry seam (frontend + compute); no-op until DSN set | Runbook |
