@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveChromium } from '../server/pdf';
+import { resolveChromium, renderTeaserHtml, renderManagementPresentationHtml } from '../server/pdf';
 
 describe('resolveChromium', () => {
   it('never throws and returns a string path or undefined', () => {
@@ -74,5 +74,36 @@ describe('resolveChromium', () => {
         expect(resolveChromium()).toBe(binPath);
       });
     }
+  });
+});
+
+// The two sell-side document covers differ on one load-bearing point: the teaser
+// is a blind profile (no company name), the management presentation is post-NDA
+// material (names the company). These HTML builders are pure — no Chromium — so
+// we assert that invariant directly on the generated markup.
+describe('sell-side document HTML', () => {
+  const branding = null;
+  const narrative = '## The Opportunity\n\nA services business.';
+
+  it('teaser cover withholds the company name (blind profile)', () => {
+    const html = renderTeaserHtml(
+      { industry: 'Industrial services', state: 'Ohio', date: '2026-07-21' },
+      narrative,
+      branding,
+    );
+    expect(html).toContain('Confidential Teaser');
+    expect(html).toContain('Industrial services');
+    // Anonymized: the descriptor is industry-based, never a company name.
+    expect(html).not.toContain('Northwind');
+  });
+
+  it('management presentation cover names the company (post-NDA)', () => {
+    const html = renderManagementPresentationHtml(
+      { companyName: 'Northwind Fabrication', industry: 'Industrial services', date: '2026-07-21' },
+      narrative,
+      branding,
+    );
+    expect(html).toContain('Management Presentation');
+    expect(html).toContain('Northwind Fabrication');
   });
 });

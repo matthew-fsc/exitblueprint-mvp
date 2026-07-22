@@ -16,7 +16,7 @@ export type DocumentAudience = 'owner' | 'market';
 export interface ClientDocumentType {
   // The stable key stored on generated_documents.doc_type and passed to the
   // generate-document / render-document-pdf endpoints.
-  docType: 'owner_report' | 'delta_report' | 'cim';
+  docType: 'owner_report' | 'delta_report' | 'teaser' | 'cim' | 'management_presentation';
   // Display title in the studio and document lists.
   title: string;
   // A one-line description of what the document is.
@@ -33,11 +33,14 @@ export interface ClientDocumentType {
   // meeting artifact.
   ownerVisible: boolean;
   // The studio sub-tab key (also the :section route segment).
-  section: 'owner' | 'delta' | 'cim';
+  section: 'owner' | 'delta' | 'teaser' | 'cim' | 'management';
 }
 
 // Ordered as they read in the Deliverables work stream (docs/17 §5): the owner's
-// report, the quarterly progress artifact, then the market-facing memorandum.
+// report and the quarterly progress artifact (owner-facing), then the three
+// market-facing documents in the order a sell-side process uses them — the
+// anonymized teaser that goes out first, the CIM behind an NDA, and the
+// management presentation for buyer meetings.
 export const CLIENT_DOCUMENT_TYPES: ClientDocumentType[] = [
   {
     docType: 'owner_report',
@@ -60,6 +63,18 @@ export const CLIENT_DOCUMENT_TYPES: ClientDocumentType[] = [
     ownerVisible: false,
   },
   {
+    docType: 'teaser',
+    section: 'teaser',
+    title: 'Teaser',
+    blurb: 'The anonymized blind profile — the one-page buyer-facing summary that goes out before the CIM and the NDA.',
+    narratorNote: 'Composes an anonymized one-pager from the strengths and financial summary — never the company name, no score, no weaknesses.',
+    audience: 'market',
+    filename: 'blind-profile-teaser.pdf',
+    // Advisor-controlled buyer-facing marketing the advisor releases to the buyer
+    // universe, not a client artifact — never surfaced in the owner portal.
+    ownerVisible: false,
+  },
+  {
     docType: 'cim',
     section: 'cim',
     title: 'CIM',
@@ -71,6 +86,17 @@ export const CLIENT_DOCUMENT_TYPES: ClientDocumentType[] = [
     // read on finalized_at (migration 20260721000600), so an unreviewed
     // auto-generated draft of this buyer-facing document never reaches them.
     ownerVisible: true,
+  },
+  {
+    docType: 'management_presentation',
+    section: 'management',
+    title: 'Management presentation',
+    blurb: 'The management-meeting narrative — the equity story the owner walks serious buyers through after the CIM.',
+    narratorNote: 'Builds the talking-point outline from the company profile and strengths — buyer-facing, no score, no weaknesses.',
+    audience: 'market',
+    filename: 'management-presentation.pdf',
+    // Buyer-meeting material the advisor controls; not a client-portal artifact.
+    ownerVisible: false,
   },
 ];
 

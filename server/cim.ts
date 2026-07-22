@@ -331,3 +331,148 @@ export function composeCim(payload: CimPayload): string {
 
   return lines.join('\n').trimEnd();
 }
+
+// --- Teaser (blind profile) ---------------------------------------------------
+// The first document a sell-side process sends: a short, ANONYMIZED summary that
+// goes to the whole buyer universe before anyone signs an NDA. It reuses the
+// CIM's strengths-only payload but must never reveal the company's identity — no
+// company name — so a buyer can gauge interest without knowing whose business it
+// is. Like the CIM it is numeral-firewall-safe by construction (only payload
+// figures) and surfaces strengths only. The AI path (prompts/teaser.v1.md)
+// writes richer prose from the same payload; this composer is the always-available
+// fallback.
+export function composeTeaser(payload: CimPayload): string {
+  const { company, financial } = payload;
+  const lines: string[] = [];
+
+  lines.push('# Confidential Teaser');
+  lines.push('');
+  lines.push(
+    '_This blind profile is confidential and is circulated to gauge interest in an acquisition opportunity. The company is not identified here; its identity and detailed materials are released only under a signed confidentiality agreement._',
+  );
+  lines.push('');
+
+  // Anonymized overview — described by what it is, never who it is.
+  lines.push('## The Opportunity');
+  const bits: string[] = [];
+  if (company.industry) bits.push(`operates in ${company.industry}`);
+  if (company.state) bits.push(`is based in ${company.state}`);
+  const descriptor = company.industry ? `a ${company.industry} business` : 'an established business';
+  const overview = bits.length
+    ? `The opportunity is ${descriptor} that ${bits.join(' and ')}.`
+    : `The opportunity is ${descriptor}.`;
+  lines.push(`${overview} The owner is exploring a sale and has prepared the business for a buyer's evaluation.`);
+  lines.push('');
+
+  // Investment highlights — the same strengths the CIM leads with.
+  lines.push('## Why It Is Attractive');
+  if (payload.highlights.length === 0) {
+    lines.push('- Investment highlights will be finalized with the advisor from the assessment strengths.');
+  } else {
+    for (const h of payload.highlights) {
+      const fact = h.facts[0] ? ` ${h.facts[0].replace(/\.$/, '')}.` : '';
+      lines.push(`- **${h.area}.**${fact}`);
+    }
+  }
+  lines.push('');
+
+  // Financial snapshot — a marketing figure only; never an asking price.
+  lines.push('## Financial Snapshot');
+  if (financial.adjusted_ebitda_display) {
+    lines.push(
+      `On a normalized basis the business generates adjusted EBITDA of ${financial.adjusted_ebitda_display}. No asking price is stated in this teaser.`,
+    );
+  } else if (company.ebitda_band) {
+    lines.push(`The company's earnings profile is in the ${company.ebitda_band} range. No asking price is stated here.`);
+  } else {
+    lines.push('A normalized financial summary is available under NDA. No asking price is stated here.');
+  }
+  if (company.revenue_band) lines.push(`Reported revenue is in the ${company.revenue_band} range.`);
+  lines.push('');
+
+  // Next step — the whole point of a teaser is to route an interested buyer to
+  // the NDA and the full memorandum.
+  lines.push('## Next Step');
+  lines.push(
+    'Interested parties should contact the advisor to execute a confidentiality agreement and receive the full Confidential Information Memorandum.',
+  );
+
+  return lines.join('\n').trimEnd();
+}
+
+// --- Management presentation ---------------------------------------------------
+// The narrative an owner walks serious buyers through in a management meeting,
+// after the CIM and behind an NDA — so it names the company. It is the equity
+// story as a talking-point outline (agenda + one block per theme), not the
+// prose memorandum the CIM is. Reuses the CIM's strengths-only payload, so it is
+// buyer-safe and numeral-firewall-safe by construction; the AI path
+// (prompts/management_presentation.v1.md) writes it out from the same payload.
+export function composeManagementPresentation(payload: CimPayload): string {
+  const { company, financial } = payload;
+  const lines: string[] = [];
+
+  lines.push(`# Management Presentation — ${company.name}`);
+  lines.push('');
+  lines.push(
+    '_Talking-point outline for the management meeting. It is confidential and is provided under the parties’ confidentiality agreement as a working draft for the advisor’s review before use._',
+  );
+  lines.push('');
+
+  // Agenda — the meeting's spine, drawn from the CIM section scaffold.
+  lines.push('## Agenda');
+  lines.push('- Company overview and history');
+  lines.push('- The equity story: why this business is attractive');
+  lines.push('- Products, market, and customers');
+  lines.push('- Operations and the team');
+  lines.push('- Financial summary');
+  lines.push('- Growth plan and the opportunity ahead');
+  lines.push('- Questions and diligence next steps');
+  lines.push('');
+
+  // Company overview.
+  lines.push('## Company Overview');
+  const bits: string[] = [];
+  if (company.industry) bits.push(`operates in ${company.industry}`);
+  if (company.state) bits.push(`is based in ${company.state}`);
+  const tail = bits.length ? ` The company ${bits.join(' and ')}.` : '';
+  lines.push(`${company.name} is presented here for the buyer's management meeting.${tail}`);
+  lines.push('');
+
+  // The equity story — the highlights, framed as the reasons to buy.
+  lines.push('## The Equity Story');
+  if (payload.highlights.length === 0) {
+    lines.push('- The equity story will be finalized with the advisor from the assessment strengths.');
+  } else {
+    for (const h of payload.highlights) {
+      lines.push(`- **${h.area}.**`);
+      for (const f of h.facts) lines.push(`  - ${f.replace(/\.$/, '')}.`);
+    }
+  }
+  lines.push('');
+
+  // The remaining CIM sections become talking-point prompts, in order.
+  const spoken = new Set(['HIGHLIGHTS', 'OVERVIEW', 'FINANCIAL']);
+  for (const def of payload.sections) {
+    if (spoken.has(def.code)) continue;
+    lines.push(`## ${def.name}`);
+    lines.push(`- ${def.guidance}`);
+    lines.push('');
+  }
+
+  // Financial summary — a marketing figure only, never a price.
+  lines.push('## Financial Summary');
+  if (financial.adjusted_ebitda_display) {
+    lines.push(
+      `- On a normalized basis the business generates adjusted EBITDA of ${financial.adjusted_ebitda_display}.`,
+    );
+  } else if (company.ebitda_band) {
+    lines.push(`- The company's earnings profile is in the ${company.ebitda_band} range.`);
+  }
+  if (company.revenue_band) lines.push(`- Reported revenue is in the ${company.revenue_band} range.`);
+  lines.push('- No asking price is discussed in the management meeting; bids follow the process.');
+  if (payload.verified_evidence.length > 0) {
+    lines.push(`- Diligence-ready materials include: ${payload.verified_evidence.slice(0, 6).join('; ')}.`);
+  }
+
+  return lines.join('\n').trimEnd();
+}

@@ -11,7 +11,7 @@ import type pg from 'pg';
 import { compareAssessments, explainAssessment } from './scoring';
 import type { ExplainResult } from '../shared/scoring/engine';
 import { gapReason, interpretSubScore, tierMeaning } from '../shared/scoring/interpret';
-import { buildCimPayload, composeCim } from './cim';
+import { buildCimPayload, composeCim, composeManagementPresentation, composeTeaser } from './cim';
 
 const PROMPT_VERSION = 'owner_report.v1';
 const MODEL = 'claude-opus-4-8';
@@ -306,8 +306,12 @@ export async function generateDocument(
 ) {
   if (docType === 'delta_report') return generateDeltaReport(db, assessmentId, generate);
   if (docType === 'cim') return generateCim(db, assessmentId, generate);
+  if (docType === 'teaser') return generateTeaser(db, assessmentId, generate);
+  if (docType === 'management_presentation') return generateManagementPresentation(db, assessmentId, generate);
   if (docType !== 'owner_report') {
-    throw new Error(`doc_type '${docType}' is not implemented yet (owner_report, delta_report, cim)`);
+    throw new Error(
+      `doc_type '${docType}' is not implemented yet (owner_report, delta_report, teaser, cim, management_presentation)`,
+    );
   }
 
   const payload = await buildOwnerReportPayload(db, assessmentId);
@@ -592,6 +596,69 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
      values ($1, $2, $3, 'cim', $4, $5, $6)
      returning *`,
     [assessment.firm_id, assessment.engagement_id, assessmentId, text, CIM_PROMPT_VERSION, model],
+  );
+  return row.rows[0];
+}
+
+// --- Teaser (blind profile) & Management presentation --------------------------
+// Two more sell-side deliverables built FROM the CIM's strengths-only payload
+// (server/cim.ts): the anonymized teaser that opens a process, and the
+// management-meeting narrative that follows the CIM. Both are buyer-facing, so
+// they carry strengths and verified facts only; the numeral firewall applies
+// exactly as for the CIM.
+
+const TEASER_PROMPT_VERSION = 'teaser.v1';
+
+async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
+  const payload = await buildCimPayload(db, assessmentId);
+
+  let text: string;
+  let model: string;
+  if (generate) {
+    ({ text, model } = await generateWithClaude(payload, generate, TEASER_PROMPT_VERSION));
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    ({ text, model } = await generateWithClaude(payload, callClaude, TEASER_PROMPT_VERSION));
+  } else {
+    text = composeTeaser(payload);
+    model = 'rule-based:teaser.v1';
+  }
+
+  const assessment = (
+    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
+  ).rows[0];
+  const row = await db.query(
+    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+     values ($1, $2, $3, 'teaser', $4, $5, $6)
+     returning *`,
+    [assessment.firm_id, assessment.engagement_id, assessmentId, text, TEASER_PROMPT_VERSION, model],
+  );
+  return row.rows[0];
+}
+
+const MGMT_PROMPT_VERSION = 'management_presentation.v1';
+
+async function generateManagementPresentation(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
+  const payload = await buildCimPayload(db, assessmentId);
+
+  let text: string;
+  let model: string;
+  if (generate) {
+    ({ text, model } = await generateWithClaude(payload, generate, MGMT_PROMPT_VERSION));
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    ({ text, model } = await generateWithClaude(payload, callClaude, MGMT_PROMPT_VERSION));
+  } else {
+    text = composeManagementPresentation(payload);
+    model = 'rule-based:management_presentation.v1';
+  }
+
+  const assessment = (
+    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
+  ).rows[0];
+  const row = await db.query(
+    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+     values ($1, $2, $3, 'management_presentation', $4, $5, $6)
+     returning *`,
+    [assessment.firm_id, assessment.engagement_id, assessmentId, text, MGMT_PROMPT_VERSION, model],
   );
   return row.rows[0];
 }

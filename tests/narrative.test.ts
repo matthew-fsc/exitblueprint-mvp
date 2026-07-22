@@ -236,6 +236,25 @@ describe.skipIf(!url)('generateDocument', () => {
     const explain = await explainAssessment(db, assessmentId);
     expect(composeOwnerReport(payload, explain)).toBe(composeOwnerReport(payload, explain));
   });
+
+  it('generates the sell-side teaser and management presentation (rule-based path)', async () => {
+    delete process.env.ANTHROPIC_API_KEY; // deterministic composers
+
+    const teaser = await generateDocument(db, assessmentId, 'teaser');
+    expect(teaser.doc_type).toBe('teaser');
+    expect(teaser.model).toBe('rule-based:teaser.v1');
+    expect(teaser.prompt_version).toBe('teaser.v1');
+    expect(teaser.content_md).toContain('# Confidential Teaser');
+    // A teaser is a blind profile — the company name must never appear.
+    expect(teaser.content_md).not.toContain('Narrative Test Co');
+
+    const mgmt = await generateDocument(db, assessmentId, 'management_presentation');
+    expect(mgmt.doc_type).toBe('management_presentation');
+    expect(mgmt.model).toBe('rule-based:management_presentation.v1');
+    expect(mgmt.prompt_version).toBe('management_presentation.v1');
+    // Post-NDA meeting material — it names the company.
+    expect(mgmt.content_md).toContain('# Management Presentation — Narrative Test Co');
+  });
 });
 
 describe('interpret layer (pure, plain-language)', () => {
