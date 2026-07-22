@@ -60,11 +60,18 @@ functions; an entitled/comped firm passes.
 production project and write the restore runbook (the TODO in `docs/08` §Backups).
 Accept: a documented, tested restore procedure exists before the first live client.
 
-**P5.3 Legal & trust content sign-off.** The legal pages render "draft, pending
-counsel" and `docs/08`'s data-handling one-pager carries `[ratify]` markers.
-Slice (Matthew-owned): ratify the data-handling language and legal pages, then
-drop the draft banners.
-Accept: no user-facing page renders a "draft/pending counsel" banner in production.
+**P5.3 Legal & trust content sign-off.** ⏳ **Beta terms shipped; counsel review
+before GA still open.** The four legal pages were rewritten from the
+counsel-placeholder scaffold into real, conservative **beta** terms (as-is /
+no-warranty, no-professional-advice, liability cap, indemnity, firm-warrants-consent
+on client data); the draft/pending-counsel banner is gone (2026-07-22 decision
+log). Remaining before charging paid customers: (a) fill the six business facts
+in `src/pages/legal/content.ts` `FILL`; (b) have counsel confirm the items in
+`COUNSEL_REVIEW_ITEMS` (liability cap, governing law/venue, retention/breach
+deadlines, statutory-rights language); (c) ratify `docs/08`'s data-handling
+one-pager `[ratify]` markers.
+Accept: no user-facing page renders a "draft/pending counsel" banner in production
+(**met for beta**); counsel sign-off recorded before the enforced/paid launch.
 
 **P5.4 Subprocessor & security-doc reconciliation.** ✅ **Done.** The register
 (`seed/subprocessors.csv`) and the `docs/13`/`docs/16` security responses now name

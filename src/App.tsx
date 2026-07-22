@@ -418,8 +418,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/sign-up" element={<SignUpPage />} />
           <Route path="/health" element={<main className="page"><HealthPage /></main>} />
-          {/* Public legal/trust pages (draft, pending counsel) — render their own
-              page shell, no auth. Above the catch-all so they aren't swallowed. */}
+          {/* Public legal/trust pages (beta terms) — render their own page
+              shell, no auth. Above the catch-all so they aren't swallowed. */}
           <Route path="/legal/terms" element={<TermsPage />} />
           <Route path="/legal/privacy" element={<PrivacyPage />} />
           <Route path="/legal/dpa" element={<DpaPage />} />

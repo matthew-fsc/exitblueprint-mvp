@@ -1,22 +1,25 @@
 import type { ReactNode } from 'react';
 import { PageHeader, PageSection, SectionCard } from '../../components/ui';
-import { DRAFT_BANNER, type LegalDoc } from './content';
+import { BETA_NOTICE, type LegalDoc } from './content';
 
-// The unmissable draft banner every legal page leads with. Built from existing
-// design-system primitives (a warning status chip + card surface) — no new CSS.
-// This scaffold is deliberately NOT final legal text; the banner says so.
-export function DraftBanner() {
+// The plain-language beta summary every legal page leads with. Built from
+// existing design-system primitives (a status chip + card surface) — no new CSS.
+// It frames these as the current beta terms and surfaces the disclaimers that
+// matter most, without overstating that they are final or counsel-approved.
+export function BetaSummary() {
   return (
-    <SectionCard
-      title="Draft — not final"
-      subtitle="This is a template scaffold, not the published agreement."
-    >
+    <SectionCard title={BETA_NOTICE.title} subtitle="What these terms mean, in plain language.">
       <p className="m-0">
-        <span className="status-chip status-warning" style={{ marginRight: 'var(--space-2)' }}>
-          Draft
+        <span className="status-chip status-neutral" style={{ marginRight: 'var(--space-2)' }}>
+          Beta
         </span>
-        {DRAFT_BANNER}
+        {BETA_NOTICE.points[0]}
       </p>
+      {BETA_NOTICE.points.slice(1).map((point, i) => (
+        <p key={i} style={{ marginBottom: 0 }}>
+          {point}
+        </p>
+      ))}
     </SectionCard>
   );
 }
@@ -37,9 +40,9 @@ export function LegalDocPage({ doc, children }: { doc: LegalDoc; children?: Reac
           />
         </header>
 
-        <DraftBanner />
+        <BetaSummary />
 
-        <PageSection title="Document" note={`Last updated ${doc.lastUpdated}`}>
+        <PageSection title="Document" note={`Effective ${doc.lastUpdated}`}>
           <div className="stack-lg">
             {doc.sections.map((section) => (
               <SectionCard key={section.heading} title={section.heading}>
