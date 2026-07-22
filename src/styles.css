@@ -34,11 +34,16 @@
   /* brand + interactive (forest) */
   --brand: #16352a;         /* headings, emphasis, primary surfaces */
   --brand-tint: #e7f1ec;    /* soft brand wash */
-  --accent: #1f7a52;        /* links + accents; firm branding may override */
-  --accent-strong: #17603f;
+  --accent: #1f7a52;        /* links, focus rings + accents; firm branding overrides */
+  --accent-strong: #17603f; /* hover/pressed accent; firm branding overrides */
   --on-brand: #ffffff;
 
-  /* primary button */
+  /* primary button — the default (unbranded) forest look. Per-firm white-labeling
+     overrides --btn-bg/--btn-bg-hover/--btn-fg to the accent-derived set via
+     BrandingProvider (accentVars in lib/color.ts), so ONE firm accent rebrands
+     buttons alongside links/focus rings. These stay literal (not var(--accent))
+     so the default keeps its AA-contrast forest in BOTH themes: in dark mode the
+     accent is a bright tint unsuitable as a white-text button fill. */
   --btn-bg: #1b4a38;
   --btn-bg-hover: #205a44;
   --btn-fg: #ffffff;
@@ -4292,8 +4297,9 @@ textarea:focus {
   margin-top: 0.6rem; padding: 0.7rem 0.85rem; background: var(--surface-2);
   border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.6rem;
 }
-.advisory-item-detail p { margin: 0.15rem 0 0; font-size: 0.9rem; line-height: 1.45; }
+.advisory-item-detail p { margin: 0.2rem 0 0; font-size: 0.9rem; line-height: 1.45; }
 .advisory-detail-label {
+  display: block; margin-bottom: 0.25rem;
   font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
   color: var(--status-neutral);
 }
@@ -5153,10 +5159,10 @@ button {
    toggles, danger links) are reset to no fill above; keep them excluded here too
    or this later, higher-specificity gradient re-paints them as faint raised
    boxes — which read as "weirdly shadowed" columns in table headers. */
-button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not(.comparison-toggle):not(.advisory-item-toggle):not(.button-danger-link):not(.learn-head) {
+button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not(.comparison-toggle):not(.advisory-item-toggle):not(.button-danger-link):not(.learn-head):not(.rm-group-toggle) {
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.04));
 }
-.btn-secondary, .btn-ghost, .linkish { box-shadow: none; background-image: none; }
+.btn-secondary, .btn-ghost, .linkish, .rm-group-toggle { box-shadow: none; background-image: none; }
 
 /* status/tier chips: rounded-rect (not pill) + medium weight reads institutional,
    less shouty. Squared corners align with the tightened surface geometry. */
@@ -5580,6 +5586,12 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
   .eng-nav,
   .subtabs {
     flex-wrap: nowrap;
+    /* .subtabs is inline-flex, so without a width cap it grows to its content
+       width and pushes the tab strip off-screen instead of scrolling. Cap it to
+       the container and let it lay out as a full-width block so overflow-x can
+       actually clip + scroll. */
+    display: flex;
+    max-width: 100%;
     overflow-x: auto;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
