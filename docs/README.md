@@ -63,6 +63,7 @@ A developer index: the durable features and the files that own them. Pair with
 | Scheduled webhooks (n8n) | `server/scheduled.ts` | 08 |
 | Observability (Sentry seam) | `server/observability.ts`, frontend seam | 32 |
 | **Operating dashboard** (superadmin `analytics` rail: activation funnel · revenue plan · unit economics/COGS · churn book · moat KPIs) | `supabase/migrations/*_platform_analytics.sql` · `*_moat_kpis.sql` · `*_operating_dashboard.sql` · `server/platform-metrics.ts` · `server/moat-metrics.ts` · `src/lib/platformConsole.ts` · `src/pages/PlatformConsolePage.tsx` (gate `PLATFORM_SUPERADMIN_IDS`) | 38, **40 §4b** |
+| **Dogfooding** (ExitBlueprint as its own firm-isolated tenant: firm/company/engagement scaffold + full self-run — advisor, DRS/ORI trajectory, plan, evidence, library) | `scripts/seed-internal-tenant.ts` (`npm run seed:internal`) · `scripts/dogfood.ts` (`npm run dogfood`) · `seed/dogfood/*.json` | 40 §4c/§6, 39 |
 
 ## Build canon (read before you change the matching thing)
 | Doc | What it is | Status |
@@ -116,7 +117,7 @@ A developer index: the durable features and the files that own them. Pair with
 | --- | --- | --- |
 | [24-production-readiness-clerk-stripe](./24-production-readiness-clerk-stripe.md) | The v2 master plan — Clerk + Stripe + remaining ops/legal gaps (re-baselines archived doc 10) | Reference |
 | [29-exitblueprint-net-golive](./29-exitblueprint-net-golive.md) | The live go-live runbook for exitblueprint.net (auth steps → 30) | Runbook |
-| [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`) | Runbook |
+| [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`); plus the **Dogfooding** section — ExitBlueprint as its own tenant (`npm run dogfood`) | Runbook |
 | [30-clerk-cutover-runbook](./30-clerk-cutover-runbook.md) | **Identity is Clerk.** The auth cutover + provisioning webhook | Runbook |
 | [31-production-debug-db-errors](./31-production-debug-db-errors.md) | Troubleshooting Clerk↔Supabase RLS "database errors" | Runbook |
 | [32-observability](./32-observability.md) | Sentry seam (frontend + compute); no-op until DSN set | Runbook |
