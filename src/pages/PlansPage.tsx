@@ -345,6 +345,172 @@ export default function PlansPage() {
   const previewItems = items.map(resolvePreview).filter((p): p is NonNullable<typeof p> => p != null);
   const incompleteCount = items.filter((d) => !toPayloadItem(d)).length;
 
+  // The authoring form, rendered either at the top (create) or inline in place of
+  // the plan card being edited (edit) so the advisor stays anchored to that item.
+  const renderForm = () => {
+    if (!form) return null;
+    return (
+      <Card>
+        <form className="advisory-form" onSubmit={submitForm}>
+          <h3 className="m-0">
+            {form.mode === 'edit' ? `Edit plan — ${form.plan?.name}` : 'New firm plan'}
+          </h3>
+          {form.mode === 'edit' && form.plan?.status === 'active' && (
+            <p className="muted text-xs m-0">
+              This plan is active. Saving creates version {form.plan.plan_version + 1} and retires the current
+              version — engagements you’ve already applied it to keep their pinned version.
+            </p>
+          )}
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            Summary (optional)
+            <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={2} />
+          </label>
+
+          <div className="plans-items">
+            <span className="advisory-detail-label">Items</span>
+            {items.map((it, i) => {
+              const isRef = it.kind === 'task' || it.kind === 'education' || it.kind === 'advisory';
+              const selected = isRef ? findOption(it.kind, it.ref_id) : undefined;
+              const complete = !!toPayloadItem(it);
+              return (
+                <div key={i} className="plans-items">
+                  <div className="plan-item-row">
+                    <select value={it.kind} onChange={(e) => setItem(i, { kind: e.target.value as PlanItemKind, ref_id: '' })}>
+                      {(Object.keys(KIND_LABEL) as PlanItemKind[]).map((k) => (
+                        <option key={k} value={k}>
+                          {KIND_LABEL[k]}
+                        </option>
+                      ))}
+                    </select>
+                    {isRef && (
+                      <select value={it.ref_id} onChange={(e) => setItem(i, { ref_id: e.target.value })}>
+                        <option value="">Select {KIND_LABEL[it.kind].toLowerCase()}…</option>
+                        {groupByDimension(refOptions(it.kind)).map((g) => (
+                          <optgroup key={g.key} label={g.label}>
+                            {g.options.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.severity ? `${o.label} — ${humanizeKey(o.severity)}` : o.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    )}
+                    {(it.kind === 'milestone' || it.kind === 'manual_task') && (
+                      <input
+                        placeholder={it.kind === 'milestone' ? 'Milestone title' : 'Task title'}
+                        value={it.title}
+                        onChange={(e) => setItem(i, { title: e.target.value })}
+                      />
+                    )}
+                    {it.kind === 'milestone' && (
+                      <select value={it.track} onChange={(e) => setItem(i, { track: e.target.value as (typeof TRACKS)[number] })}>
+                        {TRACKS.map((t) => (
+                          <option key={t} value={t}>
+                            {humanizeKey(t)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {it.kind === 'manual_task' && (
+                      <select value={it.owner_role} onChange={(e) => setItem(i, { owner_role: e.target.value as (typeof OWNER_ROLES)[number] })}>
+                        {OWNER_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {humanizeKey(r)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {!complete && <span className="advisory-tag advisory-tag-inactive">Incomplete</span>}
+                    <button
+                      type="button"
+                      className="button-danger-link"
+                      onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label="Remove item"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <span className="muted text-xs">
+                    {KIND_HINT[it.kind]}
+                    {selected?.dimension && <span className="advisory-tag">{humanizeKey(selected.dimension)}</span>}
+                    {selected?.severity && <GapSeverityChip severity={selected.severity} />}
+                    {selected?.description && ` ${truncate(selected.description)}`}
+                  </span>
+                </div>
+              );
+            })}
+            <button type="button" className="button-secondary" onClick={() => setItems((prev) => [...prev, emptyItem()])}>
+              Add item
+            </button>
+          </div>
+
+          {items.length > 0 && (
+            <SectionCard
+              title="Plan preview"
+              subtitle={
+                incompleteCount > 0
+                  ? `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} ready · ${incompleteCount} incomplete row${incompleteCount === 1 ? '' : 's'} to finish or remove`
+                  : `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} — what this plan lays onto the roadmap`
+              }
+            >
+              {previewItems.length === 0 ? (
+                <p className="muted m-0">Pick catalog items or add a milestone/task to see the plan take shape.</p>
+              ) : (
+                <div className="plans-items">
+                  {previewItems.map((p, i) => (
+                    <div key={i} className="plan-item-row">
+                      <span className="advisory-tag">{KIND_LABEL[p.kind]}</span>
+                      <strong>{p.label}</strong>
+                      {p.dimension && <span className="advisory-tag">{humanizeKey(p.dimension)}</span>}
+                      {p.severity && <GapSeverityChip severity={p.severity} />}
+                      {p.meta && <span className="muted text-xs">{humanizeKey(p.meta)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          )}
+
+          {formError && <ErrorState variant="inline" error={formError} />}
+          <div className="advisory-form-actions">
+            {/* Editing an active plan always mints a new active version — no status
+                choice there. Creating or editing a draft can pick draft vs active. */}
+            {!(form.mode === 'edit' && form.plan?.status === 'active') && (
+              <label>
+                Save as
+                <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
+                  <option value="active">Active — visible to apply now</option>
+                  <option value="draft">Draft — keep authoring, not yet applicable</option>
+                </select>
+              </label>
+            )}
+            <button type="submit" disabled={busy}>
+              {busy
+                ? 'Saving…'
+                : form.mode === 'edit'
+                  ? form.plan?.status === 'active'
+                    ? 'Save new version'
+                    : status === 'active'
+                      ? 'Activate plan'
+                      : 'Save changes'
+                  : status === 'draft'
+                    ? 'Save draft'
+                    : 'Create plan'}
+            </button>
+            <button type="button" className="button-secondary" onClick={closeForm}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Card>
+    );
+  };
+
   return (
     <div className="stack-lg">
       <PageHeader
@@ -362,166 +528,9 @@ export default function PlansPage() {
 
       {(
           <div className="stack-lg">
-            {form && canAuthor && (
-        <Card>
-          <form className="advisory-form" onSubmit={submitForm}>
-            <h3 className="m-0">
-              {form.mode === 'edit' ? `Edit plan — ${form.plan?.name}` : 'New firm plan'}
-            </h3>
-            {form.mode === 'edit' && form.plan?.status === 'active' && (
-              <p className="muted text-xs m-0">
-                This plan is active. Saving creates version {form.plan.plan_version + 1} and retires the current
-                version — engagements you’ve already applied it to keep their pinned version.
-              </p>
-            )}
-            <label>
-              Name
-              <input value={name} onChange={(e) => setName(e.target.value)} required />
-            </label>
-            <label>
-              Summary (optional)
-              <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={2} />
-            </label>
-
-            <div className="plans-items">
-              <span className="advisory-detail-label">Items</span>
-              {items.map((it, i) => {
-                const isRef = it.kind === 'task' || it.kind === 'education' || it.kind === 'advisory';
-                const selected = isRef ? findOption(it.kind, it.ref_id) : undefined;
-                const complete = !!toPayloadItem(it);
-                return (
-                  <div key={i} className="plans-items">
-                    <div className="plan-item-row">
-                      <select value={it.kind} onChange={(e) => setItem(i, { kind: e.target.value as PlanItemKind, ref_id: '' })}>
-                        {(Object.keys(KIND_LABEL) as PlanItemKind[]).map((k) => (
-                          <option key={k} value={k}>
-                            {KIND_LABEL[k]}
-                          </option>
-                        ))}
-                      </select>
-                      {isRef && (
-                        <select value={it.ref_id} onChange={(e) => setItem(i, { ref_id: e.target.value })}>
-                          <option value="">Select {KIND_LABEL[it.kind].toLowerCase()}…</option>
-                          {groupByDimension(refOptions(it.kind)).map((g) => (
-                            <optgroup key={g.key} label={g.label}>
-                              {g.options.map((o) => (
-                                <option key={o.id} value={o.id}>
-                                  {o.severity ? `${o.label} — ${humanizeKey(o.severity)}` : o.label}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                      )}
-                      {(it.kind === 'milestone' || it.kind === 'manual_task') && (
-                        <input
-                          placeholder={it.kind === 'milestone' ? 'Milestone title' : 'Task title'}
-                          value={it.title}
-                          onChange={(e) => setItem(i, { title: e.target.value })}
-                        />
-                      )}
-                      {it.kind === 'milestone' && (
-                        <select value={it.track} onChange={(e) => setItem(i, { track: e.target.value as (typeof TRACKS)[number] })}>
-                          {TRACKS.map((t) => (
-                            <option key={t} value={t}>
-                              {humanizeKey(t)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {it.kind === 'manual_task' && (
-                        <select value={it.owner_role} onChange={(e) => setItem(i, { owner_role: e.target.value as (typeof OWNER_ROLES)[number] })}>
-                          {OWNER_ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {humanizeKey(r)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {!complete && <span className="advisory-tag advisory-tag-inactive">Incomplete</span>}
-                      <button
-                        type="button"
-                        className="button-danger-link"
-                        onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}
-                        aria-label="Remove item"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <span className="muted text-xs">
-                      {KIND_HINT[it.kind]}
-                      {selected?.dimension && <span className="advisory-tag">{humanizeKey(selected.dimension)}</span>}
-                      {selected?.severity && <GapSeverityChip severity={selected.severity} />}
-                      {selected?.description && ` ${truncate(selected.description)}`}
-                    </span>
-                  </div>
-                );
-              })}
-              <button type="button" className="button-secondary" onClick={() => setItems((prev) => [...prev, emptyItem()])}>
-                Add item
-              </button>
-            </div>
-
-            {items.length > 0 && (
-              <SectionCard
-                title="Plan preview"
-                subtitle={
-                  incompleteCount > 0
-                    ? `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} ready · ${incompleteCount} incomplete row${incompleteCount === 1 ? '' : 's'} to finish or remove`
-                    : `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} — what this plan lays onto the roadmap`
-                }
-              >
-                {previewItems.length === 0 ? (
-                  <p className="muted m-0">Pick catalog items or add a milestone/task to see the plan take shape.</p>
-                ) : (
-                  <div className="plans-items">
-                    {previewItems.map((p, i) => (
-                      <div key={i} className="plan-item-row">
-                        <span className="advisory-tag">{KIND_LABEL[p.kind]}</span>
-                        <strong>{p.label}</strong>
-                        {p.dimension && <span className="advisory-tag">{humanizeKey(p.dimension)}</span>}
-                        {p.severity && <GapSeverityChip severity={p.severity} />}
-                        {p.meta && <span className="muted text-xs">{humanizeKey(p.meta)}</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SectionCard>
-            )}
-
-            {formError && <ErrorState variant="inline" error={formError} />}
-            <div className="advisory-form-actions">
-              {/* Editing an active plan always mints a new active version — no status
-                  choice there. Creating or editing a draft can pick draft vs active. */}
-              {!(form.mode === 'edit' && form.plan?.status === 'active') && (
-                <label>
-                  Save as
-                  <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
-                    <option value="active">Active — visible to apply now</option>
-                    <option value="draft">Draft — keep authoring, not yet applicable</option>
-                  </select>
-                </label>
-              )}
-              <button type="submit" disabled={busy}>
-                {busy
-                  ? 'Saving…'
-                  : form.mode === 'edit'
-                    ? form.plan?.status === 'active'
-                      ? 'Save new version'
-                      : status === 'active'
-                        ? 'Activate plan'
-                        : 'Save changes'
-                    : status === 'draft'
-                      ? 'Save draft'
-                      : 'Create plan'}
-              </button>
-              <button type="button" className="button-secondary" onClick={closeForm}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
+            {/* Create renders at the top; edit renders inline in place of the plan
+                card below so the advisor stays anchored to the item they clicked. */}
+            {form?.mode === 'create' && canAuthor && renderForm()}
 
       {plansQ.isLoading && <SkeletonLines lines={6} />}
       {plansQ.isError && <ErrorState variant="inline" error={plansQ.error} />}
@@ -533,7 +542,13 @@ export default function PlansPage() {
 
       {plans.length > 0 && (
         <div className="plans-list">
-          {plans.map((plan) => (
+          {plans.map((plan) => {
+            // Edit-in-place: swap the plan card for the authoring form so the form
+            // opens where the plan sits in the list, not at the top of the page.
+            if (form?.mode === 'edit' && form.plan?.id === plan.id && canAuthor) {
+              return <div key={plan.id}>{renderForm()}</div>;
+            }
+            return (
             <Card key={plan.id}>
               <div className="plans-card-head">
                 <div>
@@ -622,7 +637,8 @@ export default function PlansPage() {
                 </div>
               )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
           </div>

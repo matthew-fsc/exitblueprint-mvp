@@ -144,6 +144,13 @@ export default function EngagementPage() {
   const [logGap, setLogGap] = useState('');
   const [analysisTab, setAnalysisTab] = useState('score');
 
+  // Opening (or switching between) an engagement should land at the top of the
+  // page. Keyed on engagementId only — deliberately NOT on the active analysis
+  // tab, so switching sub-tabs doesn't yank the scroll position.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [engagementId]);
+
   const startAssessment = async () => {
     setError(null);
     try {
@@ -309,11 +316,13 @@ export default function EngagementPage() {
     label: 'Engagement log',
     badge: (logQ.data?.length ?? 0) || undefined,
   });
-  if ((gapsQ.data ?? []).length > 0)
-    analysisTabs.push({ key: 'connections', label: 'How the plan connects' });
+  // Hidden for now (not needed yet) — the "How the plan connects" tab.
+  // if ((gapsQ.data ?? []).length > 0)
+  //   analysisTabs.push({ key: 'connections', label: 'How the plan connects' });
   analysisTabs.push({ key: 'outcome', label: 'Deal outcome' });
-  if ((comparablesQ.data ?? []).length > 0)
-    analysisTabs.push({ key: 'comparables', label: 'Comparables', badge: comparablesQ.data!.length });
+  // Hidden for now (not needed yet) — the "Comparables" tab.
+  // if ((comparablesQ.data ?? []).length > 0)
+  //   analysisTabs.push({ key: 'comparables', label: 'Comparables', badge: comparablesQ.data!.length });
   if (completed.length > 1) analysisTabs.push({ key: 'compare', label: 'Compare' });
   analysisTabs.push({ key: 'setup', label: 'Setup & admin' });
   const activeAnalysis = analysisTabs.some((t) => t.key === analysisTab)

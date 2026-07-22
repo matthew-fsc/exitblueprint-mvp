@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useMemo, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -158,6 +158,76 @@ function LibraryTasksSection() {
       { success: 'Task removed' },
     );
 
+  const renderForm = () => (
+    <Card>
+      <form
+        className="advisory-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <div className="advisory-form-head">
+          <h3 className="m-0">
+            {form?.mode === 'edit' ? 'Edit firm task' : form?.mode === 'adapt' ? 'Adapt for your firm' : 'New firm task'}
+          </h3>
+          {form?.mode === 'adapt' && (
+            <p className="muted m-0">Saved as your firm's own editable copy — the system task stays untouched.</p>
+          )}
+        </div>
+        <div className="advisory-form-grid">
+          <label>
+            Readiness area
+            <select value={d.dimension_code} onChange={(e) => setField('dimension_code', e.target.value)}>
+              {DIMENSIONS.map((c) => (
+                <option key={c} value={c}>
+                  {DIMENSION_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Owner
+            <select value={d.default_owner_role} onChange={(e) => setField('default_owner_role', e.target.value)}>
+              {OWNER_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {humanizeKey(r)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Due offset (days)
+            <input
+              type="number"
+              value={d.target_offset_days}
+              onChange={(e) => setField('target_offset_days', e.target.value)}
+              placeholder="e.g. 30"
+              min={0}
+            />
+          </label>
+        </div>
+        <label>
+          Title
+          <input value={d.title} onChange={(e) => setField('title', e.target.value)} required />
+        </label>
+        <label>
+          Description (optional)
+          <textarea value={d.description} onChange={(e) => setField('description', e.target.value)} rows={2} />
+        </label>
+        {error && <ErrorState variant="inline" error={error} />}
+        <div className="advisory-form-actions">
+          <button type="submit" disabled={busy}>
+            {busy ? 'Saving…' : form?.mode === 'edit' ? 'Save changes' : 'Save task'}
+          </button>
+          <button type="button" className="button-secondary" onClick={() => setForm(null)} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+
   return (
     <div className="stack-lg">
       <div className="control-row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
@@ -172,75 +242,7 @@ function LibraryTasksSection() {
         )}
       </div>
 
-      {form && canAuthor && (
-        <Card>
-          <form
-            className="advisory-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              save();
-            }}
-          >
-            <div className="advisory-form-head">
-              <h3 className="m-0">
-                {form.mode === 'edit' ? 'Edit firm task' : form.mode === 'adapt' ? 'Adapt for your firm' : 'New firm task'}
-              </h3>
-              {form.mode === 'adapt' && (
-                <p className="muted m-0">Saved as your firm's own editable copy — the system task stays untouched.</p>
-              )}
-            </div>
-            <div className="advisory-form-grid">
-              <label>
-                Readiness area
-                <select value={d.dimension_code} onChange={(e) => setField('dimension_code', e.target.value)}>
-                  {DIMENSIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {DIMENSION_LABEL[c]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Owner
-                <select value={d.default_owner_role} onChange={(e) => setField('default_owner_role', e.target.value)}>
-                  {OWNER_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {humanizeKey(r)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Due offset (days)
-                <input
-                  type="number"
-                  value={d.target_offset_days}
-                  onChange={(e) => setField('target_offset_days', e.target.value)}
-                  placeholder="e.g. 30"
-                  min={0}
-                />
-              </label>
-            </div>
-            <label>
-              Title
-              <input value={d.title} onChange={(e) => setField('title', e.target.value)} required />
-            </label>
-            <label>
-              Description (optional)
-              <textarea value={d.description} onChange={(e) => setField('description', e.target.value)} rows={2} />
-            </label>
-            {error && <ErrorState variant="inline" error={error} />}
-            <div className="advisory-form-actions">
-              <button type="submit" disabled={busy}>
-                {busy ? 'Saving…' : form.mode === 'edit' ? 'Save changes' : 'Save task'}
-              </button>
-              <button type="button" className="button-secondary" onClick={() => setForm(null)} disabled={busy}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
+      {form?.mode === 'create' && canAuthor && renderForm()}
 
       <div className="advisory-filters">
         <select value={qSource} onChange={(e) => setQSource(e.target.value as 'all' | 'system' | 'firm')}>
@@ -265,41 +267,46 @@ function LibraryTasksSection() {
           <div className="advisory-list">
             {filtered.map((p) => {
               const isFirm = p.source === 'advisor';
+              const editingThis =
+                canAuthor && form && (form.mode === 'edit' || form.mode === 'adapt') && form.task?.id === p.id;
               return (
-                <div key={p.id} className="advisory-item">
-                  <div className="advisory-item-head">
-                    <div className="advisory-item-titles">
-                      <p className="advisory-item-title">
-                        {p.title}
-                        {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
-                      </p>
-                      {p.description && <p className="advisory-item-body">{p.description}</p>}
-                      <p className="muted text-sm m-0">
-                        {p.dimension_code ? DIMENSION_LABEL[p.dimension_code] ?? p.dimension_code : '—'} ·{' '}
-                        {humanizeKey(p.default_owner_role)}
-                        {p.target_offset_days != null ? ` · due +${p.target_offset_days}d` : ''}
-                      </p>
+                <Fragment key={p.id}>
+                  <div className="advisory-item">
+                    <div className="advisory-item-head">
+                      <div className="advisory-item-titles">
+                        <p className="advisory-item-title">
+                          {p.title}
+                          {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
+                        </p>
+                        {p.description && <p className="advisory-item-body">{p.description}</p>}
+                        <p className="muted text-sm m-0">
+                          {p.dimension_code ? DIMENSION_LABEL[p.dimension_code] ?? p.dimension_code : '—'} ·{' '}
+                          {humanizeKey(p.default_owner_role)}
+                          {p.target_offset_days != null ? ` · due +${p.target_offset_days}d` : ''}
+                        </p>
+                      </div>
                     </div>
+                    {canAuthor && (
+                      <div className="advisory-item-actions">
+                        {isFirm ? (
+                          <>
+                            <button className="linkish" onClick={() => open('edit', p)}>
+                              Edit
+                            </button>
+                            <button className="button-danger-link" onClick={() => setConfirmDelete(p)}>
+                              Remove
+                            </button>
+                          </>
+                        ) : (
+                          <button className="linkish" onClick={() => open('adapt', p)}>
+                            Adapt for our firm
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {canAuthor && (
-                    <div className="advisory-item-actions">
-                      {isFirm ? (
-                        <>
-                          <button className="linkish" onClick={() => open('edit', p)}>
-                            Edit
-                          </button>
-                          <button className="button-danger-link" onClick={() => setConfirmDelete(p)}>
-                            Remove
-                          </button>
-                        </>
-                      ) : (
-                        <button className="linkish" onClick={() => open('adapt', p)}>
-                          Adapt for our firm
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  {editingThis && renderForm()}
+                </Fragment>
               );
             })}
           </div>
@@ -330,19 +337,19 @@ function EducationSection() {
 
   const modulesQ = useContentModuleCatalog();
   const modules = modulesQ.data ?? [];
-  const [editing, setEditing] = useState<ContentModuleCatalogRow | 'new' | null>(null);
+  const [form, setForm] = useState<{ mode: 'new' | 'edit' | 'adapt'; module?: ContentModuleCatalogRow } | null>(null);
   const [title, setTitle] = useState('');
   const [dimension, setDimension] = useState('REV');
   const [body, setBody] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qkContentModuleCatalog });
-  const open = (m: ContentModuleCatalogRow | 'new') => {
+  const open = (mode: 'new' | 'edit' | 'adapt', module?: ContentModuleCatalogRow) => {
     setErr(null);
-    setEditing(m);
-    setTitle(m === 'new' ? '' : m.title);
-    setDimension((m === 'new' ? 'REV' : m.dimension_code) ?? 'REV');
-    setBody((m === 'new' ? '' : m.body_md) ?? '');
+    setForm({ mode, module });
+    setTitle(mode === 'new' ? '' : module?.title ?? '');
+    setDimension((mode === 'new' ? 'REV' : module?.dimension_code) ?? 'REV');
+    setBody((mode === 'new' ? '' : module?.body_md) ?? '');
   };
 
   const save = () =>
@@ -351,8 +358,8 @@ function EducationSection() {
         if (!firmId) throw new Error('No firm.');
         if (!title.trim()) throw new Error('A title is required.');
         const payload = { title: title.trim(), dimension_code: dimension, body_md: body.trim() || null };
-        if (editing && editing !== 'new') {
-          const { error } = await supabase.from('content_modules').update(payload).eq('id', editing.id);
+        if (form?.mode === 'edit' && form.module) {
+          const { error } = await supabase.from('content_modules').update(payload).eq('id', form.module.id);
           if (error) throw new Error(error.message);
         } else {
           const code = `FIRM-CM-${slug(title)}-${rand4()}`;
@@ -361,11 +368,59 @@ function EducationSection() {
             .insert({ ...payload, firm_id: firmId, source: 'advisor', created_by: profile?.id ?? null, code });
           if (error) throw new Error(error.message);
         }
-        setEditing(null);
+        setForm(null);
         invalidate();
       },
       { success: 'Education module saved', onError: setErr },
     );
+
+  const renderForm = () => (
+    <Card>
+      <div className="advisory-form">
+        <div className="advisory-form-head">
+          <h3 className="m-0">
+            {form?.mode === 'edit'
+              ? 'Edit firm module'
+              : form?.mode === 'adapt'
+                ? 'Adapt for your firm'
+                : 'New firm module'}
+          </h3>
+          {form?.mode === 'adapt' && (
+            <p className="muted m-0">Saved as your firm's own editable copy — the system module stays untouched.</p>
+          )}
+        </div>
+        <div className="advisory-form-grid">
+          <label>
+            Readiness area
+            <select value={dimension} onChange={(e) => setDimension(e.target.value)}>
+              {DIMENSIONS.map((c) => (
+                <option key={c} value={c}>
+                  {DIMENSION_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label>
+          Title
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </label>
+        <label>
+          Content (optional)
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Markdown supported." />
+        </label>
+        {err && <ErrorState variant="inline" error={err} />}
+        <div className="advisory-form-actions">
+          <button type="button" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save module'}
+          </button>
+          <button type="button" className="button-secondary" onClick={() => setForm(null)} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
 
   return (
     <div className="stack-lg">
@@ -375,47 +430,13 @@ function EducationSection() {
           owner's Learn tab. Education lives here only.
         </p>
         {canAuthor && (
-          <button onClick={() => (editing === 'new' ? setEditing(null) : open('new'))} style={{ flexShrink: 0 }}>
-            {editing === 'new' ? 'Cancel' : 'Add firm module'}
+          <button onClick={() => (form?.mode === 'new' ? setForm(null) : open('new'))} style={{ flexShrink: 0 }}>
+            {form?.mode === 'new' ? 'Cancel' : 'Add firm module'}
           </button>
         )}
       </div>
 
-      {editing && (
-        <Card>
-          <div className="advisory-form">
-            <div className="advisory-form-grid">
-              <label>
-                Readiness area
-                <select value={dimension} onChange={(e) => setDimension(e.target.value)}>
-                  {DIMENSIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {DIMENSION_LABEL[c]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label>
-              Title
-              <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </label>
-            <label>
-              Content (optional)
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Markdown supported." />
-            </label>
-            {err && <ErrorState variant="inline" error={err} />}
-            <div className="advisory-form-actions">
-              <button type="button" onClick={save} disabled={busy}>
-                {busy ? 'Saving…' : 'Save module'}
-              </button>
-              <button type="button" className="button-secondary" onClick={() => setEditing(null)} disabled={busy}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </Card>
-      )}
+      {form?.mode === 'new' && canAuthor && renderForm()}
 
       {modulesQ.isLoading && <SkeletonLines lines={4} />}
       {!modulesQ.isLoading && modules.length === 0 && (
@@ -426,27 +447,38 @@ function EducationSection() {
           <div className="advisory-list">
             {modules.map((m) => {
               const isFirm = m.source === 'advisor';
+              const editingThis =
+                canAuthor && form && (form.mode === 'edit' || form.mode === 'adapt') && form.module?.id === m.id;
               return (
-                <div key={m.id} className="advisory-item">
-                  <div className="advisory-item-head">
-                    <div className="advisory-item-titles">
-                      <p className="advisory-item-title">
-                        {m.title}
-                        {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
-                      </p>
-                      <p className="muted text-sm m-0">
-                        {m.dimension_code ? DIMENSION_LABEL[m.dimension_code] ?? m.dimension_code : '—'}
-                      </p>
+                <Fragment key={m.id}>
+                  <div className="advisory-item">
+                    <div className="advisory-item-head">
+                      <div className="advisory-item-titles">
+                        <p className="advisory-item-title">
+                          {m.title}
+                          {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
+                        </p>
+                        <p className="muted text-sm m-0">
+                          {m.dimension_code ? DIMENSION_LABEL[m.dimension_code] ?? m.dimension_code : '—'}
+                        </p>
+                      </div>
                     </div>
+                    {canAuthor && (
+                      <div className="advisory-item-actions">
+                        {isFirm ? (
+                          <button className="linkish" onClick={() => open('edit', m)}>
+                            Edit
+                          </button>
+                        ) : (
+                          <button className="linkish" onClick={() => open('adapt', m)} title="Save an editable firm copy">
+                            Adapt for our firm
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {canAuthor && isFirm && (
-                    <div className="advisory-item-actions">
-                      <button className="linkish" onClick={() => open(m)}>
-                        Edit
-                      </button>
-                    </div>
-                  )}
-                </div>
+                  {editingThis && renderForm()}
+                </Fragment>
               );
             })}
           </div>
@@ -678,6 +710,18 @@ function AdvisorySection() {
     toast.show('Item removed', 'good');
   };
 
+  const renderForm = () =>
+    form && (
+      <AdvisoryForm
+        key={`${form.mode}-${form.item?.id ?? 'new'}`}
+        mode={form.mode}
+        initial={valuesFrom(form.mode === 'create' ? null : form.item)}
+        error={error}
+        onSubmit={submitForm}
+        onCancel={closeForm}
+      />
+    );
+
   return (
     <div className="stack-lg">
       <div className="control-row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
@@ -692,16 +736,7 @@ function AdvisorySection() {
         )}
       </div>
 
-      {form && canAuthor && (
-        <AdvisoryForm
-          key={`${form.mode}-${form.item?.id ?? 'new'}`}
-          mode={form.mode}
-          initial={valuesFrom(form.mode === 'create' ? null : form.item)}
-          error={error}
-          onSubmit={submitForm}
-          onCancel={closeForm}
-        />
-      )}
+      {form?.mode === 'create' && canAuthor && renderForm()}
 
       <div className="advisory-filters">
         <select value={qType} onChange={(e) => setQType(e.target.value as AdvisoryItemType | 'all')}>
@@ -742,9 +777,11 @@ function AdvisorySection() {
           <div className="advisory-list">
             {filtered.map((it) => {
               const isFirm = it.source === 'advisor';
+              const editingThis =
+                canAuthor && form && (form.mode === 'edit' || form.mode === 'adapt') && form.item?.id === it.id;
               return (
+                <Fragment key={it.id}>
                 <div
-                  key={it.id}
                   className={`advisory-item ${advisorySevClass(it.severity)}${it.active ? '' : ' advisory-item-inactive'}`}
                 >
                   <div className="advisory-item-head">
@@ -801,6 +838,8 @@ function AdvisorySection() {
                     </div>
                   )}
                 </div>
+                {editingThis && renderForm()}
+                </Fragment>
               );
             })}
           </div>
@@ -825,7 +864,7 @@ function AdvisorySection() {
 type LibraryView = 'tasks' | 'education' | 'advisory';
 
 export default function LibraryPage() {
-  const [view, setView] = useState<LibraryView>('tasks');
+  const [view, setView] = useState<LibraryView>('advisory');
 
   return (
     <div className="stack-lg">
@@ -838,9 +877,9 @@ export default function LibraryPage() {
       <div className="plans-toolbar">
         <SubTabs
           tabs={[
+            { key: 'advisory', label: 'Advisory' },
             { key: 'tasks', label: 'Tasks' },
             { key: 'education', label: 'Education' },
-            { key: 'advisory', label: 'Advisory' },
           ]}
           activeKey={view}
           ariaLabel="Library sections"
