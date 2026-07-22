@@ -3101,6 +3101,24 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .reassess-good { background: var(--chip-good-bg); border-color: transparent; color: var(--chip-good-fg); }
 .reassess-warn { background: var(--chip-warn-bg); border-color: transparent; color: var(--chip-warn-fg); }
 .reassess-neutral { color: var(--text); }
+
+/* Superadmin narrative-prompt editor (PlatformConsolePage). */
+.prompt-registry { display: grid; grid-template-columns: minmax(12rem, 16rem) 1fr; gap: var(--space-3, 0.75rem); }
+.prompt-registry-list { display: flex; flex-direction: column; gap: 0.25rem; max-height: 30rem; overflow-y: auto; }
+.prompt-registry-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  text-align: left; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface-1); cursor: pointer; font-size: 0.85rem;
+}
+.prompt-registry-item.is-active { border-color: var(--border-strong); background: var(--surface-2); }
+.prompt-registry-key { font-family: var(--font-mono, monospace); overflow: hidden; text-overflow: ellipsis; }
+.prompt-registry-tag { font-size: 0.68rem; padding: 0.05rem 0.4rem; border-radius: 999px; white-space: nowrap; }
+.prompt-registry-tag-db { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+.prompt-registry-tag-file { background: var(--surface-3); color: var(--text-muted); }
+.prompt-registry-editor { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.prompt-registry-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.prompt-registry-error { color: var(--status-critical); }
+@media (max-width: 720px) { .prompt-registry { grid-template-columns: 1fr; } }
 .add-eng-newco input { width: 100%; }
 
 /* ---- Documents + review queue (beta R3) ---- */

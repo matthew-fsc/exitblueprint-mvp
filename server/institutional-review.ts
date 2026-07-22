@@ -26,13 +26,11 @@
 // returns an in-memory labeled-draft artifact. Persisting it (a generated_documents
 // `institutional_review` doc_type) is a follow-up that needs a migration; see the
 // integration notes accompanying this change.
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { numeralPostCheck, type GenerateFn, type GeneratedText } from './narrative';
 import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
+import { resolvePromptBody } from './prompt-registry';
 import { verificationSummary, type VerificationSummary } from './verification';
 import { fireAdvisoryItems, type AdvisoryFireResult } from './advisory';
 
@@ -41,8 +39,6 @@ const MODEL = 'claude-opus-4-8';
 // Model label stored on a review written by the deterministic composer, so a
 // reader can always tell a rule-based review from an AI-drafted one.
 const RULE_BASED_MODEL = 'rule-based:institutional_review.v1';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // The unmissable label on every review, AI- or rule-composed. It carries no
 // numeral, so prepending it never trips the numeral firewall.
@@ -334,11 +330,12 @@ export function composeInstitutionalReview(payload: ReviewPayload): string {
 // enforce the numeral firewall (one regeneration, then fail loudly), and stamp
 // the DRAFT banner so the label is present regardless of what the model returned.
 async function reviewWithGenerator(
+  db: pg.ClientBase,
   payload: ReviewPayload,
   generate: GenerateFn,
   promptVersion: string = PROMPT_VERSION,
 ): Promise<GeneratedText> {
-  const systemPrompt = readFileSync(join(root, 'prompts', `${promptVersion}.md`), 'utf8');
+  const systemPrompt = await resolvePromptBody(db, promptVersion);
   const userContent = `Assessment review data (JSON):\n${JSON.stringify(payload, null, 2)}`;
 
   let generated = await generate(systemPrompt, userContent);
@@ -383,10 +380,10 @@ export async function generateInstitutionalReview(
   let text: string;
   let model: string;
   if (generate) {
-    ({ text, model } = await reviewWithGenerator(payload, generate));
+    ({ text, model } = await reviewWithGenerator(db, payload, generate));
   } else if (aiConfigured()) {
     try {
-      ({ text, model } = await reviewWithGenerator(payload, callClaude));
+      ({ text, model } = await reviewWithGenerator(db, payload, callClaude));
     } catch (err) {
       console.warn(
         `institutional review ${PROMPT_VERSION}: AI generation failed (${aiFailureReason(err)}); ` +

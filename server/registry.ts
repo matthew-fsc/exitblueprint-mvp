@@ -73,6 +73,7 @@ import {
 } from './review-queue';
 import { logAccess } from './audit';
 import { seedMethodology } from './seed-methodology';
+import { listPromptTemplates, setPromptTemplate, resetPromptTemplate } from './prompt-registry';
 import { renderDocumentPdf } from './documents/catalog';
 
 // ── The six engines (architecture doc §01) ────────────────────────────────────
@@ -284,6 +285,29 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'rules',
     scope: 'platform-admin',
     handler: async ({ service }) => ok(await seedMethodology(service)),
+  },
+  // Narrative prompt registry (docs/04). The bundled prompts/<key>.md files are
+  // the versioned default; a platform superadmin may override a prompt's body
+  // in-system (no code deploy) and reset back to the file. Superadmin-gated
+  // (`platform-admin` — cross-tenant governance, above firm admin). The numeral
+  // firewall + rule-based composer fallback (server/narrative.ts) are code,
+  // independent of prompt text, so an edited/empty prompt can never inject
+  // invented numbers or hard-fail a delivery (rules 1/2). Reads/writes the walled,
+  // service-role-only analytics.prompt_templates (tenant-invisible, no firm_id).
+  'list-prompts': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service }) => listPromptTemplates(service).then(ok),
+  },
+  'set-prompt': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service, body, userId }) => setPromptTemplate(service, body, userId ?? null).then(ok),
+  },
+  'reset-prompt': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service, body }) => resetPromptTemplate(service, body).then(ok),
   },
   // Outcome Calibration Engine — the "FICO moat" (docs/09 moat 1, docs/40 §3).
   // compute-calibration reads the cross-firm deal_outcomes corpus and PERSISTS a

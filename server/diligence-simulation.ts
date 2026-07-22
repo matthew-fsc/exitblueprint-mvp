@@ -23,13 +23,12 @@
 //     (rule 2). Every run narrative is labeled DRAFT and carries a prompt_version.
 //   * Runs are immutable snapshots (rule 4): a run and its findings are inserted
 //     once and never updated; re-running produces a NEW run (rule 6 versioning).
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { explainAssessment } from './scoring';
 import { numeralPostCheck, type GenerateFn, type GeneratedText } from './narrative';
+import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
+import { resolvePromptBody } from './prompt-registry';
 import { fireAdvisoryItems } from './advisory';
 import { buildInstitutionalReviewPayload, type ReviewPayload } from './institutional-review';
 
@@ -38,8 +37,6 @@ const MODEL = 'claude-opus-4-8';
 // Model label stored on a run drafted by the deterministic composer, so a reader
 // can always tell a rule-based narrative from an AI-drafted one.
 const RULE_BASED_MODEL = 'rule-based:diligence_simulation.v1';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // The unmissable label on every run narrative, AI- or rule-composed. It carries
 // no numeral, so prepending it never trips the numeral firewall.
@@ -399,14 +396,14 @@ export function composeDiligenceNarrative(payload: NarrativePayload): string {
 // ── AI generation (injectable generator + numeral firewall) ────────────────────
 
 async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const provider = resolveProvider();
+  if (!provider) {
     throw new Error(
-      'diligence simulation service not configured: set ANTHROPIC_API_KEY in the server environment',
+      'diligence simulation service not configured: set AI_GATEWAY_API_KEY in the server environment',
     );
   }
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: MODEL,
+  const response = await provider.client.messages.create({
+    model: provider.modelFor(MODEL),
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     system: systemPrompt,
@@ -424,10 +421,11 @@ async function callClaude(systemPrompt: string, userContent: string): Promise<Ge
 // regeneration, then fail loudly), and stamp the DRAFT banner. Mirrors
 // narrative.ts / institutional-review.ts exactly.
 async function narrativeWithGenerator(
+  db: pg.ClientBase,
   payload: NarrativePayload,
   generate: GenerateFn,
 ): Promise<GeneratedText> {
-  const systemPrompt = readFileSync(join(root, 'prompts', `${PROMPT_VERSION}.md`), 'utf8');
+  const systemPrompt = await resolvePromptBody(db, PROMPT_VERSION);
   const userContent = `Diligence simulation data (JSON):\n${JSON.stringify(payload, null, 2)}`;
 
   let generated = await generate(systemPrompt, userContent);
@@ -486,9 +484,20 @@ export async function draftAndPersistRun(
   let narrative: string;
   let model: string;
   if (generate) {
-    ({ text: narrative, model } = await narrativeWithGenerator(payload, generate));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text: narrative, model } = await narrativeWithGenerator(payload, callClaude));
+    ({ text: narrative, model } = await narrativeWithGenerator(db, payload, generate));
+  } else if (aiConfigured()) {
+    // Try the gateway; on any failure (e.g. empty balance) fall back to the
+    // deterministic composer so a run always produces — matching narrative.ts.
+    try {
+      ({ text: narrative, model } = await narrativeWithGenerator(db, payload, callClaude));
+    } catch (err) {
+      console.warn(
+        `diligence simulation ${PROMPT_VERSION}: AI generation failed (${aiFailureReason(err)}); ` +
+          'falling back to the deterministic composer',
+      );
+      narrative = composeDiligenceNarrative(payload);
+      model = RULE_BASED_MODEL;
+    }
   } else {
     narrative = composeDiligenceNarrative(payload);
     model = RULE_BASED_MODEL;

@@ -486,6 +486,19 @@ async function main() {
       await db.query('rollback to savepoint obc');
     }
     check('cannot read analytics.own_book_valuation_multiples (service-role only)', ownBookCorpusDenied);
+    // The narrative prompt-override registry (docs/04) is global operational
+    // config in the same walled schema; a tenant must never read (or edit) the
+    // prompts that generate every firm's documents.
+    let promptRegistryDenied = false;
+    try {
+      await db.query('savepoint pr');
+      await db.query('select * from analytics.prompt_templates');
+      await db.query('release savepoint pr');
+    } catch {
+      promptRegistryDenied = true;
+      await db.query('rollback to savepoint pr');
+    }
+    check('cannot read analytics.prompt_templates (service-role only)', promptRegistryDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');
