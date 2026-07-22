@@ -445,6 +445,18 @@ async function main() {
       await db.query('rollback to savepoint an');
     }
     check('cannot read analytics schema (service-role only)', analyticsDenied);
+    // The calibration artifact (docs/09 moat 1) lives in the same walled analytics
+    // schema — assert a tenant role cannot read the calibration bands either.
+    let calibrationDenied = false;
+    try {
+      await db.query('savepoint cal');
+      await db.query('select * from analytics.calibration_bands');
+      await db.query('release savepoint cal');
+    } catch {
+      calibrationDenied = true;
+      await db.query('rollback to savepoint cal');
+    }
+    check('cannot read analytics.calibration_bands (service-role only)', calibrationDenied);
     let writeBlocked = false;
     try {
       await db.query('savepoint w');

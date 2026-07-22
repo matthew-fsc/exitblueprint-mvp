@@ -31,6 +31,7 @@ import { daysSince, fmtCurrency, fmtDate, fmtScore, formatFieldValue, humanizeKe
 import { functionsBaseUrl, getAccessToken } from '../lib/supabase';
 import {
   activationSteps,
+  calibrationBands,
   churnBook,
   firmActivityStatus,
   funnelSteps,
@@ -140,6 +141,66 @@ const MOAT_TILES: { key: string; label: string; fmt: (n: number) => string }[] =
   { key: 'retrade_rate_pct', label: 'Retrade rate', fmt: (n) => `${fmtScore(n)}%` },
   { key: 'avg_days_on_market', label: 'Avg days on market', fmt: (n) => `${Math.round(n)} days` },
 ];
+
+// ---- DRS calibration bands (the FICO moat: docs/09 §1) ----
+
+const calPct = (v: unknown) => (v == null ? '—' : `${fmtScore(toNumber(v))}%`);
+const calMult = (v: unknown) => (v == null ? '—' : `${fmtScore(toNumber(v))}×`);
+
+// The versioned calibration artifact, one row per score band, rendered with the
+// right unit per column (multiple ×, rates %, days) and a low-confidence chip for
+// thin cells. `groupHeader` names the band column ("DRS band" / "ORI band").
+function CalibrationBandsTable({ rows, groupHeader }: { rows: Row[]; groupHeader: string }) {
+  if (!rows.length) return <EmptyState icon="empty" title="No bands in this group yet" />;
+  const columns: Column<Row>[] = [
+    {
+      key: 'band_label',
+      header: groupHeader,
+      render: (r) => (
+        <span>
+          <strong>{String(r.band_label ?? '—')}</strong>
+          {r.low_confidence === true && (
+            <span className="status-chip status-neutral" style={{ marginLeft: '0.4rem' }}>
+              Low confidence
+            </span>
+          )}
+        </span>
+      ),
+      sortValue: (r) => toNumber(r.band_low),
+    },
+    { key: 'sample_n', header: 'Deals', numeric: true, render: (r) => String(toNumber(r.sample_n)), sortValue: (r) => toNumber(r.sample_n) },
+    { key: 'close_rate_pct', header: 'Close rate', numeric: true, render: (r) => calPct(r.close_rate_pct), sortValue: (r) => toNumber(r.close_rate_pct) },
+    {
+      key: 'median_multiple',
+      header: 'Multiple (P25–P75)',
+      numeric: true,
+      render: (r) =>
+        r.median_multiple == null ? (
+          '—'
+        ) : (
+          <span>
+            {calMult(r.median_multiple)}
+            <span className="muted text-sm" style={{ display: 'block' }}>
+              {calMult(r.p25_multiple)}–{calMult(r.p75_multiple)}
+            </span>
+          </span>
+        ),
+      sortValue: (r) => toNumber(r.median_multiple),
+    },
+    {
+      key: 'median_days_to_close',
+      header: 'Time to close',
+      numeric: true,
+      render: (r) => (r.median_days_to_close == null ? '—' : `${toNumber(r.median_days_to_close)} days`),
+      sortValue: (r) => toNumber(r.median_days_to_close),
+    },
+    { key: 'within_range_hit_rate_pct', header: 'Within range', numeric: true, render: (r) => calPct(r.within_range_hit_rate_pct), sortValue: (r) => toNumber(r.within_range_hit_rate_pct) },
+    { key: 'ev_variance_pct', header: 'EV variance', numeric: true, render: (r) => calPct(r.ev_variance_pct), sortValue: (r) => toNumber(r.ev_variance_pct) },
+    { key: 'retrade_rate_pct', header: 'Retrade rate', numeric: true, render: (r) => calPct(r.retrade_rate_pct), sortValue: (r) => toNumber(r.retrade_rate_pct) },
+    { key: 'contributing_firms', header: 'Firms', numeric: true, render: (r) => String(toNumber(r.contributing_firms)), sortValue: (r) => toNumber(r.contributing_firms) },
+  ];
+  return <DataTable columns={columns} rows={rows} keyFor={(r) => String(r.band_label)} initialSort={{ key: 'band_label', dir: 'desc' }} />;
+}
 
 // ---- the firm account / churn book (the BD readout) ----
 
@@ -312,6 +373,8 @@ export default function PlatformConsolePage() {
   const health = s.operating.engagement_health;
   const events = topEvents(s.product.usage_30d);
   const moatTiles = MOAT_TILES.filter((t) => t.key in s.moats.corpus);
+  const calDrsBands = calibrationBands(s.calibration.bands, 'drs');
+  const calOriBands = calibrationBands(s.calibration.bands, 'ori');
 
   return (
     <div className="stack-lg">
@@ -557,6 +620,57 @@ export default function PlatformConsolePage() {
             </div>
           )}
           <p className="muted text-sm">{s.corpus.note}</p>
+        </div>
+      </SectionCard>
+
+      {/* DRS calibration — the FICO moat (docs/09 §1): the versioned artifact */}
+      <SectionCard
+        title="DRS calibration"
+        subtitle={
+          s.calibration.calibration_version != null
+            ? `Versioned calibration artifact v${s.calibration.calibration_version} · ${fmtDate(
+                s.calibration.computed_at,
+              )} — how each DRS/ORI band's predictions tracked reality across ${toNumber(
+                s.calibration.total_closed,
+              )} closed deals.`
+            : 'How each DRS/ORI band’s predictions track reality across closed deals — the calibrated score (docs/09 §1).'
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock
+              label="Calibration version"
+              value={s.calibration.calibration_version != null ? `v${s.calibration.calibration_version}` : '—'}
+            />
+            <StatBlock label="Outcomes in corpus" value={String(toNumber(s.calibration.total_outcomes))} />
+            <StatBlock label="Closed deals" value={String(toNumber(s.calibration.total_closed))} />
+            <StatBlock label="Contributing firms" value={String(toNumber(s.calibration.contributing_firms))} />
+          </StatRow>
+
+          {calDrsBands.length === 0 ? (
+            <EmptyState icon="clock" title="No calibration computed yet">
+              The versioned calibration artifact is produced by the superadmin
+              <code> compute-calibration</code> function from the deal-outcomes corpus; DRS bands
+              light up once it has run over closed deals.
+            </EmptyState>
+          ) : (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                DRS score bands
+              </p>
+              <CalibrationBandsTable rows={calDrsBands} groupHeader="DRS band" />
+            </div>
+          )}
+
+          {calOriBands.length > 0 && (
+            <div>
+              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+                Owner Readiness Index bands
+              </p>
+              <CalibrationBandsTable rows={calOriBands} groupHeader="ORI band" />
+            </div>
+          )}
+          <p className="muted text-sm">{s.calibration.note}</p>
         </div>
       </SectionCard>
 

@@ -63,6 +63,7 @@ A developer index: the durable features and the files that own them. Pair with
 | Scheduled webhooks (n8n) | `server/scheduled.ts` | 08 |
 | Observability (Sentry seam) | `server/observability.ts`, frontend seam | 32 |
 | **Operating dashboard** (superadmin `analytics` rail: activation funnel · revenue plan · unit economics/COGS · churn book · moat KPIs) | `supabase/migrations/*_platform_analytics.sql` · `*_moat_kpis.sql` · `*_operating_dashboard.sql` · `server/platform-metrics.ts` · `server/moat-metrics.ts` · `src/lib/platformConsole.ts` · `src/pages/PlatformConsolePage.tsx` (gate `PLATFORM_SUPERADMIN_IDS`) | 38, **40 §4b** |
+| **Outcome Calibration Engine** (the FICO moat: versioned DRS/ORI-band calibration artifact — close rate · multiple range · time-to-close · within-range hit rate · EV variance · retrade rate; de-identified cross-firm, superadmin `analytics` rail) | `shared/calibration/compute.ts` · `server/calibration.ts` · `supabase/migrations/*_calibration_engine.sql` (`analytics.calibration_versions`/`calibration_bands`) · `compute-calibration`/`read-calibration` in `server/registry.ts` · `src/pages/PlatformConsolePage.tsx` (DRS-calibration panel) | **09 §1**, 40 §3 |
 
 ## Build canon (read before you change the matching thing)
 | Doc | What it is | Status |
