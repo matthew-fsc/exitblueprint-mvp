@@ -49,6 +49,14 @@ export async function migrate(databaseUrl: string): Promise<string[]> {
         throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
       }
     }
+
+    // Tell PostgREST to reload its schema cache. Migrations are applied over a
+    // raw pg connection (not the Supabase CLI), so on a hosted Supabase project
+    // PostgREST never learns about newly created tables/columns on its own and
+    // requests fail with "Could not find the table 'public.<name>' in the schema
+    // cache". Signalling a reload here keeps the REST API in sync after every
+    // migrate run. Harmless (a no-op) on plain Postgres with no PostgREST.
+    await client.query("notify pgrst, 'reload schema'");
   } finally {
     await client.end();
   }
