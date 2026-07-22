@@ -1,7 +1,7 @@
 // Engagement knowledge chain (docs/20/21 Category B): connect the institutional
 // record the platform already holds — the gap (a preparation risk) → the
-// recommendation (its playbook) → the advisor's reasoning (engagement_log) → the
-// progress (tasks) — into one connected view instead of isolated records.
+// recommendation (its remediation Plan) → the advisor's reasoning (engagement_log)
+// → the progress (tasks) — into one connected view instead of isolated records.
 //
 // Deterministic assembly over source tables (the advisory layer of the knowledge
 // graph), NOT a duplicate written into the document-verified graph_nodes/edges.
@@ -12,7 +12,7 @@ export interface KnowledgeGap {
   name: string;
   severity: 'critical' | 'high' | 'med' | 'low';
   status: string;
-  playbookName?: string | null;
+  remediationName?: string | null;
 }
 export interface KnowledgeTask {
   gap_id: string | null;
@@ -31,7 +31,7 @@ export interface KnowledgeChain {
   gapName: string;
   severity: KnowledgeGap['severity'];
   status: string;
-  recommendation: string | null; // the playbook that addresses the gap
+  recommendation: string | null; // the remediation Plan that addresses the gap
   done: number;
   total: number;
   reasoning: KnowledgeLogEntry[]; // the advisor's logged "why", tied to this gap
@@ -65,7 +65,7 @@ export function buildEngagementKnowledge(input: {
         gapName: gap.name,
         severity: gap.severity,
         status: gap.status,
-        recommendation: gap.playbookName ?? null,
+        recommendation: gap.remediationName ?? null,
         done: gapTasks.filter((t) => t.status === 'done').length,
         total: gapTasks.length,
         reasoning,

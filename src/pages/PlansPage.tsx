@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction } from '../lib/supabase';
@@ -10,7 +9,7 @@ import {
   useContentModules,
   useEngagements,
   usePlans,
-  usePlaybooks,
+  useLibraryTasks,
   type PlanItemKind,
   type PlanItemView,
   type PlanView,
@@ -23,20 +22,16 @@ import {
   PageHeader,
   SectionCard,
   SkeletonLines,
-  SubTabs,
-  subTabId,
-  subTabPanelId,
   useToast,
 } from '../components/ui';
 import { humanizeKey } from '../lib/format';
-import { PlaybooksSection } from './PlaybooksSection';
 
 // Plans (docs/37): reusable initiative bundles an advisor curates and applies to
 // an engagement. This surface lists system + firm Plans, lets an advisor author a
 // firm Plan from the existing catalogs, and applies a Plan to an engagement (PL2/PL3).
 
 const KIND_LABEL: Record<PlanItemKind, string> = {
-  playbook: 'Playbook',
+  task: 'Library task',
   education: 'Education module',
   advisory: 'Advisory item',
   milestone: 'Milestone',
@@ -45,7 +40,7 @@ const KIND_LABEL: Record<PlanItemKind, string> = {
 // What each item kind contributes to an engagement when the Plan is applied.
 // Shown inline so the 5-kind selector is never unexplained (docs/37).
 const KIND_HINT: Record<PlanItemKind, string> = {
-  playbook: 'Instantiates the playbook’s task templates onto the roadmap.',
+  task: 'Adds a reusable library task to the roadmap when applied.',
   education: 'Assigns a learning module from the education catalog.',
   advisory: 'Surfaces a coaching / advisory item for the owner.',
   milestone: 'Adds a target-dated milestone on the chosen track.',
@@ -88,14 +83,14 @@ interface DraftItem {
   track: (typeof TRACKS)[number];
   owner_role: (typeof OWNER_ROLES)[number];
 }
-const emptyItem = (): DraftItem => ({ kind: 'playbook', ref_id: '', title: '', track: 'business', owner_role: 'owner' });
+const emptyItem = (): DraftItem => ({ kind: 'task', ref_id: '', title: '', track: 'business', owner_role: 'owner' });
 
 // Inverse of toPayloadItem: seed an editable draft row from a stored plan item so
 // an existing Plan can be re-opened in the authoring form (edit mode).
 function toDraftItem(it: PlanItemView): DraftItem {
   return {
     kind: it.item_kind,
-    ref_id: it.playbook_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '',
+    ref_id: it.library_task_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '',
     title: it.title ?? '',
     track: (TRACKS as readonly string[]).includes(it.track ?? '') ? (it.track as DraftItem['track']) : 'business',
     owner_role: (OWNER_ROLES as readonly string[]).includes(it.owner_role ?? '')
@@ -107,8 +102,8 @@ function toDraftItem(it: PlanItemView): DraftItem {
 // Map a draft row to the create-plan item payload for its kind.
 function toPayloadItem(d: DraftItem): Record<string, unknown> | null {
   switch (d.kind) {
-    case 'playbook':
-      return d.ref_id ? { kind: 'playbook', playbook_id: d.ref_id } : null;
+    case 'task':
+      return d.ref_id ? { kind: 'task', library_task_id: d.ref_id } : null;
     case 'education':
       return d.ref_id ? { kind: 'education', content_module_id: d.ref_id } : null;
     case 'advisory':
@@ -138,35 +133,24 @@ export default function PlansPage() {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
-  // Sub-view: Plans (bundles) vs Playbooks (their building blocks). Kept in the
-  // URL (?view=) so /playbooks can redirect here and links are shareable.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const view: 'plans' | 'playbooks' = searchParams.get('view') === 'playbooks' ? 'playbooks' : 'plans';
-  const selectView = (key: string) =>
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (key === 'playbooks') next.set('view', 'playbooks');
-      else next.delete('view');
-      return next;
-    });
   const plansQ = usePlans();
   const engagementsQ = useEngagements();
   const companiesQ = useCompanies();
-  const playbooksQ = usePlaybooks();
+  const libraryTasksQ = useLibraryTasks();
   const contentQ = useContentModules();
   const advisoryQ = useAdvisoryLibrary();
   const canAuthor = !!profile?.firm_id;
 
   const plans = plansQ.data ?? [];
-  const playbooks = useMemo(
+  const libraryTasks = useMemo(
     () =>
-      Array.from(playbooksQ.data?.entries() ?? []).map(([id, p]) => ({
+      Array.from(libraryTasksQ.data?.entries() ?? []).map(([id, t]) => ({
         id,
-        name: p.name,
-        dimension: p.dimension_code,
-        description: p.summary,
+        name: t.title,
+        dimension: t.dimension_code,
+        description: null as string | null,
       })),
-    [playbooksQ.data],
+    [libraryTasksQ.data],
   );
   const content = contentQ.data ?? [];
   const advisory = advisoryQ.data ?? [];
@@ -321,8 +305,8 @@ export default function PlansPage() {
   // Annotated catalog options per kind, carrying the metadata each table already
   // exposes (playbook/content: dimension + summary; advisory: dimension + severity + body).
   const refOptions = (kind: PlanItemKind): RefOption[] => {
-    if (kind === 'playbook')
-      return playbooks.map((p) => ({ id: p.id, label: p.name, dimension: p.dimension, severity: null, description: p.description }));
+    if (kind === 'task')
+      return libraryTasks.map((p) => ({ id: p.id, label: p.name, dimension: p.dimension, severity: null, description: p.description }));
     if (kind === 'education')
       return content.map((c) => ({ id: c.id, label: c.title, dimension: c.dimension_code, severity: null, description: null }));
     if (kind === 'advisory')
@@ -342,7 +326,7 @@ export default function PlansPage() {
       return { label: it.title ?? '(untitled milestone)', dimension: null, severity: null, meta: it.track };
     if (it.item_kind === 'manual_task')
       return { label: it.title ?? '(untitled task)', dimension: null, severity: null, meta: it.owner_role };
-    const refId = it.playbook_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '';
+    const refId = it.library_task_id ?? it.content_module_id ?? it.advisory_library_item_id ?? '';
     const opt = findOption(it.item_kind, refId);
     return { label: opt?.label ?? 'Unknown item', dimension: opt?.dimension ?? null, severity: opt?.severity ?? null, meta: null };
   };
@@ -366,36 +350,17 @@ export default function PlansPage() {
       <PageHeader
         title="Plans"
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Plans' }]}
-        subtitle="Reusable bundles of playbooks, education, advisory items, milestones, and tasks — and the playbooks they’re built from. System content is shared methodology; your firm authors its own. Apply a Plan to an engagement to lay its work onto the roadmap."
+        subtitle="Reusable bundles of library tasks, education, advisory items, and milestones. System content is shared methodology; your firm authors its own. Apply a Plan to an engagement to lay its work onto the roadmap. Author the individual items in the Library."
+        actions={
+          canAuthor && (
+            <button onClick={() => (form ? closeForm() : openCreate())}>
+              {form ? 'Cancel' : 'New plan'}
+            </button>
+          )
+        }
       />
 
-      <div className="plans-toolbar">
-        <SubTabs
-          tabs={[
-            { key: 'plans', label: 'Plans', badge: plans.length || undefined },
-            { key: 'playbooks', label: 'Playbooks', badge: playbooksQ.data?.size || undefined },
-          ]}
-          activeKey={view}
-          ariaLabel="Plans sections"
-          onSelect={selectView}
-        />
-        {view === 'plans' && canAuthor && (
-          <button onClick={() => (form ? closeForm() : openCreate())}>
-            {form ? 'Cancel' : 'New plan'}
-          </button>
-        )}
-      </div>
-
-      <div
-        className="subtabs-panel"
-        role="tabpanel"
-        id={subTabPanelId(view)}
-        aria-labelledby={subTabId(view)}
-        tabIndex={0}
-      >
-        {view === 'playbooks' ? (
-          <PlaybooksSection />
-        ) : (
+      {(
           <div className="stack-lg">
             {form && canAuthor && (
         <Card>
@@ -421,7 +386,7 @@ export default function PlansPage() {
             <div className="plans-items">
               <span className="advisory-detail-label">Items</span>
               {items.map((it, i) => {
-                const isRef = it.kind === 'playbook' || it.kind === 'education' || it.kind === 'advisory';
+                const isRef = it.kind === 'task' || it.kind === 'education' || it.kind === 'advisory';
                 const selected = isRef ? findOption(it.kind, it.ref_id) : undefined;
                 const complete = !!toPayloadItem(it);
                 return (
@@ -661,8 +626,7 @@ export default function PlansPage() {
         </div>
       )}
           </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

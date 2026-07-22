@@ -173,7 +173,7 @@ describe.skipIf(!url)('generateDocument', () => {
     expect(payload.band).toBe(fixture.expected.tier);
     expect(payload.top_gaps.length).toBeLessThanOrEqual(5);
     expect(payload.top_gaps[0].severity).toBe('critical'); // sorted by severity
-    expect(payload.top_gaps.every((g) => g.playbook)).toBe(true);
+    expect(payload.top_gaps.every((g) => g.remediation)).toBe(true);
     expect(payload.prior_comparison).toBeNull(); // baseline assessment
   });
 

@@ -480,8 +480,10 @@ export interface EngagementGap {
   name: string;
   severity: 'low' | 'med' | 'high' | 'critical';
   status: string;
-  playbookName: string | null;
-  playbookSummary: string | null;
+  // The remediation Plan this gap is linked to (gap_plan_map) — the "roadmap
+  // initiative" that addresses it.
+  remediationName: string | null;
+  remediationSummary: string | null;
 }
 
 export interface BurndownPoint {
@@ -561,37 +563,37 @@ export function useEngagementGaps(
     queryKey: qk.engagementGaps(engagementId ?? ''),
     enabled: !!engagementId && !!rubricVersionId,
     queryFn: async () => {
-      const [gaps, defs, maps, playbooks] = await Promise.all([
+      const [gaps, defs, maps, plans] = await Promise.all([
         supabase
           .from('gaps')
           .select('*')
           .eq('engagement_id', engagementId!)
           .in('status', ['open', 'in_remediation']),
         supabase.from('gap_definitions').select('*').eq('rubric_version_id', rubricVersionId!),
-        supabase.from('gap_playbook_map').select('*'),
-        supabase.from('playbooks').select('*'),
+        supabase.from('gap_plan_map').select('*'),
+        supabase.from('plan_templates').select('id,name,summary'),
       ]);
-      for (const r of [gaps, defs, maps, playbooks]) if (r.error) throw new Error(r.error.message);
+      for (const r of [gaps, defs, maps, plans]) if (r.error) throw new Error(r.error.message);
       const defById = new Map((defs.data ?? []).map((d: { id: string; code: string; name: string; severity: string }) => [d.id, d]));
-      const pbById = new Map((playbooks.data ?? []).map((p: { id: string; name: string; summary: string }) => [p.id, p]));
-      const pbByGapDef = new Map<string, { name: string; summary: string }>();
-      for (const m of (maps.data ?? []) as { gap_definition_id: string; playbook_id: string }[]) {
-        const pb = pbById.get(m.playbook_id);
-        if (pb && !pbByGapDef.has(m.gap_definition_id)) pbByGapDef.set(m.gap_definition_id, pb);
+      const planById = new Map((plans.data ?? []).map((p: { id: string; name: string; summary: string }) => [p.id, p]));
+      const planByGapDef = new Map<string, { name: string; summary: string }>();
+      for (const m of (maps.data ?? []) as { gap_definition_id: string; plan_template_id: string }[]) {
+        const pl = planById.get(m.plan_template_id);
+        if (pl && !planByGapDef.has(m.gap_definition_id)) planByGapDef.set(m.gap_definition_id, pl);
       }
       const severityRank: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
       return ((gaps.data ?? []) as { id: string; gap_definition_id: string; status: string }[])
         .map((g) => {
           const def = defById.get(g.gap_definition_id);
-          const pb = def ? pbByGapDef.get(g.gap_definition_id) : null;
+          const pl = def ? planByGapDef.get(g.gap_definition_id) : null;
           return {
             id: g.id,
             code: def?.code ?? '',
             name: def?.name ?? 'Unknown gap',
             severity: (def?.severity ?? 'med') as EngagementGap['severity'],
             status: g.status,
-            playbookName: pb?.name ?? null,
-            playbookSummary: pb?.summary ?? null,
+            remediationName: pl?.name ?? null,
+            remediationSummary: pl?.summary ?? null,
           };
         })
         .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9));
@@ -787,9 +789,11 @@ export interface TaskRow {
   id: string;
   engagement_id: string;
   gap_id: string | null;
-  playbook_id: string | null;
+  // The library task this row was instantiated/claimed from (null for inline
+  // manual tasks). The once-per-engagement idempotency key.
+  library_task_id: string | null;
   // The applied Plan (engagement_plans.id) this task belongs to, when it was
-  // laid down or claimed by a Plan; null for purely gap-derived or manual tasks.
+  // laid down or claimed by a Plan; null for manual tasks.
   engagement_plan_id: string | null;
   title: string;
   description: string | null;
@@ -842,26 +846,23 @@ export function useMilestones(engagementId: string | undefined): UseQueryResult<
   });
 }
 
-// Playbook id -> descriptive metadata, for grouping roadmap tasks into
-// workstreams and for annotating the Plan authoring picker (dimension/summary).
-export interface PlaybookMeta {
-  name: string;
-  phase: string | null;
+// Library task id -> descriptive metadata, for annotating the Plan authoring
+// task picker (title / dimension).
+export interface LibraryTaskMeta {
+  title: string;
   dimension_code: string | null;
-  summary: string | null;
-  ev_impact: string | null;
 }
-export function usePlaybooks(): UseQueryResult<Map<string, PlaybookMeta>> {
+export function useLibraryTasks(): UseQueryResult<Map<string, LibraryTaskMeta>> {
   return useQuery({
-    queryKey: ['playbooks'],
+    queryKey: ['library-tasks'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('playbooks').select('id,name,phase,dimension_code,summary,ev_impact');
+      const { data, error } = await supabase.from('library_tasks').select('id,title,dimension_code');
       if (error) throw new Error(error.message);
       return new Map(
-        (data ?? []).map((p: { id: string } & PlaybookMeta) => [
-          p.id,
-          { name: p.name, phase: p.phase, dimension_code: p.dimension_code, summary: p.summary, ev_impact: p.ev_impact },
+        (data ?? []).map((t: { id: string } & LibraryTaskMeta) => [
+          t.id,
+          { title: t.title, dimension_code: t.dimension_code },
         ]),
       );
     },
@@ -1267,12 +1268,12 @@ export function useBranding(firmId: string | undefined | null): UseQueryResult<B
 }
 
 // ── Plans (docs/37) ──────────────────────────────────────────────────────────
-export type PlanItemKind = 'playbook' | 'education' | 'advisory' | 'milestone' | 'manual_task';
+export type PlanItemKind = 'task' | 'education' | 'advisory' | 'milestone' | 'manual_task';
 
 export interface PlanItemView {
   id: string;
   item_kind: PlanItemKind;
-  playbook_id: string | null;
+  library_task_id: string | null;
   content_module_id: string | null;
   advisory_library_item_id: string | null;
   title: string | null;
@@ -1524,63 +1525,34 @@ export function useFirmStaff(firmId: string | undefined | null): UseQueryResult<
   });
 }
 
-// ---- firm-authorable playbooks & content modules (20260721001400) ----------
+// ---- firm-authorable library tasks & content modules (docs/37 unify) -------
 // System rows (firm_id null) are shared methodology; firm rows (source 'advisor')
-// are the firm's own, editable by its staff. Both are returned so the catalog and
-// the Plan builder show them together.
-export interface PlaybookTaskTemplateRow {
-  id: string;
-  playbook_id: string;
-  title: string;
-  description: string | null;
-  default_owner_role: string;
-  sequence: number;
-  target_offset_days: number | null;
-}
-export interface PlaybookCatalogRow {
+// are the firm's own, editable by its staff. Both are returned so the Library
+// catalog and the Plan builder show them together.
+export interface LibraryTaskCatalogRow {
   id: string;
   firm_id: string | null;
   source: string;
-  code: string;
-  name: string;
-  version: number;
-  summary: string | null;
+  code: string | null;
+  title: string;
+  description: string | null;
+  default_owner_role: string;
   dimension_code: string | null;
-  phase: string | null;
-  ev_impact: string | null;
-  body_md: string | null;
-  tasks: PlaybookTaskTemplateRow[];
+  target_offset_days: number | null;
 }
 
-export const qkPlaybookCatalog = ['playbook-catalog'] as const;
+export const qkLibraryTaskCatalog = ['library-task-catalog'] as const;
 
-export function usePlaybookCatalog(): UseQueryResult<PlaybookCatalogRow[]> {
+export function useLibraryTaskCatalog(): UseQueryResult<LibraryTaskCatalogRow[]> {
   return useQuery({
-    queryKey: qkPlaybookCatalog,
+    queryKey: qkLibraryTaskCatalog,
     queryFn: async () => {
-      const { data: pbs, error } = await supabase
-        .from('playbooks')
-        .select('id,firm_id,source,code,name,version,summary,dimension_code,phase,ev_impact,body_md')
-        .order('name', { ascending: true });
+      const { data, error } = await supabase
+        .from('library_tasks')
+        .select('id,firm_id,source,code,title,description,default_owner_role,dimension_code,target_offset_days')
+        .order('title', { ascending: true });
       if (error) throw new Error(error.message);
-      const ids = (pbs ?? []).map((p: { id: string }) => p.id);
-      let tasks: PlaybookTaskTemplateRow[] = [];
-      if (ids.length) {
-        const { data: t, error: te } = await supabase
-          .from('playbook_task_templates')
-          .select('id,playbook_id,title,description,default_owner_role,sequence,target_offset_days')
-          .in('playbook_id', ids)
-          .order('sequence', { ascending: true });
-        if (te) throw new Error(te.message);
-        tasks = (t ?? []) as PlaybookTaskTemplateRow[];
-      }
-      const byPb = new Map<string, PlaybookTaskTemplateRow[]>();
-      for (const t of tasks) {
-        const arr = byPb.get(t.playbook_id) ?? [];
-        arr.push(t);
-        byPb.set(t.playbook_id, arr);
-      }
-      return (pbs ?? []).map((p: { id: string }) => ({ ...p, tasks: byPb.get(p.id) ?? [] })) as PlaybookCatalogRow[];
+      return (data ?? []) as LibraryTaskCatalogRow[];
     },
   });
 }

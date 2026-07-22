@@ -460,36 +460,67 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
-    const playbookIds: Record<string, string> = {};
+    // Playbooks are retired (docs/06): each seed playbook becomes (a) a set of
+    // system library_tasks (the atomic, reusable Library item) and (b) a "recipe"
+    // Plan (plan_templates, same code/name/summary as the old playbook) carrying
+    // those tasks as 'task' items. A gap maps to this recipe Plan via gap_plan_map;
+    // the higher-level curated SYSTEM_PLANS reference the same library_tasks.
+    //
+    // Clear all SYSTEM plan items up front so orphan library_tasks can be dropped
+    // without FK violations, then rebuild every system Plan's items below.
+    await db.query(`delete from plan_template_items where firm_id is null`);
+
+    const libraryTasksByPlaybook: Record<string, { id: string; code: string }[]> = {};
+    const recipePlanIdByPlaybook: Record<string, string> = {};
     for (const p of playbooks) {
-      playbookIds[p.code] = await upsert(
-        'playbooks',
-        `insert into playbooks (code, name, version, summary, dimension_code, phase, ev_impact, body_md)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
-         on conflict (code, version) where firm_id is null do update
-           set name = excluded.name, summary = excluded.summary,
-               dimension_code = excluded.dimension_code, phase = excluded.phase,
-               ev_impact = excluded.ev_impact, body_md = excluded.body_md
-         returning id, (xmax = 0) as inserted`,
-        [p.code, p.name, p.version, p.summary, p.dimensionCode, p.phase, p.evImpact, p.bodyMd],
-      );
+      const taskRefs: { id: string; code: string }[] = [];
       for (const t of p.tasks) {
-        await upsert(
-          'playbook_task_templates',
-          `insert into playbook_task_templates (playbook_id, title, default_owner_role, sequence, target_offset_days)
-           values ($1, $2, $3, $4, $5)
-           on conflict (playbook_id, sequence) do update
+        const code = `${p.code}-T${t.sequence}`;
+        const id = await upsert(
+          'library_tasks',
+          `insert into library_tasks
+             (firm_id, source, code, title, default_owner_role, dimension_code, target_offset_days)
+           values (null, 'system', $1, $2, $3, $4, $5)
+           on conflict (code) where firm_id is null do update
              set title = excluded.title, default_owner_role = excluded.default_owner_role,
-                 target_offset_days = excluded.target_offset_days
+                 dimension_code = excluded.dimension_code, target_offset_days = excluded.target_offset_days
            returning id, (xmax = 0) as inserted`,
-          [playbookIds[p.code], t.title, t.ownerRole, t.sequence, t.offsetDays],
+          [code, t.title, t.ownerRole, p.dimensionCode, t.offsetDays],
         );
+        taskRefs.push({ id, code });
       }
-      // Remove templates dropped from the playbook file.
+      libraryTasksByPlaybook[p.code] = taskRefs;
+      // Drop system library tasks removed from the playbook file (safe: system
+      // plan items were cleared above).
       await db.query(
-        'delete from playbook_task_templates where playbook_id = $1 and sequence > $2',
-        [playbookIds[p.code], p.tasks.length],
+        `delete from library_tasks
+         where firm_id is null and code like $1 and not (code = any($2::text[]))`,
+        [`${p.code}-T%`, taskRefs.map((r) => r.code)],
       );
+
+      // The recipe Plan header (reuses the old playbook code, so gap_plan_map and
+      // re-seed stay idempotent).
+      const planId = await upsert(
+        'plan_templates',
+        `insert into plan_templates (firm_id, source, code, name, summary, plan_version, status)
+         values (null, 'system', $1, $2, $3, 1, 'active')
+         on conflict (code, plan_version) where firm_id is null do update
+           set name = excluded.name, summary = excluded.summary, status = 'active'
+         returning id, (xmax = 0) as inserted`,
+        [p.code, p.name, p.summary],
+      );
+      // Each system Plan is its own lineage root (firm Plans set this in createPlan).
+      await db.query(`update plan_templates set lineage_id = id where id = $1 and lineage_id is null`, [planId]);
+      recipePlanIdByPlaybook[p.code] = planId;
+      let rSort = 0;
+      for (const t of taskRefs) {
+        await db.query(
+          `insert into plan_template_items (firm_id, plan_template_id, item_kind, library_task_id, sort_order)
+           values (null, $1, 'task', $2, $3)`,
+          [planId, t.id, rSort++],
+        );
+        tally('plan_template_items', true);
+      }
     }
 
     const contentIds: Record<string, string> = {};
@@ -506,14 +537,17 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
+    // gap -> remediation Plan (the "roadmap initiative" a gap is linked to). The
+    // seed map is authored gap -> playbook; each playbook is now a recipe Plan, so
+    // resolve the playbook code to its Plan id.
     for (const m of gapPlaybookMap) {
       await upsert(
-        'gap_playbook_map',
-        `insert into gap_playbook_map (gap_definition_id, playbook_id, priority)
+        'gap_plan_map',
+        `insert into gap_plan_map (gap_definition_id, plan_template_id, priority)
          values ($1, $2, $3)
-         on conflict (gap_definition_id, playbook_id) do update set priority = excluded.priority
+         on conflict (gap_definition_id, plan_template_id) do update set priority = excluded.priority
          returning id, (xmax = 0) as inserted`,
-        [gapIds[m.fromCode], playbookIds[m.toCode], m.order],
+        [gapIds[m.fromCode], recipePlanIdByPlaybook[m.toCode], m.order],
       );
     }
 
@@ -552,15 +586,11 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
-    // System Plans (docs/37): global methodology (firm_id null), keyed by
-    // (code, plan_version). The header upserts idempotently; the items are
-    // deleted-and-reinserted per re-seed (the same child-row discipline
-    // playbook_task_templates uses) so the item set always matches SYSTEM_PLANS.
-    const planItemMaps = {
-      playbook: playbookIds,
-      education: contentIds,
-      advisory: advisoryIds,
-    } as const;
+    // Curated System Plans (docs/37): global methodology (firm_id null), keyed by
+    // (code, plan_version). The header upserts idempotently; system items were
+    // cleared up front and are rebuilt here. A 'playbook' seed item EXPANDS into
+    // one 'task' item per library_task of that (former) playbook — the flatten
+    // that removes the group-inside-a-group; every other kind maps one-to-one.
     for (const plan of SYSTEM_PLANS) {
       const planTemplateId = await upsert(
         'plan_templates',
@@ -571,20 +601,30 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
          returning id, (xmax = 0) as inserted`,
         [plan.code, plan.name, plan.summary],
       );
-      await db.query('delete from plan_template_items where plan_template_id = $1', [planTemplateId]);
+      await db.query(`update plan_templates set lineage_id = id where id = $1 and lineage_id is null`, [planTemplateId]);
       let sort = 0;
       for (const it of plan.items) {
-        const playbookId = it.kind === 'playbook' ? planItemMaps.playbook[it.playbookCode!] : null;
-        const contentId = it.kind === 'education' ? planItemMaps.education[it.contentModuleCode!] : null;
-        const advisoryId = it.kind === 'advisory' ? planItemMaps.advisory[it.advisoryCode!] : null;
+        if (it.kind === 'playbook') {
+          for (const t of libraryTasksByPlaybook[it.playbookCode!] ?? []) {
+            await db.query(
+              `insert into plan_template_items (firm_id, plan_template_id, item_kind, library_task_id, sort_order)
+               values (null, $1, 'task', $2, $3)`,
+              [planTemplateId, t.id, sort++],
+            );
+            tally('plan_template_items', true);
+          }
+          continue;
+        }
+        const contentId = it.kind === 'education' ? contentIds[it.contentModuleCode!] : null;
+        const advisoryId = it.kind === 'advisory' ? advisoryIds[it.advisoryCode!] : null;
         await db.query(
           `insert into plan_template_items
-             (firm_id, plan_template_id, item_kind, playbook_id, content_module_id,
+             (firm_id, plan_template_id, item_kind, library_task_id, content_module_id,
               advisory_library_item_id, title, description, owner_role, track,
               target_offset_days, sort_order)
-           values (null, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+           values (null, $1, $2, null, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
-            planTemplateId, it.kind, playbookId, contentId, advisoryId,
+            planTemplateId, it.kind, contentId, advisoryId,
             it.title ?? null, it.description ?? null, it.ownerRole ?? null,
             it.track ?? null, it.targetOffsetDays ?? null, sort++,
           ],
@@ -655,20 +695,37 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     questions: rubric.questions.length,
     sub_scores: rubric.subScores.length,
     gap_definitions: rubric.gapDefinitions.length,
-    playbooks: playbooks.length,
-    playbook_task_templates: playbooks.reduce((n, p) => n + p.tasks.length, 0),
+    library_tasks: playbooks.reduce((n, p) => n + p.tasks.length, 0),
     content_modules: contentModules.length,
-    gap_playbook_map: gapPlaybookMap.length,
+    gap_plan_map: gapPlaybookMap.length,
     gap_content_map: gapContentMap.length,
     advisory_library_items: advisoryItems.length,
     valuation_rules_versions: 1,
     valuation_multiples: valuationMultiples.length,
     data_room_sections: dataRoomSections.length,
     data_room_items: dataRoomItems.length,
-    plan_templates: SYSTEM_PLANS.length,
-    plan_template_items: SYSTEM_PLANS.reduce((n, p) => n + p.items.length, 0),
+    // One recipe Plan per (former) playbook + the curated System Plans.
+    plan_templates: playbooks.length + SYSTEM_PLANS.length,
+    // Recipe Plans carry one 'task' item per library_task; curated Plans expand
+    // each 'playbook' seed item into that playbook's task items, others 1:1.
+    plan_template_items:
+      playbooks.reduce((n, p) => n + p.tasks.length, 0) +
+      SYSTEM_PLANS.reduce(
+        (n, plan) =>
+          n +
+          plan.items.reduce(
+            (m, it) =>
+              m +
+              (it.kind === 'playbook'
+                ? (playbooks.find((p) => p.code === it.playbookCode)?.tasks.length ?? 0)
+                : 1),
+            0,
+          ),
+        0,
+      ),
   };
   const countFilter: Record<string, string> = {
+    library_tasks: 'where firm_id is null',
     advisory_library_items: 'where firm_id is null',
     plan_templates: 'where firm_id is null',
     plan_template_items: 'where firm_id is null',

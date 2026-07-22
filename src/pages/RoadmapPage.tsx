@@ -10,7 +10,6 @@ import {
   useEngagementPlans,
   useMilestones,
   usePlans,
-  usePlaybooks,
   useRecommendedPlans,
   useTasks,
   type EngagementPlanProgressRow,
@@ -69,7 +68,6 @@ export default function RoadmapPage() {
   const appliedPlansQ = useEngagementPlans(engagementId);
   const recommendedPlansQ = useRecommendedPlans(engagementId);
   const plansQ = usePlans();
-  const playbooksQ = usePlaybooks();
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +89,6 @@ export default function RoadmapPage() {
 
   const tasks = tasksQ.data ?? [];
   const milestones = milestonesQ.data ?? [];
-  const playbooks = playbooksQ.data ?? new Map();
   const appliedPlans = useMemo(() => appliedPlansQ.data ?? [], [appliedPlansQ.data]);
   const startDate = anchor;
   // The owner's real sale-date target, set here (like the start date) and shared
@@ -295,7 +292,6 @@ export default function RoadmapPage() {
 
   // `order`, when given, wires the up/down reorder controls (open-task list only).
   const renderTask = (t: TaskRow, order?: { list: TaskRow[]; index: number }) => {
-    const playbookName = t.playbook_id ? playbooks.get(t.playbook_id)?.name : null;
     return (
       <li key={t.id} className={`rm-task ${t.status === 'done' ? 'rm-task-done' : ''}`}>
         {order && (
@@ -330,7 +326,6 @@ export default function RoadmapPage() {
         <span className="rm-task-body">
           <span className="rm-task-title">
             {t.title}
-            {playbookName && <span className="rm-task-source">{playbookName}</span>}
           </span>
           {t.status === 'done' ? (
             <span className="rm-task-meta"> · {t.due_date ? fmtDate(t.due_date) : '—'}</span>

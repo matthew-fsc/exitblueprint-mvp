@@ -158,15 +158,17 @@ describe.skipIf(!url)('fireAdvisoryItems', () => {
     expect(r.items.every((i) => i.item_type !== 'education')).toBe(true);
   });
 
-  it('surfaces education modules, recommended off the same score triggers', async () => {
+  it('surfaces education modules from the library, recommended when their area has an open gap', async () => {
     const r = await educationModules(db, engagementId);
     expect(r.modules.length).toBeGreaterThan(0);
-    // Fixture 2 scores low, so at least one triggered guide is recommended.
+    // Fixture 2 scores low and opens gaps, so at least one module's readiness
+    // area is flagged as recommended.
     expect(r.modules.some((m) => m.recommended)).toBe(true);
-    // A recommended module must have a trigger; an untriggered one never is.
+    // Education is the content_modules library now — no score trigger on these,
+    // and a recommended module always carries a readiness area.
     for (const m of r.modules) {
-      if (m.recommended) expect(m.score_trigger).not.toBeNull();
-      if (m.score_trigger === null) expect(m.recommended).toBe(false);
+      expect(m.score_trigger).toBeNull();
+      if (m.recommended) expect(m.dimension_code).not.toBeNull();
     }
   });
 

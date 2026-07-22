@@ -505,8 +505,8 @@ export default function EngagementPage() {
                           <GapSeverityChip severity={g.severity} />
                           <span className="eng-gap-text">
                             <strong>{g.name}</strong>
-                            {g.playbookName && (
-                              <span className="muted"> — {g.playbookName}: {g.playbookSummary}</span>
+                            {g.remediationName && (
+                              <span className="muted"> — {g.remediationName}: {g.remediationSummary}</span>
                             )}
                           </span>
                         </li>
@@ -652,7 +652,7 @@ export default function EngagementPage() {
           {activeAnalysis === 'connections' && (gapsQ.data ?? []).length > 0 && (() => {
             const knowledge = buildEngagementKnowledge({
               gaps: (gapsQ.data ?? []).map((g) => ({
-                id: g.id, name: g.name, severity: g.severity, status: g.status, playbookName: g.playbookName,
+                id: g.id, name: g.name, severity: g.severity, status: g.status, remediationName: g.remediationName,
               })),
               tasks: (tasksQ.data ?? []).map((t) => ({ gap_id: t.gap_id, status: t.status })),
               log: (logQ.data ?? []).map((l) => ({

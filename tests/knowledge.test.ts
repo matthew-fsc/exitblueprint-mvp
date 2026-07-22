@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildEngagementKnowledge } from '../src/lib/knowledge';
 
 const gaps = [
-  { id: 'g1', name: 'Owner Dependence', severity: 'critical' as const, status: 'open', playbookName: 'Owner Independence Program' },
-  { id: 'g2', name: 'Weak Pricing Power', severity: 'med' as const, status: 'open', playbookName: null },
+  { id: 'g1', name: 'Owner Dependence', severity: 'critical' as const, status: 'open', remediationName: 'Owner Independence Program' },
+  { id: 'g2', name: 'Weak Pricing Power', severity: 'med' as const, status: 'open', remediationName: null },
 ];
 const tasks = [
   { gap_id: 'g1', status: 'done' },

@@ -193,62 +193,49 @@ export async function educationModules(
     )
   ).rows[0];
 
-  const dimScores = new Map<string, number>();
-  const subScores = new Map<string, number>();
-  if (assessment) {
-    for (const r of (
-      await db.query(
-        `select d.code, ds.score from dimension_scores ds
-         join dimensions d on d.id = ds.dimension_id where ds.assessment_id = $1`,
-        [assessment.id],
-      )
-    ).rows)
-      dimScores.set(r.code, Number(r.score));
-    for (const r of (
-      await db.query(
-        `select s.code, ssr.points from sub_score_results ssr
-         join sub_scores s on s.id = ssr.sub_score_id where ssr.assessment_id = $1`,
-        [assessment.id],
-      )
-    ).rows)
-      subScores.set(r.code, Number(r.points));
-  }
+  // Education lives in the content_modules library ONLY (docs/06) — the single
+  // education home. A module is "recommended" when its readiness area currently
+  // has an open gap on the engagement (the deterministic gap state, no LLM),
+  // replacing the old score-trigger flag the advisory-education rows carried.
+  const openDims = new Set<string>();
+  for (const r of (
+    await db.query(
+      `select distinct d.code
+       from gaps g
+       join gap_definitions gd on gd.id = g.gap_definition_id
+       join dimensions d on d.id = gd.dimension_id
+       where g.engagement_id = $1 and g.status in ('open', 'in_remediation')`,
+      [engagementId],
+    )
+  ).rows)
+    openDims.add(r.code);
 
   const rows = (
     await db.query(
-      `select id, code, title, body, dimension_code, sub_score_code, score_trigger, source, sort_order
-       from advisory_library_items
-       where active = true and item_type = 'education' and (firm_id is null or firm_id = $1)
-       order by sort_order, title`,
+      `select id, code, title, body_md, dimension_code, source
+       from content_modules
+       where firm_id is null or firm_id = $1
+       order by title`,
       [eng.firm_id],
     )
   ).rows;
 
-  const modules: EducationModule[] = rows.map((it) => {
-    let recommended = false;
-    if (it.score_trigger != null) {
-      const score = it.sub_score_code
-        ? subScores.get(it.sub_score_code)
-        : it.dimension_code
-          ? dimScores.get(it.dimension_code)
-          : undefined;
-      recommended = score != null && score <= Number(it.score_trigger);
-    }
-    return {
-      id: it.id,
-      code: it.code,
-      title: it.title,
-      body: it.body,
-      dimension_code: it.dimension_code,
-      sub_score_code: it.sub_score_code,
-      score_trigger: it.score_trigger != null ? Number(it.score_trigger) : null,
-      source: it.source,
-      sort_order: it.sort_order,
-      recommended,
-    };
-  });
-  // Recommended first, then by sort order (query already ordered within groups).
-  modules.sort((a, b) => Number(b.recommended) - Number(a.recommended));
+  const modules: EducationModule[] = rows.map((it) => ({
+    id: it.id,
+    code: it.code,
+    title: it.title,
+    body: it.body_md,
+    dimension_code: it.dimension_code,
+    sub_score_code: null,
+    score_trigger: null,
+    source: it.source,
+    sort_order: 0,
+    recommended: it.dimension_code != null && openDims.has(it.dimension_code),
+  }));
+  // Recommended first, then alphabetical.
+  modules.sort(
+    (a, b) => Number(b.recommended) - Number(a.recommended) || a.title.localeCompare(b.title),
+  );
 
   return { assessment_id: assessment?.id ?? null, modules };
 }
