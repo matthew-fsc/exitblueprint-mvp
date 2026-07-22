@@ -18,6 +18,7 @@
 // pieces so the shaping logic is unit-testable without a database (tests/scheduled.test.ts).
 import crypto from 'node:crypto';
 import type pg from 'pg';
+import { DEFAULT_REASSESS_INTERVAL_DAYS } from '../shared/engagement';
 
 // ---------------------------------------------------------------------------
 // Tunable config. These are the continuous-evaluation cadence knobs — sensible
@@ -26,7 +27,11 @@ import type pg from 'pg';
 // ---------------------------------------------------------------------------
 export const DEFAULT_STALE_DAYS = 30; // engagement with no activity in this many days is "stale"
 export const DEFAULT_STALLED_DAYS = 14; // an open task untouched this long is "stalled"
-export const DEFAULT_REASSESS_DAYS = 90; // last completed assessment older than this → re-assess
+// Default re-assessment cadence; a per-engagement override
+// (engagements.reassessment_interval_days) wins where set. Shared with the
+// engagement's forward-looking "re-assess by <date>" surface so they never
+// disagree.
+export const DEFAULT_REASSESS_DAYS = DEFAULT_REASSESS_INTERVAL_DAYS; // last completed assessment older than this → re-assess
 
 // Minimal DB shape we depend on: a `query(sql, params)` returning `{ rows }`.
 // Compatible with pg.ClientBase; the tests supply an in-memory fake.
@@ -329,7 +334,8 @@ export const REASSESSMENT_DUE_SQL = `
    and a.completed_at is not null
   where e.status = 'active'
   group by e.id, e.firm_id, e.company_id, c.name, c.owner_contact_name, c.owner_contact_email
-  having max(a.completed_at) < now() - ($1::int * interval '1 day')
+  having max(a.completed_at)
+       < now() - (coalesce(e.reassessment_interval_days, $1::int) * interval '1 day')
   order by last_completed_at asc
 `;
 

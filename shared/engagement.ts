@@ -39,3 +39,60 @@ export function isCalendarDate(v: unknown): v is string {
   const d = new Date(`${v}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 }
+
+// --- Re-assessment cadence ----------------------------------------------------
+// The engagement is re-scored on a cadence (the "monitor" loop). The default
+// cadence is quarterly; an engagement may override it (engagements
+// .reassessment_interval_days). One source of truth for the server analyzers
+// (server/scheduled.ts) and the engagement's forward-looking "re-assess by
+// <date>" surface, so the dashboard flag and the engagement never disagree.
+export const DEFAULT_REASSESS_INTERVAL_DAYS = 90;
+
+// Advisor-selectable cadences for the Setup control (null = platform default).
+export const REASSESS_INTERVAL_CHOICES = [60, 90, 120, 180, 365] as const;
+
+export type ReassessmentState = 'baseline' | 'in_progress' | 'ready' | 'due' | 'upcoming';
+
+export interface ReassessmentInput {
+  lastCompletedAt: string | null; // ISO of the latest completed assessment, or null
+  now: string; // ISO 'now' (caller supplies it so the result is pure/testable)
+  intervalDays?: number | null; // per-engagement override; null → default
+  hasInProgress?: boolean; // an assessment is currently in progress
+  // The remediation work is done with score gains still to capture (all tasks
+  // complete while gaps remain open) — the timeliest reason to re-assess.
+  remediationComplete?: boolean;
+}
+
+export interface ReassessmentStatus {
+  state: ReassessmentState;
+  intervalDays: number;
+  dueDate: string | null; // 'YYYY-MM-DD' the next re-assessment is due (null at baseline)
+  daysUntil: number | null; // days from now to due; negative = overdue
+  daysSince: number | null; // days since the last completed assessment
+}
+
+const MS_PER_DAY = 86_400_000;
+const dayNumber = (iso: string): number => Math.floor(new Date(iso).getTime() / MS_PER_DAY);
+
+// Derive when the next re-assessment is due and why, from assessment timing plus
+// the (optional) remediation-complete signal. Pure — all "now"/inputs are passed
+// in — so it unit-tests cleanly and renders identically on the server and client.
+export function reassessmentStatus(input: ReassessmentInput): ReassessmentStatus {
+  const intervalDays =
+    input.intervalDays && input.intervalDays > 0 ? input.intervalDays : DEFAULT_REASSESS_INTERVAL_DAYS;
+  const nowDay = dayNumber(input.now);
+  const hasLast = typeof input.lastCompletedAt === 'string';
+  const daysSince = hasLast ? nowDay - dayNumber(input.lastCompletedAt as string) : null;
+  const dueDayNum = hasLast ? dayNumber(input.lastCompletedAt as string) + intervalDays : null;
+  const dueDate = dueDayNum != null ? new Date(dueDayNum * MS_PER_DAY).toISOString().slice(0, 10) : null;
+  const daysUntil = dueDayNum != null ? dueDayNum - nowDay : null;
+
+  let state: ReassessmentState;
+  if (input.hasInProgress) state = 'in_progress';
+  else if (!hasLast) state = 'baseline';
+  else if (input.remediationComplete) state = 'ready';
+  else if ((daysUntil ?? 0) <= 0) state = 'due';
+  else state = 'upcoming';
+
+  return { state, intervalDays, dueDate, daysUntil, daysSince };
+}

@@ -96,6 +96,7 @@ export interface EngagementRow {
   target_exit_window: string | null;
   target_close_date: string | null;
   started_at: string;
+  reassessment_interval_days: number | null;
 }
 export interface AssessmentRow {
   id: string;

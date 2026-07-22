@@ -3087,6 +3087,20 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .agreement-timeline legend { font-size: 0.78rem; color: var(--text-muted); padding: 0 0.35rem; }
 /* New-company inline inputs inside the Add-engagement dialog (docs/archive/34). */
 .add-eng-newco { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Re-assessment cadence bar on the engagement Overview — forward-looking
+   "re-assess by <date> because <reason>". Tone encodes urgency (warn = due). */
+.reassess-bar {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.8rem; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface-2);
+  font-size: 0.9rem; margin-top: var(--space-2);
+}
+.reassess-bar-icon { font-size: 1rem; line-height: 1; }
+.reassess-bar-text strong { font-weight: 600; }
+.reassess-good { background: var(--chip-good-bg); border-color: transparent; color: var(--chip-good-fg); }
+.reassess-warn { background: var(--chip-warn-bg); border-color: transparent; color: var(--chip-warn-fg); }
+.reassess-neutral { color: var(--text); }
 .add-eng-newco input { width: 100%; }
 
 /* ---- Documents + review queue (beta R3) ---- */
