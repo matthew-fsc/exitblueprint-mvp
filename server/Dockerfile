@@ -33,6 +33,11 @@ RUN npm ci
 COPY tsconfig*.json ./
 COPY server ./server
 COPY shared ./shared
+# Narrative prompt templates. server/narrative.ts reads prompts/<version>.md at
+# generation time (the DB prompt-override registry falls back to these bundled
+# files), so without them the AI narrative path throws ENOENT and silently
+# degrades to the deterministic composer even when the gateway key is set.
+COPY prompts ./prompts
 # Canonical methodology (rubric, playbooks, valuation rules, data-room template).
 # The `seed-methodology` function reads these at runtime to load the DB from
 # inside the system, so they must ship in the image alongside the code.

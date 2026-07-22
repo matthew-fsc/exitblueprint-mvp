@@ -3,9 +3,6 @@
 // explain trace, precomputed deltas. It never writes to scoring tables and
 // never computes a number (CLAUDE.md rule 2). Server-side only: the API key
 // is read from the server environment, never shipped to the client.
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { compareAssessments, explainAssessment } from './scoring';
@@ -13,14 +10,13 @@ import type { ExplainResult } from '../shared/scoring/engine';
 import { gapReason, interpretSubScore, tierMeaning } from '../shared/scoring/interpret';
 import { buildCimPayload, composeCim, composeManagementPresentation, composeTeaser } from './cim';
 import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
+import { resolvePromptBody } from './prompt-registry';
 
 const PROMPT_VERSION = 'owner_report.v1';
 const MODEL = 'claude-opus-4-8';
 // Model label stored on documents written by the deterministic composer, so a
 // reader can always tell a rule-based report from an AI-drafted one.
 const RULE_BASED_MODEL = 'rule-based:owner_report.v1';
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 export interface GeneratedText {
   text: string;
@@ -272,11 +268,12 @@ export function composeOwnerReport(
 // --- generateDocument -----------------------------------------------------------
 
 async function generateWithClaude(
+  db: pg.ClientBase,
   payload: unknown,
   generate: GenerateFn,
   promptVersion: string = PROMPT_VERSION,
 ): Promise<GeneratedText> {
-  const systemPrompt = readFileSync(join(root, 'prompts', `${promptVersion}.md`), 'utf8');
+  const systemPrompt = await resolvePromptBody(db, promptVersion);
   const userContent = `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`;
 
   // One regeneration on a numeral violation, then fail loudly (docs/04).
@@ -309,16 +306,17 @@ async function generateWithClaude(
 // composeFallback is lazy so the happy AI path never pays for the composer's
 // extra queries.
 async function pickNarrative(
+  db: pg.ClientBase,
   payload: unknown,
   promptVersion: string,
   ruleBasedModel: string,
   composeFallback: () => string | Promise<string>,
   generate?: GenerateFn,
 ): Promise<GeneratedText> {
-  if (generate) return generateWithClaude(payload, generate, promptVersion);
+  if (generate) return generateWithClaude(db, payload, generate, promptVersion);
   if (aiConfigured()) {
     try {
-      return await generateWithClaude(payload, callClaude, promptVersion);
+      return await generateWithClaude(db, payload, callClaude, promptVersion);
     } catch (err) {
       console.warn(
         `narrative ${promptVersion}: AI generation failed (${aiFailureReason(err)}); ` +
@@ -352,6 +350,7 @@ export async function generateDocument(
   const payload = await buildOwnerReportPayload(db, assessmentId);
 
   const { text, model } = await pickNarrative(
+    db,
     payload,
     PROMPT_VERSION,
     RULE_BASED_MODEL,
@@ -575,6 +574,7 @@ async function generateDeltaReport(
   const payload = await buildDeltaReportPayload(db, currentAssessmentId);
 
   const { text, model } = await pickNarrative(
+    db,
     payload,
     DELTA_PROMPT_VERSION,
     'rule-based:delta_report.v1',
@@ -606,6 +606,7 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
   const payload = await buildCimPayload(db, assessmentId);
 
   const { text, model } = await pickNarrative(
+    db,
     payload,
     CIM_PROMPT_VERSION,
     'rule-based:cim.v1',
@@ -638,6 +639,7 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
   const payload = await buildCimPayload(db, assessmentId);
 
   const { text, model } = await pickNarrative(
+    db,
     payload,
     TEASER_PROMPT_VERSION,
     'rule-based:teaser.v1',
@@ -663,6 +665,7 @@ async function generateManagementPresentation(db: pg.ClientBase, assessmentId: s
   const payload = await buildCimPayload(db, assessmentId);
 
   const { text, model } = await pickNarrative(
+    db,
     payload,
     MGMT_PROMPT_VERSION,
     'rule-based:management_presentation.v1',

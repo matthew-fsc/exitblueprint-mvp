@@ -28,6 +28,7 @@ import {
   type Column,
 } from '../components/ui';
 import { daysSince, fmtCurrency, fmtDate, fmtScore, formatFieldValue, humanizeKey } from '../lib/format';
+import { PromptRegistryCard } from '../components/PromptRegistryCard';
 import { functionsBaseUrl, getAccessToken } from '../lib/supabase';
 import {
   activationSteps,
@@ -703,6 +704,9 @@ export default function PlatformConsolePage() {
           emptyLabel="No access-log activity in the window"
         />
       </SectionCard>
+
+      {/* Narrative prompt overrides — the only editable control on this rail. */}
+      <PromptRegistryCard />
 
       <Card>
         <p className="muted text-sm">

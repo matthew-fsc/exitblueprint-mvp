@@ -5,6 +5,14 @@ import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { documentType } from '../../shared/documents/catalog';
+import {
+  DEFAULT_REASSESS_INTERVAL_DAYS,
+  EXIT_WINDOWS,
+  EXIT_WINDOW_LABEL,
+  REASSESS_INTERVAL_CHOICES,
+  reassessmentStatus,
+  type ReassessmentStatus,
+} from '../../shared/engagement';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { buildEngagementKnowledge } from '../lib/knowledge';
 import { buildWorkstreamProgress } from '../lib/workstreams';
@@ -81,6 +89,49 @@ function targetExitDate(startedAt: string, window: string | null, closeDate?: st
   const d = new Date(startedAt);
   d.setMonth(d.getMonth() + (Number.isFinite(months) ? months : 24));
   return d;
+}
+
+// Turn the derived re-assessment status into the Overview banner's copy + tone.
+// The "when" is the state/date; the "why" is the detail sentence.
+function reassessView(s: ReassessmentStatus): {
+  tone: 'neutral' | 'good' | 'warn';
+  label: string;
+  detail: string;
+} {
+  const every = `every ${s.intervalDays} days`;
+  switch (s.state) {
+    case 'baseline':
+      return {
+        tone: 'neutral',
+        label: 'Baseline not run',
+        detail: 'Run the baseline assessment to establish the readiness score.',
+      };
+    case 'in_progress':
+      return {
+        tone: 'neutral',
+        label: 'Assessment in progress',
+        detail: 'Finish the current assessment to update the readiness score.',
+      };
+    case 'ready':
+      return {
+        tone: 'good',
+        label: 'Ready to re-assess',
+        detail: 'Remediation is complete — re-assess now to capture the score gains.',
+      };
+    case 'due':
+      return {
+        tone: 'warn',
+        label: 'Re-assessment due',
+        detail: `Last assessed ${s.daysSince} days ago (cadence: ${every}).`,
+      };
+    case 'upcoming':
+    default:
+      return {
+        tone: 'neutral',
+        label: `Re-assess by ${fmtDate(s.dueDate)}`,
+        detail: `${s.daysUntil} ${s.daysUntil === 1 ? 'day' : 'days'} away (cadence: ${every}).`,
+      };
+  }
 }
 
 // The engagement lifecycle states (engagement_status enum). `active` and
@@ -306,6 +357,24 @@ export default function EngagementPage() {
     reportFinalCount: documents.filter((d) => d.finalized_at).length,
   });
 
+  // Re-assessment cadence: a forward-looking "re-assess by <date> because
+  // <reason>", derived from assessment timing + the remediation-complete signal
+  // (all tasks done while gaps remain open — score gains still to capture). Uses
+  // only data already loaded; the cadence honors the engagement's override.
+  const reassessTasksTotal = tasksQ.data?.length ?? 0;
+  const reassessTasksDone = (tasksQ.data ?? []).filter((t) => t.status === 'done').length;
+  const reassess = reassessmentStatus({
+    lastCompletedAt: latest?.completed_at ?? null,
+    now: new Date().toISOString(),
+    intervalDays: engagement.reassessment_interval_days,
+    hasInProgress: !!inProgress,
+    remediationComplete:
+      reassessTasksTotal > 0 &&
+      reassessTasksDone === reassessTasksTotal &&
+      (gapsQ.data?.length ?? 0) > 0,
+  });
+  const reassessV = reassessView(reassess);
+
   // Deeper analysis lives in a single sub-tabbed panel rather than a deep stack
   // of collapsibles (docs/archive/22 F4): one view at a time, chosen deliberately. The
   // tabs are built from what this engagement actually has.
@@ -369,10 +438,11 @@ export default function EngagementPage() {
               onChange={(e) => saveEngagement({ target_exit_window: e.target.value || null })}
             >
               <option value="">Not set</option>
-              <option value="under 12 months">Under 12 months</option>
-              <option value="12-24 months">12–24 months</option>
-              <option value="24-36 months">24–36 months</option>
-              <option value="36+ months">36+ months</option>
+              {EXIT_WINDOWS.map((w) => (
+                <option key={w} value={w}>
+                  {EXIT_WINDOW_LABEL[w]}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -383,6 +453,24 @@ export default function EngagementPage() {
               min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => saveEngagement({ target_close_date: e.target.value || null })}
             />
+          </label>
+          <label>
+            Re-assessment cadence
+            <select
+              defaultValue={engagement.reassessment_interval_days ?? ''}
+              onChange={(e) =>
+                saveEngagement({
+                  reassessment_interval_days: e.target.value ? Number(e.target.value) : null,
+                })
+              }
+            >
+              <option value="">Default (every {DEFAULT_REASSESS_INTERVAL_DAYS} days)</option>
+              {REASSESS_INTERVAL_CHOICES.map((d) => (
+                <option key={d} value={d}>
+                  Every {d} days
+                </option>
+              ))}
+            </select>
           </label>
         </div>
         <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
@@ -442,6 +530,14 @@ export default function EngagementPage() {
       />
       <EngagementNav engagementId={engagementId!} />
       </header>
+      <div className={`reassess-bar reassess-${reassessV.tone}`} role="status">
+        <span className="reassess-bar-icon" aria-hidden>
+          ⟳
+        </span>
+        <span className="reassess-bar-text">
+          <strong>{reassessV.label}</strong> — {reassessV.detail}
+        </span>
+      </div>
       {error && <ErrorState variant="inline" error={error} />}
 
       {completed.length > 0 ? (
