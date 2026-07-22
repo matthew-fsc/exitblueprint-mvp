@@ -5303,6 +5303,38 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
   .rm-add-plan { flex-direction: column; align-items: stretch; }
 }
 
+/* ---- Roadmap: mobile cleanup ------------------------------------------- */
+@media (max-width: 640px) {
+  /* The build controls hug the right edge (justify-content: flex-end) on
+     desktop; on a phone that leaves the dates and the primary action floating
+     awkwardly against the right margin. Stack them full-width, reading top
+     down, so every control is a comfortable tap target. */
+  .roadmap-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  .roadmap-toolbar > button { width: 100%; }
+  /* Fields fill their column instead of sitting at their intrinsic width. */
+  .roadmap-toolbar .roadmap-startdate input,
+  .rm-add-plan .roadmap-startdate select { width: 100%; box-sizing: border-box; }
+}
+
+@media (max-width: 560px) {
+  /* A task row packs reorder arrows, a check, the title + due date, a role
+     badge and a block/unblock action onto one line — too much for a phone, so
+     the title was crushed to a few characters per line. Let the row wrap and
+     reorder it into two tiers: the check leads the title on the first line, and
+     the reorder arrows, role badge and block/unblock action group onto a second
+     line beneath — the block action pushed to the right edge. */
+  .rm-task { flex-wrap: wrap; row-gap: var(--space-2); column-gap: 0.5rem; }
+  .rm-check { order: 1; }
+  .rm-task-body { order: 2; flex: 1 1 auto; min-width: 0; }
+  .rm-move { order: 3; }
+  .rm-role { order: 4; }
+  .rm-task > .linkish { order: 5; margin-left: auto; }
+}
+
 /* ============================================================
    Modern controls pass — the interactive layer, modernized.
    Sits after the institutional register (so it wins over the base
