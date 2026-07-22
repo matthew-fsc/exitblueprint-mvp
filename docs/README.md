@@ -54,6 +54,7 @@ A developer index: the durable features and the files that own them. Pair with
 | Narrative (AI, draft-only) | `server/narrative.ts` | 04 |
 | **Buyer lens + Diligence simulation** (institutional reviewer → ranked, persisted blind-spot report) | `server/institutional-review.ts` · `server/diligence-simulation.ts` · `prompts/diligence_simulation.v1.md` · `diligence_simulation_runs`/`_findings` · `src/pages/BuyerLensPage.tsx` | 20, 40 §3, 04 |
 | Valuation & comparables | `server/valuation.ts`, `server/comparables.ts` | 17 §4 |
+| **Own-book valuation multiples** (moat 2: valuation draws a multiple from the firm's own closed deals alongside generic comps, versioned-config gated; cross-firm calibration view stays service-role-only) | `shared/own-book.ts` · `server/comparables.ts` (`ownBookMultiple`) · `server/valuation.ts` · `server/financial-corpus.ts` · `supabase/migrations/*_own_book_valuation_multiples.sql` · `src/pages/ValuationPage.tsx` | **09 §2**, 17 §4 |
 | Evidence (data room · docs · verification) | `server/data-room.ts`, `server/documents/*`, `server/verification.ts` | 02, 17 §3 |
 | Secure document storage + scan | `server/documents/{storage,scanner,crypto,signed-url}.ts` | 02 |
 | Billing (Stripe) + entitlements gate | `server/stripe.ts`, `server/entitlements.ts` | 24 |

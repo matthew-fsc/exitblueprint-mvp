@@ -4,6 +4,42 @@
 // authorized; siblings are constrained to its firm_id (never cross-firm).
 import type pg from 'pg';
 import { rankComparables, type ComparableCandidate, type Comparable } from '../shared/comparables';
+import { aggregateOwnBook, type OwnBookMultiple } from '../shared/own-book';
+
+// ── Own-book valuation multiple (docs/09 §2, moat 2) ──────────────────────────
+// The realized EV/EBITDA multiple from THIS FIRM'S OWN closed deals in the same
+// industry — so valuation can refine its multiple "from our own book" alongside
+// the generic industry/size table. Firm-scoped, exactly like engagementComparables
+// above: strictly `o.firm_id = $firmId`, so a firm only ever sees its own realized
+// deals (CLAUDE.md §5). This is NOT the cross-firm benchmarking pool — that stays
+// service-role-only in the `analytics` schema (server/financial-corpus.ts). The
+// aggregation itself is the pure, unit-tested shared/own-book.ts.
+//
+// Runs on the service-role connection inside computeValuation; the explicit
+// firm_id filter (the caller is already authorized on this engagement) is the
+// isolation boundary, mirroring server/outcomes.ts firmCalibration.
+export async function ownBookMultiple(
+  db: pg.ClientBase,
+  args: { firmId: string; industry: string | null; sizeBand: string | null },
+): Promise<OwnBookMultiple | null> {
+  if (!args.industry) return null; // no industry to match own-book deals against
+
+  const deals = (
+    await db.query(
+      `select o.final_multiple as multiple, c.revenue_band as size_band
+       from deal_outcomes o
+       join engagements e on e.id = o.engagement_id
+       join companies c on c.id = e.company_id
+       where o.firm_id = $1
+         and o.outcome = 'closed'
+         and o.final_multiple is not null
+         and c.industry = $2`,
+      [args.firmId, args.industry],
+    )
+  ).rows.map((r) => ({ multiple: Number(r.multiple), sizeBand: r.size_band as string | null }));
+
+  return aggregateOwnBook(deals, args.sizeBand);
+}
 
 export async function engagementComparables(
   db: pg.ClientBase,

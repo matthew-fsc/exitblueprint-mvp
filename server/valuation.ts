@@ -9,6 +9,8 @@
 //   net to owner       = base EV − debt − transaction costs − taxes
 import type pg from 'pg';
 import { verificationSummary } from './verification';
+import { ownBookMultiple } from './comparables';
+import { selectValuationMultiple, type OwnBookConfidence } from '../shared/own-book';
 
 // Add-backs a buyer is likely to accept flow into the conservative EV base.
 const DEFENSIBLE = new Set(['low', 'medium']);
@@ -33,7 +35,19 @@ export interface ValuationResult {
   industry_key: string;
   size_band: string;
   base_multiple: number;
-  multiple_source: 'table' | 'override';
+  multiple_source: 'table' | 'override' | 'own_book';
+  // Own-book context (docs/09 §2, moat 2): the realized multiple from THIS FIRM'S
+  // own closed deals in the same industry, shown ALONGSIDE the generic table
+  // multiple. Null when the firm has no closed deals to draw on. `own_book_driving`
+  // is true only when a versioned rules config elected to source the base multiple
+  // from the own book — never an in-place recalibration (rule #6).
+  own_book_sample_size: number | null;
+  own_book_same_band: number | null;
+  own_book_multiple: number | null; // median
+  own_book_p25: number | null;
+  own_book_p75: number | null;
+  own_book_confidence: OwnBookConfidence | null;
+  own_book_driving: boolean;
   drs_score: number | null;
   drs_tier: string | null;
   readiness_factor: number;
@@ -64,7 +78,7 @@ export async function computeValuation(
   ).rows[0];
   if (!eng) throw new Error(`engagement ${engagementId} not found`);
   const company = (
-    await db.query(`select industry from companies where id = $1`, [eng.company_id])
+    await db.query(`select industry, revenue_band from companies where id = $1`, [eng.company_id])
   ).rows[0];
 
   const rules = (
@@ -80,6 +94,10 @@ export async function computeValuation(
     transaction_cost_pct?: number;
     default_tax_rate?: number;
     target_drs?: number;
+    // Own-book multiples (moat 2). Absent/disabled by default: the number is
+    // unchanged. Enabling it is a NEW valuation_rules_version, never an in-place
+    // edit (rule #6).
+    corpus_multiples?: { enabled?: boolean; min_sample_size?: number };
   };
 
   const inputs = (
@@ -97,6 +115,8 @@ export async function computeValuation(
     reported_ebitda: 0, defensible_ebitda: 0, full_recast_ebitda: 0,
     industry_key: inputs.industry_key ?? industryKeyFor(company?.industry ?? null),
     size_band: 'lt_1m', base_multiple: 0, multiple_source: 'table',
+    own_book_sample_size: null, own_book_same_band: null, own_book_multiple: null,
+    own_book_p25: null, own_book_p75: null, own_book_confidence: null, own_book_driving: false,
     drs_score: null, drs_tier: null, readiness_factor: 1, verification_tier: 'self_reported',
     range_width: 0, ev_base: 0, ev_low: 0, ev_high: 0, potential_ev: 0, value_creation_gap: 0,
     interest_bearing_debt: Number(inputs.interest_bearing_debt ?? 0),
@@ -129,8 +149,28 @@ export async function computeValuation(
       )
     ).rows[0]?.base_multiple;
   const tableMultiple = Number((await lookup(industryKey)) ?? (await lookup('default')) ?? 0);
-  const baseMultiple = inputs.multiple_override != null ? Number(inputs.multiple_override) : tableMultiple;
-  const multipleSource: 'table' | 'override' = inputs.multiple_override != null ? 'override' : 'table';
+
+  // Own-book multiple from this firm's realized deals (firm-scoped, service-role
+  // read). Defensive: an own-book read must never break the authoritative number.
+  let ownBook = null as Awaited<ReturnType<typeof ownBookMultiple>>;
+  try {
+    ownBook = await ownBookMultiple(db, {
+      firmId: eng.firm_id,
+      industry: company?.industry ?? null,
+      sizeBand: company?.revenue_band ?? null,
+    });
+  } catch {
+    ownBook = null;
+  }
+  const corpusCfg = config.corpus_multiples ?? {};
+  const selection = selectValuationMultiple({
+    tableMultiple,
+    override: inputs.multiple_override != null ? Number(inputs.multiple_override) : null,
+    ownBook,
+    config: { enabled: !!corpusCfg.enabled, minSampleSize: corpusCfg.min_sample_size ?? 5 },
+  });
+  const baseMultiple = selection.multiple;
+  const multipleSource = selection.source;
 
   // Readiness factor from the latest completed assessment's DRS tier.
   const assessment = (
@@ -182,6 +222,13 @@ export async function computeValuation(
     size_band: sizeBand,
     base_multiple: baseMultiple,
     multiple_source: multipleSource,
+    own_book_sample_size: ownBook?.sample_size ?? null,
+    own_book_same_band: ownBook?.same_band_count ?? null,
+    own_book_multiple: ownBook?.median ?? null,
+    own_book_p25: ownBook?.p25 ?? null,
+    own_book_p75: ownBook?.p75 ?? null,
+    own_book_confidence: ownBook?.confidence ?? null,
+    own_book_driving: selection.source === 'own_book',
     drs_score: assessment?.drs_score != null ? Number(assessment.drs_score) : null,
     drs_tier: drsTier,
     readiness_factor: readinessFactor,
