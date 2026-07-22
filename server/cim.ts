@@ -252,7 +252,7 @@ export async function buildCimPayload(db: pg.ClientBase, assessmentId: string): 
 
 // --- Deterministic composer (numeral-firewall-safe fallback) -----------------
 // Assembles a structured CIM draft from the payload alone — no new numbers, no
-// invented facts. Used when no ANTHROPIC_API_KEY is set (demos, environments
+// invented facts. Used when no AI_GATEWAY_API_KEY is set (demos, environments
 // without a key) so a CIM always generates; the AI path produces richer prose
 // from the same payload. Every number it emits comes from the payload, so
 // numeralPostCheck(composeCim(payload), payload) is empty by construction.

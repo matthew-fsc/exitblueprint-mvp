@@ -14,7 +14,7 @@
 #     SUPABASE_URL           https://<ref>.supabase.co — verifies asymmetric
 #                            (ES256/RS256) tokens against the project JWKS
 # Optional:
-#   PORT (default 8787), FUNCTIONS_ALLOWED_ORIGIN (default *), ANTHROPIC_API_KEY (AI narrative)
+#   PORT (default 8787), FUNCTIONS_ALLOWED_ORIGIN (default *), AI_GATEWAY_API_KEY (AI narrative via Vercel AI Gateway)
 #   PLATFORM_SUPERADMIN_IDS  comma-separated Clerk user ids allowed to call the
 #                            `seed-methodology` function (load methodology from
 #                            inside the system). Unset → that endpoint is 403.

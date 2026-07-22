@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { getPrompt } from './prompts';
+import { resolveProvider } from './provider';
 
 export interface LlmUsage {
   input_tokens: number;
@@ -42,16 +43,18 @@ export function costUsd(model: string, usage: LlmUsage): number {
   return Math.round(cost * 1_000_000) / 1_000_000;
 }
 
-// Default transport: the Anthropic SDK. Server-side only; the key is read from
-// the environment and never shipped to a client.
+// Default transport: the Anthropic SDK, pointed at whichever provider the
+// environment selects (Vercel AI Gateway or the Anthropic API directly — see
+// server/llm/provider.ts). Server-side only; keys are read from the environment
+// and never shipped to a client.
 export const anthropicTransport: LlmTransport = async (req) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error('LLM not configured: set ANTHROPIC_API_KEY in the server environment');
+  const provider = resolveProvider();
+  if (!provider) {
+    throw new Error('LLM not configured: set AI_GATEWAY_API_KEY in the server environment');
   }
-  const client = new Anthropic();
-  const response = await client.messages.create(
+  const response = await provider.client.messages.create(
     {
-      model: req.model,
+      model: provider.modelFor(req.model),
       max_tokens: req.maxTokens,
       system: req.system,
       messages: [{ role: 'user', content: req.user }],

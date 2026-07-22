@@ -18,9 +18,9 @@
 //     from narrative.ts, rejects any numeral the payload did not already contain).
 //   * Output is always labeled DRAFT and carries a prompt_version. The reviewer
 //     surfaces questions and patterns; it does not decide, price, or score.
-//   * Injectable generator: Anthropic when ANTHROPIC_API_KEY is set, otherwise a
-//     deterministic composer, so a review is always available and tests are
-//     key-free (identical seam to narrative.ts).
+//   * Injectable generator: Claude via the AI gateway when AI_GATEWAY_API_KEY
+//     is set, otherwise a deterministic composer, so a review is always
+//     available and tests are key-free (identical seam to narrative.ts).
 //
 // This module is read-only. It writes to NO table (scoring or otherwise) — it
 // returns an in-memory labeled-draft artifact. Persisting it (a generated_documents
@@ -29,9 +29,10 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { numeralPostCheck, type GenerateFn, type GeneratedText } from './narrative';
+import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
 import { verificationSummary, type VerificationSummary } from './verification';
 import { fireAdvisoryItems, type AdvisoryFireResult } from './advisory';
 
@@ -56,14 +57,14 @@ function withDraftBanner(text: string): string {
 }
 
 async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const provider = resolveProvider();
+  if (!provider) {
     throw new Error(
-      'institutional review service not configured: set ANTHROPIC_API_KEY in the server environment',
+      'institutional review service not configured: set AI_GATEWAY_API_KEY in the server environment',
     );
   }
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: MODEL,
+  const response = await provider.client.messages.create({
+    model: provider.modelFor(MODEL),
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     system: systemPrompt,
@@ -367,9 +368,11 @@ export interface InstitutionalReview {
 }
 
 // Build the payload, then produce the labeled draft review. Generator selection
-// matches narrative.ts exactly: an explicit generator forces the AI path (tests);
-// otherwise Claude when ANTHROPIC_API_KEY is set, else the deterministic composer
-// — so a review always generates. Read-only: returns the artifact, writes nothing.
+// matches narrative.ts exactly: an explicit generator forces the AI path and
+// stays strict (tests); otherwise Claude via the AI gateway when
+// AI_GATEWAY_API_KEY is set, falling back to the deterministic composer on any AI
+// failure — so a review always generates, seamlessly, even with no gateway
+// balance. Read-only: returns the artifact, writes nothing.
 export async function generateInstitutionalReview(
   db: pg.ClientBase,
   assessmentId: string,
@@ -381,8 +384,17 @@ export async function generateInstitutionalReview(
   let model: string;
   if (generate) {
     ({ text, model } = await reviewWithGenerator(payload, generate));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await reviewWithGenerator(payload, callClaude));
+  } else if (aiConfigured()) {
+    try {
+      ({ text, model } = await reviewWithGenerator(payload, callClaude));
+    } catch (err) {
+      console.warn(
+        `institutional review ${PROMPT_VERSION}: AI generation failed (${aiFailureReason(err)}); ` +
+          'falling back to the deterministic composer',
+      );
+      text = composeInstitutionalReview(payload);
+      model = RULE_BASED_MODEL;
+    }
   } else {
     text = composeInstitutionalReview(payload);
     model = RULE_BASED_MODEL;

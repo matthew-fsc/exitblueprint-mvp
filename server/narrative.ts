@@ -6,12 +6,13 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { compareAssessments, explainAssessment } from './scoring';
 import type { ExplainResult } from '../shared/scoring/engine';
 import { gapReason, interpretSubScore, tierMeaning } from '../shared/scoring/interpret';
 import { buildCimPayload, composeCim, composeManagementPresentation, composeTeaser } from './cim';
+import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
 
 const PROMPT_VERSION = 'owner_report.v1';
 const MODEL = 'claude-opus-4-8';
@@ -30,14 +31,14 @@ export interface GeneratedText {
 export type GenerateFn = (systemPrompt: string, userContent: string) => Promise<GeneratedText>;
 
 async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const provider = resolveProvider();
+  if (!provider) {
     throw new Error(
-      'narrative service not configured: set ANTHROPIC_API_KEY in the server environment',
+      'narrative service not configured: set AI_GATEWAY_API_KEY in the server environment',
     );
   }
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: MODEL,
+  const response = await provider.client.messages.create({
+    model: provider.modelFor(MODEL),
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     system: systemPrompt,
@@ -296,13 +297,46 @@ async function generateWithClaude(
   return generated;
 }
 
+// Pick the generator and produce the text + model label for one document.
+//   - An explicit generator (tests) forces the AI path and stays strict: a
+//     numeral violation throws, so the firewall contract is unchanged.
+//   - Otherwise, when AI is configured, try Claude and FALL BACK to the
+//     deterministic composer on any failure. This is the seamless "no money in
+//     the account" path: an empty gateway balance (or any API error) surfaces
+//     here, we log why, and the report still generates from the composer,
+//     honestly labeled rule-based rather than erroring out.
+//   - Unconfigured → the composer, same as before.
+// composeFallback is lazy so the happy AI path never pays for the composer's
+// extra queries.
+async function pickNarrative(
+  payload: unknown,
+  promptVersion: string,
+  ruleBasedModel: string,
+  composeFallback: () => string | Promise<string>,
+  generate?: GenerateFn,
+): Promise<GeneratedText> {
+  if (generate) return generateWithClaude(payload, generate, promptVersion);
+  if (aiConfigured()) {
+    try {
+      return await generateWithClaude(payload, callClaude, promptVersion);
+    } catch (err) {
+      console.warn(
+        `narrative ${promptVersion}: AI generation failed (${aiFailureReason(err)}); ` +
+          'falling back to the deterministic composer',
+      );
+    }
+  }
+  return { text: await composeFallback(), model: ruleBasedModel };
+}
+
 export async function generateDocument(
   db: pg.ClientBase,
   assessmentId: string,
   docType: string,
   // Explicit generator forces the AI path (used by tests). Omit it and the
-  // service picks: Claude when ANTHROPIC_API_KEY is set, otherwise the
-  // deterministic composer — so a report always generates.
+  // service picks: Claude via the AI gateway when AI_GATEWAY_API_KEY is set,
+  // otherwise the deterministic composer — and on any AI failure it falls back
+  // to the composer too, so a report always generates.
   generate?: GenerateFn,
 ) {
   if (docType === 'delta_report') return generateDeltaReport(db, assessmentId, generate);
@@ -317,17 +351,13 @@ export async function generateDocument(
 
   const payload = await buildOwnerReportPayload(db, assessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await generateWithClaude(payload, generate));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await generateWithClaude(payload, callClaude));
-  } else {
-    const explain = await explainAssessment(db, assessmentId);
-    text = composeOwnerReport(payload, explain);
-    model = RULE_BASED_MODEL;
-  }
+  const { text, model } = await pickNarrative(
+    payload,
+    PROMPT_VERSION,
+    RULE_BASED_MODEL,
+    async () => composeOwnerReport(payload, await explainAssessment(db, assessmentId)),
+    generate,
+  );
 
   const assessment = (
     await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
@@ -544,16 +574,13 @@ async function generateDeltaReport(
 ) {
   const payload = await buildDeltaReportPayload(db, currentAssessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await generateWithClaude(payload, generate, DELTA_PROMPT_VERSION));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await generateWithClaude(payload, callClaude, DELTA_PROMPT_VERSION));
-  } else {
-    text = composeDeltaReport(payload);
-    model = 'rule-based:delta_report.v1';
-  }
+  const { text, model } = await pickNarrative(
+    payload,
+    DELTA_PROMPT_VERSION,
+    'rule-based:delta_report.v1',
+    () => composeDeltaReport(payload),
+    generate,
+  );
 
   const assessment = (
     await db.query(`select firm_id, engagement_id from assessments where id = $1`, [currentAssessmentId])
@@ -578,16 +605,13 @@ const CIM_PROMPT_VERSION = 'cim.v1';
 async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await generateWithClaude(payload, generate, CIM_PROMPT_VERSION));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await generateWithClaude(payload, callClaude, CIM_PROMPT_VERSION));
-  } else {
-    text = composeCim(payload);
-    model = 'rule-based:cim.v1';
-  }
+  const { text, model } = await pickNarrative(
+    payload,
+    CIM_PROMPT_VERSION,
+    'rule-based:cim.v1',
+    () => composeCim(payload),
+    generate,
+  );
 
   const assessment = (
     await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
@@ -613,16 +637,13 @@ const TEASER_PROMPT_VERSION = 'teaser.v1';
 async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await generateWithClaude(payload, generate, TEASER_PROMPT_VERSION));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await generateWithClaude(payload, callClaude, TEASER_PROMPT_VERSION));
-  } else {
-    text = composeTeaser(payload);
-    model = 'rule-based:teaser.v1';
-  }
+  const { text, model } = await pickNarrative(
+    payload,
+    TEASER_PROMPT_VERSION,
+    'rule-based:teaser.v1',
+    () => composeTeaser(payload),
+    generate,
+  );
 
   const assessment = (
     await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
@@ -641,16 +662,13 @@ const MGMT_PROMPT_VERSION = 'management_presentation.v1';
 async function generateManagementPresentation(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await generateWithClaude(payload, generate, MGMT_PROMPT_VERSION));
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    ({ text, model } = await generateWithClaude(payload, callClaude, MGMT_PROMPT_VERSION));
-  } else {
-    text = composeManagementPresentation(payload);
-    model = 'rule-based:management_presentation.v1';
-  }
+  const { text, model } = await pickNarrative(
+    payload,
+    MGMT_PROMPT_VERSION,
+    'rule-based:management_presentation.v1',
+    () => composeManagementPresentation(payload),
+    generate,
+  );
 
   const assessment = (
     await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])

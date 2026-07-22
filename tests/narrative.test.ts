@@ -218,7 +218,7 @@ describe.skipIf(!url)('generateDocument', () => {
   });
 
   it('generates a rule-based report with NO API key and no injected generator', async () => {
-    delete process.env.ANTHROPIC_API_KEY; // ensure the deterministic path
+    delete process.env.AI_GATEWAY_API_KEY; // ensure the deterministic path
     const doc = await generateDocument(db, assessmentId, 'owner_report');
     expect(doc.model).toMatch(/^rule-based/);
     // premise intact: score, tier, and the fixture's flagged gaps are all present
@@ -238,7 +238,7 @@ describe.skipIf(!url)('generateDocument', () => {
   });
 
   it('generates the sell-side teaser and management presentation (rule-based path)', async () => {
-    delete process.env.ANTHROPIC_API_KEY; // deterministic composers
+    delete process.env.AI_GATEWAY_API_KEY; // deterministic composers
 
     const teaser = await generateDocument(db, assessmentId, 'teaser');
     expect(teaser.doc_type).toBe('teaser');
