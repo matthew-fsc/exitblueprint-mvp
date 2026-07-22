@@ -19,6 +19,19 @@ import { numeralPostCheck } from '../server/narrative';
 import type { VerificationSummary } from '../server/verification';
 import type { AdvisoryFireResult, FiredAdvisoryItem } from '../server/advisory';
 
+// Stub the Anthropic SDK so the "AI configured but the call fails" path (e.g. an
+// empty AI-gateway balance) is exercised deterministically, no network. Every
+// other test in this file either injects a generator (never touching the SDK) or
+// runs key-free, so the stub only bites the fallback test below.
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class {
+    messages = {
+      create: () =>
+        Promise.reject(Object.assign(new Error('insufficient credit'), { status: 402 })),
+    };
+  },
+}));
+
 // --- Fixtures ------------------------------------------------------------------
 
 function advItem(partial: Partial<FiredAdvisoryItem> & Pick<FiredAdvisoryItem, 'item_type' | 'title' | 'body'>): FiredAdvisoryItem {
@@ -227,6 +240,7 @@ function fakeDb() {
 describe('generateInstitutionalReview (fake db + injected generator)', () => {
   afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.AI_GATEWAY_API_KEY;
   });
 
   it('stamps the draft label even when the model omits it, with prompt_version and model', async () => {
@@ -264,6 +278,20 @@ describe('generateInstitutionalReview (fake db + injected generator)', () => {
     });
     expect(attempt).toBe(2);
     expect(review.content_md).toContain('flagged blind spots');
+    expect(numeralPostCheck(review.content_md, review.payload)).toEqual([]);
+  });
+
+  it('falls back to the composer when the AI call fails (empty gateway balance)', async () => {
+    // AI is configured (gateway key present) but the balance is empty, so the
+    // stubbed SDK rejects with a 402. The review must still generate, seamlessly,
+    // from the deterministic composer — labeled rule-based, not an error.
+    process.env.AI_GATEWAY_API_KEY = 'vk-test-empty-balance';
+    const db = fakeDb() as never;
+    const review = await generateInstitutionalReview(db, 'a1'); // no generator → auto path → 402 → fallback
+    expect(review.model).toMatch(/^rule-based/);
+    expect(review.is_draft).toBe(true);
+    expect(review.content_md).toContain('# Institutional Review — Cascade Facility Services');
+    expect(review.content_md).toContain(DRAFT_BANNER);
     expect(numeralPostCheck(review.content_md, review.payload)).toEqual([]);
   });
 

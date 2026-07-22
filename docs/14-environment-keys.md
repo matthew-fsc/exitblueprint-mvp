@@ -74,7 +74,8 @@ check during rotation.
 | Variable | Default | Where to get it / when to set |
 | --- | --- | --- |
 | `EB_SIGNING_KEY` | falls back to `FUNCTIONS_JWT_SECRET` | **Generate:** `openssl rand -hex 32`. HMAC key for short-expiry signed document URLs. |
-| `ANTHROPIC_API_KEY` | — (deterministic composer) | [console.anthropic.com](https://console.anthropic.com) → API Keys. Enables real Claude narrative in reports; omit to use the built-in rule-based composer. |
+| `AI_GATEWAY_API_KEY` | — (deterministic composer) | Vercel → **AI Gateway → API Keys**. Routes Claude narrative through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) (Anthropic-compatible Messages API). **Preferred over `ANTHROPIC_API_KEY` when both are set.** If the gateway balance is empty the call fails and the service **falls back to the deterministic composer** — reports still generate (labeled rule-based); top up the balance to restore AI prose. Model ids are namespaced server-side (`claude-opus-4-8` → `anthropic/claude-opus-4.8`). |
+| `ANTHROPIC_API_KEY` | — (deterministic composer) | [console.anthropic.com](https://console.anthropic.com) → API Keys. Enables real Claude narrative directly against the Anthropic API (used when `AI_GATEWAY_API_KEY` is unset); omit both to use the built-in rule-based composer. |
 | `PORT` | `8787` | Render sets this automatically; override only for local runs. |
 | `EB_CHROMIUM_PATH` | auto-detected | Path to a Chromium/Chrome binary for PDF rendering. Not needed on the Playwright Docker base image (`server/Dockerfile`). |
 | `EB_PARSER` | `manual` | Leave unset. Reserved for `reducto` / `llamaparse` document-extraction adapters (not implemented in the beta). |
@@ -139,6 +140,7 @@ To point local dev at a real Supabase project instead, set `VITE_SUPABASE_URL` +
 | `BILLING_ENFORCED` | Compute | no | optional |
 | `FUNCTIONS_ALLOWED_ORIGIN` | Compute | no | recommended |
 | `EB_SIGNING_KEY` | Compute | **yes** | optional |
+| `AI_GATEWAY_API_KEY` | Compute | **yes** | optional |
 | `ANTHROPIC_API_KEY` | Compute | **yes** | optional |
 | `SENTRY_DSN` / `WEBHOOK_SECRET` / `PLATFORM_SUPERADMIN_IDS` | Compute | mixed | optional |
 | `WEBHOOK_RATE_LIMIT` / `WEBHOOK_RATE_WINDOW_SEC` | Compute | no | optional |
