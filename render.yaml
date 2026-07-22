@@ -70,16 +70,12 @@ services:
       # https://api.exitblueprint.net/webhooks/clerk and paste its secret here.
       - key: CLERK_WEBHOOK_SIGNING_SECRET
         sync: false
-      # Optional: routes real Claude narrative through the Vercel AI Gateway
-      # (Anthropic-compatible Messages API). Preferred over ANTHROPIC_API_KEY when
-      # both are set. Empty gateway balance → the service falls back to the
-      # deterministic composer (reports still generate, rule-based). Get it from
-      # Vercel → AI Gateway → API keys.
+      # Optional: enables real Claude narrative. All AI runs through the Vercel AI
+      # Gateway (Anthropic-compatible Messages API) — we reach Anthropic through
+      # Vercel, so there is no separate Anthropic key. Empty gateway balance → the
+      # service falls back to the deterministic composer (reports still generate,
+      # rule-based). Omit to ship rule-based. Get it from Vercel → AI Gateway → API keys.
       - key: AI_GATEWAY_API_KEY
-        sync: false
-      # Optional: turns on real Claude narrative directly against the Anthropic
-      # API (used when AI_GATEWAY_API_KEY is unset). Omit both to ship rule-based.
-      - key: ANTHROPIC_API_KEY
         sync: false
       # Stripe billing (docs/24). STRIPE_SECRET_KEY (sk_...) enables checkout +
       # billing-portal sessions; STRIPE_WEBHOOK_SECRET (whsec_...) signature-verifies

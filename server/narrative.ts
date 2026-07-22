@@ -34,7 +34,7 @@ async function callClaude(systemPrompt: string, userContent: string): Promise<Ge
   const provider = resolveProvider();
   if (!provider) {
     throw new Error(
-      'narrative service not configured: set AI_GATEWAY_API_KEY (or ANTHROPIC_API_KEY) in the server environment',
+      'narrative service not configured: set AI_GATEWAY_API_KEY in the server environment',
     );
   }
   const response = await provider.client.messages.create({
@@ -334,9 +334,9 @@ export async function generateDocument(
   assessmentId: string,
   docType: string,
   // Explicit generator forces the AI path (used by tests). Omit it and the
-  // service picks: Claude when AI is configured (AI_GATEWAY_API_KEY or
-  // ANTHROPIC_API_KEY), otherwise the deterministic composer — and on any AI
-  // failure it falls back to the composer too, so a report always generates.
+  // service picks: Claude via the AI gateway when AI_GATEWAY_API_KEY is set,
+  // otherwise the deterministic composer — and on any AI failure it falls back
+  // to the composer too, so a report always generates.
   generate?: GenerateFn,
 ) {
   if (docType === 'delta_report') return generateDeltaReport(db, assessmentId, generate);

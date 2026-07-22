@@ -50,9 +50,7 @@ export function costUsd(model: string, usage: LlmUsage): number {
 export const anthropicTransport: LlmTransport = async (req) => {
   const provider = resolveProvider();
   if (!provider) {
-    throw new Error(
-      'LLM not configured: set AI_GATEWAY_API_KEY (or ANTHROPIC_API_KEY) in the server environment',
-    );
+    throw new Error('LLM not configured: set AI_GATEWAY_API_KEY in the server environment');
   }
   const response = await provider.client.messages.create(
     {

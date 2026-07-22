@@ -35,34 +35,29 @@ describe('toGatewayModel', () => {
 });
 
 describe('aiConfigured / resolveProvider', () => {
-  it('is unconfigured (null) when neither key is set', () => {
+  it('is unconfigured (null) when the gateway key is unset', () => {
     delete process.env.AI_GATEWAY_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
     expect(aiConfigured()).toBe(false);
     expect(resolveProvider()).toBeNull();
   });
 
   it('treats a blank/whitespace key as unset', () => {
     process.env.AI_GATEWAY_API_KEY = '   ';
-    process.env.ANTHROPIC_API_KEY = '';
     expect(aiConfigured()).toBe(false);
     expect(resolveProvider()).toBeNull();
   });
 
-  it('uses the direct Anthropic transport when only ANTHROPIC_API_KEY is set', () => {
+  it('ignores ANTHROPIC_API_KEY — all AI goes through the gateway', () => {
     delete process.env.AI_GATEWAY_API_KEY;
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
-    const provider = resolveProvider();
-    expect(provider?.transport).toBe('direct');
-    // Direct transport leaves the model id untouched.
-    expect(provider?.modelFor('claude-opus-4-8')).toBe('claude-opus-4-8');
+    expect(aiConfigured()).toBe(false);
+    expect(resolveProvider()).toBeNull();
   });
 
-  it('prefers the gateway when both keys are set, and namespaces the model', () => {
+  it('resolves the gateway client and namespaces the model when the key is set', () => {
     process.env.AI_GATEWAY_API_KEY = 'vk-test';
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     const provider = resolveProvider();
-    expect(provider?.transport).toBe('gateway');
+    expect(provider).not.toBeNull();
     expect(provider?.modelFor('claude-opus-4-8')).toBe('anthropic/claude-opus-4.8');
   });
 });

@@ -296,7 +296,7 @@ describe('generateInstitutionalReview (fake db + injected generator)', () => {
   });
 
   it('falls back to the deterministic composer with no key and no generator', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.AI_GATEWAY_API_KEY;
     const db = fakeDb() as never;
     const review = await generateInstitutionalReview(db, 'a1');
     expect(review.model).toMatch(/^rule-based/);

@@ -3,18 +3,17 @@
 // review, extraction, findings) resolves its client here so the wiring is
 // uniform and there is exactly one fallback contract.
 //
-// Two ways in, checked in order:
-//   1. AI_GATEWAY_API_KEY  → Vercel AI Gateway (Anthropic-compatible Messages
-//      API). The SDK points at the gateway base URL and the model id is
-//      namespaced with the `anthropic/` provider prefix and a dotted version
-//      (Vercel's slug convention: claude-opus-4-8 → anthropic/claude-opus-4.8).
-//   2. ANTHROPIC_API_KEY   → the Anthropic API directly (SDK defaults).
+// One way in: AI_GATEWAY_API_KEY → the Vercel AI Gateway (Anthropic-compatible
+// Messages API). We reach Anthropic *through* Vercel; there is no separate
+// Anthropic key. The SDK points at the gateway base URL and the model id is
+// namespaced with the `anthropic/` provider prefix and a dotted version
+// (Vercel's slug convention: claude-opus-4-8 → anthropic/claude-opus-4.8).
 //
-// Neither set → not configured; callers fall back to their deterministic
-// composer (CLAUDE.md rule 1/2 safe) so a document always generates. This is
-// what makes the "no money in the account" case seamless: an empty gateway
-// balance surfaces as an API error at call time, callers catch it and compose
-// the rule-based artifact instead of failing (see aiFailureReason).
+// Unset → not configured; callers fall back to their deterministic composer
+// (CLAUDE.md rule 1/2 safe) so a document always generates. This is also what
+// makes the "no money in the account" case seamless: an empty gateway balance
+// surfaces as an API error at call time, callers catch it and compose the
+// rule-based artifact instead of failing (see aiFailureReason).
 import Anthropic from '@anthropic-ai/sdk';
 
 // Vercel AI Gateway, Anthropic Messages API compatibility endpoint. The SDK
@@ -23,18 +22,16 @@ const GATEWAY_BASE_URL = 'https://ai-gateway.vercel.sh';
 
 export interface NarrativeProvider {
   client: Anthropic;
-  // Maps a first-party Anthropic model id to the id this provider expects.
+  // Maps a first-party Anthropic model id to the gateway's namespaced slug.
   modelFor: (model: string) => string;
-  // For logs/telemetry only — never stored on a document.
-  transport: 'gateway' | 'direct';
 }
 
 const nonEmpty = (v: string | undefined): boolean => Boolean(v && v.trim());
 
-// True when the AI narrative path is wired at all (gateway OR direct key). When
+// True when the AI narrative path is wired (the gateway key is present). When
 // false, callers use their deterministic composer without ever touching the API.
 export function aiConfigured(): boolean {
-  return nonEmpty(process.env.AI_GATEWAY_API_KEY) || nonEmpty(process.env.ANTHROPIC_API_KEY);
+  return nonEmpty(process.env.AI_GATEWAY_API_KEY);
 }
 
 // claude-opus-4-8 → anthropic/claude-opus-4.8 (Vercel AI Gateway slug). Already
@@ -45,24 +42,16 @@ export function toGatewayModel(model: string): string {
   return `anthropic/${slug}`;
 }
 
-// Build the client the current environment selects, or null if unconfigured.
-// The gateway is preferred when both are present so a deploy can move traffic
-// onto the gateway just by setting AI_GATEWAY_API_KEY.
+// Build the gateway client, or null if unconfigured.
 export function resolveProvider(): NarrativeProvider | null {
-  if (nonEmpty(process.env.AI_GATEWAY_API_KEY)) {
-    return {
-      client: new Anthropic({
-        apiKey: process.env.AI_GATEWAY_API_KEY,
-        baseURL: GATEWAY_BASE_URL,
-      }),
-      modelFor: toGatewayModel,
-      transport: 'gateway',
-    };
-  }
-  if (nonEmpty(process.env.ANTHROPIC_API_KEY)) {
-    return { client: new Anthropic(), modelFor: (m) => m, transport: 'direct' };
-  }
-  return null;
+  if (!nonEmpty(process.env.AI_GATEWAY_API_KEY)) return null;
+  return {
+    client: new Anthropic({
+      apiKey: process.env.AI_GATEWAY_API_KEY,
+      baseURL: GATEWAY_BASE_URL,
+    }),
+    modelFor: toGatewayModel,
+  };
 }
 
 // A short, human-readable reason for an AI-call failure, for the fallback log.
