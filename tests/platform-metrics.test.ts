@@ -29,6 +29,10 @@ describe('platformMetrics', () => {
       ['analytics.access_log_daily', [{ day: '2026-07-20', action: 'document.download', resource_type: 'document', events: '9', firms: '1' }]],
       ['analytics.ops_webhook_health', [{ type: 'invoice.paid', events: '10', unprocessed: '0' }]],
       ['analytics.ai_cost_daily', [{ day: '2026-07-20', model: 'claude-opus-4-8', calls: '4', cost_usd: '1.2345' }]],
+      ['analytics.activation_funnel', [{ firms_created: '10', firms_activated: '8', firms_first_assessment: '6', firms_first_deliverable: '4' }]],
+      ['analytics.revenue_summary', [{ subscribed_firms: '7', paying_firms: '5', comped_firms: '2', active_seats: '18' }]],
+      ['analytics.unit_economics', [{ ai_cost_30d: '12.5', ai_cost_total: '90', active_firms: '5', completed_assessments: '9', engagements: '12' }]],
+      ['analytics.engagement_health', [{ active_engagements: '12', stalled_engagements: '3' }]],
     ]);
 
     const m = await platformMetrics(db);
@@ -47,6 +51,14 @@ describe('platformMetrics', () => {
     expect(m.ops.webhooks[0]).toMatchObject({ type: 'invoice.paid' });
     expect(m.ops.ai_cost_30d[0]).toMatchObject({ model: 'claude-opus-4-8' });
 
+    // Company operating plan (docs/40 §4b): four numified one-row rollups.
+    expect(m.operating.activation.firms_created).toBe(10);
+    expect(m.operating.activation.firms_first_deliverable).toBe(4);
+    expect(m.operating.revenue.paying_firms).toBe(5);
+    expect(m.operating.revenue.active_seats).toBe(18);
+    expect(m.operating.unit_economics.ai_cost_total).toBe(90);
+    expect(m.operating.engagement_health.stalled_engagements).toBe(3);
+
     // Ops note points at the hosting-service telemetry (not in the DB).
     expect(m.ops.note).toMatch(/Render|Sentry|Vercel/);
     // Stamped generation time.
@@ -60,5 +72,9 @@ describe('platformMetrics', () => {
     expect(m.product.usage_30d).toEqual([]);
     expect(m.business.firms).toEqual([]);
     expect(m.ops.webhooks).toEqual([]);
+    expect(m.operating.activation).toEqual({});
+    expect(m.operating.revenue).toEqual({});
+    expect(m.operating.unit_economics).toEqual({});
+    expect(m.operating.engagement_health).toEqual({});
   });
 });

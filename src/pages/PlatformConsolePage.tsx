@@ -30,12 +30,14 @@ import {
 import { daysSince, fmtCurrency, fmtDate, fmtScore, formatFieldValue, humanizeKey } from '../lib/format';
 import { functionsBaseUrl, getAccessToken } from '../lib/supabase';
 import {
+  activationSteps,
+  churnBook,
   firmActivityStatus,
   funnelSteps,
   PlatformFetchError,
-  sumColumn,
   toNumber,
   topEvents,
+  unitEconomics,
   type FirmActivity,
   type PlatformSnapshot,
 } from '../lib/platformConsole';
@@ -303,7 +305,11 @@ export default function PlatformConsolePage() {
 
   const s = q.data;
   const funnel = funnelSteps(s.product.funnel);
-  const aiSpend = sumColumn(s.ops.ai_cost_30d, 'cost_usd');
+  const activation = activationSteps(s.operating.activation);
+  const econ = unitEconomics(s.operating.unit_economics);
+  const churn = churnBook(s.business.firms);
+  const rev = s.operating.revenue;
+  const health = s.operating.engagement_health;
   const events = topEvents(s.product.usage_30d);
   const moatTiles = MOAT_TILES.filter((t) => t.key in s.moats.corpus);
 
@@ -345,26 +351,64 @@ export default function PlatformConsolePage() {
         </StatRow>
       </SectionCard>
 
-      {/* Business development — the funnel, the revenue units, the account book */}
+      {/* Activation funnel — the go-to-market leading indicator (docs/40 §4b) */}
       <SectionCard
-        title="Business development"
-        subtitle="Activation funnel, subscription units, and the firm account / churn book"
+        title="Activation funnel"
+        subtitle="Go-to-market leading indicator: firm created → advisor activated → first assessment → first deliverable"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <StatRow>
-            {funnel.map((step) => (
+            {activation.map((step) => (
               <StatBlock
                 key={step.key}
                 label={humanizeKey(step.key)}
                 value={String(step.value)}
-                hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of engagements`}
+                hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of firms`}
               />
             ))}
           </StatRow>
-
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              Subscriptions
+              Assessment funnel — engagements → started → completed → scored
+            </p>
+            <StatRow>
+              {funnel.map((step) => (
+                <StatBlock
+                  key={step.key}
+                  label={humanizeKey(step.key)}
+                  value={String(step.value)}
+                  hint={step.pctOfStart === null ? undefined : `${step.pctOfStart}% of engagements`}
+                />
+              ))}
+            </StatRow>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Revenue plan — subscription units + Stripe state (docs/40 §4b) */}
+      <SectionCard
+        title="Revenue plan"
+        subtitle="Subscription units and Stripe state — dollar revenue lives in Stripe; this rail carries the unit counts"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock
+              label="Paying firms"
+              value={String(toNumber(rev.paying_firms))}
+              hint={`${toNumber(rev.subscribed_firms)} subscribed`}
+            />
+            <StatBlock label="Comped firms" value={String(toNumber(rev.comped_firms))} />
+            <StatBlock label="Trialing" value={String(toNumber(rev.trialing_firms))} />
+            <StatBlock
+              label="Past due"
+              value={String(toNumber(rev.past_due_firms))}
+              hint={`${toNumber(rev.canceling_firms)} canceling`}
+            />
+            <StatBlock label="Active seats" value={String(toNumber(rev.active_seats))} />
+          </StatRow>
+          <div>
+            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              Subscriptions by plan
             </p>
             <AutoTable
               rows={s.business.subscriptions}
@@ -372,7 +416,67 @@ export default function PlatformConsolePage() {
               emptyLabel="No subscriptions yet"
             />
           </div>
+        </div>
+      </SectionCard>
 
+      {/* Unit economics / COGS — AI cost per unit (docs/40 §4b) */}
+      <SectionCard
+        title="Unit economics"
+        subtitle="AI cost is the dominant variable COGS; per-unit ratios show what each firm and assessment costs to serve"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock label="AI spend (30d)" value={fmtCurrency(econ.ai_cost_30d)} />
+            <StatBlock
+              label="Cost / active firm (30d)"
+              value={fmtCurrency(econ.cost_per_active_firm_30d)}
+            />
+            <StatBlock
+              label="Cost / completed assessment"
+              value={fmtCurrency(econ.cost_per_completed_assessment)}
+              hint="lifetime"
+            />
+            <StatBlock
+              label="Cost / engagement"
+              value={fmtCurrency(econ.cost_per_engagement)}
+              hint="lifetime"
+            />
+            <StatBlock label="AI spend (lifetime)" value={fmtCurrency(econ.ai_cost_total)} />
+          </StatRow>
+          <div>
+            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              AI cost by day (last 30 days)
+            </p>
+            <AutoTable
+              rows={s.ops.ai_cost_30d}
+              initialSort={{ key: 'day', dir: 'desc' }}
+              emptyLabel="No AI calls in the window"
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Churn-risk book — firm last-activity + stalled engagements (docs/40 §4b) */}
+      <SectionCard
+        title="Churn-risk book"
+        subtitle="Firm activity health and stalled delivery — the accounts at risk of churning"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <StatRow>
+            <StatBlock label="Active firms" value={String(churn.active)} />
+            <StatBlock label="Idle firms" value={String(churn.idle)} hint="quiet 30–60 days" />
+            <StatBlock label="Dormant firms" value={String(churn.dormant)} />
+            <StatBlock
+              label="Paying at risk"
+              value={String(churn.atRiskPaying)}
+              hint="paying but idle / dormant"
+            />
+            <StatBlock
+              label="Stalled engagements"
+              value={String(toNumber(health.stalled_engagements))}
+              hint={`${toNumber(health.active_engagements)} active`}
+            />
+          </StatRow>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
               Firm account book — dormant firms first
@@ -456,26 +560,9 @@ export default function PlatformConsolePage() {
         </div>
       </SectionCard>
 
-      {/* Ops & AI cost */}
-      <SectionCard title="Ops &amp; AI cost" subtitle="Webhook health and Anthropic COGS over 30 days">
+      {/* Ops — webhook health (AI cost/COGS lives in Unit economics above) */}
+      <SectionCard title="Ops" subtitle="Webhook health — a stuck webhook is an outage /ready won't catch">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-          <StatRow>
-            <StatBlock label="AI spend (30d)" value={fmtCurrency(aiSpend)} />
-            <StatBlock
-              label="AI calls (30d)"
-              value={String(Math.round(sumColumn(s.ops.ai_cost_30d, 'calls')))}
-            />
-          </StatRow>
-          <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              AI cost by day
-            </p>
-            <AutoTable
-              rows={s.ops.ai_cost_30d}
-              initialSort={{ key: 'day', dir: 'desc' }}
-              emptyLabel="No AI calls in the window"
-            />
-          </div>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
               Webhook health
