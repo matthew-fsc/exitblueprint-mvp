@@ -1,16 +1,34 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { invokeFunction } from '../lib/supabase';
 import {
+  qk,
   useCompany,
   useEngagement,
   useFiredAdvisory,
+  useDiligenceSimulation,
   type AdvisoryItemType,
   type FiredAdvisoryItem,
+  type DiligenceFinding,
+  type DiligenceRemediation,
+  type DiligenceSourceKind,
 } from '../lib/queries';
-import { Card, Collapsible, EmptyState, EngagementNav, ErrorState, PageHeader, PageSection, SkeletonLines } from '../components/ui';
+import {
+  Card,
+  Collapsible,
+  EmptyState,
+  EngagementNav,
+  ErrorState,
+  PageHeader,
+  PageSection,
+  SkeletonLines,
+  useToast,
+} from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 import { humanizeKey } from '../lib/format';
+import { renderMarkdown } from '../lib/markdown';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -31,6 +49,152 @@ const SECTIONS: { type: AdvisoryItemType; label: string; blurb: string }[] = [
     blurb: 'Get ahead of these. A pre-cleared risk is a footnote; a discovered one is a discount.',
   },
 ];
+
+// --- Diligence simulation (the proactive buyer lens) --------------------------
+
+const SOURCE_LABEL: Record<DiligenceSourceKind, string> = {
+  gap: 'Flagged gap',
+  evidence: 'Missing evidence',
+  buyer_question: 'Buyer question',
+  untracked: 'Untracked metric',
+};
+
+function remediationHref(engagementId: string, r: DiligenceRemediation): string {
+  switch (r.kind) {
+    case 'evidence':
+      return `/engagement/${engagementId}/evidence`;
+    case 'roadmap':
+      return `/engagement/${engagementId}/roadmap`;
+    case 'plan':
+      return '/plans';
+    case 'library':
+      return '/library';
+  }
+}
+
+function FindingCard({ engagementId, finding }: { engagementId: string; finding: DiligenceFinding }) {
+  const sev = advisorySevClass(finding.severity);
+  return (
+    <div className={`dsim-finding ${sev}`}>
+      <div className="dsim-finding-head">
+        <span className="dsim-finding-rank" aria-label={`rank ${finding.rank}`}>
+          {finding.rank}
+        </span>
+        <span className={`sev-chip ${sev}`}>{finding.severity}</span>
+        <div className="dsim-finding-titles">
+          <p className="dsim-finding-title">{finding.title}</p>
+          <p className="dsim-finding-meta muted">
+            {finding.area} · {SOURCE_LABEL[finding.source_kind]}
+          </p>
+        </div>
+      </div>
+      <p className="dsim-finding-why">{finding.why}</p>
+      {finding.remediation && (
+        <p className="dsim-finding-fix">
+          <span className="dsim-finding-fix-label">Where to close it:</span>{' '}
+          <Link to={remediationHref(engagementId, finding.remediation)}>{finding.remediation.label} →</Link>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DiligenceSimulationPanel({ engagementId }: { engagementId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const simQ = useDiligenceSimulation(engagementId);
+  const run = simQ.data?.run ?? null;
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const runSimulation = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await invokeFunction<{ assessment_id: string | null }>('simulate-diligence', {
+        engagement_id: engagementId,
+      });
+      await qc.invalidateQueries({ queryKey: qk.diligenceSimulation(engagementId) });
+      toast.show(
+        res.assessment_id === null ? 'No completed assessment to simulate yet' : 'Diligence simulation complete',
+        res.assessment_id === null ? 'default' : 'good',
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setBusy(false);
+  };
+
+  const ruleBased = (run?.model ?? '').startsWith('rule-based');
+
+  return (
+    <PageSection
+      title={
+        <>
+          Diligence simulation <span className="muted">· rehearse the interrogation</span>
+        </>
+      }
+      note="Runs the whole diligence process against the business today, ranked most severe first, while there is still time to fix what it surfaces. Findings are deterministic; the summary is a labeled draft."
+    >
+      {error && <ErrorState variant="inline" error={new Error(error)} />}
+
+      <Card>
+        <div className="dsim-toolbar">
+          <div className="dsim-toolbar-status">
+            {run ? (
+              <>
+                <span className={`status-chip status-${ruleBased ? 'neutral' : 'good'}`}>
+                  {ruleBased ? 'Draft' : 'AI draft'}
+                </span>
+                <span className="muted">
+                  {run.finding_count} finding{run.finding_count === 1 ? '' : 's'} · last run{' '}
+                  {new Date(run.created_at).toLocaleString()}
+                </span>
+              </>
+            ) : (
+              <span className="muted">No simulation has been run for this engagement yet.</span>
+            )}
+          </div>
+          <button onClick={runSimulation} disabled={busy}>
+            {busy ? 'Simulating…' : run ? 'Re-run simulation' : 'Run diligence simulation'}
+          </button>
+        </div>
+
+        {simQ.isLoading && <SkeletonLines lines={4} />}
+
+        {simQ.data && !run && (
+          <EmptyState title="No simulation yet">
+            Complete a baseline assessment, then run the simulation to see the ranked blind spots a
+            buyer's diligence team would surface.
+          </EmptyState>
+        )}
+
+        {run && run.findings.length === 0 && (
+          <EmptyState title="No blind spots surfaced">
+            The last run found nothing flagged at the current scores, no financial input on self-report,
+            and no fired buyer questions. Hold the position and assemble materials for scrutiny.
+          </EmptyState>
+        )}
+
+        {run && run.findings.length > 0 && (
+          <>
+            <div className="dsim-findings">
+              {run.findings.map((f) => (
+                <FindingCard key={f.rank} engagementId={engagementId} finding={f} />
+              ))}
+            </div>
+            <Collapsible title="Draft summary" hint="AI-assisted narrative framing, for advisor review">
+              <div className="dsim-narrative report-body">{renderMarkdown(run.narrative_md)}</div>
+            </Collapsible>
+          </>
+        )}
+      </Card>
+    </PageSection>
+  );
+}
+
+// --- Advisory (the reactive buyer lens) ---------------------------------------
 
 function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
   const hasDetail = !!(item.response_framework || item.data_needed);
@@ -110,6 +274,8 @@ export default function BuyerLensPage() {
         />
         <EngagementNav engagementId={engagementId!} />
       </header>
+
+      {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />}
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
       {firedQ.isError && <ErrorState variant="inline" error={firedQ.error} />}

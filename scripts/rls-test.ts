@@ -374,6 +374,22 @@ async function main() {
        values ($1, $2, 'customer_concentration', 'high')`,
       [ids.firm_b, engagementB],
     );
+    // Firm B diligence-simulation run + finding for the isolation checks.
+    const dsimRunB = (
+      await db.query(
+        `insert into diligence_simulation_runs
+           (firm_id, engagement_id, prompt_version, model, finding_count, narrative_md)
+         values ($1, $2, 'diligence_simulation.v1', 'rule-based:diligence_simulation.v1', 1, 'Secret run')
+         returning id`,
+        [ids.firm_b, engagementB],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into diligence_simulation_findings
+         (firm_id, run_id, rank, severity, area, source_kind, title, why)
+       values ($1, $2, 1, 'critical', 'Owner Independence', 'gap', 'Secret finding', 'Secret why')`,
+      [ids.firm_b, dsimRunB],
+    );
     await db.query(
       `insert into jobs (firm_id, engagement_id, pipeline, step) values ($1, $2, 'sellside_intake', 'intake')`,
       [ids.firm_b, engagementB],
@@ -671,6 +687,14 @@ async function main() {
       (await db.query('select id from assessment_values')).rows.length === 0,
     );
     check('sees no firm B findings', (await db.query('select id from findings')).rows.length === 0);
+    check(
+      'sees no firm B diligence_simulation_runs',
+      (await db.query('select id from diligence_simulation_runs')).rows.length === 0,
+    );
+    check(
+      'sees no firm B diligence_simulation_findings',
+      (await db.query('select id from diligence_simulation_findings')).rows.length === 0,
+    );
     check('sees no firm B jobs', (await db.query('select id from jobs')).rows.length === 0);
     check('sees no firm B review_items', (await db.query('select id from review_items')).rows.length === 0);
     check('sees no firm B llm_calls', (await db.query('select id from llm_calls')).rows.length === 0);

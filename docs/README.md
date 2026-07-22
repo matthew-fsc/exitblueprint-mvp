@@ -52,6 +52,7 @@ A developer index: the durable features and the files that own them. Pair with
 | **Deliverables studio** (owner report · delta · CIM) | `src/pages/DeliverablesPage.tsx` · `src/components/DocumentCurator.tsx` · `shared/documents/catalog.ts` · `server/documents/catalog.ts` | 17 §5 |
 | CIM (readiness + generation) | `shared/cim/template.ts`, `server/cim.ts` | 17 §5 |
 | Narrative (AI, draft-only) | `server/narrative.ts` | 04 |
+| **Buyer lens + Diligence simulation** (institutional reviewer → ranked, persisted blind-spot report) | `server/institutional-review.ts` · `server/diligence-simulation.ts` · `prompts/diligence_simulation.v1.md` · `diligence_simulation_runs`/`_findings` · `src/pages/BuyerLensPage.tsx` | 20, 40 §3, 04 |
 | Valuation & comparables | `server/valuation.ts`, `server/comparables.ts` | 17 §4 |
 | Evidence (data room · docs · verification) | `server/data-room.ts`, `server/documents/*`, `server/verification.ts` | 02, 17 §3 |
 | Secure document storage + scan | `server/documents/{storage,scanner,crypto,signed-url}.ts` | 02 |
