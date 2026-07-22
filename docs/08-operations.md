@@ -13,6 +13,14 @@ Three Supabase projects:
 - Migrations flow local → staging → production, always via files in
   `supabase/migrations/` (`npm run db:migrate` or `supabase db push`). Never
   edit schema by hand in any environment.
+- **In-system self-service (hosted).** The superadmin "Load methodology" button
+  on `/health` (the `seed-methodology` function) applies any **pending migrations
+  first**, then seeds — so a hosted beta can bring both schema and methodology
+  current without anyone running the CLI against a production connection string.
+  Idempotent (migrations tracked in `public.schema_migrations`, run at most once);
+  the shared runner is `server/migrate.ts` (the CLI `db:migrate` wraps the same
+  logic). This is why `server/Dockerfile` ships `supabase/migrations/` into the
+  compute image. It complements, and does not replace, the CLI/`db push` flow above.
 - `npm run db:seed` (rubric/methodology) runs in every environment.
 - `npm run seed:demo` (demo tenant) runs on staging/demo only by default. It is
   firm-scoped and idempotent, but production hosts no demo firm.
