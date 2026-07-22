@@ -1,18 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { invokeFunction } from '../lib/supabase';
+// Hidden for now — AI diligence simulator not production-ready yet
+// import { useState } from 'react';
+// import { useQueryClient } from '@tanstack/react-query';
+// import { invokeFunction } from '../lib/supabase';
 import {
-  qk,
+  // qk,  // Hidden for now — AI diligence simulator not production-ready yet
   useCompany,
   useEngagement,
   useFiredAdvisory,
-  useDiligenceSimulation,
+  // useDiligenceSimulation,  // Hidden for now — AI diligence simulator not production-ready yet
   type AdvisoryItemType,
   type FiredAdvisoryItem,
-  type DiligenceFinding,
-  type DiligenceRemediation,
-  type DiligenceSourceKind,
+  // type DiligenceFinding,  // Hidden for now — AI diligence simulator not production-ready yet
+  // type DiligenceRemediation,
+  // type DiligenceSourceKind,
 } from '../lib/queries';
 import {
   Card,
@@ -23,12 +25,13 @@ import {
   PageHeader,
   PageSection,
   SkeletonLines,
-  useToast,
+  // useToast,  // Hidden for now — AI diligence simulator not production-ready yet
 } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 import { humanizeKey } from '../lib/format';
-import { renderMarkdown } from '../lib/markdown';
+// Hidden for now — AI diligence simulator not production-ready yet
+// import { renderMarkdown } from '../lib/markdown';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -51,7 +54,11 @@ const SECTIONS: { type: AdvisoryItemType; label: string; blurb: string }[] = [
 ];
 
 // --- Diligence simulation (the proactive buyer lens) --------------------------
-
+// Hidden for now — AI diligence simulator not production-ready yet.
+// The entire simulator (SOURCE_LABEL, remediationHref, FindingCard,
+// DiligenceSimulationPanel) is commented out below and its render call is
+// removed from BuyerLensPage. Restore the imports above to bring it back.
+/*
 const SOURCE_LABEL: Record<DiligenceSourceKind, string> = {
   gap: 'Flagged gap',
   evidence: 'Missing evidence',
@@ -193,6 +200,7 @@ function DiligenceSimulationPanel({ engagementId }: { engagementId: string }) {
     </PageSection>
   );
 }
+*/
 
 // --- Advisory (the reactive buyer lens) ---------------------------------------
 
@@ -275,7 +283,8 @@ export default function BuyerLensPage() {
         <EngagementNav engagementId={engagementId!} />
       </header>
 
-      {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />}
+      {/* Hidden for now — AI diligence simulator not production-ready yet */}
+      {/* {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />} */}
 
       {firedQ.isLoading && <SkeletonLines lines={6} />}
       {firedQ.isError && <ErrorState variant="inline" error={firedQ.error} />}
