@@ -70,16 +70,17 @@ export async function buildOwnerReportPayload(db: pg.ClientBase, assessmentId: s
 
   const explain = await explainAssessment(db, assessmentId);
 
-  // Top gaps (max 5) by severity, with mapped playbook summaries.
+  // Top gaps (max 5) by severity, with the summary of the remediation Plan each
+  // gap is linked to (gap_plan_map — the "roadmap initiative" for the gap).
   const severityRank: Record<string, number> = { critical: 0, high: 1, med: 2, low: 3 };
   const topGaps = [...explain.firedGaps]
     .sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9))
     .slice(0, 5);
-  const playbooks = await db.query(
-    `select gd.code as gap_code, p.name, p.summary
+  const remediation = await db.query(
+    `select gd.code as gap_code, pt.name, pt.summary
      from gap_definitions gd
-     join gap_playbook_map m on m.gap_definition_id = gd.id
-     join playbooks p on p.id = m.playbook_id
+     join gap_plan_map m on m.gap_definition_id = gd.id
+     join plan_templates pt on pt.id = m.plan_template_id
      where gd.code = any($1) and gd.rubric_version_id = $2
      order by m.priority`,
     [topGaps.map((g) => g.code), assessment.rubric_version_id],
@@ -111,7 +112,7 @@ export async function buildOwnerReportPayload(db: pg.ClientBase, assessmentId: s
     top_gaps: topGaps.map((g) => ({
       name: g.name,
       severity: g.severity,
-      playbook: playbooks.rows.find((p) => p.gap_code === g.code)?.summary ?? null,
+      remediation: remediation.rows.find((p) => p.gap_code === g.code)?.summary ?? null,
     })),
     flags: explain.flags,
     prior_comparison: comparison === null
@@ -220,7 +221,7 @@ export function composeOwnerReport(
       lines.push(`### ${g.name}`);
       const why = WHY_BUYERS_CARE[g.severity] ?? WHY_BUYERS_CARE.med;
       lines.push(`This was flagged as a ${g.severity} priority. ${why}`);
-      if (g.playbook) lines.push(`What the fix looks like: ${g.playbook}`);
+      if (g.remediation) lines.push(`What the fix looks like: ${g.remediation}`);
       lines.push('');
     }
   }

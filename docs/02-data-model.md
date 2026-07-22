@@ -193,14 +193,13 @@ third-party analytics)
 - rubric_version_id, code, name, severity (low|med|high|critical), dimension_id
 - trigger jsonb (see docs/03 trigger types)
 
-**playbooks**
-- code, name, version int, summary, dimension_code, phase, ev_impact, body_md
+**library_tasks** (playbooks retired — docs/06 2026-07-22) — the atomic, reusable
+remediation task; a first-class Library item like content_modules/advisory_library_items.
+- firm_id (null = system), source, code, title, description, default_owner_role (owner|advisor|cpa|attorney|ops), dimension_code, target_offset_days int
+- Referenced by `plan_template_items` (`item_kind='task'`, `library_task_id`) and `tasks.library_task_id` (the once-per-engagement idempotency key).
 
-**playbook_task_templates**
-- playbook_id, title, description, default_owner_role (owner|advisor|cpa|attorney|ops), sequence int, target_offset_days int
-
-**gap_playbook_map** - gap_definition_id, playbook_id, priority int
-**content_modules** - code, title, dimension_code, body_md
+**gap_plan_map** (replaces gap_playbook_map) - gap_definition_id, plan_template_id, priority int — a gap links to its remediation Plan.
+**content_modules** - firm_id, source, code, title, dimension_code, body_md — the single education library (owner Learn + Plan education items).
 **gap_content_map** - gap_definition_id, content_module_id, drip_order int
 
 ## Institutional memory (docs/20/21 Category B)

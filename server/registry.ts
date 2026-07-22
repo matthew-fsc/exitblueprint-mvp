@@ -48,7 +48,6 @@ import {
   applyPlan,
   engagementPlanProgress,
   recommendPlans,
-  autoApplyQualifyingPlans,
 } from './plans';
 import {
   getDocumentBytes,
@@ -196,11 +195,12 @@ export const REGISTRY: Record<string, FunctionSpec> = {
         body.current_assessment_id as string,
       ).then(ok),
   },
-  // Build the roadmap from gaps AND lay down any substantively-applicable Plan
-  // (docs/37 Q5b): first instantiate the gap-derived tasks, then auto-apply the
-  // Plans whose playbooks mostly target the open gaps, reusing applyPlan's
-  // once-per-engagement idempotency (a claimed task is never doubled). The
-  // applied-Plan summaries ride back so the UI can report what it added.
+  // Build the roadmap from gaps (docs/37 Q5b): auto-apply every Plan whose
+  // content is majority-applicable to the engagement's open gaps. Playbooks are
+  // retired — applying a Plan is the sole path that lays tasks onto the roadmap,
+  // reusing applyPlan's once-per-engagement idempotency (a claimed task is never
+  // doubled). The applied-Plan summaries ride back so the UI can report what it
+  // added.
   'generate-roadmap': {
     engine: 'rules',
     scope: 'engagement',
@@ -208,9 +208,8 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     handler: async ({ service, body, userId }) => {
       const engagementId = body.engagement_id as string;
       const anchorDate = (body.anchor_date as string) ?? null;
-      const roadmap = await instantiateTasksForGaps(service, engagementId, anchorDate);
-      const auto = await autoApplyQualifyingPlans(service, engagementId, userId, anchorDate);
-      return ok({ ...roadmap, plansApplied: auto.applied });
+      const roadmap = await instantiateTasksForGaps(service, engagementId, anchorDate, userId);
+      return ok({ tasksCreated: roadmap.tasksCreated, plansApplied: roadmap.plansApplied });
     },
   },
   'compute-valuation': {

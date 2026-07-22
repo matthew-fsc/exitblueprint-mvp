@@ -593,8 +593,8 @@ export default function App() {
               </RequireAdvisor>
             }
           />
-          {/* Playbooks merged into the Plans tab (a Plan bundles playbooks). */}
-          <Route path="/playbooks" element={<Navigate to="/plans?view=playbooks" replace />} />
+          {/* Playbooks retired: their tasks are Library items, grouped by Plans. */}
+          <Route path="/playbooks" element={<Navigate to="/library" replace />} />
           {/* The standalone Network tab was removed — the professional directory
               it showed already lives on the Organization page, so old links fold
               back there rather than 404. */}

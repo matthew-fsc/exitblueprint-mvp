@@ -46,8 +46,9 @@ A developer index: the durable features and the files that own them. Pair with
 | Identity (Clerk) + RLS | `server/auth-jwt.ts`, `server/http.ts`, migrations | 30, 28 |
 | Deterministic scoring (DRS/ORI) | `shared/scoring/engine.ts` · `seed/fixtures/reference_scorer.py` | 03, 07 |
 | Assessment lifecycle (immutable) | `server/scoring.ts`, `supabase/migrations/*` | 02, 03 |
-| Roadmap & tasks | `server/roadmap.ts` | 02, 17 §2 |
-| **Plans** (initiative bundles) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |
+| Roadmap & tasks | `server/roadmap.ts` (auto-applies Plans; playbooks retired) | 02, 17 §2 |
+| **Library** (atomic items: tasks · education · advisory) | `src/pages/LibraryPage.tsx` · `library_tasks`/`content_modules`/`advisory_library_items` | 37, 02 |
+| **Plans** (bundles of Library items) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |
 | **Deliverables studio** (owner report · delta · CIM) | `src/pages/DeliverablesPage.tsx` · `src/components/DocumentCurator.tsx` · `shared/documents/catalog.ts` · `server/documents/catalog.ts` | 17 §5 |
 | CIM (readiness + generation) | `shared/cim/template.ts`, `server/cim.ts` | 17 §5 |
 | Narrative (AI, draft-only) | `server/narrative.ts` | 04 |

@@ -129,7 +129,7 @@ export default function OwnerHomePage() {
               {topGaps.map((g) => (
                 <li key={g.id}>
                   <GapSeverityChip severity={g.severity} />
-                  <span><strong>{g.name}</strong>{g.playbookName && <span className="muted"> — {g.playbookName}</span>}</span>
+                  <span><strong>{g.name}</strong>{g.remediationName && <span className="muted"> — {g.remediationName}</span>}</span>
                 </li>
               ))}
             </ul>

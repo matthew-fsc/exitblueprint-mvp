@@ -12,7 +12,7 @@
 import type pg from 'pg';
 import { fireAdvisoryItems } from './advisory';
 
-const ITEM_KINDS = ['playbook', 'education', 'advisory', 'milestone', 'manual_task'] as const;
+const ITEM_KINDS = ['task', 'education', 'advisory', 'milestone', 'manual_task'] as const;
 type ItemKind = (typeof ITEM_KINDS)[number];
 const TRACKS = ['business', 'personal'] as const;
 const OWNER_ROLES = ['owner', 'advisor', 'cpa', 'attorney', 'ops'] as const;
@@ -21,7 +21,7 @@ const OWNER_ROLES = ['owner', 'advisor', 'cpa', 'attorney', 'ops'] as const;
 // its kind are set; the rest are null.
 interface NormalizedItem {
   kind: ItemKind;
-  playbook_id: string | null;
+  library_task_id: string | null;
   content_module_id: string | null;
   advisory_library_item_id: string | null;
   title: string | null;
@@ -45,7 +45,7 @@ export interface PlanTemplateView {
   items: {
     id: string;
     item_kind: ItemKind;
-    playbook_id: string | null;
+    library_task_id: string | null;
     content_module_id: string | null;
     advisory_library_item_id: string | null;
     title: string | null;
@@ -58,7 +58,7 @@ export interface PlanTemplateView {
 }
 
 const ITEM_COLS =
-  'id, item_kind, playbook_id, content_module_id, advisory_library_item_id, title, description, owner_role, track, target_offset_days, sort_order';
+  'id, item_kind, library_task_id, content_module_id, advisory_library_item_id, title, description, owner_role, track, target_offset_days, sort_order';
 
 async function loadPlanTemplate(db: pg.ClientBase, id: string): Promise<PlanTemplateView | null> {
   const p = (
@@ -119,7 +119,7 @@ function normalizeItem(raw: unknown, i: number): NormalizedItem {
   if (!ITEM_KINDS.includes(kind as ItemKind)) throw new Error(`item ${i}: invalid kind "${kind}"`);
   const out: NormalizedItem = {
     kind: kind as ItemKind,
-    playbook_id: null,
+    library_task_id: null,
     content_module_id: null,
     advisory_library_item_id: null,
     title: null,
@@ -131,9 +131,9 @@ function normalizeItem(raw: unknown, i: number): NormalizedItem {
   if (out.target_offset_days != null && !Number.isFinite(out.target_offset_days)) {
     throw new Error(`item ${i}: target_offset_days must be a number`);
   }
-  if (kind === 'playbook') {
-    if (!r.playbook_id) throw new Error(`item ${i}: playbook_id required`);
-    out.playbook_id = String(r.playbook_id);
+  if (kind === 'task') {
+    if (!r.library_task_id) throw new Error(`item ${i}: library_task_id required`);
+    out.library_task_id = String(r.library_task_id);
   } else if (kind === 'education') {
     if (!r.content_module_id) throw new Error(`item ${i}: content_module_id required`);
     out.content_module_id = String(r.content_module_id);
@@ -163,20 +163,18 @@ function normalizeItem(raw: unknown, i: number): NormalizedItem {
   return out;
 }
 
-async function refExists(db: pg.ClientBase, table: 'playbooks' | 'content_modules', id: string): Promise<boolean> {
-  // table is a compile-time literal union, never caller input — safe to inline.
-  return ((await db.query(`select 1 from ${table} where id = $1`, [id])).rowCount ?? 0) > 0;
-}
-
-// Advisory items are firm-scoped: a firm may reference a GLOBAL item or its OWN,
-// never another firm's (docs/37 §2.4 cross-firm reference guard).
-async function advisoryVisible(db: pg.ClientBase, id: string, firmId: string): Promise<boolean> {
+// Library assets are firm-scoped: a firm may reference a GLOBAL row or its OWN,
+// never another firm's (docs/37 §2.4 cross-firm reference guard). The table is a
+// compile-time literal union, never caller input — safe to inline.
+async function refVisible(
+  db: pg.ClientBase,
+  table: 'library_tasks' | 'content_modules' | 'advisory_library_items',
+  id: string,
+  firmId: string,
+): Promise<boolean> {
   return (
     ((
-      await db.query(
-        `select 1 from advisory_library_items where id = $1 and (firm_id is null or firm_id = $2)`,
-        [id, firmId],
-      )
+      await db.query(`select 1 from ${table} where id = $1 and (firm_id is null or firm_id = $2)`, [id, firmId])
     ).rowCount ?? 0) > 0
   );
 }
@@ -192,13 +190,13 @@ async function resolveItems(
   const items = rawItems.map((it, i) => normalizeItem(it, i));
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
-    if (it.kind === 'playbook' && !(await refExists(db, 'playbooks', it.playbook_id!))) {
-      throw new Error(`item ${i}: unknown playbook`);
+    if (it.kind === 'task' && !(await refVisible(db, 'library_tasks', it.library_task_id!, firmId))) {
+      throw new Error(`item ${i}: task not found in your library`);
     }
-    if (it.kind === 'education' && !(await refExists(db, 'content_modules', it.content_module_id!))) {
-      throw new Error(`item ${i}: unknown content module`);
+    if (it.kind === 'education' && !(await refVisible(db, 'content_modules', it.content_module_id!, firmId))) {
+      throw new Error(`item ${i}: content module not found in your library`);
     }
-    if (it.kind === 'advisory' && !(await advisoryVisible(db, it.advisory_library_item_id!, firmId))) {
+    if (it.kind === 'advisory' && !(await refVisible(db, 'advisory_library_items', it.advisory_library_item_id!, firmId))) {
       throw new Error(`item ${i}: advisory item not found in your library`);
     }
   }
@@ -215,12 +213,12 @@ async function writeItems(
   for (const it of items) {
     await db.query(
       `insert into plan_template_items
-         (firm_id, plan_template_id, item_kind, playbook_id, content_module_id,
+         (firm_id, plan_template_id, item_kind, library_task_id, content_module_id,
           advisory_library_item_id, title, description, owner_role, track,
           target_offset_days, sort_order)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
-        firmId, planId, it.kind, it.playbook_id, it.content_module_id,
+        firmId, planId, it.kind, it.library_task_id, it.content_module_id,
         it.advisory_library_item_id, it.title, it.description, it.owner_role,
         it.track, it.target_offset_days, sort++,
       ],
@@ -350,7 +348,7 @@ async function carryForwardItems(db: pg.ClientBase, planId: string): Promise<Nor
   ).rows;
   return rows.map((r) => ({
     kind: r.item_kind,
-    playbook_id: r.playbook_id,
+    library_task_id: r.library_task_id,
     content_module_id: r.content_module_id,
     advisory_library_item_id: r.advisory_library_item_id,
     title: r.title,
@@ -456,16 +454,18 @@ export async function applyPlan(
       )
     ).rows[0].id;
 
-    // Existing playbook-derived tasks (from gaps or a prior apply) keyed for
-    // claim-or-create — the shared idempotency key with server/roadmap.ts.
+    // Existing library-task-derived tasks (from another applied Plan) keyed for
+    // claim-or-create — the once-per-engagement idempotency (docs/37 §1.4): a
+    // library task appears at most once on an engagement, tagged by whichever
+    // Plan first laid it down; a later Plan referencing the same task claims it.
     const existing = new Map<string, string>();
     for (const r of (
       await db.query(
-        `select id, playbook_id, sequence from tasks where engagement_id = $1 and playbook_id is not null`,
+        `select id, library_task_id from tasks where engagement_id = $1 and library_task_id is not null`,
         [engagementId],
       )
     ).rows) {
-      existing.set(`${r.playbook_id}:${r.sequence}`, r.id);
+      existing.set(r.library_task_id, r.id);
     }
 
     let tasksCreated = 0;
@@ -474,52 +474,55 @@ export async function applyPlan(
     const dueFromAnchor = `($1::date + ((coalesce($2, 0))::text || ' days')::interval)::date`;
 
     for (const it of items) {
-      if (it.item_kind === 'playbook') {
-        const templates = (
+      if (it.item_kind === 'task') {
+        const lt = (
           await db.query(
-            `select title, description, default_owner_role, sequence, target_offset_days
-             from playbook_task_templates where playbook_id = $1 order by sequence`,
-            [it.playbook_id],
+            `select title, description, default_owner_role, target_offset_days
+             from library_tasks where id = $1`,
+            [it.library_task_id],
           )
-        ).rows;
-        for (const t of templates) {
-          const key = `${it.playbook_id}:${t.sequence}`;
-          const existingId = existing.get(key);
-          if (existingId) {
+        ).rows[0];
+        if (!lt) throw new Error('library task not found');
+        const existingId = existing.get(it.library_task_id!);
+        let taskId: string;
+        if (existingId) {
+          await db.query(
+            `update tasks set engagement_plan_id = coalesce(engagement_plan_id, $2) where id = $1`,
+            [existingId, ep],
+          );
+          taskId = existingId;
+          tasksClaimed++;
+        } else {
+          // A plan item's own target_offset_days overrides the library task's.
+          const offset = it.target_offset_days ?? lt.target_offset_days ?? 0;
+          taskId = (
             await db.query(
-              `update tasks set engagement_plan_id = coalesce(engagement_plan_id, $2) where id = $1`,
-              [existingId, ep],
-            );
-            tasksClaimed++;
-          } else {
-            const newId = (
-              await db.query(
-                `insert into tasks
-                   (firm_id, engagement_id, gap_id, playbook_id, engagement_plan_id, title, description,
-                    owner_role, status, due_date, sequence)
-                 values ($3, $4, null, $5, $6, $7, $8, $9, 'todo', ${dueFromAnchor}, $10) returning id`,
-                [
-                  anchor, t.target_offset_days ?? 0, firmId, engagementId, it.playbook_id, ep,
-                  t.title, t.description, t.default_owner_role, t.sequence,
-                ],
-              )
-            ).rows[0].id;
-            existing.set(key, newId);
-            tasksCreated++;
-          }
+              `insert into tasks
+                 (firm_id, engagement_id, gap_id, library_task_id, engagement_plan_id, title, description,
+                  owner_role, status, due_date)
+               values ($3, $4, null, $5, $6, $7, $8, $9, 'todo', ${dueFromAnchor}) returning id`,
+              [
+                anchor, offset, firmId, engagementId, it.library_task_id, ep,
+                lt.title, lt.description, lt.default_owner_role,
+              ],
+            )
+          ).rows[0].id;
+          existing.set(it.library_task_id!, taskId);
+          tasksCreated++;
         }
         await db.query(
-          `insert into engagement_plan_items (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind)
-           values ($1, $2, $3, 'playbook')`,
-          [firmId, ep, it.id],
+          `insert into engagement_plan_items
+             (firm_id, engagement_plan_id, source_plan_template_item_id, item_kind, task_id)
+           values ($1, $2, $3, 'task', $4)`,
+          [firmId, ep, it.id, taskId],
         );
       } else if (it.item_kind === 'manual_task') {
         const taskId = (
           await db.query(
             `insert into tasks
-               (firm_id, engagement_id, gap_id, playbook_id, engagement_plan_id, title, description,
+               (firm_id, engagement_id, gap_id, engagement_plan_id, title, description,
                 owner_role, status, due_date)
-             values ($3, $4, null, null, $5, $6, $7, coalesce($8, 'owner')::task_owner_role, 'todo', ${dueFromAnchor})
+             values ($3, $4, null, $5, $6, $7, coalesce($8, 'owner')::task_owner_role, 'todo', ${dueFromAnchor})
              returning id`,
             [anchor, it.target_offset_days, firmId, engagementId, ep, it.title, it.description, it.owner_role],
           )
@@ -667,26 +670,26 @@ export async function reconcileEngagementPlans(
   engagementId: string,
 ): Promise<PlanReconcileResult> {
   const plans = (
-    await db.query(`select id from engagement_plans where engagement_id = $1 and status = 'active'`, [engagementId])
+    await db.query(
+      `select id, plan_template_id from engagement_plans where engagement_id = $1 and status = 'active'`,
+      [engagementId],
+    )
   ).rows;
   const completed: string[] = [];
   for (const ep of plans) {
-    // The gaps this plan targets on this engagement, via its playbook items'
-    // gap mappings, and how many are resolved.
+    // The gaps this plan targets on this engagement, via the plan's gap_plan_map
+    // links, and how many are resolved.
     const g = (
       await db.query(
         `select count(*)::int as total,
                 count(*) filter (where status = 'resolved')::int as resolved
          from (
            select distinct gp.id, gp.status
-           from engagement_plan_items epi
-           join plan_template_items pti
-             on pti.id = epi.source_plan_template_item_id and pti.item_kind = 'playbook'
-           join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
+           from gap_plan_map gpm
            join gaps gp on gp.gap_definition_id = gpm.gap_definition_id and gp.engagement_id = $2
-           where epi.engagement_plan_id = $1
+           where gpm.plan_template_id = $1
          ) t`,
-        [ep.id, engagementId],
+        [ep.plan_template_id, engagementId],
       )
     ).rows[0];
     if (Number(g.total) > 0 && Number(g.resolved) === Number(g.total)) {
@@ -741,9 +744,21 @@ export async function recommendPlans(
   // candidate when it covers at least one gap OR one fired initiative.
   const rows = (
     await db.query(
-      `with open_gaps as (
-         select distinct gap_definition_id from gaps
-         where engagement_id = $1 and status in ('open', 'in_remediation')
+      `with open_gap_dims as (
+         select distinct d.code as dim, gd.code as gap_code
+         from gaps g
+         join gap_definitions gd on gd.id = g.gap_definition_id
+         join dimensions d on d.id = gd.dimension_id
+         where g.engagement_id = $1 and g.status in ('open', 'in_remediation')
+       ),
+       plan_dims as (
+         select pti.plan_template_id,
+                coalesce(lt.dimension_code, cm.dimension_code, ali.dimension_code) as dim
+         from plan_template_items pti
+         left join library_tasks lt on lt.id = pti.library_task_id
+         left join content_modules cm on cm.id = pti.content_module_id
+         left join advisory_library_items ali on ali.id = pti.advisory_library_item_id
+         where pti.item_kind in ('task', 'education', 'advisory')
        ),
        applied as (
          select distinct pt.lineage_id
@@ -755,17 +770,14 @@ export async function recommendPlans(
          pt.id as plan_template_id,
          pt.name,
          (pt.firm_id is null) as is_system,
-         (select count(distinct gpm.gap_definition_id)
-            from plan_template_items pti
-            join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
-            join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
-            where pti.plan_template_id = pt.id and pti.item_kind = 'playbook') as matched_gap_count,
-         (select coalesce(array_agg(distinct gd.code), '{}')
-            from plan_template_items pti
-            join gap_playbook_map gpm on gpm.playbook_id = pti.playbook_id
-            join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
-            join gap_definitions gd on gd.id = og.gap_definition_id
-            where pti.plan_template_id = pt.id and pti.item_kind = 'playbook') as matched_gap_codes,
+         (select count(distinct ogd.dim)
+            from plan_dims pd
+            join open_gap_dims ogd on ogd.dim = pd.dim
+            where pd.plan_template_id = pt.id) as matched_gap_count,
+         (select coalesce(array_agg(distinct ogd.gap_code), '{}')
+            from plan_dims pd
+            join open_gap_dims ogd on ogd.dim = pd.dim
+            where pd.plan_template_id = pt.id) as matched_gap_codes,
          (select count(distinct pti.advisory_library_item_id)
             from plan_template_items pti
             where pti.plan_template_id = pt.id and pti.item_kind = 'advisory'
@@ -839,14 +851,29 @@ export async function autoApplyQualifyingPlans(
   ).rows[0];
   if (!eng) throw new Error('engagement not found');
 
-  // Candidate Plans not yet applied, with how many of their playbook items map to
-  // an open gap (matched) out of their total playbook items (denominator). Only
-  // playbook items map to gaps, so a Plan with no playbook items can't qualify.
+  // Candidate Plans not yet applied, with how many of their CONTENT items
+  // (task / education / advisory — the dimension-bearing ones) fall in a
+  // readiness area that currently has an open gap (matched) out of their total
+  // content items (denominator). A Plan qualifies when a MAJORITY of its content
+  // is on-target for this engagement. Inline milestone/manual_task items carry no
+  // dimension, so they're excluded from the coverage math.
   const candidates = (
     await db.query(
-      `with open_gaps as (
-         select distinct gap_definition_id from gaps
-         where engagement_id = $1 and status in ('open', 'in_remediation')
+      `with open_gap_dims as (
+         select distinct d.code as dim
+         from gaps g
+         join gap_definitions gd on gd.id = g.gap_definition_id
+         join dimensions d on d.id = gd.dimension_id
+         where g.engagement_id = $1 and g.status in ('open', 'in_remediation')
+       ),
+       plan_dims as (
+         select pti.plan_template_id,
+                coalesce(lt.dimension_code, cm.dimension_code, ali.dimension_code) as dim
+         from plan_template_items pti
+         left join library_tasks lt on lt.id = pti.library_task_id
+         left join content_modules cm on cm.id = pti.content_module_id
+         left join advisory_library_items ali on ali.id = pti.advisory_library_item_id
+         where pti.item_kind in ('task', 'education', 'advisory')
        ),
        applied as (
          select distinct pt.lineage_id
@@ -857,30 +884,24 @@ export async function autoApplyQualifyingPlans(
        select
          pt.id as plan_template_id,
          pt.name,
-         count(*) filter (where pti.item_kind = 'playbook') as playbook_items,
-         count(*) filter (
-           where pti.item_kind = 'playbook' and exists (
-             select 1 from gap_playbook_map gpm
-             join open_gaps og on og.gap_definition_id = gpm.gap_definition_id
-             where gpm.playbook_id = pti.playbook_id
-           )
-         ) as matched_items
+         count(pd.dim) as content_items,
+         count(pd.dim) filter (where pd.dim in (select dim from open_gap_dims)) as matched_items
        from plan_templates pt
-       join plan_template_items pti on pti.plan_template_id = pt.id
+       join plan_dims pd on pd.plan_template_id = pt.id
        where pt.status = 'active'
          and (pt.firm_id is null or pt.firm_id = $2)
          and pt.lineage_id not in (select lineage_id from applied)
        group by pt.id, pt.name
-       having count(*) filter (where pti.item_kind = 'playbook') > 0`,
+       having count(pd.dim) > 0`,
       [engagementId, eng.firm_id],
     )
   ).rows;
 
   const applied: AutoAppliedPlanSummary[] = [];
   for (const c of candidates) {
-    const playbookItems = Number(c.playbook_items) || 0;
+    const contentItems = Number(c.content_items) || 0;
     const matched = Number(c.matched_items) || 0;
-    if (matched < 1 || matched / playbookItems < AUTO_APPLY_MIN_COVERAGE) continue;
+    if (matched < 1 || contentItems < 1 || matched / contentItems < AUTO_APPLY_MIN_COVERAGE) continue;
     const res = await applyPlan(
       db,
       eng.firm_id,

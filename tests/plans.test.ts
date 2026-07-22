@@ -26,7 +26,8 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
   let firmId: string;
   let otherFirmId: string;
   const advisorUserId = 'user_plans_adv';
-  let playbookId: string;
+  let libTask1Id: string;
+  let libTask2Id: string;
   let contentId: string;
   let advisoryOwnId: string;
   let advisoryOtherId: string;
@@ -66,8 +67,19 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
       `insert into profiles (user_id, firm_id, role, full_name) values ($1, $2, 'advisor', 'Plans Advisor')`,
       [advisorUserId, firmId],
     );
-    playbookId = (
-      await service.query(`insert into playbooks (code, name, version) values ('PL-TEST-PB', 'Test Playbook', 1) returning id`)
+    libTask1Id = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, target_offset_days)
+         values ($1, 'advisor', 'FIRM-LT-1', 'Lib task 1', 'owner', 0) returning id`,
+        [firmId],
+      )
+    ).rows[0].id;
+    libTask2Id = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, target_offset_days)
+         values ($1, 'advisor', 'FIRM-LT-2', 'Lib task 2', 'advisor', 30) returning id`,
+        [firmId],
+      )
     ).rows[0].id;
     contentId = (
       await service.query(`insert into content_modules (code, title, body_md) values ('PL-TEST-CM', 'Test Module', 'x') returning id`)
@@ -84,12 +96,6 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         [otherFirmId],
       )
     ).rows[0].id;
-    // Two playbook task templates so apply materializes real task rows.
-    await service.query(
-      `insert into playbook_task_templates (playbook_id, title, default_owner_role, sequence, target_offset_days)
-       values ($1, 'PB task 1', 'owner', 1, 0), ($1, 'PB task 2', 'advisor', 2, 30)`,
-      [playbookId],
-    );
     const companyId = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'Plans Co') returning id`, [firmId])
     ).rows[0].id;
@@ -120,11 +126,10 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(`delete from companies where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_template_items where firm_id = $1`, [firmId]);
     await service.query(`delete from plan_templates where firm_id = $1`, [firmId]);
-    await service.query(`delete from playbook_task_templates where playbook_id = $1`, [playbookId]);
     await service.query(`delete from advisory_library_items where firm_id = any($1)`, [[firmId, otherFirmId]]);
     await service.query(`delete from content_modules where code = 'PL-TEST-CM'`);
-    // PL-TEST-PB plus the extra non-gap-mapped playbooks the auto-apply test adds.
-    await service.query(`delete from playbooks where code like 'PL-TEST-PB%'`);
+    // Firm-authored library tasks created across these tests.
+    await service.query(`delete from library_tasks where firm_id = any($1)`, [[firmId, otherFirmId]]);
     await service.query(`delete from profiles where user_id = $1`, [advisorUserId]);
     await service.query(`delete from firms where id = any($1)`, [[firmId, otherFirmId]]);
     await service.end();
@@ -139,7 +144,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         summary: 'a test plan',
         status: 'active',
         items: [
-          { kind: 'playbook', playbook_id: playbookId },
+          { kind: 'task', library_task_id: libTask1Id },
           { kind: 'education', content_module_id: contentId },
           { kind: 'advisory', advisory_library_item_id: advisoryOwnId },
           { kind: 'milestone', title: 'Business is buyer-ready', track: 'business' },
@@ -156,7 +161,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
       expect(plan.is_system).toBe(false);
       expect(plan.firm_id).toBe(firmId);
       expect(plan.items.map((i) => i.item_kind)).toEqual([
-        'playbook', 'education', 'advisory', 'milestone', 'manual_task',
+        'task', 'education', 'advisory', 'milestone', 'manual_task',
       ]);
     }
   });
@@ -270,7 +275,8 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         name: 'Apply Me',
         status: 'active',
         items: [
-          { kind: 'playbook', playbook_id: playbookId },
+          { kind: 'task', library_task_id: libTask1Id },
+          { kind: 'task', library_task_id: libTask2Id },
           { kind: 'manual_task', title: 'a manual task', owner_role: 'owner' },
           { kind: 'milestone', title: 'a milestone', track: 'business', target_offset_days: 60 },
           { kind: 'education', content_module_id: contentId },
@@ -288,18 +294,18 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     );
     expect(r).toMatchObject({ kind: 'json', status: 200 });
     const applied = (r as { body: { engagement_plan: { id: string; applied_plan_version: number }; tasks_created: number; milestones_created: number } }).body;
-    // 2 playbook tasks + 1 manual task = 3 created; 1 milestone.
+    // 2 library tasks + 1 manual task = 3 created; 1 milestone.
     expect(applied.tasks_created).toBe(3);
     expect(applied.milestones_created).toBe(1);
     const epId = applied.engagement_plan.id;
 
-    // Tasks tagged with the applied plan; milestone present; 5 item records.
+    // Tasks tagged with the applied plan; milestone present; 6 item records.
     const taggedTasks = await service.query(`select count(*)::int c from tasks where engagement_plan_id = $1`, [epId]);
     expect(taggedTasks.rows[0].c).toBe(3);
     const ms = await service.query(`select count(*)::int c from roadmap_milestones where engagement_plan_id = $1`, [epId]);
     expect(ms.rows[0].c).toBe(1);
     const epItems = await service.query(`select count(*)::int c from engagement_plan_items where engagement_plan_id = $1`, [epId]);
-    expect(epItems.rows[0].c).toBe(5);
+    expect(epItems.rows[0].c).toBe(6);
 
     // Re-apply is an idempotent no-op: same snapshot, nothing new created.
     const again = await handleFunctionCall(
@@ -315,7 +321,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect(tasksAfter.rows[0].c).toBe(3); // not duplicated
   });
 
-  it('claims a playbook’s tasks a gap already created rather than duplicating them', async () => {
+  it('claims a library task another Plan already created rather than duplicating it', async () => {
     // A fresh engagement so this test is isolated from the apply test above.
     const companyId2 = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'Claim Co') returning id`, [firmId])
@@ -326,15 +332,22 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         [firmId, companyId2],
       )
     ).rows[0].id;
-    // Pre-create a task as if a gap instantiated this playbook (sequence 1).
+    // Pre-create a task as if another applied Plan already laid down library task 1.
     await service.query(
-      `insert into tasks (firm_id, engagement_id, playbook_id, title, status, sequence)
-       values ($1, $2, $3, 'PB task 1', 'todo', 1)`,
-      [firmId, engagement2, playbookId],
+      `insert into tasks (firm_id, engagement_id, library_task_id, title, status)
+       values ($1, $2, $3, 'Lib task 1', 'todo')`,
+      [firmId, engagement2, libTask1Id],
     );
     const plan = await handleFunctionCall(
       'create-plan',
-      { name: 'Claim Test', status: 'active', items: [{ kind: 'playbook', playbook_id: playbookId }] },
+      {
+        name: 'Claim Test',
+        status: 'active',
+        items: [
+          { kind: 'task', library_task_id: libTask1Id },
+          { kind: 'task', library_task_id: libTask2Id },
+        ],
+      },
       ctxFor(advisorUserId),
     );
     const planId = (plan as { body: PlanBody }).body.id;
@@ -344,14 +357,14 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
       ctxFor(advisorUserId),
     );
     const applied = (r as { body: { engagement_plan: { id: string }; tasks_created: number; tasks_claimed: number } }).body;
-    // Sequence 1 exists → claimed; sequence 2 → created. No duplicate for seq 1.
+    // Library task 1 exists → claimed; library task 2 → created. No duplicate for task 1.
     expect(applied.tasks_claimed).toBe(1);
     expect(applied.tasks_created).toBe(1);
-    const seq1 = await service.query(
-      `select count(*)::int c from tasks where engagement_id = $1 and playbook_id = $2 and sequence = 1`,
-      [engagement2, playbookId],
+    const t1 = await service.query(
+      `select count(*)::int c from tasks where engagement_id = $1 and library_task_id = $2`,
+      [engagement2, libTask1Id],
     );
-    expect(seq1.rows[0].c).toBe(1); // not duplicated
+    expect(t1.rows[0].c).toBe(1); // not duplicated
   });
 
   it('reports plan progress and stamps completion when all work is done (PL4)', async () => {
@@ -458,9 +471,9 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
   });
 
   it('reconcile marks a plan completed once its targeted gaps all resolve (PL4c, Q7)', async () => {
-    // Use a seeded playbook↔gap mapping so the plan targets a real gap.
+    // Use a seeded gap↔Plan mapping so the applied Plan targets a real gap.
     const map = (
-      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+      await service.query(`select gap_definition_id, plan_template_id from gap_plan_map limit 1`)
     ).rows[0];
     const companyId5 = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'Reconcile Co') returning id`, [firmId])
@@ -477,7 +490,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
         [firmId, eng5, rv],
       )
     ).rows[0].id;
-    // An OPEN gap the plan's playbook targets.
+    // An OPEN gap the Plan is linked to (gap_plan_map).
     const gapId = (
       await service.query(
         `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
@@ -486,15 +499,10 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
       )
     ).rows[0].id;
 
-    const plan = await handleFunctionCall(
-      'create-plan',
-      { name: 'Gap Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }] },
-      ctxFor(advisorUserId),
-    );
-    const planId = (plan as { body: PlanBody }).body.id;
+    // Apply the seeded system Plan the gap maps to.
     const applied = await handleFunctionCall(
       'apply-plan',
-      { engagement_id: eng5, plan_template_id: planId },
+      { engagement_id: eng5, plan_template_id: map.plan_template_id },
       ctxFor(advisorUserId),
     );
     const epId = (applied as { body: { engagement_plan: { id: string } } }).body.engagement_plan.id;
@@ -511,10 +519,22 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect((await service.query(`select status from engagement_plans where id = $1`, [epId])).rows[0].status).toBe('completed');
   });
 
-  it('recommends a plan whose playbook targets an open gap, and drops it once applied (Q5)', async () => {
-    const map = (
-      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+  it('recommends a plan whose content targets an open gap’s area, and drops it once applied (Q5)', async () => {
+    // A gap definition and its readiness area (dimension).
+    const gd = (
+      await service.query(
+        `select gd.id as gap_definition_id, gd.code as gap_code, d.code as dim
+         from gap_definitions gd join dimensions d on d.id = gd.dimension_id limit 1`,
+      )
     ).rows[0];
+    // A firm library task in that readiness area, so a Plan containing it covers the gap.
+    const libId = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, dimension_code)
+         values ($1, 'advisor', 'FIRM-LT-REC', 'Rec task', 'owner', $2) returning id`,
+        [firmId, gd.dim],
+      )
+    ).rows[0].id;
     const companyId6 = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'Recommend Co') returning id`, [firmId])
     ).rows[0].id;
@@ -533,11 +553,11 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(
       `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
        values ($1, $2, $3, $4, 'open')`,
-      [firmId, eng6, map.gap_definition_id, a1],
+      [firmId, eng6, gd.gap_definition_id, a1],
     );
     const plan = await handleFunctionCall(
       'create-plan',
-      { name: 'Recommendable Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }] },
+      { name: 'Recommendable Plan', status: 'active', items: [{ kind: 'task', library_task_id: libId }] },
       ctxFor(advisorUserId),
     );
     const planId = (plan as { body: PlanBody }).body.id;
@@ -547,6 +567,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     const rec = before.recommendations.find((r) => r.plan_template_id === planId);
     expect(rec).toBeDefined();
     expect(rec!.matched_gap_count).toBeGreaterThanOrEqual(1);
+    expect(rec!.matched_gap_codes).toContain(gd.gap_code);
 
     // After applying, it drops out of the recommendations (already applied).
     await handleFunctionCall('apply-plan', { engagement_id: eng6, plan_template_id: planId }, ctxFor(advisorUserId));
@@ -597,23 +618,39 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect(rec!.match_score).toBeGreaterThanOrEqual(1);
   });
 
-  it('auto-applies a plan whose playbooks mostly target open gaps, skips a mostly-off-target one (Q5b)', async () => {
-    const map = (
-      await service.query(`select gap_definition_id, playbook_id from gap_playbook_map limit 1`)
+  it('auto-applies a plan whose content mostly targets open gaps, skips a mostly-off-target one (Q5b)', async () => {
+    // A gap definition's readiness area (dimension), and a different area with no gap.
+    const gd = (
+      await service.query(
+        `select gd.id as gap_definition_id, d.code as dim
+         from gap_definitions gd join dimensions d on d.id = gd.dimension_id limit 1`,
+      )
     ).rows[0];
-    // Two extra playbooks with NO gap mapping, so plans mixing them dilute coverage.
-    const ng1 = (
-      await service.query(`insert into playbooks (code, name, version) values ('PL-TEST-PB-NG1', 'No-gap PB 1', 1) returning id`)
+    const otherDim = (
+      await service.query(`select code from dimensions where code <> $1 order by code limit 1`, [gd.dim])
+    ).rows[0].code;
+    // One library task in the gap's area (matches), two in an area with no gap (dilute).
+    const libMatch = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, dimension_code)
+         values ($1, 'advisor', 'FIRM-LT-M', 'match task', 'owner', $2) returning id`,
+        [firmId, gd.dim],
+      )
     ).rows[0].id;
-    const ng2 = (
-      await service.query(`insert into playbooks (code, name, version) values ('PL-TEST-PB-NG2', 'No-gap PB 2', 1) returning id`)
+    const libNo1 = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, dimension_code)
+         values ($1, 'advisor', 'FIRM-LT-N1', 'off task 1', 'owner', $2) returning id`,
+        [firmId, otherDim],
+      )
     ).rows[0].id;
-    // Give the matching playbook a task template so application materializes a task.
-    await service.query(
-      `insert into playbook_task_templates (playbook_id, title, default_owner_role, sequence, target_offset_days)
-       values ($1, 'gap task', 'owner', 1, 0) on conflict do nothing`,
-      [map.playbook_id],
-    );
+    const libNo2 = (
+      await service.query(
+        `insert into library_tasks (firm_id, source, code, title, default_owner_role, dimension_code)
+         values ($1, 'advisor', 'FIRM-LT-N2', 'off task 2', 'owner', $2) returning id`,
+        [firmId, otherDim],
+      )
+    ).rows[0].id;
 
     const companyId8 = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'AutoApply Co') returning id`, [firmId])
@@ -633,18 +670,18 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     await service.query(
       `insert into gaps (firm_id, engagement_id, gap_definition_id, opened_by_assessment_id, status)
        values ($1, $2, $3, $4, 'open')`,
-      [firmId, eng8, map.gap_definition_id, a1],
+      [firmId, eng8, gd.gap_definition_id, a1],
     );
 
-    // Qualifying: 1 of 2 playbook items map to the open gap → 50% ≥ threshold.
+    // Qualifying: 1 of 2 content items in an open-gap area → 50% ≥ threshold.
     const majorityPlan = (
       (await handleFunctionCall(
         'create-plan',
-        { name: 'Majority Plan', status: 'active', items: [{ kind: 'playbook', playbook_id: map.playbook_id }, { kind: 'playbook', playbook_id: ng1 }] },
+        { name: 'Majority Plan', status: 'active', items: [{ kind: 'task', library_task_id: libMatch }, { kind: 'task', library_task_id: libNo1 }] },
         ctxFor(advisorUserId),
       )) as { body: PlanBody }
     ).body.id;
-    // Not qualifying: 1 of 3 playbook items map → 33% < threshold.
+    // Not qualifying: 1 of 3 content items in an open-gap area → 33% < threshold.
     const minorityPlan = (
       (await handleFunctionCall(
         'create-plan',
@@ -652,9 +689,9 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
           name: 'Minority Plan',
           status: 'active',
           items: [
-            { kind: 'playbook', playbook_id: map.playbook_id },
-            { kind: 'playbook', playbook_id: ng1 },
-            { kind: 'playbook', playbook_id: ng2 },
+            { kind: 'task', library_task_id: libMatch },
+            { kind: 'task', library_task_id: libNo1 },
+            { kind: 'task', library_task_id: libNo2 },
           ],
         },
         ctxFor(advisorUserId),
@@ -666,9 +703,7 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect(appliedIds).toContain(majorityPlan);
     expect(appliedIds).not.toContain(minorityPlan);
 
-    // The majority plan really landed as an applied engagement_plan that touched
-    // the gap playbook's tasks (created them, or claimed ones a seed plan made
-    // first — either way its summary reflects the work).
+    // The majority plan really landed as an applied engagement_plan with tasks.
     const majoritySummary = res.applied.find((p) => p.plan_template_id === majorityPlan)!;
     expect(majoritySummary.tasks_created + majoritySummary.tasks_claimed).toBeGreaterThanOrEqual(1);
     const ep = (

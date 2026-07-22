@@ -210,6 +210,17 @@ async function main() {
       `insert into advisory_library_items (firm_id, source, item_type, code, title, body, severity, score_trigger)
        values (null, 'system', 'buyer_question', 'RLS-SYS-1', 'Global system question', 'shared', 'high', 70)`,
     );
+    // library_tasks (docs/37 unify): a global/system task + a firm B firm-authored
+    // task, for the library-task isolation checks below.
+    await db.query(
+      `insert into library_tasks (firm_id, source, code, title, default_owner_role, dimension_code)
+       values (null, 'system', 'RLS-SYS-LT', 'Global system task', 'owner', 'FIN')`,
+    );
+    await db.query(
+      `insert into library_tasks (firm_id, source, title, default_owner_role, dimension_code)
+       values ($1, 'advisor', 'Firm B private task', 'owner', 'FIN')`,
+      [ids.firm_b],
+    );
     // Plans (docs/37): a global/system template, a firm B firm-authored template,
     // and a firm B applied plan — for the plan-isolation checks below.
     await db.query(
@@ -914,6 +925,47 @@ async function main() {
       await db.query('rollback to savepoint plansys');
     }
     check('cannot write into the global system plan catalog', planSysWriteBlocked);
+
+    // library_tasks (docs/37 unify): advisor A reads global system tasks + own
+    // firm, never firm B's; can create own, cannot create for B or a system row.
+    await db.query(
+      `insert into library_tasks (firm_id, source, title, default_owner_role)
+       values ($1, 'advisor', 'Firm A task', 'owner')`,
+      [ids.firm_a],
+    );
+    check('can create own firm library task', true);
+    const tasksA = await db.query('select firm_id from library_tasks');
+    check(
+      'reads the global system library task',
+      tasksA.rows.filter((r) => r.firm_id === null).length >= 1,
+    );
+    check('sees own firm library tasks', tasksA.rows.filter((r) => r.firm_id === ids.firm_a).length === 1);
+    check('cannot read firm B library tasks', tasksA.rows.filter((r) => r.firm_id === ids.firm_b).length === 0);
+    let ltBWriteBlocked = false;
+    try {
+      await db.query('savepoint lt');
+      await db.query(
+        `insert into library_tasks (firm_id, source, title, default_owner_role) values ($1, 'advisor', 'sneak', 'owner')`,
+        [ids.firm_b],
+      );
+      await db.query('release savepoint lt');
+    } catch {
+      ltBWriteBlocked = true;
+      await db.query('rollback to savepoint lt');
+    }
+    check('cannot create library task for firm B', ltBWriteBlocked);
+    let ltSysWriteBlocked = false;
+    try {
+      await db.query('savepoint ltsys');
+      await db.query(
+        `insert into library_tasks (firm_id, source, title, default_owner_role) values (null, 'system', 'fake system task', 'owner')`,
+      );
+      await db.query('release savepoint ltsys');
+    } catch {
+      ltSysWriteBlocked = true;
+      await db.query('rollback to savepoint ltsys');
+    }
+    check('cannot write into the global system library-task catalog', ltSysWriteBlocked);
 
     // engagement_plans (applied instances): advisor A applies to own engagement,
     // sees only own firm's applied plans, never firm B's.

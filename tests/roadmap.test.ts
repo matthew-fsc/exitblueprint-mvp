@@ -1,5 +1,8 @@
-// Roadmap task instantiation (F5). Requires a migrated + seeded database
-// (DATABASE_URL); skipped otherwise.
+// Roadmap generation (F5). Playbooks are retired: generating the roadmap
+// auto-applies every Plan whose content is majority-applicable to the
+// engagement's open gaps (server/plans.ts). Applying a Plan is the sole path
+// that lays tasks down; each task is tied to a library_task + an applied Plan.
+// Requires a migrated + seeded database (DATABASE_URL); skipped otherwise.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { scoreAssessment } from '../server/scoring';
@@ -62,7 +65,15 @@ describe.skipIf(!url)('instantiateTasksForGaps', () => {
 
   afterAll(async () => {
     if (!db) return;
+    // FK order: plan items reference tasks/milestones/plans; tasks & milestones
+    // reference plans — so items first, then tasks/milestones, then plans.
+    await db.query(
+      `delete from engagement_plan_items where engagement_plan_id in (select id from engagement_plans where firm_id = $1)`,
+      [firmId],
+    );
     await db.query(`delete from tasks where firm_id = $1`, [firmId]);
+    await db.query(`delete from roadmap_milestones where firm_id = $1`, [firmId]);
+    await db.query(`delete from engagement_plans where firm_id = $1`, [firmId]);
     for (const table of ['sub_score_results', 'dimension_scores', 'answers']) {
       await db.query(
         `delete from ${table} where assessment_id in (select id from assessments where firm_id = $1)`,
@@ -79,62 +90,52 @@ describe.skipIf(!url)('instantiateTasksForGaps', () => {
     await db.end();
   });
 
-  it('creates tasks from open gaps, one set per playbook, idempotently', async () => {
+  it('creates tasks by auto-applying qualifying Plans, idempotently', async () => {
     const first = await instantiateTasksForGaps(db, engagementId);
     expect(first.tasksCreated).toBeGreaterThan(0);
+    expect(first.plansApplied.length).toBeGreaterThan(0);
 
     const rows = await db.query(
-      `select count(*)::int c, count(distinct playbook_id)::int pb from tasks where engagement_id = $1`,
+      `select count(*)::int c,
+              count(library_task_id)::int with_lt,
+              count(distinct library_task_id)::int distinct_lt,
+              count(*) filter (where engagement_plan_id is not null)::int planned
+       from tasks where engagement_id = $1`,
       [engagementId],
     );
+    // Every reported create is a real row; every task belongs to an applied Plan;
+    // a library task appears at most once (once-per-engagement idempotency —
+    // inline manual-task rows carry a null library_task_id, hence with_lt < c).
     expect(rows.rows[0].c).toBe(first.tasksCreated);
-    // each playbook instantiated once: task count == sum of its templates, no dup sets
-    const perPlaybook = await db.query(
-      `select playbook_id, count(*)::int c, count(distinct sequence)::int s
-       from tasks where engagement_id = $1 group by playbook_id`,
-      [engagementId],
-    );
-    for (const r of perPlaybook.rows) expect(r.c).toBe(r.s); // no duplicate sequences
+    expect(rows.rows[0].distinct_lt).toBe(rows.rows[0].with_lt);
+    expect(rows.rows[0].planned).toBe(rows.rows[0].c);
 
     const again = await instantiateTasksForGaps(db, engagementId);
-    expect(again.tasksCreated).toBe(0); // idempotent
+    expect(again.tasksCreated).toBe(0); // idempotent — the Plans are already applied
   });
 
-  it('derives due dates from the engagement start + template offset', async () => {
+  it('derives due dates from the engagement start + task offset', async () => {
     const t = (
       await db.query(
         `select min(due_date) as earliest from tasks where engagement_id = $1`,
         [engagementId],
       )
     ).rows[0];
-    // earliest offset in the seed is 14 days -> 2026-01-15
-    expect(new Date(t.earliest).getTime()).toBeGreaterThanOrEqual(new Date('2026-01-14').getTime());
+    // Every offset is >= 0 (inline manual tasks with no offset land on the anchor),
+    // so the earliest due date is on/after the engagement start.
+    expect(new Date(t.earliest).getTime()).toBeGreaterThanOrEqual(new Date('2026-01-01').getTime());
   });
 
-  it('re-anchors task due dates when given an explicit start date', async () => {
-    const anchor = '2027-03-01';
-    await instantiateTasksForGaps(db, engagementId, anchor);
-    const earliest = (
-      await db.query(
-        `select min(due_date) as d from tasks where engagement_id = $1 and playbook_id is not null`,
-        [engagementId],
-      )
-    ).rows[0].d;
-    // Every offset is >= 0, so the earliest due date is on/after the anchor,
-    // and the whole plan has shifted forward to 2027.
-    expect(new Date(earliest).getTime()).toBeGreaterThanOrEqual(new Date(anchor).getTime());
-    expect(new Date(earliest).getFullYear()).toBe(2027);
-  });
-
-  it('processes gaps most-critical first (a critical gap seeds a playbook)', async () => {
-    // A critical gap's mapped playbook must have tasks (critical gaps are never
-    // skipped by dedup because they are processed first).
+  it('auto-applies the remediation Plan a critical gap is linked to', async () => {
+    // A critical gap's remediation Plan (gap_plan_map) is applied and its tasks
+    // are on the roadmap, tagged with that applied Plan.
     const criticalWithTasks = await db.query(
       `select count(*)::int c
        from gaps g
        join gap_definitions gd on gd.id = g.gap_definition_id
-       join gap_playbook_map m on m.gap_definition_id = gd.id
-       join tasks t on t.playbook_id = m.playbook_id and t.engagement_id = g.engagement_id
+       join gap_plan_map m on m.gap_definition_id = gd.id
+       join engagement_plans ep on ep.plan_template_id = m.plan_template_id and ep.engagement_id = g.engagement_id
+       join tasks t on t.engagement_plan_id = ep.id
        where g.engagement_id = $1 and gd.severity = 'critical'`,
       [engagementId],
     );

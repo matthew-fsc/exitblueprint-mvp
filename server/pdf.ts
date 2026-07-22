@@ -321,7 +321,7 @@ export interface OwnerReportData {
   tier: string;
   ori: number;
   dimensions: { name: string; score: number }[];
-  topGaps: { name: string; severity: string; playbook: string | null }[];
+  topGaps: { name: string; severity: string; remediation: string | null }[];
   flags: string[];
 }
 
@@ -368,7 +368,7 @@ export function renderOwnerReportHtml(
     ? data.topGaps
         .map(
           (g) =>
-            `<div class="gap-item"><span class="sev ${g.severity}">${esc(g.severity)}</span><strong>${esc(g.name)}</strong>${g.playbook ? `<div class="why">${esc(g.playbook)}</div>` : ''}</div>`,
+            `<div class="gap-item"><span class="sev ${g.severity}">${esc(g.severity)}</span><strong>${esc(g.name)}</strong>${g.remediation ? `<div class="why">${esc(g.remediation)}</div>` : ''}</div>`,
         )
         .join('')
     : '<p class="mut">No gaps were flagged in this assessment.</p>';

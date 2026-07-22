@@ -1,5 +1,16 @@
 # 37 - Plans — reusable initiative bundles (feature reference)
 
+> **Update 2026-07-22 — playbooks unified into Plans (see docs/06).** The playbook
+> primitive is retired. The atomic remediation unit is now a **`library_tasks`** row
+> (a first-class Library item alongside education and advisory), and a **Plan** is the
+> ONLY grouping layer — `plan_item_kind` gains `task` and drops `playbook`. A gap links
+> to its remediation Plan via **`gap_plan_map`** (replacing `gap_playbook_map`), and
+> `applyPlan` is the sole path that lays tasks onto the roadmap: `generate-roadmap`
+> auto-applies every Plan whose content is ≥50% applicable to the engagement's open
+> gaps. Education lives only in `content_modules`. The section bodies below describe the
+> original playbook-based design; substitute "library task" for "playbook item" and
+> "`gap_plan_map`" for "`gap_playbook_map`" when reading them as the current as-built.
+
 > **Status: Reference — SHIPPED.** Slices PL1–PL4 (schema+seed → authoring → apply →
 > tracking/reconcile), the owner "Your plan" view (Q3), and score-suggested
 > recommendation (Q5) all shipped 2026-07-21 (decisions log; commit "Production
