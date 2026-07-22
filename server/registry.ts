@@ -48,6 +48,7 @@ import {
   createPlan,
   updatePlan,
   applyPlan,
+  autoApplyQualifyingPlans,
   engagementPlanProgress,
   recommendPlans,
 } from './plans';
@@ -180,7 +181,27 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'rules',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => scoreAssessment(service, body.assessment_id as string).then(ok),
+    handler: async ({ service, body, userId }) => {
+      const assessmentId = body.assessment_id as string;
+      const result = await scoreAssessment(service, assessmentId);
+      // Prescribe automatically (docs/37): with the scored gaps committed,
+      // auto-apply the qualifying system/firm Plans so the roadmap is populated
+      // the moment an assessment is scored — the software is useful out of the box
+      // without a manual "generate roadmap" step. Best-effort: a prescription
+      // hiccup must never fail an otherwise-successful score (the advisor can
+      // still generate the roadmap by hand). Idempotent and safe on re-assessment.
+      try {
+        const eng = (
+          await service.query(`select engagement_id from assessments where id = $1`, [assessmentId])
+        ).rows[0];
+        if (eng) await autoApplyQualifyingPlans(service, eng.engagement_id as string, userId ?? null);
+      } catch (err) {
+        console.error(
+          `auto-apply plans after scoring ${assessmentId} failed: ${(err as Error).message}`,
+        );
+      }
+      return ok(result);
+    },
   },
   'explain-assessment': {
     engine: 'rules',

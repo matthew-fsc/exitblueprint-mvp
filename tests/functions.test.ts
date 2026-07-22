@@ -7,7 +7,7 @@
 // from the dev emulator.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { acceptAgreement } from './helpers';
+import { acceptAgreement, loadFixture } from './helpers';
 import { handleFunctionCall, type FunctionContext } from '../server/functions';
 
 const url = process.env.DATABASE_URL;
@@ -456,6 +456,86 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
       ctxFor(advisorUserId),
     );
     expect(r).toMatchObject({ kind: 'json', status: 400 });
+  });
+
+  it('score-assessment: auto-applies qualifying Plans onto the roadmap', async () => {
+    // A fresh engagement so the auto-applied roadmap is isolated and torn down via
+    // the delete-engagement function at the end.
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const companyId = (
+      await service.query(
+        `insert into companies (firm_id, name, industry) values ($1, 'AutoApply Co', 'Precision Manufacturing') returning id`,
+        [firmId],
+      )
+    ).rows[0].id;
+    const engId = (
+      await service.query(`insert into engagements (firm_id, company_id) values ($1, $2) returning id`, [
+        firmId,
+        companyId,
+      ])
+    ).rows[0].id;
+    await acceptAgreement(service, engId);
+    const aid = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number)
+         values ($1, $2, $3, 1) returning id`,
+        [firmId, engId, rv],
+      )
+    ).rows[0].id;
+    const qids = new Map<string, string>(
+      (
+        await service.query(
+          `select q.id, q.code from questions q join dimensions d on d.id = q.dimension_id
+           where d.rubric_version_id = $1`,
+          [rv],
+        )
+      ).rows.map((r) => [r.code, r.id]),
+    );
+    // Fixture 2 fires many gaps, so qualifying Plans exist to auto-apply.
+    for (const [code, value] of Object.entries(loadFixture('company-2-apex-fabrication').answers)) {
+      const qid = qids.get(code);
+      if (!qid) continue;
+      await service.query(`insert into answers (assessment_id, question_id, value) values ($1, $2, $3)`, [
+        aid,
+        qid,
+        JSON.stringify(value),
+      ]);
+    }
+
+    const r = await handleFunctionCall('score-assessment', { assessment_id: aid }, ctxFor(advisorUserId));
+    expect(r).toMatchObject({ kind: 'json', status: 200 });
+
+    // Scoring auto-applied the roadmap — Plans and tasks exist with no manual
+    // "generate roadmap" call.
+    const plans = (
+      await service.query(
+        `select count(*)::int c from engagement_plans where engagement_id = $1 and status <> 'removed'`,
+        [engId],
+      )
+    ).rows[0].c;
+    expect(plans).toBeGreaterThan(0);
+    const tasks = (
+      await service.query(`select count(*)::int c from tasks where engagement_id = $1`, [engId])
+    ).rows[0].c;
+    expect(tasks).toBeGreaterThan(0);
+
+    // Tear the whole scored subtree down (FK order: plan items → tasks/milestones
+    // → plans → scored children → gaps → assessment → agreement → engagement).
+    await service.query(
+      `delete from engagement_plan_items where engagement_plan_id in (select id from engagement_plans where engagement_id = $1)`,
+      [engId],
+    );
+    await service.query(`delete from tasks where engagement_id = $1`, [engId]);
+    await service.query(`delete from roadmap_milestones where engagement_id = $1`, [engId]);
+    await service.query(`delete from engagement_plans where engagement_id = $1`, [engId]);
+    for (const table of ['sub_score_results', 'dimension_scores', 'answers']) {
+      await service.query(`delete from ${table} where assessment_id = $1`, [aid]);
+    }
+    await service.query(`delete from gaps where engagement_id = $1`, [engId]);
+    await service.query(`delete from assessments where id = $1`, [aid]);
+    await service.query(`delete from engagement_agreements where engagement_id = $1`, [engId]);
+    await service.query(`delete from engagements where id = $1`, [engId]);
+    await service.query(`delete from companies where id = $1`, [companyId]);
   });
 
   it('unknown function name → 404', async () => {
