@@ -412,9 +412,16 @@ function AddEngagementDialog({
   const [newName, setNewName] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
   const [signer, setSigner] = useState('');
-  const [consentBenchmarking, setConsentBenchmarking] = useState(false);
-  const [consentAggregation, setConsentAggregation] = useState(false);
-  const [consentOutcome, setConsentOutcome] = useState(false);
+  // Data-use consents are pre-selected (opt-out): the three de-identified /
+  // aggregate uses are common, so the default is checked to keep onboarding
+  // quick, and the advisor unchecks any the client has not authorized. NOTE for
+  // counsel: a pre-ticked box is not valid "consent" under GDPR (Recital 32 /
+  // Planet49) — if the Service is ever offered where GDPR-style affirmative
+  // consent is required, these must default to false. Fine for a US, de-identified,
+  // advisor-recorded beta; tracked in the legal COUNSEL_REVIEW_ITEMS.
+  const [consentBenchmarking, setConsentBenchmarking] = useState(true);
+  const [consentAggregation, setConsentAggregation] = useState(true);
+  const [consentOutcome, setConsentOutcome] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -538,6 +545,10 @@ function AddEngagementDialog({
 
           <fieldset className="agreement-consents">
             <legend>Data-use consent (as authorized by the client)</legend>
+            <p className="muted" style={{ margin: '0 0 var(--space-2)' }}>
+              Covers de-identified and aggregate use only. Pre-selected for
+              convenience — uncheck any the client has not authorized.
+            </p>
             <label>
               <input
                 type="checkbox"

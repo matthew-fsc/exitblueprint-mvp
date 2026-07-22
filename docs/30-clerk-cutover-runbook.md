@@ -92,7 +92,16 @@ These can't be built/verified without a live Clerk app; steps below:
    `profiles.role` stays the source of truth for RLS; the Clerk role governs org
    management. *(Confirm the role model with Matthew — `docs/24` §7.5/7.6.)*
 4. Enable **MFA** as an org/session policy (replaces the Supabase-AAL gate).
-5. Note your Clerk **Frontend API / domain** — the JWKS is
+5. **Require Terms acceptance at signup ("usage agreement").** Clerk Dashboard →
+   **Configure → Legal**: turn on "Require users to agree to your legal
+   documents," and set the **Terms of Service URL** to
+   `https://app.exitblueprint.net/legal/terms` and the **Privacy Policy URL** to
+   `https://app.exitblueprint.net/legal/privacy`. Clerk's `<SignUp>` (rendered by
+   `src/pages/SignUpPage.tsx`) then shows a **required, unchecked** "I agree…"
+   checkbox — active opt-in, not pre-checked — and records acceptance on the
+   Clerk user. (The *engagement* data-use consents are separate and pre-checked;
+   see the New-engagement dialog in `src/pages/DashboardPage.tsx`.)
+6. Note your Clerk **Frontend API / domain** — the JWKS is
    `https://<clerk-domain>/.well-known/jwks.json`.
 
 ## Step 2 — Supabase third-party auth (trust Clerk)

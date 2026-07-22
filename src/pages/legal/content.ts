@@ -20,12 +20,14 @@ export const PROVIDER_NAME = 'Exit Blueprint';
 // Everything else in this file is written out — these are the only values that
 // render as visible placeholders until set.
 export const FILL = {
-  entity: '[legal entity name — e.g. Fracture Systems, Inc.]',
+  entity: 'Exit Blueprint LLC',
   address: '[business mailing address]',
   contactEmail: '[privacy & legal contact email]',
-  governingLaw: '[U.S. state whose law governs — e.g. Delaware]',
-  venue: '[county & state for courts, or the arbitration seat]',
-  effectiveDate: '[effective date]',
+  governingLaw: 'the State of Florida',
+  // Defaults to statewide venue; narrow to a county (e.g. "Miami-Dade County,
+  // Florida") once the principal place of business is set.
+  venue: 'the State of Florida',
+  effectiveDate: 'July 1, 2026',
 };
 
 // Items for counsel to confirm before the Service is sold to paid customers.
@@ -38,6 +40,7 @@ export const COUNSEL_REVIEW_ITEMS: string[] = [
   'Data-retention periods and the breach-notification deadline (defaults: live-data deletion within 30 days of request; backups purged within 60 days; breach notice "without undue delay").',
   'Enumerated statutory-rights language (e.g., GDPR / CCPA) if you serve those markets, and international-transfer mechanisms if you take non-US data.',
   'Confirm the actual Supabase backup-retention window matches the deletion timelines stated in the Privacy Policy and DPA (docs/08 currently marks this [confirm]).',
+  'The engagement data-use consents (benchmarking / anonymized aggregation / outcome tracking) are PRE-CHECKED opt-out in the New-engagement dialog. Valid for US, de-identified, advisor-recorded consent; a pre-ticked box is NOT valid consent under GDPR — switch them to default-unchecked before offering the Service where GDPR-style affirmative consent applies.',
 ];
 
 // Plain-language beta summary shown at the top of every legal page. Honest and
