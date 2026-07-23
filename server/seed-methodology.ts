@@ -591,6 +591,25 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
+    // Drop system advisory items removed from the seed file (the orphan cleanup
+    // library_tasks already gets above). System plan items were cleared up front
+    // (`delete from plan_template_items where firm_id is null`) and are rebuilt below
+    // referencing only current advisory codes, so the ONLY plan_template_items that
+    // can still reference an orphan here are FIRM plans — whose kind_ref check
+    // requires advisory_library_item_id NOT NULL, so they can be neither deleted nor
+    // nulled; skip those (leaving the orphan in place is safe). Applied
+    // engagement_plan_items keep their snapshotted item_kind and drop the dangling
+    // pointer via the FK's ON DELETE SET NULL (20260723235154), so history survives.
+    await db.query(
+      `delete from advisory_library_items a
+       where a.firm_id is null
+         and not (a.code = any($1::text[]))
+         and not exists (
+           select 1 from plan_template_items pti where pti.advisory_library_item_id = a.id
+         )`,
+      [advisoryItems.map((x) => x.code)],
+    );
+
     // Curated System Plans (docs/37): global methodology (firm_id null), keyed by
     // (code, plan_version). The header upserts idempotently; system items were
     // cleared up front and are rebuilt here. A 'playbook' seed item EXPANDS into
