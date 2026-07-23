@@ -51,14 +51,16 @@ export function UserMenu({
     if (open) itemRefs.current[0]?.focus();
   }, [open]);
 
-  // Close on a click anywhere outside the menu.
+  // Close on a press anywhere outside the menu. `pointerdown` fires for mouse,
+  // touch, and pen, so the outside-tap dismissal works on phones too (a
+  // `mousedown`-only listener misses touch on some mobile browsers).
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('pointerdown', onDoc);
+    return () => document.removeEventListener('pointerdown', onDoc);
   }, [open]);
 
   // Roving focus between items; Escape closes and returns focus to the trigger.
@@ -75,9 +77,14 @@ export function UserMenu({
     }
   };
 
-  // Close if focus leaves the menu entirely (Tab past the last item).
+  // Close if focus leaves the menu entirely (Tab past the last item). Only act
+  // on a real next-focus target: on touch, opening the menu fires a transient
+  // blur with a null relatedTarget, and treating that as "focus left" slammed
+  // the menu shut the instant it opened. Outside taps are handled by the
+  // pointerdown listener above, so ignoring the null case is safe.
   const onBlur = (e: React.FocusEvent) => {
-    if (!rootRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+    const next = e.relatedTarget as Node | null;
+    if (next && !rootRef.current?.contains(next)) setOpen(false);
   };
 
   const itemCount = links.length + 1; // links + Sign out

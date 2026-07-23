@@ -3715,7 +3715,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   z-index: 30;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 rgba(18, 40, 30, 0.02), 0 2px 8px rgba(18, 40, 30, 0.03);
+  /* Token-driven so the bar's elevation tracks light/dark like every other
+     raised surface (was a hard-coded light-only shadow that vanished in dark). */
+  box-shadow: var(--shadow-sm);
 }
 .app-bar-inner {
   position: relative; /* anchor for the mobile nav sheet (see mobile pass) */
@@ -3921,9 +3923,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
    ============================================================ */
 
 /* ---- button hierarchy ---- */
-button {
-  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.08);
-}
+/* The button drop shadow is defined once, further down (the "controls" block),
+   from the shared --shadow tokens — a second hard-coded declaration here only
+   diverged the two in dark mode. */
 button:active:not(:disabled) {
   transform: translateY(1px);
 }
@@ -4339,7 +4341,15 @@ textarea:focus {
   font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking);
   color: var(--status-neutral);
 }
-.advisory-item-actions { margin-top: 0.5rem; display: flex; gap: 0.9rem; align-items: center; }
+/* Education module content, revealed inline behind the card's "View content"
+   toggle. Mirrors the owner Learn body treatment (pre-wrap, secondary text) so
+   the same module reads the same in the advisor Library and the owner portal. */
+.education-body {
+  margin-top: 0.6rem; padding: 0.7rem 0.85rem; background: var(--surface-2);
+  border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.55;
+  color: var(--text-secondary); white-space: pre-wrap;
+}
+.advisory-item-actions { margin-top: 0.5rem; display: flex; gap: 0.9rem; align-items: center; flex-wrap: wrap; }
 .button-danger-link {
   background: none; border: none; color: var(--status-critical); cursor: pointer;
   font-size: 0.82rem; font-weight: 600; padding: 0;
@@ -4412,7 +4422,7 @@ textarea:focus {
   border-radius: var(--radius-sm);
   background: var(--surface-1);
   color: var(--brand);
-  box-shadow: 0 1px 2px rgba(18, 40, 30, 0.06);
+  box-shadow: var(--shadow-sm);
   transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
 .ui-pageheader-actions .button-link:hover {
@@ -5126,10 +5136,13 @@ h1, h2, h3, h4 { font-optical-sizing: auto; }
   background: color-mix(in srgb, var(--accent) 5%, var(--surface-1));
 }
 
-/* controls: crisp geometry + a tactile primary and a refined focus ring */
+/* controls: crisp geometry + a tactile primary and a refined focus ring.
+   The drop layer is the shared --shadow-sm token so buttons carry the same
+   elevation language as cards and the app bar in both light and dark; the inset
+   highlight is the button-only top sheen and stays literal. */
 button {
   letter-spacing: -0.005em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1.5px rgba(18, 40, 30, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--shadow-sm);
 }
 /* The transparent text-style buttons (sortable table headers, disclosure
    toggles, danger links) are reset to no fill above; keep them excluded here too
@@ -5242,6 +5255,48 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
   padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
   /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
   background-color: var(--surface); color: var(--text-primary); font: inherit;
+}
+
+/* ============================================================
+   Mobile templates — Library & Plans
+   The Library item rows and Plan cards are laid out for a wide
+   advisor desktop: filters and card headers sit side by side and
+   form rows pack several selects onto one line. On a phone those
+   collapse into cramped, half-cut controls. This block is the
+   single mobile contract for both surfaces so the Library and
+   Plans read consistently: filters and form controls go full
+   width and stack, and card headers drop their actions below the
+   title as full-width tap targets. Library item cards themselves
+   already get the stacked-card treatment in the advisory-list
+   mobile block above, which Tasks and Education reuse.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Library filter bars: one control per line, each full width, count last. */
+  .advisory-filters { flex-direction: column; align-items: stretch; }
+  .advisory-filters select,
+  .advisory-filters input[type="search"] { width: 100%; min-width: 0; }
+  .advisory-filters-count { margin-left: 0; }
+
+  /* Authoring forms (Library items, Plan items): every field on its own row so
+     labels and selects aren't shaved off the edge. Only real form controls go
+     full width — the read-only "what's inside a plan" chip rows keep wrapping. */
+  .advisory-form-grid { grid-template-columns: 1fr; }
+  .plan-item-row > select,
+  .plan-item-row > input { flex: 1 1 100%; width: 100%; min-width: 0; }
+
+  /* Plan cards: title block over full-width actions, so Edit / Apply are real
+     tap targets instead of a squeezed right rail. */
+  .plans-toolbar { flex-direction: column; align-items: stretch; }
+  .plans-card-head { flex-direction: column; }
+  .plans-card-actions { width: 100%; }
+  .plans-card-actions > button { flex: 1 1 auto; }
+
+  /* Apply-to-engagement row: stack the pickers and the button full width. */
+  .plan-apply-row { flex-direction: column; align-items: stretch; }
+  .plan-apply-row label { width: 100%; }
+  .plan-apply-row select,
+  .plan-apply-row input,
+  .plan-apply-row > button { width: 100%; }
 }
 
 /* Applied-plan progress bars (docs/37 PL4) */

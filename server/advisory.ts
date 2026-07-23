@@ -210,11 +210,16 @@ export async function educationModules(
   ).rows)
     openDims.add(r.code);
 
+  // Buyer-question prep is an advisory concern, not education. A few legacy
+  // system modules (code CM-BUYERQ-*, "Buyer Question Prep: …") predate that
+  // split; keep them off the owner's Learn tab so education stays education.
   const rows = (
     await db.query(
       `select id, code, title, body_md, dimension_code, source
        from content_modules
-       where firm_id is null or firm_id = $1
+       where (firm_id is null or firm_id = $1)
+         and coalesce(code, '') not ilike 'CM-BUYERQ%'
+         and title not ilike 'Buyer Question%'
        order by title`,
       [eng.firm_id],
     )
