@@ -729,11 +729,34 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
         0,
       ),
   };
+  // The rubric-versioned tables accumulate across methodology versions: a
+  // version_label bump (e.g. DRS-1.0 -> DRS-2.0) inserts a NEW rubric_version and a
+  // fresh set of its children (dimensions/questions/sub_scores/gap_definitions,
+  // keyed by (rubric_version_id, code)), and the prior version's rows are retained
+  // on purpose (rule 4: versions are immutable and each assessment pins the one it
+  // was scored under, so old rows must stay readable). An unfiltered count(*)
+  // therefore grows by a full methodology every bump and would false-fail the load
+  // on any previously-seeded database — so scope these counts to the version THIS
+  // run wrote. Fetched here because the transaction's rubricVersionId is out of
+  // scope after commit; the fallback UUID makes a never-seeded DB count 0 (a real,
+  // loud failure) rather than an unfiltered total.
+  const currentRubricVersionId =
+    ((await db.query(`select id from rubric_versions where version_label = $1`, [RUBRIC_VERSION_LABEL]))
+      .rows[0]?.id as string | undefined) ?? '00000000-0000-0000-0000-000000000000';
   const countFilter: Record<string, string> = {
+    // Tenant-bearing tables: count only system (firm_id null) methodology rows.
     library_tasks: 'where firm_id is null',
     advisory_library_items: 'where firm_id is null',
     plan_templates: 'where firm_id is null',
     plan_template_items: 'where firm_id is null',
+    // Rubric-versioned tables: count only the current rubric_version's rows.
+    rubric_versions: `where id = '${currentRubricVersionId}'`,
+    dimensions: `where rubric_version_id = '${currentRubricVersionId}'`,
+    questions: `where dimension_id in (select id from dimensions where rubric_version_id = '${currentRubricVersionId}')`,
+    sub_scores: `where dimension_id in (select id from dimensions where rubric_version_id = '${currentRubricVersionId}')`,
+    gap_definitions: `where rubric_version_id = '${currentRubricVersionId}'`,
+    gap_plan_map: `where gap_definition_id in (select id from gap_definitions where rubric_version_id = '${currentRubricVersionId}')`,
+    gap_content_map: `where gap_definition_id in (select id from gap_definitions where rubric_version_id = '${currentRubricVersionId}')`,
   };
 
   const rows: SeedTableReport[] = [];
