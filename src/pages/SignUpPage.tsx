@@ -28,6 +28,14 @@ export default function SignUpPage() {
         <ThemeToggle />
       </div>
       <SignUp routing="hash" signInUrl="/login" forceRedirectUrl={returnTo} appearance={appearance} />
+      {/*
+        Explicit mount target for Clerk's bot-protection (Cloudflare Turnstile)
+        CAPTCHA. With this element present Clerk renders the visible "smart"
+        widget here; without it, it falls back to an invisible widget that can
+        fail to load ("The CAPTCHA failed to load…") when a challenge is
+        required. Clerk finds it by id anywhere in the document.
+      */}
+      <div id="clerk-captcha" />
     </main>
   );
 }
