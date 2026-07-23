@@ -106,13 +106,14 @@
       "TURNOVER_HIGH"
     ],
     "flags": [],
+    "not_applicable": [],
     "computed": {
       "hhi_est": 822,
       "top1_pct": 22,
       "top5_pct": 56,
       "cagr_pct": 5.27,
       "down_years": 1,
-      "pipeline_coverage": 1.2
+      "pipeline_coverage": 1.31
     }
   }
 }

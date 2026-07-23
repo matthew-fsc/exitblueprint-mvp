@@ -86,7 +86,7 @@ export async function fireAdvisoryItems(
       await db.query(
         `select s.code, ssr.points from sub_score_results ssr
          join sub_scores s on s.id = ssr.sub_score_id
-         where ssr.assessment_id = $1`,
+         where ssr.assessment_id = $1 and ssr.applicable`,
         [assessment.id],
       )
     ).rows.map((r) => [r.code as string, Number(r.points)]),

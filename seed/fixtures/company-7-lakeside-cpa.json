@@ -1,0 +1,114 @@
+{
+  "profile": "20-year-old solo CPA practice (one admin, owner works full-time), $900K revenue, diversified recurring client base. Exercises the owner-operator branch: the team-structure sub-scores (OPS-DEPTH, MGT-LAYERS, MGT-NC, MGT-RETENTION) are Not Applicable and re-normalized out, so a routinely-sold practice lands in Needs Work with an SDE/transition flag instead of being floored to Not Saleable, and it cannot game a management layer it does not have.",
+  "answers": {
+    "REV-RECUR-PCT": 65,
+    "REV-TOP5-SHARES": [
+      9,
+      7,
+      6,
+      5,
+      4
+    ],
+    "REV-CONTRACT-CUST-PCT": 40,
+    "REV-CONTRACT-AVG-MO": 12,
+    "REV-ANNUAL": [
+      720000,
+      780000,
+      840000,
+      900000
+    ],
+    "REV-NRR": 102,
+    "REV-MODEL": "recurring",
+    "FIN-RECON": "monthly",
+    "FIN-ADDBACK-DOC": "mostly_documented",
+    "FIN-BASIS": "accrual_consistent",
+    "FIN-STATEMENTS": "all_three",
+    "OPS-OWNER-HOURS": 45,
+    "OPS-SOP-PCT": 55,
+    "OPS-MGR-COUNT": 0,
+    "OPS-FUNC-COUNT": 4,
+    "OPS-AUTO-PCT": 65,
+    "CUS-TENURE": 10,
+    "CUS-REV-CONTRACT-PCT": 40,
+    "CUS-CHURN": 4,
+    "MGT-LAYERS": "none_all_report_to_owner",
+    "MGT-NC-PCT": 0,
+    "MGT-COMP": "within_15pct",
+    "MGT-TURNOVER": 0,
+    "EMPLOYEE-COUNT": 1,
+    "GRW-PIPELINE": 150000,
+    "GRW-POSITIONING": "moderate",
+    "GRW-REPEAT-PCT": 75,
+    "GOL-TIMELINE": "two_3yr",
+    "PFN-DEPEND": 3,
+    "PFN-OUTSIDE": "mostly",
+    "PFN-DEBT": "yes",
+    "VAL-LASTVAL": "one_3yr",
+    "VAL-CONF": 4,
+    "VAL-SEP": "fully",
+    "BIZ-AGE-YEARS": 20
+  },
+  "expected": {
+    "sub_scores": {
+      "REV-RECUR": 75,
+      "REV-HHI": 100,
+      "REV-DURABILITY": 35.56,
+      "REV-GROWTH": 50,
+      "REV-NRR": 80,
+      "FIN-RECON": 100,
+      "FIN-ADDBACK": 70,
+      "FIN-GAAP": 100,
+      "FIN-STATEMENTS": 100,
+      "OPS-HOURS": 0,
+      "OPS-SOP": 40,
+      "OPS-DEPTH": 10,
+      "OPS-AUTO": 70,
+      "CUS-TOP1": 100,
+      "CUS-TOP5": 75,
+      "CUS-TENURE": 100,
+      "CUS-COVERAGE": 40,
+      "CUS-CHURN": 100,
+      "MGT-LAYERS": 0,
+      "MGT-NC": 0,
+      "MGT-COMP": 100,
+      "MGT-RETENTION": 100,
+      "GRW-CAGR": 40,
+      "GRW-PIPE": 0,
+      "GRW-POS": 45,
+      "GRW-REPEAT": 100
+    },
+    "dimension_scores": {
+      "REV": 70.11,
+      "FIN": 91.0,
+      "OPS": 28.13,
+      "CUS": 84.75,
+      "MGT": 100.0,
+      "GRW": 38.0
+    },
+    "drs": 67.9,
+    "tier": "Needs Work",
+    "owner_readiness_index": 73.0,
+    "gaps": [
+      "CONTRACT_GAP",
+      "OWNER_DEP",
+      "SOP_GAP"
+    ],
+    "flags": [
+      "Owner-operated business: value is on a seller's-discretionary-earnings / book-of-business basis with an owner transition or earnout; the DRS reflects operational transferability, which is inherently limited for a very small team"
+    ],
+    "not_applicable": [
+      "MGT-LAYERS",
+      "MGT-NC",
+      "MGT-RETENTION",
+      "OPS-DEPTH"
+    ],
+    "computed": {
+      "hhi_est": 207,
+      "top1_pct": 9,
+      "top5_pct": 31,
+      "cagr_pct": 7.72,
+      "down_years": 0,
+      "pipeline_coverage": 0.19
+    }
+  }
+}

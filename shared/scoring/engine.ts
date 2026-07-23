@@ -98,6 +98,32 @@ function growthInputs(annual: number[]): GrowthInputs {
   return { cagrPct: cagr * 100, downYears: down };
 }
 
+const BUSINESS_AGE_QUESTION = 'BIZ-AGE-YEARS';
+
+// Whether a sub-score counts for this assessment (docs/07). Mirrors applicable()
+// in seed/fixtures/reference_scorer.py — keep the two in lockstep (rule 1).
+function subScoreApplicable(logic: SubScoreDef['logic'], answers: Answers): boolean {
+  const na = logic.na_when;
+  if (!na) return true;
+  const age = answers[BUSINESS_AGE_QUESTION];
+  if (na.business_age_lt !== undefined && typeof age === 'number' && age < na.business_age_lt) {
+    return false;
+  }
+  if (na.history_years_lt !== undefined) {
+    const annual = answers['REV-ANNUAL'];
+    if (Array.isArray(annual) && annual.length < na.history_years_lt) return false;
+  }
+  if (na.employee_count_lte !== undefined) {
+    const ec = answers['EMPLOYEE-COUNT'];
+    if (typeof ec === 'number' && ec <= na.employee_count_lte) return false;
+  }
+  if (na.answer_unknown !== undefined && answers[na.answer_unknown] === 'unknown') return false;
+  if (na.answer_in && na.answer_in.values.includes(answers[na.answer_in.question_code] as string)) {
+    return false;
+  }
+  return true;
+}
+
 function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): SubScoreResult {
   const logic = sub.logic;
   const inputs = sub.inputQuestionCodes;
@@ -163,11 +189,13 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'growth_consistency': {
       const annual = numList(answers[q0], q0);
       const { cagrPct, downYears } = growthInputs(annual);
-      if (cagrPct < 0) points = 0;
-      else if (cagrPct >= 15 && downYears === 0) points = 100;
+      // DRS-2.0: a mild steady decline earns 15 rather than the old hard zero.
+      if (cagrPct >= 15 && downYears === 0) points = 100;
       else if (cagrPct >= 10 && downYears <= 1) points = 75;
       else if (cagrPct >= 5 && downYears <= 1) points = 50;
-      else points = 25;
+      else if (cagrPct >= 0) points = 25;
+      else if (cagrPct >= -5 && downYears <= 1) points = 15;
+      else points = 0;
       computedInputs.cagr_pct = pyRound(cagrPct, 2);
       computedInputs.down_years = downYears;
       break;
@@ -175,7 +203,9 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'cagr_band': {
       const annual = numList(answers[q0], q0);
       const { cagrPct } = growthInputs(annual);
-      points = cagrPct < 0 ? (logic.negative ?? 0) : bandGte(cagrPct, logic.bands!);
+      // bands carry the graded negative range in DRS-2.0; else 0 for < lowest band.
+      // (DRS-1.0 bands stop at 0, so a negative CAGR falls through to else 0 too.)
+      points = bandGte(cagrPct, logic.bands!, logic.else ?? logic.negative ?? 0);
       computedInputs.cagr_pct = pyRound(cagrPct, 2);
       break;
     }
@@ -190,7 +220,10 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'pipeline_ratio': {
       const pipeline = num(answers[inputs[0]], inputs[0]);
       const annual = numList(answers[inputs[1]], inputs[1]);
-      const ratio = pipeline > 0 ? pipeline / annual[annual.length - 1] : 0;
+      // DRS-2.0: coverage vs the AVERAGE of the provided years, not the latest one,
+      // so a revenue collapse can't mechanically inflate the ratio.
+      const avgRev = annual.reduce((acc, x) => acc + x, 0) / annual.length;
+      const ratio = pipeline > 0 && avgRev > 0 ? pipeline / avgRev : 0;
       points = pipeline <= 0 ? 0 : bandGte(ratio, logic.bands!, logic.else ?? 0);
       computedInputs.pipeline_coverage = pyRound(ratio, 2);
       break;
@@ -198,6 +231,17 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'top1_band': {
       const shares = numList(answers[q0], q0);
       points = bandLt(shares[0], logic.bands_lt!, logic.else ?? 0);
+      const ao = logic.anchor_offset;
+      if (
+        ao &&
+        shares[0] >= ao.top1_gte &&
+        answers[ao.coc_question] === ao.coc_ok &&
+        typeof answers[ao.months_question] === 'number' &&
+        (answers[ao.months_question] as number) >= ao.min_months
+      ) {
+        points = Math.max(points, ao.floor);
+        computedInputs.anchor_protected = 1;
+      }
       computedInputs.top1_pct = shares[0];
       break;
     }
@@ -212,7 +256,51 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
       throw new Error(`sub_score ${sub.code}: unknown formula_type ${sub.formulaType}`);
   }
 
-  return { code: sub.code, points, computedInputs };
+  return { code: sub.code, points, applicable: subScoreApplicable(sub.logic, answers), computedInputs };
+}
+
+// Concentration governor (D2): an unprotected dominant single customer (>= 50% of
+// revenue, without a long-term change-of-control-proof contract) is not
+// institutionally saleable regardless of the rest. Concentration otherwise reaches
+// only ~14.5% of the DRS, so the bands alone cannot hold such a business below Sale
+// Ready; cap it at the top of Needs Work. Mirrors reference_scorer.py.
+// Blind-spot flags (D6): the DRS is a STANDALONE OPERATIONAL readiness index and
+// cannot see license/CON transferability or asset/IP value. When a value-defining
+// factor sits outside the model, flag it so a high score is never read as "no
+// risks" on a business whose value lives where the DRS cannot look. Mirrors
+// reference_scorer.py.
+function blindSpotFlags(answers: Answers): string[] {
+  const out: string[] = [];
+  const license = answers['OPS-LICENSE-DEP'];
+  if (license === 'requires_requalification' || license === 'may_not_transfer') {
+    out.push(
+      'Value depends on a license, CON, or franchise that may not transfer to a buyer; the DRS scores standalone operational readiness only',
+    );
+  }
+  const assets = answers['VAL-ASSETS-CTX'];
+  if (assets === 'real_estate' || assets === 'ip' || assets === 'equipment' || assets === 'other') {
+    out.push('Material tangible assets or IP the DRS does not value; obtain a separate asset/IP appraisal');
+  }
+  const ec = answers['EMPLOYEE-COUNT'];
+  if (typeof ec === 'number' && ec <= 3) {
+    out.push(
+      "Owner-operated business: value is on a seller's-discretionary-earnings / book-of-business basis with an owner transition or earnout; the DRS reflects operational transferability, which is inherently limited for a very small team",
+    );
+  }
+  return out;
+}
+
+function concentrationGovernor(answers: Answers, drs: number): number {
+  const shares = answers['REV-TOP5-SHARES'];
+  if (!Array.isArray(shares) || shares.length === 0) return drs;
+  const top1 = shares[0];
+  const months = answers['REV-CONTRACT-AVG-MO'];
+  const anchorProtected =
+    top1 >= 40 &&
+    answers['CUS-COC-CTX'] === 'none' &&
+    typeof months === 'number' &&
+    months >= 24;
+  return top1 >= 50 && !anchorProtected ? Math.min(drs, 69.0) : drs;
 }
 
 export function drsTier(drs: number): string {
@@ -226,6 +314,7 @@ export function drsTier(drs: number): string {
 function evaluateTrigger(
   trigger: GapTrigger,
   subScorePoints: Map<string, number>,
+  applicable: Map<string, boolean>,
   answers: Answers,
   drs: number,
 ): boolean {
@@ -233,17 +322,27 @@ function evaluateTrigger(
     case 'sub_score_below': {
       const points = subScorePoints.get(trigger.code);
       if (points === undefined) throw new Error(`gap trigger references unknown sub_score ${trigger.code}`);
+      // a gap keyed on an N/A sub-score cannot fire (the metric doesn't apply)
+      if (applicable.get(trigger.code) === false) return false;
       return points < trigger.threshold;
     }
     case 'answer_in':
       return trigger.values.includes(answers[trigger.question_code] as string);
+    case 'answer_not_in':
+      // missing answer is "not in" -> the gap can still fire (default behavior)
+      return !trigger.values.includes(answers[trigger.question_code] as string);
     case 'answer_lte':
       return (answers[trigger.question_code] as number) <= trigger.value;
     case 'composite_below':
       // business_readiness composite is the DRS (docs/03)
       return drs < trigger.threshold;
+    case 'business_age_gte': {
+      const age = answers[BUSINESS_AGE_QUESTION];
+      // missing age -> treat as old enough (age-structural gaps fire as before)
+      return typeof age !== 'number' || age >= trigger.years;
+    }
     case 'all':
-      return trigger.conditions.every((c) => evaluateTrigger(c, subScorePoints, answers, drs));
+      return trigger.conditions.every((c) => evaluateTrigger(c, subScorePoints, applicable, answers, drs));
     default:
       return false;
   }
@@ -346,6 +445,14 @@ export function validateAnswers(rubric: Rubric, answers: Answers): void {
         break; // rank / text are unscored; nothing to validate
     }
   }
+
+  // Cross-field: qualified managers cannot exceed the non-owner headcount. Kills
+  // the owner-operator gaming premium (claiming a manager layer that can't exist).
+  const employeeCount = answers['EMPLOYEE-COUNT'];
+  const managerCount = answers['OPS-MGR-COUNT'];
+  if (typeof employeeCount === 'number' && typeof managerCount === 'number' && managerCount > employeeCount) {
+    fail('OPS-MGR-COUNT', `qualified managers cannot exceed EMPLOYEE-COUNT (${employeeCount} non-owner employees)`);
+  }
 }
 
 export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult {
@@ -359,41 +466,60 @@ export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult 
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
   const subScores = rubric.subScores.map((s) => computeSubScore(s, answers, flags));
   const pointsByCode = new Map(subScores.map((s) => [s.code, s.points]));
+  const applicableByCode = new Map(subScores.map((s) => [s.code, s.applicable]));
 
-  // Dimension score = sum(weight x points); computed for business dimensions.
-  // ORI = sum(weight x points) across the owner_readiness group as a whole
-  // (its weights sum to 1.0 across the group, per the reference scorer).
+  // Dimension score = weighted mean of its sub-scores. When every sub-score is
+  // applicable the weights sum to 1.0, so this is the exact weighted sum (an
+  // unchanged assessment reproduces bit-for-bit). When a na_when condition
+  // excludes a sub-score, the remaining applicable weights are re-normalized.
+  const weightedMean = (
+    parts: SubScoreDef[],
+    ndigits: number,
+  ): number => {
+    const applicable = parts.filter((s) => applicableByCode.get(s.code));
+    if (applicable.length === parts.length) {
+      return pyRound(parts.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0), ndigits);
+    }
+    const wsum = applicable.reduce((acc, s) => acc + s.weight, 0);
+    if (wsum <= 0) return 0;
+    return pyRound(
+      applicable.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0) / wsum,
+      ndigits,
+    );
+  };
+
   const businessDims = rubric.dimensions
     .filter((d) => d.scoreGroup === 'business_readiness')
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const dimensionScores = businessDims.map((d) => {
-    const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
-    const score = pyRound(
-      parts.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0),
-      2,
-    );
-    return { code: d.code, score };
-  });
+  const dimensionScores = businessDims.map((d) => ({
+    code: d.code,
+    score: weightedMean(rubric.subScores.filter((s) => s.dimensionCode === d.code), 2),
+  }));
 
-  const drsScore = pyRound(
-    dimensionScores.reduce(
-      (acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight,
-      0,
+  const drsScore = concentrationGovernor(
+    answers,
+    pyRound(
+      dimensionScores.reduce(
+        (acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight,
+        0,
+      ),
+      1,
     ),
-    1,
   );
 
-  const oriScore = pyRound(
-    rubric.subScores
-      .filter((s) => dimensionByCode.get(s.dimensionCode)!.scoreGroup === 'owner_readiness')
-      .reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0),
+  // ORI is one weighted mean across the whole owner_readiness group (its weights
+  // sum to 1.0 across the group, per the reference scorer).
+  const oriScore = weightedMean(
+    rubric.subScores.filter((s) => dimensionByCode.get(s.dimensionCode)!.scoreGroup === 'owner_readiness'),
     1,
   );
 
   const gapCodes = rubric.gapDefinitions
-    .filter((g) => evaluateTrigger(g.trigger, pointsByCode, answers, drsScore))
+    .filter((g) => evaluateTrigger(g.trigger, pointsByCode, applicableByCode, answers, drsScore))
     .map((g) => g.code)
     .sort();
+
+  for (const f of blindSpotFlags(answers)) flags.push(f);
 
   return {
     subScores,
@@ -419,6 +545,7 @@ export interface SubScoreExplain {
   points: number;
   weight: number;
   contribution: number;
+  applicable: boolean;
 }
 
 export interface ExplainResult {
@@ -448,28 +575,41 @@ export function projectDrs(
   rubric: Rubric,
   currentPoints: Map<string, number>,
   floors: Map<string, number>,
+  applicable?: Map<string, boolean>,
+  answers?: Answers,
 ): number {
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
   const points = new Map(currentPoints);
   for (const [code, floor] of floors) {
     points.set(code, Math.max(points.get(code) ?? 0, floor));
   }
+  const isApplicable = (code: string) => applicable?.get(code) !== false;
   const dimensionScores = rubric.dimensions
     .filter((d) => d.scoreGroup === 'business_readiness')
     .map((d) => {
       const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
-      return {
-        code: d.code,
-        score: pyRound(
-          parts.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0),
-          2,
-        ),
-      };
+      const applic = parts.filter((s) => isApplicable(s.code));
+      const score =
+        applic.length === parts.length
+          ? pyRound(parts.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0), 2)
+          : (() => {
+              const wsum = applic.reduce((acc, s) => acc + s.weight, 0);
+              return wsum <= 0
+                ? 0
+                : pyRound(
+                    applic.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0) / wsum,
+                    2,
+                  );
+            })();
+      return { code: d.code, score };
     });
-  return pyRound(
+  const projected = pyRound(
     dimensionScores.reduce((acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight, 0),
     1,
   );
+  // a concentration-capped business stays capped: remediating other gaps cannot
+  // change the top-1 revenue share the cap is based on.
+  return answers ? concentrationGovernor(answers, projected) : projected;
 }
 
 export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainResult {
@@ -489,7 +629,9 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
       logic: s.logic,
       points: r.points,
       weight: s.weight,
-      contribution: pyRound(s.weight * r.points, 2),
+      // an N/A sub-score does not contribute to its dimension
+      contribution: r.applicable ? pyRound(s.weight * r.points, 2) : 0,
+      applicable: r.applicable,
     };
   });
 
@@ -518,7 +660,8 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
     }
   }
   const currentPoints = new Map(result.subScores.map((s) => [s.code, s.points]));
-  const projectedDrs = projectDrs(rubric, currentPoints, floors);
+  const applicableByCode = new Map(result.subScores.map((s) => [s.code, s.applicable]));
+  const projectedDrs = projectDrs(rubric, currentPoints, floors, applicableByCode, answers);
 
   return {
     subScores,

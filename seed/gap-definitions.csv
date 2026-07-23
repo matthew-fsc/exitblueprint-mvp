@@ -2,8 +2,8 @@ code,name,severity,trigger_json,dimension_code
 CUST_CONC,Customer Concentration,critical,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP1"", ""threshold"": 70}",CUS
 CUST_BASE_CONC,Top-5 Customer Concentration,high,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP5"", ""threshold"": 70}",CUS
 RECURRING_LOW,Weak Recurring Revenue Base,high,"{""type"": ""sub_score_below"", ""code"": ""REV-RECUR"", ""threshold"": 70}",REV
-CONTRACT_GAP,Undocumented Recurring Revenue,high,"{""type"": ""sub_score_below"", ""code"": ""REV-DURABILITY"", ""threshold"": 70}",REV
-REV_VOLATILITY,Revenue Inconsistency,med,"{""type"": ""sub_score_below"", ""code"": ""REV-GROWTH"", ""threshold"": 50}",REV
+CONTRACT_GAP,Weak Contract Coverage,high,"{""type"": ""sub_score_below"", ""code"": ""REV-DURABILITY"", ""threshold"": 70}",REV
+REV_VOLATILITY,Weak Revenue Growth,med,"{""type"": ""sub_score_below"", ""code"": ""REV-GROWTH"", ""threshold"": 50}",REV
 CHURN_HIGH,Customer Retention Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""REV-NRR"", ""threshold"": 70}",REV
 RECON_GAP,Reconciliation Discipline Gap,high,"{""type"": ""sub_score_below"", ""code"": ""FIN-RECON"", ""threshold"": 70}",FIN
 ADDBACK_RISK,Addback Defensibility Risk,critical,"{""type"": ""sub_score_below"", ""code"": ""FIN-ADDBACK"", ""threshold"": 70}",FIN
@@ -17,9 +17,9 @@ MGMT_LAYER_GAP,No Functional Management Layer,high,"{""type"": ""sub_score_below
 NONCOMPETE_GAP,Key Person Non-Compete Gap,high,"{""type"": ""sub_score_below"", ""code"": ""MGT-NC"", ""threshold"": 70}",MGT
 COMP_RISK,Compensation Flight Risk,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-COMP"", ""threshold"": 70}",MGT
 TURNOVER_HIGH,Retention History Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-RETENTION"", ""threshold"": 70}",MGT
-PIPELINE_BLIND,No Pipeline Discipline,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-PIPE"", ""threshold"": 70}",GRW
+PIPELINE_BLIND,No Pipeline Discipline,med,"{""type"": ""all"", ""conditions"": [{""type"": ""sub_score_below"", ""code"": ""GRW-PIPE"", ""threshold"": 70}, {""type"": ""answer_not_in"", ""question_code"": ""REV-MODEL"", ""values"": [""recurring"", ""asset_rental""]}]}",GRW
 POSITIONING_WEAK,Undifferentiated Market Position,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-POS"", ""threshold"": 45}",GRW
 CUSTOM_HEAVY,Custom-Work Revenue Dependency,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-REPEAT"", ""threshold"": 65}",GRW
 VALUE_GAP,Personal Value Gap,critical,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""PFN-OUTSIDE"", ""values"": [""partially"", ""no""]}, {""type"": ""answer_lte"", ""question_code"": ""VAL-CONF"", ""value"": 2}]}",PFN
 TIMELINE_MISMATCH,Exit Timeline vs Readiness Mismatch,high,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""GOL-TIMELINE"", ""values"": [""under_12mo""]}, {""type"": ""composite_below"", ""score_group"": ""business_readiness"", ""threshold"": 70}]}",GOL
-STALE_VALUATION,No Current Valuation,low,"{""type"": ""answer_in"", ""question_code"": ""VAL-LASTVAL"", ""values"": [""over_3yr"", ""never""]}",VAL
+STALE_VALUATION,No Current Valuation,low,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""VAL-LASTVAL"", ""values"": [""over_3yr"", ""never""]}, {""type"": ""business_age_gte"", ""years"": 3}]}",VAL

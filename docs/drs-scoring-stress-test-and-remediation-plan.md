@@ -1,11 +1,21 @@
 # DRS/ORI Scoring Stress Test & Remediation Plan
 
-> **Status: Strategy / proposal — awaiting Matthew's ratification.** This doc has
-> no assigned number yet (doc numbers are Matthew-owned; assign one if this
-> becomes canonical). It captures an empirical stress test of the deterministic
-> scoring model and proposes methodology changes for band-by-band sign-off
-> **before** any rubric change ships. Part 1 (input validation) has already
-> shipped; everything in Part 3 is proposed, not built.
+> **Status: Ratified and shipped as DRS-2.0.** This doc has no assigned number
+> yet (doc numbers are Matthew-owned; assign one if this becomes canonical). It
+> captured an empirical stress test of the deterministic scoring model and the
+> band-by-band remediation plan. Matthew ratified all of Part 3; the changes
+> shipped as the **DRS-2.0** rubric version (engine + reference scorer + fixtures
+> + tests). The per-decision detail below is retained as the design record — the
+> "Decision" prompts are answered "yes" unless noted. Part 4 (asset/IP/market-
+> timing/strategic modules) remains a future product-scope decision.
+>
+> **Implemented in DRS-2.0:** D1 graded negative growth bands · D2 concentration
+> gradient + anchor offset + governor · D3 revenue-model branch · D4 owner-
+> operator branch · D5 NRR-unknown neutral · D6 blind-spot flags + standalone-
+> readiness framing · D7 gap relabels (structural suppression handled by the N/A
+> mechanism) · D8 pipeline trend denominator + graded sub-1x + model-aware gap ·
+> D9 age-aware N/A + re-normalization · D10 GRW-POS ceiling 100. Foundation: a
+> data-driven `na_when` applicability + dimension re-normalization mechanism.
 
 ## Why this exists
 

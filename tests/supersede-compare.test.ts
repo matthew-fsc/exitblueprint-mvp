@@ -204,7 +204,7 @@ describe.skipIf(!url)('supersedeAssessment and compareAssessments', () => {
     if (cmp.comparable) throw new Error('unreachable');
     expect(cmp.reason).toBe('rubric_version_mismatch');
     expect(cmp.prior_version).toBe('DRS-TEST-NEXT');
-    expect(cmp.current_version).toBe('DRS-1.0');
+    expect(cmp.current_version).toBe('DRS-2.0');
     expect(cmp).not.toHaveProperty('drsDelta');
   });
 });
