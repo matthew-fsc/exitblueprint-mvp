@@ -50,7 +50,7 @@
       "REV-RECUR": 0,
       "REV-HHI": 30,
       "REV-DURABILITY": 11.11,
-      "REV-GROWTH": 0,
+      "REV-GROWTH": 15,
       "REV-NRR": 25,
       "FIN-RECON": 30,
       "FIN-ADDBACK": 10,
@@ -69,20 +69,20 @@
       "MGT-NC": 0,
       "MGT-COMP": 50,
       "MGT-RETENTION": 70,
-      "GRW-CAGR": 0,
+      "GRW-CAGR": 15,
       "GRW-PIPE": 0,
       "GRW-POS": 10,
       "GRW-REPEAT": 0
     },
     "dimension_scores": {
-      "REV": 10.8,
+      "REV": 13.3,
       "FIN": 23.0,
       "OPS": 4.25,
       "CUS": 31.5,
       "MGT": 26.5,
-      "GRW": 2.0
+      "GRW": 7.25
     },
-    "drs": 15.7,
+    "drs": 16.9,
     "tier": "Not Saleable (Yet)",
     "owner_readiness_index": 7.8,
     "gaps": [

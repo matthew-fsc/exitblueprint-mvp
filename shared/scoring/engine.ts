@@ -185,11 +185,13 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'growth_consistency': {
       const annual = numList(answers[q0], q0);
       const { cagrPct, downYears } = growthInputs(annual);
-      if (cagrPct < 0) points = 0;
-      else if (cagrPct >= 15 && downYears === 0) points = 100;
+      // DRS-2.0: a mild steady decline earns 15 rather than the old hard zero.
+      if (cagrPct >= 15 && downYears === 0) points = 100;
       else if (cagrPct >= 10 && downYears <= 1) points = 75;
       else if (cagrPct >= 5 && downYears <= 1) points = 50;
-      else points = 25;
+      else if (cagrPct >= 0) points = 25;
+      else if (cagrPct >= -5 && downYears <= 1) points = 15;
+      else points = 0;
       computedInputs.cagr_pct = pyRound(cagrPct, 2);
       computedInputs.down_years = downYears;
       break;
@@ -197,7 +199,9 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'cagr_band': {
       const annual = numList(answers[q0], q0);
       const { cagrPct } = growthInputs(annual);
-      points = cagrPct < 0 ? (logic.negative ?? 0) : bandGte(cagrPct, logic.bands!);
+      // bands carry the graded negative range in DRS-2.0; else 0 for < lowest band.
+      // (DRS-1.0 bands stop at 0, so a negative CAGR falls through to else 0 too.)
+      points = bandGte(cagrPct, logic.bands!, logic.else ?? logic.negative ?? 0);
       computedInputs.cagr_pct = pyRound(cagrPct, 2);
       break;
     }

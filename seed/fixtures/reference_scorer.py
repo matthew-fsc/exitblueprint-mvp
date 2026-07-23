@@ -110,9 +110,9 @@ subscores = [
       "na_when":{"answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
      "Benchmark: >=75% contracted with >=18mo avg remaining. N/A for transactional/project and asset-rental models."),
     ("REV-GROWTH","REV","Revenue Growth Consistency",0.15,"growth_consistency","REV-ANNUAL",
-     {"rules":"cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25",
+     {"rules":"cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr>=0 ->25; cagr>=-5 and down<=1 ->15; else 0",
       "na_when":{"history_years_lt":3}},
-     "CAGR over provided fiscal years; down = count of down years. N/A below 3 fiscal years (consistency needs >=2 growth periods)."),
+     "CAGR over provided fiscal years; down = count of down years. DRS-2.0: mild steady decline earns 15 instead of 0. N/A below 3 fiscal years."),
     ("REV-NRR","REV","Churn Rate (NRR)",0.10,"band_gte","REV-NRR",
      {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25,
       "na_when":{"answer_unknown":"REV-NRR","answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
@@ -156,8 +156,8 @@ subscores = [
      {"bands_lt":[[10,100],[15,70],[25,35]],"else":0,"na_when":{"business_age_lt":3}},
      "Lower is better. N/A below 3 years in business (trailing-3yr turnover has no history)."),
     ("GRW-CAGR","GRW","Revenue CAGR (3yr)",0.35,"cagr_band","REV-ANNUAL",
-     {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20]],"negative":0,"na_when":{"history_years_lt":3}},
-     "N/A below 3 fiscal years (a 2-point CAGR is not yet a trend)."),
+     {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20],[-5,15],[-15,5]],"else":0,"na_when":{"history_years_lt":3}},
+     "DRS-2.0: graded negative bands (soft -0..-5 -> 15, eroding -5..-15 -> 5, melting < -15 -> 0). N/A below 3 fiscal years."),
     ("GRW-PIPE","GRW","Pipeline Coverage Ratio",0.30,"pipeline_ratio","GRW-PIPELINE,REV-ANNUAL",
      {"bands":[[3,100],[2,70],[1,35]],"else":0},"Ratio = qualified pipeline / most recent annual revenue. No pipeline = 0."),
     ("GRW-POS","GRW","Market Positioning",0.20,"select_map","GRW-POSITIONING",
@@ -389,11 +389,15 @@ def score_company(ans):
     ss["REV-HHI"] = h
     ss["REV-DURABILITY"] = round(100*min(1,ans["REV-CONTRACT-CUST-PCT"]/75)*min(1,ans["REV-CONTRACT-AVG-MO"]/18),2)
     c = cagr*100
-    if c < 0: g = 0
-    elif c >= 15 and down == 0: g = 100
+    # DRS-2.0: a mild overall decline that is otherwise steady earns partial credit
+    # instead of the old hard zero, so a soft decliner is not double-penalized here
+    # and in GRW-CAGR at once.
+    if c >= 15 and down == 0: g = 100
     elif c >= 10 and down <= 1: g = 75
     elif c >= 5 and down <= 1: g = 50
-    else: g = 25
+    elif c >= 0: g = 25
+    elif c >= -5 and down <= 1: g = 15
+    else: g = 0
     ss["REV-GROWTH"] = g
     nrr = ans["REV-NRR"]
     if nrr == "unknown":
@@ -422,8 +426,17 @@ def score_company(ans):
     ss["MGT-NC"] = band_gte(ans["MGT-NC-PCT"], [(100,100),(75,70),(50,35),(0,0)])
     ss["MGT-COMP"] = {"within_15pct":100,"below_15_25pct":50,"below_25pct_plus":0,"above_25pct_plus":70}[ans["MGT-COMP"]]
     ss["MGT-RETENTION"] = band_lt(ans["MGT-TURNOVER"], [(10,100),(15,70),(25,35)], 0)
-    # GRW
-    ss["GRW-CAGR"] = 0 if c < 0 else band_gte(c, [(20,100),(15,85),(10,65),(5,40),(0,20)])
+    # GRW — DRS-2.0: graded negative bands (soft/eroding/melting) instead of a
+    # single hard zero for all decline.
+    if c >= 20: gc = 100
+    elif c >= 15: gc = 85
+    elif c >= 10: gc = 65
+    elif c >= 5: gc = 40
+    elif c >= 0: gc = 20
+    elif c >= -5: gc = 15
+    elif c >= -15: gc = 5
+    else: gc = 0
+    ss["GRW-CAGR"] = gc
     pipe = ans["GRW-PIPELINE"]/annual[-1] if ans["GRW-PIPELINE"] > 0 else 0
     ss["GRW-PIPE"] = 0 if ans["GRW-PIPELINE"] <= 0 else band_gte(pipe, [(3,100),(2,70),(1,35),(0,0)])
     ss["GRW-POS"] = {"strong_defined":100,"moderate":45,"undifferentiated_unclear":10}[ans["GRW-POSITIONING"]]

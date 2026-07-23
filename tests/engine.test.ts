@@ -196,6 +196,39 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
   });
 });
 
+describe('D1 graded negative growth bands', () => {
+  const base = loadFixture(FIXTURE_NAMES[0]).answers; // 4 fiscal years -> growth applies
+  const cagr = (answers: typeof base, code: string) =>
+    scoreFromAnswers(rubric, answers).subScores.find((s) => s.code === code)!.points;
+
+  it('eroding decline (~-10%/yr) scores GRW-CAGR 5, not 0', () => {
+    const eroding = { ...base, 'REV-ANNUAL': [5_000_000, 4_500_000, 4_100_000, 3_700_000] };
+    expect(cagr(eroding, 'GRW-CAGR')).toBe(5);
+  });
+
+  it('melting decline (<-15%/yr) still scores GRW-CAGR 0', () => {
+    const melting = { ...base, 'REV-ANNUAL': [5_000_000, 3_500_000, 2_500_000, 1_800_000] };
+    expect(cagr(melting, 'GRW-CAGR')).toBe(0);
+  });
+
+  it('a soft, mostly-steady decline earns REV-GROWTH 15 rather than a hard zero', () => {
+    // company-2: -0.65% CAGR with a single down year -> graded credit
+    const soft = loadFixture(FIXTURE_NAMES[1]);
+    const result = scoreFromAnswers(rubric, soft.answers);
+    expect(result.subScores.find((s) => s.code === 'REV-GROWTH')!.points).toBe(15);
+    expect(result.subScores.find((s) => s.code === 'GRW-CAGR')!.points).toBe(15);
+  });
+
+  it('positive-growth fixtures are unchanged by the negative bands', () => {
+    // company-1 grows ~14%/yr; its growth sub-scores match the stored fixture
+    const f = loadFixture(FIXTURE_NAMES[0]);
+    const result = scoreFromAnswers(rubric, f.answers);
+    expect(result.subScores.find((s) => s.code === 'GRW-CAGR')!.points).toBe(
+      f.expected.sub_scores['GRW-CAGR'],
+    );
+  });
+});
+
 describe('explainFromAnswers', () => {
   it('decomposes the DRS into per-dimension and per-sub-score contributions', () => {
     const fixture = loadFixture(FIXTURE_NAMES[1]);
