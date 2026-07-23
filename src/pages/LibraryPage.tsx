@@ -55,6 +55,14 @@ const dimensionLabel = (code: string) => DIMENSION_LABEL[code] ?? code;
 const SEVERITIES = ['critical', 'high', 'med', 'low'];
 const OWNER_ROLES = ['owner', 'advisor', 'cpa', 'attorney', 'ops'];
 
+// Buyer-question prep is authored as advisory items (item_type = buyer_question),
+// not education. A handful of system content modules (code CM-BUYERQ-*, titled
+// "Buyer Question Prep: …") predate that split and still sit in the education
+// catalog; keep them out of every education surface so buyer questions live in
+// the Advisory tab only.
+const isBuyerQuestionModule = (code: string | null | undefined, title: string): boolean =>
+  (code ?? '').toUpperCase().startsWith('CM-BUYERQ') || /^buyer question/i.test(title.trim());
+
 const slug = (s: string) =>
   s.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'ITEM';
 const rand4 = () => Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -336,7 +344,8 @@ function EducationSection() {
   const { busy, run } = useAsyncAction();
 
   const modulesQ = useContentModuleCatalog();
-  const modules = modulesQ.data ?? [];
+  // Buyer-question prep belongs in the Advisory tab, not Education (see helper).
+  const modules = (modulesQ.data ?? []).filter((m) => !isBuyerQuestionModule(m.code, m.title));
   const [form, setForm] = useState<{ mode: 'new' | 'edit' | 'adapt'; module?: ContentModuleCatalogRow } | null>(null);
   const [title, setTitle] = useState('');
   const [dimension, setDimension] = useState('REV');
@@ -446,43 +455,82 @@ function EducationSection() {
         <Card>
           <div className="advisory-list">
             {modules.map((m) => {
-              const isFirm = m.source === 'advisor';
               const editingThis =
                 canAuthor && form && (form.mode === 'edit' || form.mode === 'adapt') && form.module?.id === m.id;
               return (
                 <Fragment key={m.id}>
-                  <div className="advisory-item">
-                    <div className="advisory-item-head">
-                      <div className="advisory-item-titles">
-                        <p className="advisory-item-title">
-                          {m.title}
-                          {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
-                        </p>
-                        <p className="muted text-sm m-0">
-                          {m.dimension_code ? DIMENSION_LABEL[m.dimension_code] ?? m.dimension_code : '—'}
-                        </p>
-                      </div>
-                    </div>
-                    {canAuthor && (
-                      <div className="advisory-item-actions">
-                        {isFirm ? (
-                          <button className="linkish" onClick={() => open('edit', m)}>
-                            Edit
-                          </button>
-                        ) : (
-                          <button className="linkish" onClick={() => open('adapt', m)} title="Save an editable firm copy">
-                            Adapt for our firm
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <EducationModuleItem
+                    m={m}
+                    canAuthor={canAuthor}
+                    onEdit={() => open('edit', m)}
+                    onAdapt={() => open('adapt', m)}
+                  />
                   {editingThis && renderForm()}
                 </Fragment>
               );
             })}
           </div>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// One education module row: title + readiness area, its content readable inline
+// behind a View content / Hide content toggle (the module body was previously
+// unreachable from the card), plus firm edit / adapt actions.
+function EducationModuleItem({
+  m,
+  canAuthor,
+  onEdit,
+  onAdapt,
+}: {
+  m: ContentModuleCatalogRow;
+  canAuthor: boolean;
+  onEdit: () => void;
+  onAdapt: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isFirm = m.source === 'advisor';
+  const body = m.body_md?.trim() ?? '';
+  const hasBody = body.length > 0;
+  const bodyId = `edu-body-${m.id}`;
+  return (
+    <div className="advisory-item">
+      <div className="advisory-item-head">
+        <div className="advisory-item-titles">
+          <p className="advisory-item-title">
+            {m.title}
+            {isFirm && <span className="advisory-tag advisory-tag-firm">Firm</span>}
+          </p>
+          <p className="muted text-sm m-0">
+            {m.dimension_code ? DIMENSION_LABEL[m.dimension_code] ?? m.dimension_code : '—'}
+          </p>
+        </div>
+      </div>
+      {hasBody && open && (
+        <div className="education-body" id={bodyId}>
+          {body}
+        </div>
+      )}
+      {(hasBody || canAuthor) && (
+        <div className="advisory-item-actions">
+          {hasBody && (
+            <button className="linkish" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={bodyId}>
+              {open ? 'Hide content' : 'View content'}
+            </button>
+          )}
+          {canAuthor &&
+            (isFirm ? (
+              <button className="linkish" onClick={onEdit}>
+                Edit
+              </button>
+            ) : (
+              <button className="linkish" onClick={onAdapt} title="Save an editable firm copy">
+                Adapt for our firm
+              </button>
+            ))}
+        </div>
       )}
     </div>
   );
