@@ -367,6 +367,57 @@ describe.skipIf(!url)('Plan authoring (list-plans / create-plan)', () => {
     expect(t1.rows[0].c).toBe(1); // not duplicated
   });
 
+  it('re-adding a removed Plan reclaims its stranded tasks onto the new snapshot', async () => {
+    // Regression: a soft-removed Plan's tasks keep their engagement_plan_id. The
+    // old coalesce() kept that (dead) id on re-apply, so the re-added Plan's board
+    // group showed empty. The reclaim must move a task off a REMOVED plan.
+    const companyId3 = (
+      await service.query(`insert into companies (firm_id, name) values ($1, 'Readd Co') returning id`, [firmId])
+    ).rows[0].id;
+    const engagement3 = (
+      await service.query(
+        `insert into engagements (firm_id, company_id, started_at) values ($1, $2, current_date) returning id`,
+        [firmId, companyId3],
+      )
+    ).rows[0].id;
+    const plan = await handleFunctionCall(
+      'create-plan',
+      { name: 'Readd Test', status: 'active', items: [{ kind: 'task', library_task_id: libTask1Id }] },
+      ctxFor(advisorUserId),
+    );
+    const planId = (plan as { body: PlanBody }).body.id;
+
+    // Apply, then soft-remove — the task stays tagged to the now-removed snapshot.
+    const first = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: engagement3, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const ep1 = (first as { body: { engagement_plan: { id: string } } }).body.engagement_plan.id;
+    await service.query(`update engagement_plans set status = 'removed' where id = $1`, [ep1]);
+
+    // Re-apply the same Plan: a new snapshot that must reclaim the stranded task.
+    const again = await handleFunctionCall(
+      'apply-plan',
+      { engagement_id: engagement3, plan_template_id: planId },
+      ctxFor(advisorUserId),
+    );
+    const readd = (again as { body: { engagement_plan: { id: string }; tasks_created: number; tasks_claimed: number } })
+      .body;
+    expect(readd.engagement_plan.id).not.toBe(ep1); // a fresh snapshot
+    expect(readd.tasks_claimed).toBe(1);
+    expect(readd.tasks_created).toBe(0);
+    // The task now belongs to the re-added plan, not the dead one.
+    const owner = (
+      await service.query(
+        `select engagement_plan_id from tasks where engagement_id = $1 and library_task_id = $2`,
+        [engagement3, libTask1Id],
+      )
+    ).rows[0].engagement_plan_id;
+    expect(owner).toBe(readd.engagement_plan.id);
+    expect(owner).not.toBe(ep1);
+  });
+
   it('reports plan progress and stamps completion when all work is done (PL4)', async () => {
     const companyId3 = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'Progress Co') returning id`, [firmId])

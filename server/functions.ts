@@ -263,7 +263,13 @@ export async function handleFunctionCall(
   if (gateMsg) return err(402, gateMsg);
 
   try {
-    return await spec.handler({ service: ctx.service, body, firmId: authz.firmId, userId: ctx.userId });
+    return await spec.handler({
+      service: ctx.service,
+      body,
+      firmId: authz.firmId,
+      userId: ctx.userId,
+      asUser: ctx.asUser,
+    });
   } catch (e) {
     return err(400, (e as Error).message);
   }

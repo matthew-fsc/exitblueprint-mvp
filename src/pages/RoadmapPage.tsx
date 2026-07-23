@@ -194,19 +194,20 @@ export default function RoadmapPage() {
       });
       refresh();
       invalidatePlans();
+      // Applying a qualifying Plan is the sole path that lays tasks onto the
+      // roadmap (server/roadmap.ts) — so r.tasksCreated is exactly the sum of the
+      // applied plans' tasks. Report it once, as plan-applied work, not twice and
+      // not "from gaps" (the gap→task loop is retired). A re-run when every
+      // qualifying Plan is already applied creates nothing and does NOT reschedule
+      // existing tasks, so say that honestly rather than claiming a reschedule.
       const planCount = r.plansApplied?.length ?? 0;
       const planTasks = (r.plansApplied ?? []).reduce((n, p) => n + p.tasks_created, 0);
       let msg: string;
-      if (r.tasksCreated > 0 || planCount > 0) {
-        const parts: string[] = [];
-        if (r.tasksCreated > 0) parts.push(`${r.tasksCreated} task${r.tasksCreated === 1 ? '' : 's'} from gaps`);
-        if (planCount > 0)
-          parts.push(
-            `${planCount} plan${planCount === 1 ? '' : 's'} applied${planTasks ? ` (+${planTasks} task${planTasks === 1 ? '' : 's'})` : ''}`,
-          );
-        msg = `Roadmap built — ${parts.join(', ')}`;
+      if (planCount > 0) {
+        const taskPart = planTasks ? ` (+${planTasks} task${planTasks === 1 ? '' : 's'})` : '';
+        msg = `Roadmap built — ${planCount} plan${planCount === 1 ? '' : 's'} applied${taskPart}`;
       } else {
-        msg = tasks.length ? 'Roadmap rescheduled from the new start date' : 'Roadmap is up to date';
+        msg = tasks.length ? 'Roadmap is up to date — no new plans to apply' : 'No qualifying plans to apply yet';
       }
       toast.show(msg, 'good');
     } catch (err) {

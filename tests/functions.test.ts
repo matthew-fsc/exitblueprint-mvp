@@ -304,6 +304,69 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     }
   });
 
+  it('render-document-pdf: RLS — a portal user cannot render a doc type RLS walls off, even though the row exists', async () => {
+    // Regression: the render path used to fetch the narrative on the service-role
+    // client (RLS bypassed), so an owner/collaborator who could merely SEE the
+    // assessment could pull ANY doc type — a teaser, or an UNFINALIZED CIM draft.
+    // The fetch now runs AS THE CALLER, so RLS decides. We insert real rows so the
+    // walled caller's 404 proves authorization, not an empty table.
+    const ownerUserId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.owner@test.co') returning id`)
+    ).rows[0].id;
+    const companyId = (await service.query(`select company_id from engagements where id = $1`, [engagementId])).rows[0]
+      .company_id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name, company_id) values ($1, $2, 'owner', 'Router Owner', $3)`,
+      [ownerUserId, firmId, companyId],
+    );
+    const collabUserId = (
+      await service.query(`insert into auth.users (id, email) values (gen_random_uuid(), 'router.collab@test.co') returning id`)
+    ).rows[0].id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name, engagement_id) values ($1, $2, 'collaborator', 'Router Collab', $3)`,
+      [collabUserId, firmId, engagementId],
+    );
+
+    // A CIM (initially unfinalized) and a teaser both exist for the assessment.
+    await service.query(
+      `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+       values ($1, $2, $3, 'cim', '# cim draft', 'cim.v1', 'test'),
+              ($1, $2, $3, 'teaser', '# teaser', 'teaser.v1', 'test'),
+              ($1, $2, $3, 'owner_report', '# owner', 'owner_report.v1', 'test')`,
+      [firmId, engagementId, assessmentId],
+    );
+
+    const walled = (name: string, userId: string, docType: string) =>
+      handleFunctionCall('render-document-pdf', { assessment_id: assessmentId, doc_type: docType }, ctxFor(userId)).then(
+        (r) => (r.kind === 'json' ? r.status : 200),
+      );
+
+    // Owner is walled off the teaser and the UNFINALIZED CIM → 404 (row hidden by RLS).
+    expect(await walled('owner-teaser', ownerUserId, 'teaser')).toBe(404);
+    expect(await walled('owner-cim-unfinalized', ownerUserId, 'cim')).toBe(404);
+    // Collaborator is walled off everything but owner_report.
+    expect(await walled('collab-teaser', collabUserId, 'teaser')).toBe(404);
+    expect(await walled('collab-cim', collabUserId, 'cim')).toBe(404);
+
+    // Staff (advisor_firm_all) can reach the row — the render gets PAST the "no doc
+    // generated" 404 into assembly (which may 400 on this sparse fixture, but is
+    // never the walled 404).
+    expect(await walled('advisor-teaser', advisorUserId, 'teaser')).not.toBe(404);
+
+    // Once the advisor FINALIZES the CIM, the owner's RLS grants the read — the
+    // finalized_at gate the render path now honors. The owner gets past 404.
+    await service.query(
+      `update generated_documents set finalized_at = now() where assessment_id = $1 and doc_type = 'cim'`,
+      [assessmentId],
+    );
+    expect(await walled('owner-cim-finalized', ownerUserId, 'cim')).not.toBe(404);
+
+    // Cleanup.
+    await service.query(`delete from generated_documents where assessment_id = $1`, [assessmentId]);
+    await service.query(`delete from profiles where user_id = any($1)`, [[ownerUserId, collabUserId]]);
+    await service.query(`delete from auth.users where id = any($1)`, [[ownerUserId, collabUserId]]);
+  });
+
   it('create-engagement: creates the engagement and its acceptance atomically, gating assessments', async () => {
     const companyId = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'CE Co') returning id`, [firmId])

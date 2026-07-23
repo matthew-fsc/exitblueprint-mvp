@@ -131,6 +131,11 @@ export interface HandlerArgs {
   body: Record<string, unknown>;
   firmId: string | null;
   userId: string;
+  // An RLS-scoped query runner (queries execute AS the caller). Most handlers do
+  // their privileged work on `service` (RLS bypassed) and never need this; the
+  // document renderers use it so the narrative row they return is one RLS grants
+  // the caller — the authorization boundary for client-facing PDFs.
+  asUser: <T>(fn: (db: pg.ClientBase) => Promise<T>) => Promise<T>;
 }
 
 export interface FunctionSpec {
@@ -153,8 +158,13 @@ export const err = (status: number, message: string): FunctionResult => ({
 // keyed by doc_type; this thin adapter maps its result onto a FunctionResult. The
 // document reads the structured result and the generated narrative; it never
 // authors a number (architecture doc §10).
-async function documentPdf(service: pg.ClientBase, docType: string, assessmentId: string): Promise<FunctionResult> {
-  const result = await renderDocumentPdf(service, docType, assessmentId);
+async function documentPdf(
+  service: pg.ClientBase,
+  docType: string,
+  assessmentId: string,
+  asUser: HandlerArgs['asUser'],
+): Promise<FunctionResult> {
+  const result = await renderDocumentPdf(service, docType, assessmentId, asUser);
   if (!result.ok) return err(result.status, result.message);
   return { kind: 'pdf', filename: result.filename, buffer: result.buffer };
 }
@@ -352,26 +362,26 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) =>
-      documentPdf(service, (body.doc_type as string) ?? 'owner_report', body.assessment_id as string),
+    handler: ({ service, body, asUser }) =>
+      documentPdf(service, (body.doc_type as string) ?? 'owner_report', body.assessment_id as string, asUser),
   },
   'render-owner-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => documentPdf(service, 'owner_report', body.assessment_id as string),
+    handler: ({ service, body, asUser }) => documentPdf(service, 'owner_report', body.assessment_id as string, asUser),
   },
   'render-delta-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => documentPdf(service, 'delta_report', body.assessment_id as string),
+    handler: ({ service, body, asUser }) => documentPdf(service, 'delta_report', body.assessment_id as string, asUser),
   },
   'render-cim-pdf': {
     engine: 'reasoning',
     scope: 'assessment',
     gated: true,
-    handler: ({ service, body }) => documentPdf(service, 'cim', body.assessment_id as string),
+    handler: ({ service, body, asUser }) => documentPdf(service, 'cim', body.assessment_id as string, asUser),
   },
   // AI-as-institutional-reviewer (docs/20 "AI as an intelligence layer", docs/04).
   // Reviews the assembled structured data — scores, gaps, evidence posture, fired
