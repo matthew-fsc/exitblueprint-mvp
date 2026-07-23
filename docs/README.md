@@ -105,6 +105,7 @@ A developer index: the durable features and the files that own them. Pair with
 ## Security & compliance
 | Doc | What it is | Status |
 | --- | --- | --- |
+| [compliance/](./compliance/README.md) | **SOC 2 & pen-test readiness pack** — readiness/gap assessment, Trust Services Criteria control matrix, codebase security scan, the adopted InfoSec policy set (15 policies), risk register, and pen-test scope. The auditor-facing view (13/16/42 are the sales-facing view) | Canonical |
 | [13-security-summary](./13-security-summary.md) | Customer one-pager of implemented controls (backs the `/security` page) | Reference |
 | [16-vendor-security-dd](./16-vendor-security-dd.md) | Full vendor-security-DD questionnaire response + open-items list | Reference |
 | [15-buyer-expectations-and-vendor-dd](./15-buyer-expectations-and-vendor-dd.md) | Analysis of real DD artifacts → rubric/data-room/vendor-DD work | Reference |
