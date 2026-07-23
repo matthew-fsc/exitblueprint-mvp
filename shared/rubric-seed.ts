@@ -294,7 +294,10 @@ export function validateRubric(rubric: Rubric, playbooks: PlaybookSeed[],
     if (t.type === 'sub_score_below' && !subScoreCodes.has(t.code)) {
       problems.push(`gap ${gapCode}: unknown sub_score ${t.code}`);
     }
-    if ((t.type === 'answer_in' || t.type === 'answer_lte') && !questionCodes.has(t.question_code)) {
+    if (
+      (t.type === 'answer_in' || t.type === 'answer_not_in' || t.type === 'answer_lte') &&
+      !questionCodes.has(t.question_code)
+    ) {
       problems.push(`gap ${gapCode}: unknown question ${t.question_code}`);
     }
     if (t.type === 'all') t.conditions.forEach((c) => checkTrigger(gapCode, c));

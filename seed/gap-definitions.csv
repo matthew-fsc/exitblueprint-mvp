@@ -17,7 +17,7 @@ MGMT_LAYER_GAP,No Functional Management Layer,high,"{""type"": ""sub_score_below
 NONCOMPETE_GAP,Key Person Non-Compete Gap,high,"{""type"": ""sub_score_below"", ""code"": ""MGT-NC"", ""threshold"": 70}",MGT
 COMP_RISK,Compensation Flight Risk,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-COMP"", ""threshold"": 70}",MGT
 TURNOVER_HIGH,Retention History Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""MGT-RETENTION"", ""threshold"": 70}",MGT
-PIPELINE_BLIND,No Pipeline Discipline,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-PIPE"", ""threshold"": 70}",GRW
+PIPELINE_BLIND,No Pipeline Discipline,med,"{""type"": ""all"", ""conditions"": [{""type"": ""sub_score_below"", ""code"": ""GRW-PIPE"", ""threshold"": 70}, {""type"": ""answer_not_in"", ""question_code"": ""REV-MODEL"", ""values"": [""recurring"", ""asset_rental""]}]}",GRW
 POSITIONING_WEAK,Undifferentiated Market Position,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-POS"", ""threshold"": 45}",GRW
 CUSTOM_HEAVY,Custom-Work Revenue Dependency,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-REPEAT"", ""threshold"": 65}",GRW
 VALUE_GAP,Personal Value Gap,critical,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""PFN-OUTSIDE"", ""values"": [""partially"", ""no""]}, {""type"": ""answer_lte"", ""question_code"": ""VAL-CONF"", ""value"": 2}]}",PFN

@@ -216,7 +216,10 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'pipeline_ratio': {
       const pipeline = num(answers[inputs[0]], inputs[0]);
       const annual = numList(answers[inputs[1]], inputs[1]);
-      const ratio = pipeline > 0 ? pipeline / annual[annual.length - 1] : 0;
+      // DRS-2.0: coverage vs the AVERAGE of the provided years, not the latest one,
+      // so a revenue collapse can't mechanically inflate the ratio.
+      const avgRev = annual.reduce((acc, x) => acc + x, 0) / annual.length;
+      const ratio = pipeline > 0 && avgRev > 0 ? pipeline / avgRev : 0;
       points = pipeline <= 0 ? 0 : bandGte(ratio, logic.bands!, logic.else ?? 0);
       computedInputs.pipeline_coverage = pyRound(ratio, 2);
       break;
@@ -295,6 +298,9 @@ function evaluateTrigger(
     }
     case 'answer_in':
       return trigger.values.includes(answers[trigger.question_code] as string);
+    case 'answer_not_in':
+      // missing answer is "not in" -> the gap can still fire (default behavior)
+      return !trigger.values.includes(answers[trigger.question_code] as string);
     case 'answer_lte':
       return (answers[trigger.question_code] as number) <= trigger.value;
     case 'composite_below':

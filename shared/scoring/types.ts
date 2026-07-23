@@ -85,6 +85,7 @@ export interface SubScoreDef {
 export type GapTrigger =
   | { type: 'sub_score_below'; code: string; threshold: number }
   | { type: 'answer_in'; question_code: string; values: string[] }
+  | { type: 'answer_not_in'; question_code: string; values: string[] }
   | { type: 'answer_lte'; question_code: string; value: number }
   | { type: 'composite_below'; score_group: ScoreGroup; threshold: number }
   | { type: 'business_age_gte'; years: number }

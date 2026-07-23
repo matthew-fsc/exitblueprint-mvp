@@ -72,7 +72,7 @@
       "MGT-COMP": 100,
       "MGT-RETENTION": 100,
       "GRW-CAGR": 40,
-      "GRW-PIPE": 0,
+      "GRW-PIPE": 15,
       "GRW-POS": 100,
       "GRW-REPEAT": 30
     },
@@ -82,9 +82,9 @@
       "OPS": 62.25,
       "CUS": 62.25,
       "MGT": 73.25,
-      "GRW": 38.5
+      "GRW": 43.0
     },
-    "drs": 71.5,
+    "drs": 71.9,
     "tier": "Sale Ready",
     "owner_readiness_index": 73.0,
     "gaps": [
@@ -108,7 +108,7 @@
       "top5_pct": 51,
       "cagr_pct": 8.44,
       "down_years": 0,
-      "pipeline_coverage": 0.59
+      "pipeline_coverage": 0.66
     }
   }
 }

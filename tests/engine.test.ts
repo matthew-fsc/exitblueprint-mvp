@@ -196,6 +196,40 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
   });
 });
 
+describe('D8 pipeline: trend denominator + graded sub-1x + model-aware gap', () => {
+  const base = loadFixture(FIXTURE_NAMES[0]).answers;
+  const pipe = (answers: typeof base) =>
+    scoreFromAnswers(rubric, answers).subScores.find((s) => s.code === 'GRW-PIPE')!.points;
+
+  it('a revenue collapse no longer inflates coverage (avg denominator, not latest year)', () => {
+    // $6M pipeline against a collapsed last year: latest-year math would read 2.0x
+    // (-> 70); against the ~$8.25M average it is 0.73x -> graded 15.
+    const collapsed = {
+      ...base,
+      'REV-ANNUAL': [10_000_000, 10_000_000, 10_000_000, 3_000_000],
+      'GRW-PIPELINE': 6_000_000,
+    };
+    expect(pipe(collapsed)).toBe(15);
+  });
+
+  it('sub-1x coverage gets graded credit instead of a hard zero', () => {
+    const thin = { ...base, 'REV-ANNUAL': [4_000_000, 4_000_000], 'GRW-PIPELINE': 2_400_000, 'BIZ-AGE-YEARS': 8 };
+    expect(pipe(thin)).toBe(15); // 2.4 / 4.0 = 0.6x -> 15
+  });
+
+  it('PIPELINE_BLIND is suppressed for a recurring model (no new-business pipeline motion)', () => {
+    const recurringThin = { ...base, 'GRW-PIPELINE': 100_000, 'REV-MODEL': 'recurring' };
+    const result = scoreFromAnswers(rubric, recurringThin);
+    expect(result.subScores.find((s) => s.code === 'GRW-PIPE')!.points).toBeLessThan(70);
+    expect(result.gapCodes).not.toContain('PIPELINE_BLIND');
+  });
+
+  it('PIPELINE_BLIND still fires for a transactional/project model with thin pipeline', () => {
+    const projectThin = { ...base, 'GRW-PIPELINE': 100_000, 'REV-MODEL': 'transactional_project' };
+    expect(scoreFromAnswers(rubric, projectThin).gapCodes).toContain('PIPELINE_BLIND');
+  });
+});
+
 describe('D2 concentration gradient + anchor offset', () => {
   const base = loadFixture(FIXTURE_NAMES[0]).answers;
   const top1 = (answers: typeof base) =>

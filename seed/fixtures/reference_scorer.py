@@ -163,7 +163,8 @@ subscores = [
      {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20],[-5,15],[-15,5]],"else":0,"na_when":{"history_years_lt":3}},
      "DRS-2.0: graded negative bands (soft -0..-5 -> 15, eroding -5..-15 -> 5, melting < -15 -> 0). N/A below 3 fiscal years."),
     ("GRW-PIPE","GRW","Pipeline Coverage Ratio",0.30,"pipeline_ratio","GRW-PIPELINE,REV-ANNUAL",
-     {"bands":[[3,100],[2,70],[1,35]],"else":0},"Ratio = qualified pipeline / most recent annual revenue. No pipeline = 0."),
+     {"bands":[[3,100],[2,70],[1,35],[0.5,15]],"else":0},
+     "DRS-2.0: ratio = qualified pipeline / AVERAGE annual revenue (not the latest year), with graded credit at 0.5x. No pipeline = 0."),
     ("GRW-POS","GRW","Market Positioning",0.20,"select_map","GRW-POSITIONING",
      {"map":{"strong_defined":100,"moderate":45,"undifferentiated_unclear":10}},
      "Top band raised to 100 (DRS-2.0) for consistency with every other select_map."),
@@ -204,7 +205,7 @@ gaps = [
     ("NONCOMPETE_GAP","Key Person Non-Compete Gap","high",{"type":"sub_score_below","code":"MGT-NC","threshold":70},"MGT","CM-BUYERQ-NONCOMPETE","PB-NONCOMPETES"),
     ("COMP_RISK","Compensation Flight Risk","med",{"type":"sub_score_below","code":"MGT-COMP","threshold":70},"MGT","CM-BUYERQ-NONCOMPETE","PB-COMP-BENCHMARK"),
     ("TURNOVER_HIGH","Retention History Weakness","med",{"type":"sub_score_below","code":"MGT-RETENTION","threshold":70},"MGT","CM-BUYERQ-NONCOMPETE","PB-COMP-BENCHMARK"),
-    ("PIPELINE_BLIND","No Pipeline Discipline","med",{"type":"sub_score_below","code":"GRW-PIPE","threshold":70},"GRW","CM-BUYERQ-RECURRING","PB-GROWTH-ENGINE"),
+    ("PIPELINE_BLIND","No Pipeline Discipline","med",{"type":"all","conditions":[{"type":"sub_score_below","code":"GRW-PIPE","threshold":70},{"type":"answer_not_in","question_code":"REV-MODEL","values":["recurring","asset_rental"]}]},"GRW","CM-BUYERQ-RECURRING","PB-GROWTH-ENGINE"),
     ("POSITIONING_WEAK","Undifferentiated Market Position","med",{"type":"sub_score_below","code":"GRW-POS","threshold":45},"GRW","CM-EDU-DRS-101","PB-GROWTH-ENGINE"),
     ("CUSTOM_HEAVY","Custom-Work Revenue Dependency","med",{"type":"sub_score_below","code":"GRW-REPEAT","threshold":65},"GRW","CM-BUYERQ-RECURRING","PB-GROWTH-ENGINE"),
     ("VALUE_GAP","Personal Value Gap","critical",{"type":"all","conditions":[{"type":"answer_in","question_code":"PFN-OUTSIDE","values":["partially","no"]},{"type":"answer_lte","question_code":"VAL-CONF","value":2}]},"PFN","CM-EDU-VALUE-GAP","PB-VALUE-GAP-PLAN"),
@@ -446,8 +447,11 @@ def score_company(ans):
     elif c >= -15: gc = 5
     else: gc = 0
     ss["GRW-CAGR"] = gc
-    pipe = ans["GRW-PIPELINE"]/annual[-1] if ans["GRW-PIPELINE"] > 0 else 0
-    ss["GRW-PIPE"] = 0 if ans["GRW-PIPELINE"] <= 0 else band_gte(pipe, [(3,100),(2,70),(1,35),(0,0)])
+    # DRS-2.0: coverage is measured against the AVERAGE of the provided years, not
+    # the latest one, so a revenue collapse can no longer mechanically inflate it.
+    avg_rev = sum(annual)/len(annual)
+    pipe = ans["GRW-PIPELINE"]/avg_rev if ans["GRW-PIPELINE"] > 0 and avg_rev > 0 else 0
+    ss["GRW-PIPE"] = 0 if ans["GRW-PIPELINE"] <= 0 else band_gte(pipe, [(3,100),(2,70),(1,35),(0.5,15),(0,0)])
     ss["GRW-POS"] = {"strong_defined":100,"moderate":45,"undifferentiated_unclear":10}[ans["GRW-POSITIONING"]]
     ss["GRW-REPEAT"] = band_gte(ans["GRW-REPEAT-PCT"], [(70,100),(50,65),(30,30),(0,0)])
     # applicability (na_when) — a sub-score can be Not Applicable for this
@@ -521,6 +525,7 @@ def score_company(ans):
             # a gap keyed on an N/A sub-score cannot fire (the metric doesn't apply)
             if t["type"] == "sub_score_below": return applic.get(t["code"], True) and ss[t["code"]] < t["threshold"]
             if t["type"] == "answer_in": return ans.get(t["question_code"]) in t["values"]
+            if t["type"] == "answer_not_in": return ans.get(t["question_code"]) not in t["values"]
             if t["type"] == "answer_lte": return ans.get(t["question_code"]) <= t["value"]
             if t["type"] == "composite_below": return drs < t["threshold"]
             if t["type"] == "business_age_gte": return biz_age is None or biz_age >= t["years"]
