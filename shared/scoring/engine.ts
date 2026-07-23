@@ -255,11 +255,105 @@ export function validateCompleteness(rubric: Rubric, answers: Answers): string[]
     .map((q) => q.code);
 }
 
+// Structural inputs whose domain the arithmetic depends on. Guarding these turns
+// a silent NaN/Infinity (JS) or an opaque ZeroDivisionError (the reference
+// scorer) into a clear, field-level rejection. Without these guards the engine
+// produced plausible-but-meaningless scores for ordinary lower-middle-market
+// inputs — e.g. a $0 opening-revenue year scored "Institutional Grade", a solo
+// operator (OPS-FUNC-COUNT 0) got a perfect management-depth ratio, and an
+// out-of-range 1–5 scale pushed the ORI past 100.
+const REVENUE_SERIES_QUESTION = 'REV-ANNUAL';
+const CUSTOMER_SHARES_QUESTION = 'REV-TOP5-SHARES';
+const FUNCTION_COUNT_QUESTION = 'OPS-FUNC-COUNT';
+
+function fail(code: string, message: string): never {
+  throw new Error(`answer ${code}: ${message}`);
+}
+
+function finiteNumber(v: AnswerValue, code: string): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    fail(code, `expected a finite number, got ${JSON.stringify(v)}`);
+  }
+  return v;
+}
+
+// Domain checks for every scored answer, run after completeness. Rejects the
+// inputs that make the engine crash or silently corrupt a score. This is
+// validation only — it never changes the score of a well-formed assessment, so
+// the reference fixtures are unaffected (CLAUDE.md rule 1). The matching guard
+// lives in seed/fixtures/reference_scorer.py so engine and reference stay
+// in lockstep.
+export function validateAnswers(rubric: Rubric, answers: Answers): void {
+  for (const question of rubric.questions) {
+    if (!question.scored) continue;
+    const v = answers[question.code];
+    if (v === undefined) continue; // completeness is validated separately
+    const code = question.code;
+
+    switch (question.answerType) {
+      case 'numeric': {
+        const n = finiteNumber(v, code);
+        if (n < 0) fail(code, `must not be negative (got ${n})`);
+        if (code === FUNCTION_COUNT_QUESTION && n < 1) {
+          fail(code, `core function count must be at least 1 to score management depth (got ${n})`);
+        }
+        break;
+      }
+      case 'scale_1_5': {
+        const n = finiteNumber(v, code);
+        if (n < 1 || n > 5) fail(code, `must be on the 1–5 scale (got ${n})`);
+        break;
+      }
+      case 'numeric_or_unknown': {
+        if (v === 'unknown') break;
+        const n = finiteNumber(v, code);
+        if (n < 0) fail(code, `must not be negative (got ${n})`);
+        break;
+      }
+      case 'select': {
+        const options = (question.options ?? '').split('|').filter(Boolean);
+        if (typeof v !== 'string' || !options.includes(v)) {
+          fail(code, `must be one of ${options.join(', ')} (got ${JSON.stringify(v)})`);
+        }
+        break;
+      }
+      case 'numeric_list': {
+        if (!Array.isArray(v) || v.some((x) => typeof x !== 'number' || !Number.isFinite(x))) {
+          fail(code, `expected a list of finite numbers, got ${JSON.stringify(v)}`);
+        }
+        const list = v as number[];
+        if (code === REVENUE_SERIES_QUESTION) {
+          if (list.length < 2) {
+            fail(code, `at least two fiscal years of revenue are required to score growth (got ${list.length})`);
+          }
+          if (list.some((x) => x <= 0)) {
+            fail(code, `revenue for each fiscal year must be greater than 0`);
+          }
+        } else if (code === CUSTOMER_SHARES_QUESTION) {
+          if (list.length < 1) fail(code, `at least one customer share is required`);
+          if (list.length > 5) fail(code, `expected at most five customer shares (got ${list.length})`);
+          if (list.some((x) => x < 0 || x > 100)) {
+            fail(code, `each customer share must be a percentage between 0 and 100`);
+          }
+          const sum = list.reduce((acc, x) => acc + x, 0);
+          if (sum > 100.5) fail(code, `customer shares sum to ${sum}%, which exceeds 100%`);
+        } else if (list.some((x) => x < 0)) {
+          fail(code, `values must not be negative`);
+        }
+        break;
+      }
+      default:
+        break; // rank / text are unscored; nothing to validate
+    }
+  }
+}
+
 export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult {
   const missing = validateCompleteness(rubric, answers);
   if (missing.length > 0) {
     throw new Error(`assessment incomplete: unanswered scored questions: ${missing.join(', ')}`);
   }
+  validateAnswers(rubric, answers);
 
   const flags: string[] = [];
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));

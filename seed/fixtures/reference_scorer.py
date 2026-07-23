@@ -334,7 +334,33 @@ def band_lt(v, bands_lt, else_pts):
         if v < th: return pts
     return else_pts
 
+def validate(ans):
+    """Reject inputs whose domain the arithmetic depends on, before any math
+    runs. Mirrors validateAnswers() in shared/scoring/engine.ts so the reference
+    and the engine agree on invalid inputs too. Only affects malformed
+    assessments; well-formed fixtures are unchanged (CLAUDE.md rule 1)."""
+    annual = ans["REV-ANNUAL"]
+    if not isinstance(annual, list) or len(annual) < 2:
+        raise ValueError("REV-ANNUAL: at least two fiscal years of revenue are required to score growth")
+    if any((not isinstance(x, (int, float))) or x <= 0 for x in annual):
+        raise ValueError("REV-ANNUAL: revenue for each fiscal year must be greater than 0")
+    top5 = ans["REV-TOP5-SHARES"]
+    if not isinstance(top5, list) or len(top5) < 1:
+        raise ValueError("REV-TOP5-SHARES: at least one customer share is required")
+    if len(top5) > 5:
+        raise ValueError("REV-TOP5-SHARES: expected at most five customer shares")
+    if any(x < 0 or x > 100 for x in top5):
+        raise ValueError("REV-TOP5-SHARES: each customer share must be a percentage between 0 and 100")
+    if sum(top5) > 100.5:
+        raise ValueError("REV-TOP5-SHARES: customer shares sum to more than 100%")
+    if ans["OPS-FUNC-COUNT"] < 1:
+        raise ValueError("OPS-FUNC-COUNT: core function count must be at least 1 to score management depth")
+    for code in ("PFN-DEPEND", "VAL-CONF"):
+        if not (1 <= ans[code] <= 5):
+            raise ValueError(f"{code}: must be on the 1-5 scale")
+
 def score_company(ans):
+    validate(ans)
     ss = {}
     flags = []
     top5 = ans["REV-TOP5-SHARES"]; top1 = top5[0]; top5sum = sum(top5)
