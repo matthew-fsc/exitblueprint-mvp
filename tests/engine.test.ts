@@ -3,6 +3,7 @@
 // ORI, gap set, flags, and computed intermediates.
 import { describe, expect, it } from 'vitest';
 import { explainFromAnswers, scoreFromAnswers } from '../shared/scoring/engine';
+import type { Answers } from '../shared/scoring/types';
 import { FIXTURE_NAMES, loadFixture, loadSeedRubric } from './helpers';
 
 const rubric = loadSeedRubric();
@@ -94,6 +95,36 @@ describe('validation and unknowns', () => {
     const result = scoreFromAnswers(rubric, answers);
     expect(result.subScores.find((s) => s.code === 'REV-NRR')!.points).toBe(25);
     expect(result.flags).toContain('NRR not tracked');
+  });
+});
+
+describe('input validation guards (crash / silent-corruption backstop)', () => {
+  // Before these guards the engine did not crash on these inputs — it silently
+  // produced meaningless scores (e.g. a $0 opening-revenue year scored
+  // "Institutional Grade", a solo operator got a perfect management-depth ratio,
+  // an out-of-range scale pushed the ORI past 100). Each must now be rejected
+  // with a clear, field-level message. None of these change a well-formed score.
+  const base = loadFixture(FIXTURE_NAMES[0]).answers;
+  const cases: [string, Answers, RegExp][] = [
+    ['single fiscal year', { 'REV-ANNUAL': [4_000_000] }, /two fiscal years/],
+    ['zero opening-revenue year', { 'REV-ANNUAL': [0, 1_000_000] }, /greater than 0/],
+    ['zero most-recent-revenue year', { 'REV-ANNUAL': [500_000, 0] }, /greater than 0/],
+    ['negative revenue', { 'REV-ANNUAL': [-100_000, 200_000, 300_000] }, /greater than 0/],
+    ['zero core-function count', { 'OPS-FUNC-COUNT': 0 }, /at least 1/],
+    ['empty customer-share list', { 'REV-TOP5-SHARES': [] }, /at least one customer share/],
+    ['too many customer shares', { 'REV-TOP5-SHARES': [20, 20, 20, 20, 10, 10] }, /at most five/],
+    ['customer shares over 100%', { 'REV-TOP5-SHARES': [100, 100, 100, 100, 100] }, /exceeds 100%/],
+    ['a single share above 100', { 'REV-TOP5-SHARES': [150] }, /between 0 and 100/],
+    ['out-of-range 1–5 scale', { 'PFN-DEPEND': 10 }, /1–5 scale/],
+    ['negative churn percentage', { 'CUS-CHURN': -5 }, /must not be negative/],
+    ['unknown select value', { 'FIN-RECON': 'sometimes' }, /must be one of/],
+  ];
+  it.each(cases)('rejects %s', (_label, override, pattern) => {
+    expect(() => scoreFromAnswers(rubric, { ...base, ...override })).toThrow(pattern);
+  });
+
+  it('still scores a well-formed assessment unchanged', () => {
+    expect(scoreFromAnswers(rubric, base).drsScore).toBe(loadFixture(FIXTURE_NAMES[0]).expected.drs);
   });
 });
 
