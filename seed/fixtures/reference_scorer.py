@@ -60,6 +60,7 @@ questions = [
     ("OPS-90DAY-CTX","OPS","What happens to the business if the owner is unavailable for 90 days?","text","",False,6),
     ("OPS-POSTCLOSE-CTX","OPS","Owner's intended post-close role and transition plan.","text","",False,7),
     ("OPS-KEYREL-CTX","OPS","Which customer relationships are personally owned by the founder vs institutionally managed?","text","",False,8),
+    ("OPS-LICENSE-DEP","OPS","Does operating the business depend on a license, certification, CON, or franchise that may not transfer automatically to a buyer?","select","no|transfers_easily|requires_requalification|may_not_transfer",False,9),
     # CUS inputs (top1/top5 derived from REV-TOP5-SHARES)
     ("CUS-TENURE","CUS","Average length of an active customer relationship, in years.","numeric","",True,1),
     ("CUS-REV-CONTRACT-PCT","CUS","Percentage of active revenue covered by formal contracts.","numeric","",True,2),
@@ -532,6 +533,14 @@ def score_company(ans):
             if t["type"] == "all": return all(ev(c) for c in t["conditions"])
             return False
         if ev(t): triggered.append(gcode)
+    # Blind-spot flags (D6): the DRS is a STANDALONE OPERATIONAL readiness index and
+    # cannot see license/CON transferability or asset/IP value. When a value-defining
+    # factor sits outside the model, flag it so a high score is never read as "no
+    # risks" on a business whose value lives where the DRS cannot look.
+    if ans.get("OPS-LICENSE-DEP") in ("requires_requalification", "may_not_transfer"):
+        flags.append("Value depends on a license, CON, or franchise that may not transfer to a buyer; the DRS scores standalone operational readiness only")
+    if ans.get("VAL-ASSETS-CTX") in ("real_estate", "ip", "equipment", "other"):
+        flags.append("Material tangible assets or IP the DRS does not value; obtain a separate asset/IP appraisal")
     return {"sub_scores": ss, "dimension_scores": dims, "drs": drs, "tier": tier,
             "owner_readiness_index": ori, "gaps": sorted(triggered), "flags": flags,
             "not_applicable": sorted(c for c,ok in applic.items() if not ok),

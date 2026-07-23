@@ -260,6 +260,26 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
 // institutionally saleable regardless of the rest. Concentration otherwise reaches
 // only ~14.5% of the DRS, so the bands alone cannot hold such a business below Sale
 // Ready; cap it at the top of Needs Work. Mirrors reference_scorer.py.
+// Blind-spot flags (D6): the DRS is a STANDALONE OPERATIONAL readiness index and
+// cannot see license/CON transferability or asset/IP value. When a value-defining
+// factor sits outside the model, flag it so a high score is never read as "no
+// risks" on a business whose value lives where the DRS cannot look. Mirrors
+// reference_scorer.py.
+function blindSpotFlags(answers: Answers): string[] {
+  const out: string[] = [];
+  const license = answers['OPS-LICENSE-DEP'];
+  if (license === 'requires_requalification' || license === 'may_not_transfer') {
+    out.push(
+      'Value depends on a license, CON, or franchise that may not transfer to a buyer; the DRS scores standalone operational readiness only',
+    );
+  }
+  const assets = answers['VAL-ASSETS-CTX'];
+  if (assets === 'real_estate' || assets === 'ip' || assets === 'equipment' || assets === 'other') {
+    out.push('Material tangible assets or IP the DRS does not value; obtain a separate asset/IP appraisal');
+  }
+  return out;
+}
+
 function concentrationGovernor(answers: Answers, drs: number): number {
   const shares = answers['REV-TOP5-SHARES'];
   if (!Array.isArray(shares) || shares.length === 0) return drs;
@@ -480,6 +500,8 @@ export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult 
     .filter((g) => evaluateTrigger(g.trigger, pointsByCode, applicableByCode, answers, drsScore))
     .map((g) => g.code)
     .sort();
+
+  for (const f of blindSpotFlags(answers)) flags.push(f);
 
   return {
     subScores,

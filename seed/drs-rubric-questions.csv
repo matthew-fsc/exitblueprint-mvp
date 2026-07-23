@@ -26,6 +26,7 @@ OPS-AUTO-PCT,OPS,"Percentage of repetitive tasks (invoicing, reporting, scheduli
 OPS-90DAY-CTX,OPS,What happens to the business if the owner is unavailable for 90 days?,text,,False,6
 OPS-POSTCLOSE-CTX,OPS,Owner's intended post-close role and transition plan.,text,,False,7
 OPS-KEYREL-CTX,OPS,Which customer relationships are personally owned by the founder vs institutionally managed?,text,,False,8
+OPS-LICENSE-DEP,OPS,"Does operating the business depend on a license, certification, CON, or franchise that may not transfer automatically to a buyer?",select,no|transfers_easily|requires_requalification|may_not_transfer,False,9
 CUS-TENURE,CUS,"Average length of an active customer relationship, in years.",numeric,,True,1
 CUS-REV-CONTRACT-PCT,CUS,Percentage of active revenue covered by formal contracts.,numeric,,True,2
 CUS-CHURN,CUS,Annual revenue churn rate from customer losses (%). ,numeric,,True,3

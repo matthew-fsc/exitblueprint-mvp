@@ -196,6 +196,28 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
   });
 });
 
+describe('D6 blind-spot flags (standalone-readiness framing)', () => {
+  const base = loadFixture(FIXTURE_NAMES[0]).answers; // high-scoring, no gaps
+
+  it('a high-scoring business flags a non-transferable license so it never reads as no-risk', () => {
+    const licenseFragile = { ...base, 'OPS-LICENSE-DEP': 'may_not_transfer' };
+    const result = scoreFromAnswers(rubric, licenseFragile);
+    expect(result.drsScore).toBeGreaterThanOrEqual(70); // still scores well on operations
+    expect(result.flags.some((f) => /license, CON, or franchise/.test(f))).toBe(true);
+  });
+
+  it('flags material assets/IP the DRS does not value', () => {
+    const assetHeavy = { ...base, 'VAL-ASSETS-CTX': 'real_estate' };
+    expect(scoreFromAnswers(rubric, assetHeavy).flags.some((f) => /assets or IP/.test(f))).toBe(true);
+  });
+
+  it('does not flag when the license transfers cleanly and there are no separate assets', () => {
+    const clean = { ...base, 'OPS-LICENSE-DEP': 'transfers_easily', 'VAL-ASSETS-CTX': 'none' };
+    const flags = scoreFromAnswers(rubric, clean).flags;
+    expect(flags.some((f) => /license/.test(f) || /assets or IP/.test(f))).toBe(false);
+  });
+});
+
 describe('D8 pipeline: trend denominator + graded sub-1x + model-aware gap', () => {
   const base = loadFixture(FIXTURE_NAMES[0]).answers;
   const pipe = (answers: typeof base) =>

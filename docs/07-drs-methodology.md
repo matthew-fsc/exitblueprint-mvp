@@ -24,6 +24,16 @@ the separate Owner Readiness Index and never enter the DRS.
 Key milestones: Diligence Ready = DRS 70. Competitive Process Ready = DRS 85.
 Rule: every sub-score below 70 generates at least one buyer question (see content modules).
 
+**Scope of the score (DRS-2.0).** The DRS measures **standalone operational
+readiness** from transferable, EBITDA-based operations. It deliberately does not
+value a non-transferable license/CON/franchise, primary IP, market-timing/scarcity,
+or balance-sheet/asset-floor value. When a value-defining factor sits outside the
+model, the engine raises a **blind-spot flag** (in `flags`) so a high score is
+never read as "no risks" on a business whose value lives where the DRS cannot look
+(e.g. a CON/license-dependent practice, or an asset-heavy holdco). Inputs:
+`OPS-LICENSE-DEP` (license/CON/franchise transferability) and `VAL-ASSETS-CTX`
+(material assets/IP).
+
 ## Sub-score weights and 100-point benchmarks
 
 Full band logic lives in /seed/drs-rubric-subscores.csv and the reference scorer. Summary:
