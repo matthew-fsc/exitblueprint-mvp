@@ -109,8 +109,8 @@ subscores = [
       "na_when":{"history_years_lt":3}},
      "CAGR over provided fiscal years; down = count of down years. N/A below 3 fiscal years (consistency needs >=2 growth periods)."),
     ("REV-NRR","REV","Churn Rate (NRR)",0.10,"band_gte","REV-NRR",
-     {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25},
-     "Unknown NRR scores 25 and raises a not-tracked flag (v1 convention)."),
+     {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25,"na_when":{"answer_unknown":"REV-NRR"}},
+     "Known NRR bands as before. 'unknown' is Not Applicable (excluded + re-normalized) rather than scored at the worst band; it still raises a not-tracked flag."),
     ("FIN-RECON","FIN","Audit Trail / Reconciliation",0.30,"select_map","FIN-RECON",
      {"map":{"monthly":100,"quarterly":65,"annual":30,"none":0}},""),
     ("FIN-ADDBACK","FIN","Addback Defensibility Index",0.30,"select_map","FIN-ADDBACK-DOC",
@@ -155,7 +155,8 @@ subscores = [
     ("GRW-PIPE","GRW","Pipeline Coverage Ratio",0.30,"pipeline_ratio","GRW-PIPELINE,REV-ANNUAL",
      {"bands":[[3,100],[2,70],[1,35]],"else":0},"Ratio = qualified pipeline / most recent annual revenue. No pipeline = 0."),
     ("GRW-POS","GRW","Market Positioning",0.20,"select_map","GRW-POSITIONING",
-     {"map":{"strong_defined":80,"moderate":45,"undifferentiated_unclear":10}},"Max attainable is 80 per methodology."),
+     {"map":{"strong_defined":100,"moderate":45,"undifferentiated_unclear":10}},
+     "Top band raised to 100 (DRS-2.0) for consistency with every other select_map."),
     ("GRW-REPEAT","GRW","Product/Service Repeatability",0.15,"band_gte","GRW-REPEAT-PCT",
      {"bands":[[70,100],[50,65],[30,30],[0,0]]},""),
     # Owner Readiness Index (not in DRS) - v1 conventions, Matthew to ratify
@@ -419,7 +420,7 @@ def score_company(ans):
     ss["GRW-CAGR"] = 0 if c < 0 else band_gte(c, [(20,100),(15,85),(10,65),(5,40),(0,20)])
     pipe = ans["GRW-PIPELINE"]/annual[-1] if ans["GRW-PIPELINE"] > 0 else 0
     ss["GRW-PIPE"] = 0 if ans["GRW-PIPELINE"] <= 0 else band_gte(pipe, [(3,100),(2,70),(1,35),(0,0)])
-    ss["GRW-POS"] = {"strong_defined":80,"moderate":45,"undifferentiated_unclear":10}[ans["GRW-POSITIONING"]]
+    ss["GRW-POS"] = {"strong_defined":100,"moderate":45,"undifferentiated_unclear":10}[ans["GRW-POSITIONING"]]
     ss["GRW-REPEAT"] = band_gte(ans["GRW-REPEAT-PCT"], [(70,100),(50,65),(30,30),(0,0)])
     # applicability (na_when) — a sub-score can be Not Applicable for this
     # assessment (insufficient operating history, or inapplicable to the revenue

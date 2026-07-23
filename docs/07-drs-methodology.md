@@ -33,7 +33,7 @@ Full band logic lives in /seed/drs-rubric-subscores.csv and the reference scorer
 - Operational Independence (20%): Owner hours (35%, <10/wk), SOP coverage (30%, >=80%), Management depth ratio (20%, >=1 per function), Automation (15%, >=70%)
 - Customer Risk (15%): Top-1 % (30%, <10%), Top-5 % (25%, <30%), Avg tenure (20%, >=5yr), Contract coverage (15%, >=80% of revenue), Churn (10%, <5%)
 - Management (10%): Layers (30%, 2+), Non-competes (25%, 100% of key employees), Comp vs market (25%, within +/-15%), Retention (20%, <10% turnover)
-- Growth (10%): CAGR (35%, >=20%), Pipeline coverage (30%, >=3x annual revenue), Positioning (20%, max 80 pts), Repeatability (15%, >=70% standardized)
+- Growth (10%): CAGR (35%, >=20%), Pipeline coverage (30%, >=3x annual revenue), Positioning (20%, strong_defined=100 as of DRS-2.0; was capped at 80 in DRS-1.0), Repeatability (15%, >=70% standardized)
 
 ## Roadmap phasing (drives playbook phase field)
 

@@ -70,7 +70,7 @@
       "MGT-RETENTION": 70,
       "GRW-CAGR": 100,
       "GRW-PIPE": 35,
-      "GRW-POS": 80,
+      "GRW-POS": 100,
       "GRW-REPEAT": 100
     },
     "dimension_scores": {
@@ -79,9 +79,9 @@
       "OPS": 37.5,
       "CUS": 73.44,
       "MGT": 66.56,
-      "GRW": 63.85
+      "GRW": 70.0
     },
-    "drs": 70.9,
+    "drs": 71.6,
     "tier": "Sale Ready",
     "owner_readiness_index": 59.7,
     "gaps": [

@@ -2,7 +2,7 @@
 // outputs exactly (docs/03): every sub-score, dimension score, DRS, tier,
 // ORI, gap set, flags, and computed intermediates.
 import { describe, expect, it } from 'vitest';
-import { explainFromAnswers, scoreFromAnswers } from '../shared/scoring/engine';
+import { explainFromAnswers, pyRound, scoreFromAnswers } from '../shared/scoring/engine';
 import type { Answers } from '../shared/scoring/types';
 import { FIXTURE_NAMES, loadFixture, loadSeedRubric } from './helpers';
 
@@ -189,12 +189,16 @@ describe('explainFromAnswers', () => {
   it('decomposes the DRS into per-dimension and per-sub-score contributions', () => {
     const fixture = loadFixture(FIXTURE_NAMES[1]);
     const explain = explainFromAnswers(rubric, fixture.answers);
-    // contributions re-sum to the reported scores
+    // applicable contributions re-sum (with re-normalization) to the reported scores
     for (const d of explain.dimensions) {
       const parts = explain.subScores.filter((s) => s.dimensionCode === d.code);
-      expect(
-        Number(parts.reduce((acc, s) => acc + s.weight * s.points, 0).toFixed(2)),
-      ).toBe(d.score);
+      const applic = parts.filter((s) => s.applicable);
+      const wsum = applic.reduce((a, s) => a + s.weight, 0);
+      const expected =
+        applic.length === parts.length
+          ? pyRound(parts.reduce((a, s) => a + s.weight * s.points, 0), 2)
+          : pyRound(applic.reduce((a, s) => a + s.weight * s.points, 0) / wsum, 2);
+      expect(expected).toBe(d.score);
     }
     expect(
       Number(
@@ -224,13 +228,20 @@ describe('explainFromAnswers', () => {
     }
     const points = new Map(explain.subScores.map((s) => [s.code, s.points]));
     for (const [code, floor] of floors) points.set(code, Math.max(points.get(code) ?? 0, floor));
+    const applicable = new Map(explain.subScores.map((s) => [s.code, s.applicable]));
     const dims = rubric.dimensions
       .filter((d) => d.scoreGroup === 'business_readiness')
       .map((d) => {
         const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
-        return { d, score: Number(parts.reduce((a, s) => a + s.weight * (points.get(s.code) ?? 0), 0).toFixed(2)) };
+        const applic = parts.filter((s) => applicable.get(s.code) !== false);
+        const wsum = applic.reduce((a, s) => a + s.weight, 0);
+        const score =
+          applic.length === parts.length
+            ? pyRound(parts.reduce((a, s) => a + s.weight * (points.get(s.code) ?? 0), 0), 2)
+            : pyRound(applic.reduce((a, s) => a + s.weight * (points.get(s.code) ?? 0), 0) / wsum, 2);
+        return { d, score };
       });
-    const expected = Number(dims.reduce((a, x) => a + x.score * x.d.drsWeight, 0).toFixed(1));
+    const expected = pyRound(dims.reduce((a, x) => a + x.score * x.d.drsWeight, 0), 1);
     expect(explain.projectedDrs).toBe(expected);
   });
 });
