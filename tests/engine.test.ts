@@ -79,8 +79,8 @@ describe('band boundaries (docs/03 conventions)', () => {
     expect(points({ ...base, 'OPS-OWNER-HOURS': 10 }, 'OPS-HOURS')).toBe(75);
   });
 
-  it('top-1 share exactly 30 scores 20 (bands_lt: 30 falls to the next band)', () => {
-    expect(points({ ...base, 'REV-TOP5-SHARES': [30, 9, 7, 5, 4] }, 'CUS-TOP1')).toBe(20);
+  it('top-1 share exactly 30 scores 25 (bands_lt: 30 falls to the next band, DRS-2.0)', () => {
+    expect(points({ ...base, 'REV-TOP5-SHARES': [30, 9, 7, 5, 4] }, 'CUS-TOP1')).toBe(25);
   });
 });
 
@@ -193,6 +193,42 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
     expect(result.gapCodes).not.toContain('RECURRING_LOW');
     expect(result.gapCodes).not.toContain('CONTRACT_GAP');
     expect(result.gapCodes).not.toContain('CHURN_HIGH');
+  });
+});
+
+describe('D2 concentration gradient + anchor offset', () => {
+  const base = loadFixture(FIXTURE_NAMES[0]).answers;
+  const top1 = (answers: typeof base) =>
+    scoreFromAnswers(rubric, answers).subScores.find((s) => s.code === 'CUS-TOP1')!.points;
+
+  it('a single-customer business cannot reach Sale Ready', () => {
+    const captive = { ...base, 'REV-TOP5-SHARES': [100] };
+    expect(scoreFromAnswers(rubric, captive).drsScore).toBeLessThan(70);
+  });
+
+  it('the severe range is graded, not collapsed to a single 0', () => {
+    // 41% and 60% single customers now score differently (were both 0 in DRS-1.0)
+    expect(top1({ ...base, 'REV-TOP5-SHARES': [41, 20, 15, 14, 10] })).toBe(15);
+    expect(top1({ ...base, 'REV-TOP5-SHARES': [60, 15, 12, 8, 5] })).toBe(7);
+    expect(top1({ ...base, 'REV-TOP5-SHARES': [80, 20] })).toBe(0);
+  });
+
+  it('a contractually locked-in anchor floors at 45 (no CoC clause, long term)', () => {
+    const anchored = {
+      ...base,
+      'REV-TOP5-SHARES': [55, 15, 12, 10, 8],
+      'CUS-COC-CTX': 'none',
+      'REV-CONTRACT-AVG-MO': 60,
+    };
+    expect(top1(anchored)).toBe(45); // base band would be 7
+  });
+
+  it('the anchor offset does NOT apply to a fragile whale (CoC clause or short term)', () => {
+    const shares = { 'REV-TOP5-SHARES': [55, 15, 12, 10, 8] };
+    // change-of-control clause present -> no offset
+    expect(top1({ ...base, ...shares, 'CUS-COC-CTX': 'yes_material', 'REV-CONTRACT-AVG-MO': 60 })).toBe(7);
+    // short remaining term -> no offset
+    expect(top1({ ...base, ...shares, 'CUS-COC-CTX': 'none', 'REV-CONTRACT-AVG-MO': 6 })).toBe(7);
   });
 });
 

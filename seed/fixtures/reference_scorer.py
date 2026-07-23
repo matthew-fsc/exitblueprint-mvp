@@ -103,8 +103,8 @@ subscores = [
       "na_when":{"answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
      "Score=100 benchmark: >=80% recurring. N/A for transactional/project and asset-rental models, where recurring revenue is not the business shape."),
     ("REV-HHI","REV","Customer Concentration (HHI)",0.25,"hhi_from_top5","REV-TOP5-SHARES",
-     {"bands_lt":[[1000,100],[1500,80],[2000,55],[2500,30]],"else":0,"cap_if_top1_gt":[30,60]},
-     "HHI estimated as lower bound from top-5 shares (sum of squared %). Cap 60 if top customer >30%."),
+     {"bands_lt":[[1000,100],[1500,80],[2000,55],[2500,30],[4000,15],[6000,7]],"else":0,"cap_if_top1_gt":[30,60]},
+     "HHI estimated as lower bound from top-5 shares (sum of squared %). DRS-2.0: gradient extended across the severe range. Cap 60 if top customer >30%."),
     ("REV-DURABILITY","REV","Contract Durability",0.20,"durability","REV-CONTRACT-CUST-PCT,REV-CONTRACT-AVG-MO",
      {"formula":"100*min(1,coverage/75)*min(1,months/18)",
       "na_when":{"answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
@@ -135,9 +135,13 @@ subscores = [
     ("OPS-AUTO","OPS","Process Automation Level",0.15,"band_gte","OPS-AUTO-PCT",
      {"bands":[[70,100],[50,70],[30,40],[0,15]]},""),
     ("CUS-TOP1","CUS","Top 1 Customer Revenue %",0.30,"top1_band","REV-TOP5-SHARES",
-     {"bands_lt":[[10,100],[20,75],[30,45],[40,20]],"else":0},"Single customer >40% = near-uninvestable."),
+     {"bands_lt":[[10,100],[20,75],[30,45],[40,25],[50,15],[65,7]],"else":0,
+      "anchor_offset":{"top1_gte":40,"coc_question":"CUS-COC-CTX","coc_ok":"none",
+                       "months_question":"REV-CONTRACT-AVG-MO","min_months":24,"floor":45}},
+     "DRS-2.0: gradient extended across the severe range so a single-customer business cannot plateau with a manageable one. A contractually locked-in anchor (no change-of-control clause, >=24mo avg term) floors at 45 rather than the fragile-whale score."),
     ("CUS-TOP5","CUS","Top 5 Customer Revenue %",0.25,"top5_band","REV-TOP5-SHARES",
-     {"bands_lt":[[30,100],[45,75],[60,45],[75,20]],"else":0},""),
+     {"bands_lt":[[30,100],[45,75],[60,45],[75,25],[90,12]],"else":0},
+     "DRS-2.0: gradient extended across the severe range."),
     ("CUS-TENURE","CUS","Average Customer Tenure",0.20,"band_gte","CUS-TENURE",
      {"bands":[[5,100],[3,75],[2,50],[1,25],[0,0]],"na_when":{"business_age_lt":5}},
      "N/A below 5 years in business: average tenure is bounded by company age, so a younger firm cannot attain the benchmark regardless of loyalty."),
@@ -384,7 +388,7 @@ def score_company(ans):
     # REV
     ss["REV-RECUR"] = band_gte(ans["REV-RECUR-PCT"], [(80,100),(60,75),(40,50),(20,25),(0,0)])
     hhi = sum(s*s for s in top5)
-    h = band_lt(hhi, [(1000,100),(1500,80),(2000,55),(2500,30)], 0)
+    h = band_lt(hhi, [(1000,100),(1500,80),(2000,55),(2500,30),(4000,15),(6000,7)], 0)
     if top1 > 30: h = min(h, 60)
     ss["REV-HHI"] = h
     ss["REV-DURABILITY"] = round(100*min(1,ans["REV-CONTRACT-CUST-PCT"]/75)*min(1,ans["REV-CONTRACT-AVG-MO"]/18),2)
@@ -416,8 +420,13 @@ def score_company(ans):
     ss["OPS-DEPTH"] = 100 if r >= 1 else 75 if r >= 0.75 else 40 if r >= 0.5 else 10
     ss["OPS-AUTO"] = band_gte(ans["OPS-AUTO-PCT"], [(70,100),(50,70),(30,40),(0,15)])
     # CUS
-    ss["CUS-TOP1"] = band_lt(top1, [(10,100),(20,75),(30,45),(40,20)], 0)
-    ss["CUS-TOP5"] = band_lt(top5sum, [(30,100),(45,75),(60,45),(75,20)], 0)
+    t1 = band_lt(top1, [(10,100),(20,75),(30,45),(40,25),(50,15),(65,7)], 0)
+    # anchor offset: a contractually locked-in dominant customer (no change-of-control
+    # clause, >=24mo avg remaining term) is a different risk than a fragile whale.
+    if top1 >= 40 and ans.get("CUS-COC-CTX") == "none" and ans.get("REV-CONTRACT-AVG-MO", 0) >= 24:
+        t1 = max(t1, 45)
+    ss["CUS-TOP1"] = t1
+    ss["CUS-TOP5"] = band_lt(top5sum, [(30,100),(45,75),(60,45),(75,25),(90,12)], 0)
     ss["CUS-TENURE"] = band_gte(ans["CUS-TENURE"], [(5,100),(3,75),(2,50),(1,25),(0,0)])
     ss["CUS-COVERAGE"] = band_gte(ans["CUS-REV-CONTRACT-PCT"], [(80,100),(60,70),(40,40),(0,10)])
     ss["CUS-CHURN"] = band_lt(ans["CUS-CHURN"], [(5,100),(10,70),(15,40),(20,15)], 0)
@@ -476,6 +485,14 @@ def score_company(ans):
             dims[dcode] = round(sum(w*v for w,v in parts)/wsum, 2) if wsum > 0 else 0
     weights = {"REV":0.25,"FIN":0.20,"OPS":0.20,"CUS":0.15,"MGT":0.10,"GRW":0.10}
     drs = round(sum(dims[d]*w for d,w in weights.items()), 1)
+    # Concentration governor (D2): an unprotected dominant single customer (>=50%
+    # of revenue, no long-term change-of-control-proof contract) is not
+    # institutionally saleable regardless of how clean the rest is. Concentration
+    # otherwise reaches only ~14.5% of the DRS, so the bands alone cannot hold such
+    # a business below Sale Ready; cap it at the top of Needs Work.
+    anchor_protected = top1 >= 40 and ans.get("CUS-COC-CTX") == "none" and ans.get("REV-CONTRACT-AVG-MO", 0) >= 24
+    if top1 >= 50 and not anchor_protected:
+        drs = min(drs, 69.0)
     tier = ("Institutional Grade" if drs>=85 else "Sale Ready" if drs>=70 else
             "Needs Work" if drs>=55 else "High Risk" if drs>=40 else "Not Saleable (Yet)")
     # Owner Readiness Index (owner_readiness group; never enters the DRS). Same
@@ -579,6 +596,19 @@ fixtures = {
     "GRW-PIPELINE":6000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":40,
     "GOL-TIMELINE":"two_3yr","PFN-DEPEND":3,"PFN-OUTSIDE":"mostly","PFN-DEBT":"yes",
     "VAL-LASTVAL":"one_3yr","VAL-CONF":4,"VAL-SEP":"fully","BIZ-AGE-YEARS":18}},
+ "company-6-summit-aerospace-components": {
+  "profile": "22-year-old Tier-1 aerospace components supplier, $21M revenue, one dominant OEM anchor at 55% of revenue but under a 5-year long-term agreement with no change-of-control clause. Exercises the D2 anchor offset: the top-1 concentration sub-score floors at 45 (contractually locked-in anchor) instead of the fragile-whale band, while TOP-5 and HHI still register the real concentration.",
+  "answers": {
+    "REV-RECUR-PCT":80,"REV-TOP5-SHARES":[55,15,12,10,8],"REV-CONTRACT-CUST-PCT":85,"REV-CONTRACT-AVG-MO":60,
+    "REV-ANNUAL":[18000000,19000000,20000000,21000000],"REV-NRR":105,"REV-MODEL":"recurring",
+    "CUS-COC-CTX":"none",
+    "FIN-RECON":"monthly","FIN-ADDBACK-DOC":"mostly_documented","FIN-BASIS":"accrual_consistent","FIN-STATEMENTS":"all_three",
+    "OPS-OWNER-HOURS":15,"OPS-SOP-PCT":70,"OPS-MGR-COUNT":3,"OPS-FUNC-COUNT":4,"OPS-AUTO-PCT":60,
+    "CUS-TENURE":12,"CUS-REV-CONTRACT-PCT":85,"CUS-CHURN":3,
+    "MGT-LAYERS":"one_clear_layer","MGT-NC-PCT":80,"MGT-COMP":"within_15pct","MGT-TURNOVER":8,
+    "GRW-PIPELINE":12000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":70,
+    "GOL-TIMELINE":"two_3yr","PFN-DEPEND":4,"PFN-OUTSIDE":"mostly","PFN-DEBT":"yes",
+    "VAL-LASTVAL":"one_3yr","VAL-CONF":4,"VAL-SEP":"fully","BIZ-AGE-YEARS":22}},
 }
 
 # ---------------- EMIT FILES ----------------

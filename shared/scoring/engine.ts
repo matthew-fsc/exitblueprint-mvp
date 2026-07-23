@@ -224,6 +224,17 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
     case 'top1_band': {
       const shares = numList(answers[q0], q0);
       points = bandLt(shares[0], logic.bands_lt!, logic.else ?? 0);
+      const ao = logic.anchor_offset;
+      if (
+        ao &&
+        shares[0] >= ao.top1_gte &&
+        answers[ao.coc_question] === ao.coc_ok &&
+        typeof answers[ao.months_question] === 'number' &&
+        (answers[ao.months_question] as number) >= ao.min_months
+      ) {
+        points = Math.max(points, ao.floor);
+        computedInputs.anchor_protected = 1;
+      }
       computedInputs.top1_pct = shares[0];
       break;
     }
@@ -239,6 +250,24 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
   }
 
   return { code: sub.code, points, applicable: subScoreApplicable(sub.logic, answers), computedInputs };
+}
+
+// Concentration governor (D2): an unprotected dominant single customer (>= 50% of
+// revenue, without a long-term change-of-control-proof contract) is not
+// institutionally saleable regardless of the rest. Concentration otherwise reaches
+// only ~14.5% of the DRS, so the bands alone cannot hold such a business below Sale
+// Ready; cap it at the top of Needs Work. Mirrors reference_scorer.py.
+function concentrationGovernor(answers: Answers, drs: number): number {
+  const shares = answers['REV-TOP5-SHARES'];
+  if (!Array.isArray(shares) || shares.length === 0) return drs;
+  const top1 = shares[0];
+  const months = answers['REV-CONTRACT-AVG-MO'];
+  const anchorProtected =
+    top1 >= 40 &&
+    answers['CUS-COC-CTX'] === 'none' &&
+    typeof months === 'number' &&
+    months >= 24;
+  return top1 >= 50 && !anchorProtected ? Math.min(drs, 69.0) : drs;
 }
 
 export function drsTier(drs: number): string {
@@ -423,12 +452,15 @@ export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult 
     score: weightedMean(rubric.subScores.filter((s) => s.dimensionCode === d.code), 2),
   }));
 
-  const drsScore = pyRound(
-    dimensionScores.reduce(
-      (acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight,
-      0,
+  const drsScore = concentrationGovernor(
+    answers,
+    pyRound(
+      dimensionScores.reduce(
+        (acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight,
+        0,
+      ),
+      1,
     ),
-    1,
   );
 
   // ORI is one weighted mean across the whole owner_readiness group (its weights
@@ -498,6 +530,7 @@ export function projectDrs(
   currentPoints: Map<string, number>,
   floors: Map<string, number>,
   applicable?: Map<string, boolean>,
+  answers?: Answers,
 ): number {
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
   const points = new Map(currentPoints);
@@ -524,10 +557,13 @@ export function projectDrs(
             })();
       return { code: d.code, score };
     });
-  return pyRound(
+  const projected = pyRound(
     dimensionScores.reduce((acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight, 0),
     1,
   );
+  // a concentration-capped business stays capped: remediating other gaps cannot
+  // change the top-1 revenue share the cap is based on.
+  return answers ? concentrationGovernor(answers, projected) : projected;
 }
 
 export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainResult {
@@ -579,7 +615,7 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
   }
   const currentPoints = new Map(result.subScores.map((s) => [s.code, s.points]));
   const applicableByCode = new Map(result.subScores.map((s) => [s.code, s.applicable]));
-  const projectedDrs = projectDrs(rubric, currentPoints, floors, applicableByCode);
+  const projectedDrs = projectDrs(rubric, currentPoints, floors, applicableByCode, answers);
 
   return {
     subScores,

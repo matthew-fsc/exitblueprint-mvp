@@ -57,6 +57,18 @@ export interface SubScoreLogic {
   formula?: string;
   rules?: string;
   na_when?: NaWhen;
+  // Softens the top-1 concentration penalty for a contractually locked-in anchor
+  // customer (docs/07, D2): if the top customer is >= top1_gte% but under a
+  // durable contract (no change-of-control clause, >= min_months avg term), the
+  // sub-score floors at `floor` rather than the fragile-whale band.
+  anchor_offset?: {
+    top1_gte: number;
+    coc_question: string;
+    coc_ok: string;
+    months_question: string;
+    min_months: number;
+    floor: number;
+  };
 }
 
 export interface SubScoreDef {
