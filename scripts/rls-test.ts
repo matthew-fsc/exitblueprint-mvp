@@ -195,6 +195,34 @@ async function main() {
          ($1, 'CPA Directory A', 'cpa'), ($2, 'CPA Directory B', 'cpa')`,
       [ids.firm_a, ids.firm_b],
     );
+
+    // Buyer book (20260723215715): one buyer + mandate per firm, plus a firm B
+    // COMPUTED match (service role) for the match read-isolation check below.
+    const buyerRows = (
+      await db.query(
+        `insert into buyers (firm_id, name, buyer_kind) values
+           ($1, 'Buyer A', 'strategic'), ($2, 'Buyer B', 'strategic')
+         returning id, firm_id`,
+        [ids.firm_a, ids.firm_b],
+      )
+    ).rows;
+    const buyerA = buyerRows.find((r) => r.firm_id === ids.firm_a).id;
+    const buyerB = buyerRows.find((r) => r.firm_id === ids.firm_b).id;
+    const mandateRows = (
+      await db.query(
+        `insert into buyer_mandates (firm_id, buyer_id, target_industries) values
+           ($1, $2, array['hvac']), ($3, $4, array['hvac'])
+         returning id, firm_id`,
+        [ids.firm_a, buyerA, ids.firm_b, buyerB],
+      )
+    ).rows;
+    const mandateB = mandateRows.find((r) => r.firm_id === ids.firm_b).id;
+    await db.query(
+      `insert into buyer_matches
+         (firm_id, engagement_id, buyer_id, mandate_id, mandate_version, match_score, blocked)
+       values ($1, $2, $3, $4, 1, 4, false)`,
+      [ids.firm_b, engagementB, buyerB, mandateB],
+    );
     await db.query(
       `insert into roadmap_milestones (firm_id, engagement_id, track, title)
        values ($1, $2, 'personal', 'Firm B milestone')`,
@@ -824,6 +852,54 @@ async function main() {
       await db.query('rollback to savepoint apwb');
     }
     check('advisor cannot write firm B directory', advDirFirmBBlocked);
+
+    // buyers / buyer_mandates (self-serve staff book, 20260723215715): advisor A
+    // reads and writes ONLY the own-firm book; firm B rows are invisible and
+    // unwritable. buyer_matches: staff READ own-firm only, and direct writes are
+    // refused (the deterministic engine writes them under the service role).
+    const buyersSeen = await db.query('select id, name from buyers');
+    check('advisor sees only own firm buyers',
+      buyersSeen.rows.length === 1 && buyersSeen.rows[0].name === 'Buyer A', `saw ${JSON.stringify(buyersSeen.rows)}`);
+
+    let buyerWriteOk = false;
+    try {
+      await db.query('savepoint bw');
+      await db.query(`insert into buyers (firm_id, name, buyer_kind) values ($1, 'Advisor Added Buyer', 'search_fund')`, [ids.firm_a]);
+      buyerWriteOk = true;
+      await db.query('rollback to savepoint bw');
+    } catch {
+      await db.query('rollback to savepoint bw');
+    }
+    check('advisor can write own firm buyers (self-serve)', buyerWriteOk);
+
+    let buyerFirmBBlocked = false;
+    try {
+      await db.query('savepoint bwb');
+      await db.query(`insert into buyers (firm_id, name, buyer_kind) values ($1, 'Cross-firm Buyer', 'strategic')`, [ids.firm_b]);
+      await db.query('release savepoint bwb');
+    } catch {
+      buyerFirmBBlocked = true;
+      await db.query('rollback to savepoint bwb');
+    }
+    check('advisor cannot write firm B buyers', buyerFirmBBlocked);
+
+    const matchesSeen = await db.query('select id from buyer_matches');
+    check('advisor cannot read firm B buyer_matches', matchesSeen.rows.length === 0, `saw ${matchesSeen.rows.length}`);
+
+    let matchWriteBlocked = false;
+    try {
+      await db.query('savepoint bmw');
+      await db.query(
+        `insert into buyer_matches (firm_id, engagement_id, buyer_id, mandate_id, mandate_version, match_score)
+         values ($1, $2, $3, $4, 1, 5)`,
+        [ids.firm_a, engagementA, buyerA, mandateRows.find((r) => r.firm_id === ids.firm_a).id],
+      );
+      await db.query('release savepoint bmw');
+    } catch {
+      matchWriteBlocked = true;
+      await db.query('rollback to savepoint bmw');
+    }
+    check('advisor cannot directly write buyer_matches (engine-only)', matchWriteBlocked);
 
     // engagement_professionals (deal-team link): staff CRUD — advisor A attaches a
     // directory professional to an engagement in their firm. Rolled back so later

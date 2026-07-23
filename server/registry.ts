@@ -64,6 +64,7 @@ import { runEngagementVerification } from './sellside';
 import { attachDataRoomDocument, evidenceCoverage, listDataRoom, setDataRoomItem } from './data-room';
 import { buildCimCoverage } from './cim';
 import { engagementComparables } from './comparables';
+import { rankEngagementBuyers } from './buyer-matching';
 import {
   claimReviewItem,
   escalateReviewItem,
@@ -266,6 +267,16 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     // advisor/admin staff (manage-engagement).
     scope: 'manage-engagement',
     handler: ({ service, body }) => engagementComparables(service, body.engagement_id as string).then(ok),
+  },
+  'engagement-buyer-matches': {
+    engine: 'rules',
+    // Ranks the FIRM'S OWN buyer book against this engagement (buyer names,
+    // mandates, relationship strength). Like engagement-comparables this is
+    // firm-staff intelligence, not engagement-scoped data — the read-open
+    // 'engagement' scope would let an owner or a pinned collaborator enumerate the
+    // firm's buyer book. Requires advisor/admin staff (manage-engagement).
+    scope: 'manage-engagement',
+    handler: ({ service, body }) => rankEngagementBuyers(service, body.engagement_id as string).then(ok),
   },
   'advisory-items': {
     engine: 'rules',
