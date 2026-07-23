@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { invokeFunction } from '../lib/supabase';
+import { downloadBlob } from '../lib/download';
 import { track } from '../lib/analytics';
 import { fmtCurrency } from '../lib/format';
 import { ErrorState, useToast } from './ui';
@@ -109,12 +110,7 @@ export function PLImportPanel({
 
   const downloadSample = () => {
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'sample-pl.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, 'sample-pl.csv');
   };
 
   const extract = async (e: FormEvent) => {

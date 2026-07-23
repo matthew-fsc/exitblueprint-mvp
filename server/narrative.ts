@@ -26,6 +26,43 @@ export interface GeneratedText {
 // Injectable for tests; the default calls the Claude API.
 export type GenerateFn = (systemPrompt: string, userContent: string) => Promise<GeneratedText>;
 
+// Every generated document is persisted the same way: look up the owning
+// firm/engagement from the assessment, then insert one row into
+// generated_documents (a narrative table — rule 2: AI never writes to scoring
+// tables). doc_type, prompt_version and model are the only things that vary per
+// document, so they're the parameters. Each per-document generator called this
+// as an inline copy; consolidated here so the fetch-then-insert coupling can't
+// drift between them.
+async function persistGeneratedDocument(
+  db: pg.ClientBase,
+  params: {
+    assessmentId: string;
+    docType: string;
+    contentMd: string;
+    promptVersion: string;
+    model: string;
+  },
+) {
+  const assessment = (
+    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [params.assessmentId])
+  ).rows[0];
+  const row = await db.query(
+    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     returning *`,
+    [
+      assessment.firm_id,
+      assessment.engagement_id,
+      params.assessmentId,
+      params.docType,
+      params.contentMd,
+      params.promptVersion,
+      params.model,
+    ],
+  );
+  return row.rows[0];
+}
+
 async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
   const provider = resolveProvider();
   if (!provider) {
@@ -358,16 +395,13 @@ export async function generateDocument(
     generate,
   );
 
-  const assessment = (
-    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
-  ).rows[0];
-  const row = await db.query(
-    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
-     values ($1, $2, $3, 'owner_report', $4, $5, $6)
-     returning *`,
-    [assessment.firm_id, assessment.engagement_id, assessmentId, text, PROMPT_VERSION, model],
-  );
-  return row.rows[0];
+  return persistGeneratedDocument(db, {
+    assessmentId,
+    docType: 'owner_report',
+    contentMd: text,
+    promptVersion: PROMPT_VERSION,
+    model,
+  });
 }
 
 // --- Delta report (F4) --------------------------------------------------------
@@ -582,16 +616,13 @@ async function generateDeltaReport(
     generate,
   );
 
-  const assessment = (
-    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [currentAssessmentId])
-  ).rows[0];
-  const row = await db.query(
-    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
-     values ($1, $2, $3, 'delta_report', $4, $5, $6)
-     returning *`,
-    [assessment.firm_id, assessment.engagement_id, currentAssessmentId, text, DELTA_PROMPT_VERSION, model],
-  );
-  return row.rows[0];
+  return persistGeneratedDocument(db, {
+    assessmentId: currentAssessmentId,
+    docType: 'delta_report',
+    contentMd: text,
+    promptVersion: DELTA_PROMPT_VERSION,
+    model,
+  });
 }
 
 // --- CIM (Confidential Information Memorandum) ---------------------------------
@@ -614,16 +645,13 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
     generate,
   );
 
-  const assessment = (
-    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
-  ).rows[0];
-  const row = await db.query(
-    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
-     values ($1, $2, $3, 'cim', $4, $5, $6)
-     returning *`,
-    [assessment.firm_id, assessment.engagement_id, assessmentId, text, CIM_PROMPT_VERSION, model],
-  );
-  return row.rows[0];
+  return persistGeneratedDocument(db, {
+    assessmentId,
+    docType: 'cim',
+    contentMd: text,
+    promptVersion: CIM_PROMPT_VERSION,
+    model,
+  });
 }
 
 // --- Teaser (blind profile) & Management presentation --------------------------
@@ -647,16 +675,13 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
     generate,
   );
 
-  const assessment = (
-    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
-  ).rows[0];
-  const row = await db.query(
-    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
-     values ($1, $2, $3, 'teaser', $4, $5, $6)
-     returning *`,
-    [assessment.firm_id, assessment.engagement_id, assessmentId, text, TEASER_PROMPT_VERSION, model],
-  );
-  return row.rows[0];
+  return persistGeneratedDocument(db, {
+    assessmentId,
+    docType: 'teaser',
+    contentMd: text,
+    promptVersion: TEASER_PROMPT_VERSION,
+    model,
+  });
 }
 
 const MGMT_PROMPT_VERSION = 'management_presentation.v1';
@@ -673,14 +698,11 @@ async function generateManagementPresentation(db: pg.ClientBase, assessmentId: s
     generate,
   );
 
-  const assessment = (
-    await db.query(`select firm_id, engagement_id from assessments where id = $1`, [assessmentId])
-  ).rows[0];
-  const row = await db.query(
-    `insert into generated_documents (firm_id, engagement_id, assessment_id, doc_type, content_md, prompt_version, model)
-     values ($1, $2, $3, 'management_presentation', $4, $5, $6)
-     returning *`,
-    [assessment.firm_id, assessment.engagement_id, assessmentId, text, MGMT_PROMPT_VERSION, model],
-  );
-  return row.rows[0];
+  return persistGeneratedDocument(db, {
+    assessmentId,
+    docType: 'management_presentation',
+    contentMd: text,
+    promptVersion: MGMT_PROMPT_VERSION,
+    model,
+  });
 }
