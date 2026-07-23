@@ -65,6 +65,9 @@ export const qk = {
   valuation: (engagementId: string) => ['valuation', engagementId] as const,
   recast: (engagementId: string) => ['recast', engagementId] as const,
   valuationInputs: (engagementId: string) => ['valuationInputs', engagementId] as const,
+  buyers: (firmId: string) => ['buyers', firmId] as const,
+  buyerMandates: (buyerId: string) => ['buyerMandates', buyerId] as const,
+  buyerMatches: (engagementId: string) => ['buyerMatches', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -666,6 +669,113 @@ export function useComparables(
       });
       return r.comparables;
     },
+  });
+}
+
+// ---- buyer matching (buyer-matching design doc) ----------------------------------------------
+// The firm's OWN book of buyers + their versioned acquisition mandates, and the
+// deterministic ranked matches for an engagement. Buyers/mandates are read
+// directly (RLS-scoped, staff-writable); matches come from the rules engine.
+export type BuyerKind =
+  | 'strategic' | 'financial_sponsor' | 'family_office' | 'search_fund'
+  | 'individual' | 'strategic_competitor' | 'esop_internal';
+
+export interface BuyerRow {
+  id: string;
+  name: string;
+  organization: string | null;
+  buyer_kind: BuyerKind;
+  relationship_strength: 'strong' | 'moderate' | 'weak' | 'unknown';
+  status: 'active' | 'dormant' | 'acquired_recently' | 'do_not_contact';
+  contact_name: string | null;
+  contact_email: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface BuyerMandateRow {
+  id: string;
+  buyer_id: string;
+  mandate_version: number;
+  label: string | null;
+  target_industries: string[];
+  target_revenue_bands: string[];
+  target_ebitda_bands: string[];
+  target_states: string[];
+  deal_structures: string[];
+  must_haves: string[];
+  dealbreaker_gap_codes: string[];
+  min_drs: number | null;
+  status: 'active' | 'retired';
+  notes: string | null;
+}
+
+export interface BuyerMatchRow {
+  buyerId: string;
+  buyerName: string;
+  buyerKind: BuyerKind;
+  relationshipStrength: string;
+  mandateId: string;
+  mandateVersion: number;
+  score: number;
+  blocked: boolean;
+  factors: string[];
+  blockers: string[];
+}
+
+export interface BuyerMatchSubjectShape {
+  industry: string | null;
+  revenueBand: string | null;
+  ebitdaBand: string | null;
+  state: string | null;
+  drs: number | null;
+  openGapCodes: string[];
+}
+
+export function useBuyers(firmId: string | undefined | null): UseQueryResult<BuyerRow[]> {
+  return useQuery({
+    queryKey: qk.buyers(firmId ?? ''),
+    enabled: !!firmId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buyers')
+        .select('id,name,organization,buyer_kind,relationship_strength,status,contact_name,contact_email,notes,created_at')
+        .eq('firm_id', firmId!)
+        .eq('archived', false)
+        .order('name');
+      if (error) throw new Error(error.message);
+      return (data as BuyerRow[]) ?? [];
+    },
+  });
+}
+
+export function useBuyerMandates(buyerId: string | undefined | null): UseQueryResult<BuyerMandateRow[]> {
+  return useQuery({
+    queryKey: qk.buyerMandates(buyerId ?? ''),
+    enabled: !!buyerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buyer_mandates')
+        .select('id,buyer_id,mandate_version,label,target_industries,target_revenue_bands,target_ebitda_bands,target_states,deal_structures,must_haves,dealbreaker_gap_codes,min_drs,status,notes')
+        .eq('buyer_id', buyerId!)
+        .order('mandate_version', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as BuyerMandateRow[]) ?? [];
+    },
+  });
+}
+
+export function useEngagementBuyerMatches(
+  engagementId: string | undefined,
+): UseQueryResult<{ subject: BuyerMatchSubjectShape; matches: BuyerMatchRow[] }> {
+  return useQuery({
+    queryKey: engagementId ? qk.buyerMatches(engagementId) : ['buyerMatches', ''],
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<{ subject: BuyerMatchSubjectShape; matches: BuyerMatchRow[] }>(
+        'engagement-buyer-matches',
+        { engagement_id: engagementId },
+      ),
   });
 }
 

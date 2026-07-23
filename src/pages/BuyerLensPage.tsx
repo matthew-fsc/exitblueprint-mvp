@@ -9,9 +9,11 @@ import {
   useCompany,
   useEngagement,
   useFiredAdvisory,
+  useEngagementBuyerMatches,
   // useDiligenceSimulation,  // Hidden for now — AI diligence simulator not production-ready yet
   type AdvisoryItemType,
   type FiredAdvisoryItem,
+  type BuyerMatchRow,
   // type DiligenceFinding,  // Hidden for now — AI diligence simulator not production-ready yet
   // type DiligenceRemediation,
   // type DiligenceSourceKind,
@@ -247,6 +249,73 @@ function AdvisoryCard({ item }: { item: FiredAdvisoryItem }) {
   );
 }
 
+// Ranked matches from the firm's OWN buyer book (deterministic — no AI). Blocked
+// matches (an open dealbreaker gap, or the DRS floor unmet) are shown separately
+// with the reason to clear, so the advisor sees the path: clear these gaps and
+// the buyer opens.
+function MatchedBuyersSection({ engagementId }: { engagementId: string }) {
+  const matchesQ = useEngagementBuyerMatches(engagementId);
+  const data = matchesQ.data;
+  const open = (data?.matches ?? []).filter((m) => !m.blocked);
+  const blocked = (data?.matches ?? []).filter((m) => m.blocked);
+
+  return (
+    <PageSection
+      title="Matched buyers"
+      note="Ranked from your own buyer book — deterministic, firm-private"
+    >
+      {matchesQ.isLoading && <SkeletonLines lines={4} />}
+      {matchesQ.isError && <ErrorState variant="inline" error={matchesQ.error} />}
+      {data && data.matches.length === 0 && (
+        <EmptyState title="No buyer matches yet">
+          Add buyers and their mandates in your{' '}
+          <Link to="/buyers">buyer book</Link>, or this company doesn't yet fit any buyer's box. Matching
+          ranks the firm's own book — it never reaches outside your firm.
+        </EmptyState>
+      )}
+      {data && data.matches.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {open.length > 0 && (
+            <Card>
+              <div className="advisory-list">
+                {open.map((m) => <BuyerMatchRowView key={m.mandateId} match={m} />)}
+              </div>
+            </Card>
+          )}
+          {blocked.length > 0 && (
+            <div>
+              <p className="muted text-sm" style={{ margin: '0 0 var(--space-2)' }}>
+                Blocked — a fit once the gap clears or readiness reaches the floor:
+              </p>
+              <Card>
+                <div className="advisory-list">
+                  {blocked.map((m) => <BuyerMatchRowView key={m.mandateId} match={m} />)}
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+    </PageSection>
+  );
+}
+
+function BuyerMatchRowView({ match: m }: { match: BuyerMatchRow }) {
+  return (
+    <div className="eb-list-row" style={{ alignItems: 'flex-start', opacity: m.blocked ? 0.85 : 1 }}>
+      <div className="eb-list-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div style={{ fontWeight: 600 }}>{m.buyerName}</div>
+        {m.factors.length > 0 && <span className="muted text-sm">{m.factors.join(' · ')}</span>}
+        {m.blockers.map((b) => (
+          <span key={b} className="text-sm" style={{ color: 'var(--danger, #b42318)' }}>⚠ {b}</span>
+        ))}
+      </div>
+      <span className="status-chip status-neutral eb-list-row-push">score {m.score}</span>
+      {m.blocked && <span className="status-chip status-warning">Blocked</span>}
+    </div>
+  );
+}
+
 export default function BuyerLensPage() {
   const { engagementId } = useParams();
   const engagementQ = useEngagement(engagementId);
@@ -282,6 +351,8 @@ export default function BuyerLensPage() {
         />
         <EngagementNav engagementId={engagementId!} />
       </header>
+
+      {engagementId && <MatchedBuyersSection engagementId={engagementId} />}
 
       {/* Hidden for now — AI diligence simulator not production-ready yet */}
       {/* {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />} */}
