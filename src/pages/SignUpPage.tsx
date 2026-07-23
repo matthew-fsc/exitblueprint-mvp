@@ -36,6 +36,16 @@ export default function SignUpPage() {
         required. Clerk finds it by id anywhere in the document.
       */}
       <div id="clerk-captcha" />
+      {/*
+        Always-on hint for the one CAPTCHA failure mode we can't fix in code: a
+        client-side ad blocker / privacy extension blocking Cloudflare Turnstile
+        entirely. Clerk's own error is accurate but terse; this puts the fix in
+        plain language for non-technical owners so they aren't stuck.
+      */}
+      <p className="login-help">
+        Trouble loading the sign-up form? An ad blocker or privacy extension can block our
+        security check. Allow this page in your blocker or try another browser, then reload.
+      </p>
     </main>
   );
 }
