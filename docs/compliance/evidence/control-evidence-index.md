@@ -29,7 +29,8 @@ Type II observation window and are noted where not yet present.
 | --- | --- | --- |
 | TLS in transit | ✅ | Provider TLS (Render/Vercel); `server/db-ssl.ts` for DB TLS |
 | DB TLS full verification | 🟡 | `server/db-ssl.ts`; enable by setting `DATABASE_CA_CERT` (prod warns if unset) |
-| AES-256-GCM at rest (documents) | ✅ | `server/documents/crypto.ts`, `tests/security.test.ts` (round-trip + tamper) |
+| AES-256-GCM at rest — **uploaded documents only** (app-level, our key) | ✅ | `server/documents/crypto.ts`, `server/documents/storage.ts`, `tests/security.test.ts` (round-trip + tamper) |
+| At rest — **structured datapoints** (assessment answers, financials, scores, PII) | ✅ volume-level / 🟡 field-level | Supabase-managed volume encryption + RLS; **not** field-encrypted (no `pgcrypto`/Vault in schema). Scope + residual: policy 08 §Encryption scope; risk register R17 |
 | Signed short-expiry document URLs | ✅ | `server/documents/signed-url.ts`, `tests/security.test.ts` |
 | Stored-XSS-safe serving | ✅ | `server/http.ts` `/documents/download` (nosniff, attachment, safe MIME) |
 | Malware scanning on upload | 🟡 | `server/documents/scanner.ts` (`EB_SCANNER=clamav`); enable in prod |

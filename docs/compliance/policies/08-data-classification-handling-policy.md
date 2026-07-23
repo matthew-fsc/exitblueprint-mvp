@@ -64,8 +64,9 @@ Concrete controls backing the two sensitive tiers:
   connections verify the CA when `DATABASE_CA_CERT` is set (`server/db-ssl.ts`). ✅
 - **Encryption at rest.** Uploaded source documents are AES-256-GCM encrypted
   before storage; the key comes from `EB_DOCUMENT_KEY` and is never stored with
-  the data (`server/documents/crypto.ts`). The database sits on encrypted
-  Supabase volumes. ✅
+  the data (`server/documents/crypto.ts`). The database itself sits on encrypted
+  Supabase volumes; structured columns are not additionally field-encrypted. See
+  **Encryption scope** below for the exact document-vs-structured-data breakdown. ✅
 - **Access via RLS.** Every domain table carries `firm_id`; row-level security
   enforces that a firm reads/writes only its own rows, verified by
   `scripts/rls-test.ts` (`npm run test:rls`). ✅
@@ -78,6 +79,38 @@ Concrete controls backing the two sensitive tiers:
 - **Safe serving.** Downloads are served `attachment` octet-stream with
   `X-Content-Type-Options: nosniff` outside a small trusted media set
   (`server/http.ts`), defending against stored XSS. ✅
+
+### Encryption scope — documents vs. structured data (important distinction)
+
+"Encryption at rest" means two different things depending on the form the data
+takes, and NPI arrives in **both** forms. This section states exactly what
+protects each so the posture is not over-read.
+
+| Form of NPI / Confidential data | Application-level encryption (our key) | Encryption at rest (Supabase-managed volumes) | Tenant isolation |
+| --- | --- | --- | --- |
+| **Uploaded source documents** (financial statements, tax returns, etc.) — `document_blobs.bytes` | ✅ **AES-256-GCM**, key in `EB_DOCUMENT_KEY`, never stored with the data (`server/documents/crypto.ts`) | ✅ | ✅ RLS |
+| **Structured datapoints** (assessment answers, business financial summaries, owner personal-financial-readiness inputs, DRS/ORI scores, profile PII) — ordinary Postgres columns | ❌ **not** field/column-level encrypted | ✅ (whole-database volume encryption, AES-256) | ✅ RLS |
+
+- **Only uploaded document bytes carry a second, application-level encryption
+  layer** whose key lives outside the data plane. That layer means a leaked
+  object-storage URL, or a read of the raw `document_blobs` table, yields only
+  ciphertext. ✅
+- **Structured datapoints are stored as normal columns** — protected by
+  Supabase's managed volume encryption at rest, RLS tenant isolation, and TLS in
+  transit, but **not** individually encrypted with an application key. Verified:
+  there is no `pgcrypto`, column encryption, or Vault/pgsodium usage in the
+  schema. This is a standard, audit-accepted architecture (SOC 2 does not require
+  field-level encryption of queryable structured data).
+- **Residual risk (stated plainly).** A compromise at the database layer itself —
+  a leaked database credential or a provider-side read — would expose structured
+  NPI as plaintext, whereas document contents would remain ciphertext. This
+  residual is tracked in `evidence/risk-register.csv` (R17; related R2/R7).
+- **Enhancement option (🟡 not adopted).** Application-level field encryption of
+  the narrowest structured NPI fields (via a KMS envelope or Supabase
+  Vault/pgsodium) is a considered defense-in-depth step, deliberately not adopted
+  today because it materially complicates querying, indexing, and search on those
+  columns and is not required for the target report. Revisit if a specific
+  customer or regulatory requirement calls for it.
 
 ## Labeling
 

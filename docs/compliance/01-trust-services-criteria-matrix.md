@@ -105,7 +105,7 @@ Policy references (`P00`–`P15`) are the files in `docs/compliance/policies/`.
 
 | Criterion | Control | Status | Policy | Evidence |
 | --- | --- | --- | --- | --- |
-| C1.1 | Confidential information identified & protected | ✅ | P08 | Classification tiers; NPI encrypted/RLS-isolated/signed-URL; never sent to LLM for scoring |
+| C1.1 | Confidential information identified & protected | ✅ | P08 | Classification tiers; NPI at rest (documents app-level AES-256-GCM, structured data on encrypted volumes — P08 §Encryption scope); RLS-isolated; signed-URL; never sent to LLM for scoring |
 | C1.2 | Confidential information disposed of | 🟡 | P09 | Retention/disposal policy; audited self-serve purge 🟡 |
 
 ## How to read the status roll-up

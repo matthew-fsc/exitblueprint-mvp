@@ -101,7 +101,7 @@ operationalized/evidenced) · **🔴 Gap** (not yet in place).
 
 | Criteria | Area | Status | Notes |
 | --- | --- | --- | --- |
-| C1.1 | Confidential data identified & protected | ✅ | Data classification policy (policy 08); NPI encrypted at rest, RLS-isolated, signed-URL delivered, never sent to the LLM for scoring. |
+| C1.1 | Confidential data identified & protected | ✅ | Data classification policy (policy 08); NPI encrypted at rest (documents app-level AES-256-GCM; structured data on encrypted volumes — see policy 08 §Encryption scope), RLS-isolated, signed-URL delivered, never sent to the LLM for scoring. |
 | C1.2 | Confidential data disposal | 🟡 | Retention/disposal policy (policy 09); per-tenant export + destruction is operational today; self-serve audited purge is 🟡. |
 
 ## 3. Prioritized remediation roadmap
