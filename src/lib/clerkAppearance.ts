@@ -10,7 +10,18 @@ import { useTheme } from './theme';
 export function clerkAppearance() {
   const css = getComputedStyle(document.documentElement);
   const v = (name: string) => css.getPropertyValue(name).trim();
+  // Match the bot-protection (Cloudflare Turnstile) widget to the active theme so
+  // it renders in-theme rather than as a default-light box.
+  const captchaTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   return {
+    // Render Clerk's bot-protection CAPTCHA as the visible "smart" widget mounted
+    // into our own #clerk-captcha node (see SignUpPage), rather than the invisible
+    // fallback Clerk uses when no mount target exists — that fallback is what
+    // surfaces "The CAPTCHA failed to load" when an interactive challenge is needed.
+    captcha: {
+      theme: captchaTheme as 'light' | 'dark',
+      size: 'flexible' as const,
+    },
     variables: {
       colorPrimary: v('--accent'),
       colorBackground: v('--surface-1'),
