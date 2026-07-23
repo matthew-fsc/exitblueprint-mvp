@@ -196,6 +196,42 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
   });
 });
 
+describe('D4 owner-operator branch', () => {
+  const solo = loadFixture('company-7-lakeside-cpa');
+
+  it('N/As the team-structure sub-scores for an owner-operated business', () => {
+    const result = scoreFromAnswers(rubric, solo.answers);
+    const na = result.subScores.filter((s) => !s.applicable).map((s) => s.code);
+    expect(na).toEqual(expect.arrayContaining(['OPS-DEPTH', 'MGT-LAYERS', 'MGT-NC', 'MGT-RETENTION']));
+  });
+
+  it('does not fire the team-structure gaps, but keeps owner-dependence honest', () => {
+    const result = scoreFromAnswers(rubric, solo.answers);
+    for (const g of ['MGMT_DEPTH', 'MGMT_LAYER_GAP', 'NONCOMPETE_GAP']) {
+      expect(result.gapCodes).not.toContain(g);
+    }
+    expect(result.gapCodes).toContain('OWNER_DEP');
+    expect(result.flags.some((f) => /seller's-discretionary-earnings/.test(f))).toBe(true);
+  });
+
+  it('kills the gaming premium: claiming a manager layer a solo cannot have does not raise the score', () => {
+    const honest = scoreFromAnswers(rubric, solo.answers).drsScore;
+    const gamed = scoreFromAnswers(rubric, {
+      ...solo.answers,
+      'OPS-MGR-COUNT': 1, // <= EMPLOYEE-COUNT (1), so still valid input
+      'MGT-LAYERS': 'two_plus_layers',
+      'MGT-NC-PCT': 100,
+    }).drsScore;
+    expect(gamed).toBe(honest); // those sub-scores are N/A -> no premium
+  });
+
+  it('rejects more managers than employees (headcount consistency)', () => {
+    expect(() =>
+      scoreFromAnswers(rubric, { ...solo.answers, 'OPS-MGR-COUNT': 3, 'EMPLOYEE-COUNT': 1 }),
+    ).toThrow(/cannot exceed EMPLOYEE-COUNT/);
+  });
+});
+
 describe('D6 blind-spot flags (standalone-readiness framing)', () => {
   const base = loadFixture(FIXTURE_NAMES[0]).answers; // high-scoring, no gaps
 

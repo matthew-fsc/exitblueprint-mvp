@@ -113,6 +113,10 @@ function subScoreApplicable(logic: SubScoreDef['logic'], answers: Answers): bool
     const annual = answers['REV-ANNUAL'];
     if (Array.isArray(annual) && annual.length < na.history_years_lt) return false;
   }
+  if (na.employee_count_lte !== undefined) {
+    const ec = answers['EMPLOYEE-COUNT'];
+    if (typeof ec === 'number' && ec <= na.employee_count_lte) return false;
+  }
   if (na.answer_unknown !== undefined && answers[na.answer_unknown] === 'unknown') return false;
   if (na.answer_in && na.answer_in.values.includes(answers[na.answer_in.question_code] as string)) {
     return false;
@@ -277,6 +281,12 @@ function blindSpotFlags(answers: Answers): string[] {
   if (assets === 'real_estate' || assets === 'ip' || assets === 'equipment' || assets === 'other') {
     out.push('Material tangible assets or IP the DRS does not value; obtain a separate asset/IP appraisal');
   }
+  const ec = answers['EMPLOYEE-COUNT'];
+  if (typeof ec === 'number' && ec <= 3) {
+    out.push(
+      "Owner-operated business: value is on a seller's-discretionary-earnings / book-of-business basis with an owner transition or earnout; the DRS reflects operational transferability, which is inherently limited for a very small team",
+    );
+  }
   return out;
 }
 
@@ -434,6 +444,14 @@ export function validateAnswers(rubric: Rubric, answers: Answers): void {
       default:
         break; // rank / text are unscored; nothing to validate
     }
+  }
+
+  // Cross-field: qualified managers cannot exceed the non-owner headcount. Kills
+  // the owner-operator gaming premium (claiming a manager layer that can't exist).
+  const employeeCount = answers['EMPLOYEE-COUNT'];
+  const managerCount = answers['OPS-MGR-COUNT'];
+  if (typeof employeeCount === 'number' && typeof managerCount === 'number' && managerCount > employeeCount) {
+    fail('OPS-MGR-COUNT', `qualified managers cannot exceed EMPLOYEE-COUNT (${employeeCount} non-owner employees)`);
   }
 }
 

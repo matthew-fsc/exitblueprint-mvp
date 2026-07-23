@@ -42,6 +42,7 @@ export interface QuestionDef {
 export interface NaWhen {
   business_age_lt?: number; // years in business below this -> N/A
   history_years_lt?: number; // fewer than this many fiscal years of revenue -> N/A
+  employee_count_lte?: number; // owner-operated (<= this many non-owner employees) -> N/A
   answer_unknown?: string; // the named question answered 'unknown' -> N/A
   answer_in?: { question_code: string; values: string[] }; // named answer in set -> N/A
 }

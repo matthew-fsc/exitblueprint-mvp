@@ -38,6 +38,7 @@ MGT-NC-PCT,MGT,Percentage of key employees with signed non-compete/non-solicit a
 MGT-COMP,MGT,Key-role total compensation vs market median.,select,within_15pct|below_15_25pct|below_25pct_plus|above_25pct_plus,True,3
 MGT-TURNOVER,MGT,"Voluntary annual turnover rate for non-owner employees (%), trailing 3 years.",numeric,,True,4
 MGT-FLIGHT-CTX,MGT,Has any key manager indicated they would leave in the event of an acquisition?,select,no|unknown|yes,False,5
+EMPLOYEE-COUNT,MGT,How many non-owner employees does the business have (full-time equivalent)?,numeric,,False,7
 MGT-CFO-CTX,MGT,"Who is responsible for the numbers (CFO, controller, bookkeeper, owner)?",text,,False,6
 GRW-PIPELINE,GRW,"Estimated dollar value of qualified pipeline (identified need, budget, timeline). Enter 0 if no formal pipeline.",numeric,,True,1
 GRW-POSITIONING,GRW,"Market positioning: defined ICP, clear differentiation, repeatable sales motion.",select,strong_defined|moderate|undifferentiated_unclear,True,2

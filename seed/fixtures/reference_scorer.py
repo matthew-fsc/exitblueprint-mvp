@@ -74,6 +74,7 @@ questions = [
     ("MGT-COMP","MGT","Key-role total compensation vs market median.","select","within_15pct|below_15_25pct|below_25pct_plus|above_25pct_plus",True,3),
     ("MGT-TURNOVER","MGT","Voluntary annual turnover rate for non-owner employees (%), trailing 3 years.","numeric","",True,4),
     ("MGT-FLIGHT-CTX","MGT","Has any key manager indicated they would leave in the event of an acquisition?","select","no|unknown|yes",False,5),
+    ("EMPLOYEE-COUNT","MGT","How many non-owner employees does the business have (full-time equivalent)?","numeric","",False,7),
     ("MGT-CFO-CTX","MGT","Who is responsible for the numbers (CFO, controller, bookkeeper, owner)?","text","",False,6),
     # GRW inputs (CAGR derived from REV-ANNUAL)
     ("GRW-PIPELINE","GRW","Estimated dollar value of qualified pipeline (identified need, budget, timeline). Enter 0 if no formal pipeline.","numeric","",True,1),
@@ -132,7 +133,8 @@ subscores = [
     ("OPS-SOP","OPS","SOP Documentation Score",0.30,"band_gte","OPS-SOP-PCT",
      {"bands":[[80,100],[60,70],[40,40],[20,15],[0,0]]},""),
     ("OPS-DEPTH","OPS","Management Depth Ratio",0.20,"depth_ratio","OPS-MGR-COUNT,OPS-FUNC-COUNT",
-     {"bands":[[1.0,100],[0.75,75],[0.5,40]],"else":10},"Ratio = qualified managers / core functions."),
+     {"bands":[[1.0,100],[0.75,75],[0.5,40]],"else":10,"na_when":{"employee_count_lte":3}},
+     "Ratio = qualified managers / core functions. N/A for an owner-operated business (<=3 non-owner employees): a management layer is not structurally possible."),
     ("OPS-AUTO","OPS","Process Automation Level",0.15,"band_gte","OPS-AUTO-PCT",
      {"bands":[[70,100],[50,70],[30,40],[0,15]]},""),
     ("CUS-TOP1","CUS","Top 1 Customer Revenue %",0.30,"top1_band","REV-TOP5-SHARES",
@@ -151,15 +153,18 @@ subscores = [
     ("CUS-CHURN","CUS","Annual Churn Rate",0.10,"band_ascending","CUS-CHURN",
      {"bands_lt":[[5,100],[10,70],[15,40],[20,15]],"else":0},"Lower is better."),
     ("MGT-LAYERS","MGT","Management Layers Below Owner",0.30,"select_map","MGT-LAYERS",
-     {"map":{"two_plus_layers":100,"one_clear_layer":65,"informal_partial":30,"none_all_report_to_owner":0}},""),
+     {"map":{"two_plus_layers":100,"one_clear_layer":65,"informal_partial":30,"none_all_report_to_owner":0},
+      "na_when":{"employee_count_lte":3}},
+     "N/A for an owner-operated business (<=3 non-owner employees): no management layer is structurally possible."),
     ("MGT-NC","MGT","Key Person Non-Competes",0.25,"band_gte","MGT-NC-PCT",
-     {"bands":[[100,100],[75,70],[50,35],[0,0]]},"Flag enforceability jurisdiction in narrative."),
+     {"bands":[[100,100],[75,70],[50,35],[0,0]],"na_when":{"employee_count_lte":3}},
+     "Flag enforceability jurisdiction in narrative. N/A for an owner-operated business: the relevant covenant is the OWNER's non-compete (a deal term), not key-employee agreements."),
     ("MGT-COMP","MGT","Compensation vs Market",0.25,"select_map","MGT-COMP",
      {"map":{"within_15pct":100,"below_15_25pct":50,"below_25pct_plus":0,"above_25pct_plus":70}},
      "Below market = flight risk; far above = cost structure risk."),
     ("MGT-RETENTION","MGT","Retention History",0.20,"band_ascending","MGT-TURNOVER",
-     {"bands_lt":[[10,100],[15,70],[25,35]],"else":0,"na_when":{"business_age_lt":3}},
-     "Lower is better. N/A below 3 years in business (trailing-3yr turnover has no history)."),
+     {"bands_lt":[[10,100],[15,70],[25,35]],"else":0,"na_when":{"business_age_lt":3,"employee_count_lte":3}},
+     "Lower is better. N/A below 3 years in business (no history) or for an owner-operated business (no team to retain)."),
     ("GRW-CAGR","GRW","Revenue CAGR (3yr)",0.35,"cagr_band","REV-ANNUAL",
      {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20],[-5,15],[-15,5]],"else":0,"na_when":{"history_years_lt":3}},
      "DRS-2.0: graded negative bands (soft -0..-5 -> 15, eroding -5..-15 -> 5, melting < -15 -> 0). N/A below 3 fiscal years."),
@@ -374,6 +379,9 @@ def validate(ans):
         raise ValueError("REV-TOP5-SHARES: customer shares sum to more than 100%")
     if ans["OPS-FUNC-COUNT"] < 1:
         raise ValueError("OPS-FUNC-COUNT: core function count must be at least 1 to score management depth")
+    ec = ans.get("EMPLOYEE-COUNT")
+    if ec is not None and ans["OPS-MGR-COUNT"] > ec:
+        raise ValueError("OPS-MGR-COUNT: qualified managers cannot exceed EMPLOYEE-COUNT (non-owner employees)")
     for code in ("PFN-DEPEND", "VAL-CONF"):
         if not (1 <= ans[code] <= 5):
             raise ValueError(f"{code}: must be on the 1-5 scale")
@@ -461,6 +469,7 @@ def score_company(ans):
     # over the remaining weights. Points are still computed (for the explain trace)
     # but not counted.
     biz_age = ans.get("BIZ-AGE-YEARS")
+    ec = ans.get("EMPLOYEE-COUNT")
     def applicable(logic):
         na = logic.get("na_when")
         if not na: return True
@@ -468,6 +477,10 @@ def score_company(ans):
             return False
         if "history_years_lt" in na and n < na["history_years_lt"]:
             return False
+        if "employee_count_lte" in na:
+            ec = ans.get("EMPLOYEE-COUNT")
+            if ec is not None and ec <= na["employee_count_lte"]:
+                return False
         if "answer_unknown" in na and ans.get(na["answer_unknown"]) == "unknown":
             return False
         if "answer_in" in na:
@@ -541,6 +554,8 @@ def score_company(ans):
         flags.append("Value depends on a license, CON, or franchise that may not transfer to a buyer; the DRS scores standalone operational readiness only")
     if ans.get("VAL-ASSETS-CTX") in ("real_estate", "ip", "equipment", "other"):
         flags.append("Material tangible assets or IP the DRS does not value; obtain a separate asset/IP appraisal")
+    if ec is not None and ec <= 3:
+        flags.append("Owner-operated business: value is on a seller's-discretionary-earnings / book-of-business basis with an owner transition or earnout; the DRS reflects operational transferability, which is inherently limited for a very small team")
     return {"sub_scores": ss, "dimension_scores": dims, "drs": drs, "tier": tier,
             "owner_readiness_index": ori, "gaps": sorted(triggered), "flags": flags,
             "not_applicable": sorted(c for c,ok in applic.items() if not ok),
@@ -623,6 +638,18 @@ fixtures = {
     "GRW-PIPELINE":12000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":70,
     "GOL-TIMELINE":"two_3yr","PFN-DEPEND":4,"PFN-OUTSIDE":"mostly","PFN-DEBT":"yes",
     "VAL-LASTVAL":"one_3yr","VAL-CONF":4,"VAL-SEP":"fully","BIZ-AGE-YEARS":22}},
+ "company-7-lakeside-cpa": {
+  "profile": "20-year-old solo CPA practice (one admin, owner works full-time), $900K revenue, diversified recurring client base. Exercises the owner-operator branch: the team-structure sub-scores (OPS-DEPTH, MGT-LAYERS, MGT-NC, MGT-RETENTION) are Not Applicable and re-normalized out, so a routinely-sold practice lands in Needs Work with an SDE/transition flag instead of being floored to Not Saleable, and it cannot game a management layer it does not have.",
+  "answers": {
+    "REV-RECUR-PCT":65,"REV-TOP5-SHARES":[9,7,6,5,4],"REV-CONTRACT-CUST-PCT":40,"REV-CONTRACT-AVG-MO":12,
+    "REV-ANNUAL":[720000,780000,840000,900000],"REV-NRR":102,"REV-MODEL":"recurring",
+    "FIN-RECON":"monthly","FIN-ADDBACK-DOC":"mostly_documented","FIN-BASIS":"accrual_consistent","FIN-STATEMENTS":"all_three",
+    "OPS-OWNER-HOURS":45,"OPS-SOP-PCT":55,"OPS-MGR-COUNT":0,"OPS-FUNC-COUNT":4,"OPS-AUTO-PCT":65,
+    "CUS-TENURE":10,"CUS-REV-CONTRACT-PCT":40,"CUS-CHURN":4,
+    "MGT-LAYERS":"none_all_report_to_owner","MGT-NC-PCT":0,"MGT-COMP":"within_15pct","MGT-TURNOVER":0,"EMPLOYEE-COUNT":1,
+    "GRW-PIPELINE":150000,"GRW-POSITIONING":"moderate","GRW-REPEAT-PCT":75,
+    "GOL-TIMELINE":"two_3yr","PFN-DEPEND":3,"PFN-OUTSIDE":"mostly","PFN-DEBT":"yes",
+    "VAL-LASTVAL":"one_3yr","VAL-CONF":4,"VAL-SEP":"fully","BIZ-AGE-YEARS":20}},
 }
 
 # ---------------- EMIT FILES ----------------
