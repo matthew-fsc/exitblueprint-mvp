@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { invokeFunction, invokeFunctionBlob, supabase } from '../lib/supabase';
+import { invokeFunction, supabase } from '../lib/supabase';
+import { downloadDocumentPdf } from '../lib/download';
 import { qk, useLatestDoc, type GeneratedDocumentRow } from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
@@ -157,18 +158,7 @@ export function DocumentCurator({
         await supabase.from('generated_documents').update({ content_md: draft }).eq('id', doc.id);
         refresh();
       }
-      const blob = await invokeFunctionBlob('render-document-pdf', {
-        assessment_id: assessmentId,
-        doc_type: docType,
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = meta?.filename ?? 'document.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await downloadDocumentPdf(assessmentId, docType, meta?.filename ?? 'document.pdf');
       track({
         type: 'report',
         name: 'report_downloaded',

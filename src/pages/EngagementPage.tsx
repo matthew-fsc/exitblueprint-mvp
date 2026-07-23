@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { loadActiveRubricVersion } from '../lib/rubric';
 import { invokeFunction, supabase } from '../lib/supabase';
+import { downloadBlob } from '../lib/download';
 import { documentType } from '../../shared/documents/catalog';
 import {
   DEFAULT_REASSESS_INTERVAL_DAYS,
@@ -1102,16 +1103,9 @@ function ExportEngagementCard({ engagementId, companyName }: { engagementId: str
           engagement_id: engagementId,
         });
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
         const slug = companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'engagement';
         const stamp = new Date().toISOString().slice(0, 10);
-        a.href = url;
-        a.download = `exitblueprint-${slug}-${stamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, `exitblueprint-${slug}-${stamp}.json`);
       },
       { success: 'Export downloaded' },
     );

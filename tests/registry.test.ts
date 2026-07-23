@@ -83,6 +83,28 @@ describe('function registry', () => {
     );
   });
 
+  it('staff writes and firm-wide intelligence are never read-open (engagement scope)', () => {
+    // The 'engagement' scope authorizes ANY principal who can see the engagement
+    // under RLS — including the owner-client and view-only external collaborators.
+    // It is correct only for engagement-scoped reads/derivations the owner may
+    // trigger. Endpoints that WRITE firm state or return other clients' data must
+    // resolve a staff firm (manage-engagement / firm / admin), or an owner could
+    // pollute the calibration corpus, invite accounts, or enumerate the firm's
+    // client book. Locks the fix so the scope can't silently regress.
+    const STAFF_ONLY = [
+      'engagement-comparables', // returns sibling clients' names + DRS scores
+      'record-deal-outcome', // writes the firm's calibration corpus
+      'invite-owner', // provisions owner accounts
+      'generate-roadmap', // materializes tasks/plans on the engagement
+    ];
+    const readOpen: AuthScope[] = ['engagement'];
+    for (const name of STAFF_ONLY) {
+      const spec = REGISTRY[name];
+      expect(spec, `${name} present`).toBeDefined();
+      expect(readOpen, `${name} must not be read-open`).not.toContain(spec.scope);
+    }
+  });
+
   it('function names are unique and kebab-case', () => {
     for (const name of Object.keys(REGISTRY)) {
       expect(name, name).toMatch(/^[a-z][a-z0-9-]*$/);
