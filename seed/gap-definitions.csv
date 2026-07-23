@@ -2,8 +2,8 @@ code,name,severity,trigger_json,dimension_code
 CUST_CONC,Customer Concentration,critical,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP1"", ""threshold"": 70}",CUS
 CUST_BASE_CONC,Top-5 Customer Concentration,high,"{""type"": ""sub_score_below"", ""code"": ""CUS-TOP5"", ""threshold"": 70}",CUS
 RECURRING_LOW,Weak Recurring Revenue Base,high,"{""type"": ""sub_score_below"", ""code"": ""REV-RECUR"", ""threshold"": 70}",REV
-CONTRACT_GAP,Undocumented Recurring Revenue,high,"{""type"": ""sub_score_below"", ""code"": ""REV-DURABILITY"", ""threshold"": 70}",REV
-REV_VOLATILITY,Revenue Inconsistency,med,"{""type"": ""sub_score_below"", ""code"": ""REV-GROWTH"", ""threshold"": 50}",REV
+CONTRACT_GAP,Weak Contract Coverage,high,"{""type"": ""sub_score_below"", ""code"": ""REV-DURABILITY"", ""threshold"": 70}",REV
+REV_VOLATILITY,Weak Revenue Growth,med,"{""type"": ""sub_score_below"", ""code"": ""REV-GROWTH"", ""threshold"": 50}",REV
 CHURN_HIGH,Customer Retention Weakness,med,"{""type"": ""sub_score_below"", ""code"": ""REV-NRR"", ""threshold"": 70}",REV
 RECON_GAP,Reconciliation Discipline Gap,high,"{""type"": ""sub_score_below"", ""code"": ""FIN-RECON"", ""threshold"": 70}",FIN
 ADDBACK_RISK,Addback Defensibility Risk,critical,"{""type"": ""sub_score_below"", ""code"": ""FIN-ADDBACK"", ""threshold"": 70}",FIN
