@@ -31,6 +31,15 @@ export type RenderResult =
   | { ok: true; filename: string; buffer: Buffer }
   | { ok: false; status: number; message: string };
 
+// An RLS-scoped query runner (queries execute AS the caller, so row-level
+// security applies). Mirrors FunctionContext.asUser. The document ROW is fetched
+// through this — never the service-role client — so the renderer can only ever
+// return a narrative the caller is authorized to read: a collaborator/owner is
+// walled off from doc types RLS doesn't grant them, and an owner's CIM read stays
+// gated on finalized_at. Deterministic-fact assembly (branding, payloads) still
+// runs on the service-role client below.
+export type AsUser = <T>(fn: (db: pg.ClientBase) => Promise<T>) => Promise<T>;
+
 // Firm branding for a report, resolved once for every document type.
 async function fetchBranding(service: pg.ClientBase, firmId: string): Promise<ReportBranding | null> {
   return (
@@ -46,14 +55,24 @@ async function fetchBranding(service: pg.ClientBase, firmId: string): Promise<Re
 
 // The most recent generated narrative for a document type, with the fields each
 // renderer needs alongside it (firm_id for branding, completed_at for the cover).
+//
+// Fetched AS THE CALLER (asUser) so RLS is the authorization boundary: the query
+// can only return a row the caller may read. Firm staff (advisor_firm_all) see
+// every doc type; an owner sees owner_report anytime and cim only once finalized
+// (owner_cim_read); a collaborator sees owner_report only. So a portal user
+// requesting a doc type RLS doesn't grant them — a teaser, an unfinalized CIM —
+// gets no row and a clean 404, never the service-role bypass the render path used
+// to grant. The `finalized_at is not null` gate on the owner CIM read applies to
+// the fetched row itself, so a newer unfinalized draft can't shadow the signed-off
+// one for an owner.
 async function latestNarrative(
-  service: pg.ClientBase,
+  asUser: AsUser,
   assessmentId: string,
   docType: string,
 ): Promise<{ content_md: string; firm_id: string; completed_at: string | null } | null> {
-  return (
+  return asUser(async (db) =>
     (
-      await service.query(
+      await db.query(
         `select gd.content_md, e.firm_id, a.completed_at
          from generated_documents gd
          join engagements e on e.id = gd.engagement_id
@@ -62,7 +81,7 @@ async function latestNarrative(
          order by gd.created_at desc limit 1`,
         [assessmentId, docType],
       )
-    ).rows[0] ?? null
+    ).rows[0] ?? null,
   );
 }
 
@@ -138,6 +157,7 @@ export async function renderDocumentPdf(
   service: pg.ClientBase,
   docType: string,
   assessmentId: string,
+  asUser: AsUser,
 ): Promise<RenderResult> {
   const meta = documentType(docType);
   const build = HTML_BUILDERS[docType];
@@ -146,7 +166,10 @@ export async function renderDocumentPdf(
     return { ok: false, status: 400, message: 'assessment_id required' };
   }
 
-  const doc = await latestNarrative(service, assessmentId, docType);
+  // Authorization boundary: the document row is read AS THE CALLER, so RLS decides
+  // whether this caller may render this doc type for this assessment. A missing row
+  // (walled off, or an owner's CIM not yet finalized) is a 404, never a bypass.
+  const doc = await latestNarrative(asUser, assessmentId, docType);
   if (!doc) return { ok: false, status: 404, message: `no ${meta.title} generated for this assessment yet` };
 
   const branding = await fetchBranding(service, doc.firm_id);

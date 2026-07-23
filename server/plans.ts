@@ -486,9 +486,20 @@ export async function applyPlan(
         const existingId = existing.get(it.library_task_id!);
         let taskId: string;
         if (existingId) {
+          // Claim the task for this plan when it's unowned OR owned by a
+          // previously-REMOVED plan (re-adding a soft-removed Plan must reclaim
+          // its tasks, which keep their old engagement_plan_id through a soft
+          // remove). A task owned by another ACTIVE plan keeps its first owner —
+          // the once-per-engagement idempotency (docs/37 §1.4). The old
+          // coalesce() kept any non-null id, so a re-added plan's tasks stayed
+          // stranded on the dead plan and its board group showed empty.
           await db.query(
-            `update tasks set engagement_plan_id = coalesce(engagement_plan_id, $2) where id = $1`,
-            [existingId, ep],
+            `update tasks set engagement_plan_id = $2
+             where id = $1
+               and (engagement_plan_id is null
+                    or engagement_plan_id in (
+                      select id from engagement_plans where engagement_id = $3 and status = 'removed'))`,
+            [existingId, ep, engagementId],
           );
           taskId = existingId;
           tasksClaimed++;

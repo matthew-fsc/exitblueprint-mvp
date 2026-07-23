@@ -165,11 +165,19 @@ export default function IntakePage() {
     const savedByQuestion = new Map((answersQ.data ?? []).map((a) => [a.question_id, a.value]));
     const rows = [];
     const overridden: string[] = []; // ledger/doc answers the advisor edited by hand
+    const cleared: string[] = []; // previously-saved answers the advisor emptied
     for (const q of questions) {
       const draft = drafts.get(q.id);
       if (!draft) continue;
       const value = toAnswerValue(q, draft);
-      if (value === undefined) continue;
+      if (value === undefined) {
+        // Draft present but empty = the advisor cleared a field that was saved
+        // before. Remove the persisted row (and its provenance) so the DB matches
+        // the emptied UI instead of keeping a stale value the advisor no longer
+        // sees. An untouched (never-saved) question falls through harmlessly.
+        if (savedByQuestion.has(q.id)) cleared.push(q.id);
+        continue;
+      }
       rows.push({ assessment_id: assessmentId, question_id: q.id, value, answered_by: profile?.id ?? null });
       const src = provenance[q.id];
       if (
@@ -179,14 +187,20 @@ export default function IntakePage() {
         overridden.push(q.id);
       }
     }
-    if (rows.length === 0) return;
-    const { error } = await supabase
-      .from('answers')
-      .upsert(rows, { onConflict: 'assessment_id,question_id' });
-    if (error) throw new Error(error.message);
-    // A hand-edited figure is no longer ledger-verified — drop its provenance.
-    if (overridden.length > 0) {
-      await supabase.from('answer_provenance').delete().eq('assessment_id', assessmentId).in('question_id', overridden);
+    if (rows.length > 0) {
+      const { error } = await supabase
+        .from('answers')
+        .upsert(rows, { onConflict: 'assessment_id,question_id' });
+      if (error) throw new Error(error.message);
+    }
+    if (cleared.length > 0) {
+      const { error } = await supabase.from('answers').delete().eq('assessment_id', assessmentId).in('question_id', cleared);
+      if (error) throw new Error(error.message);
+    }
+    // A hand-edited or cleared figure is no longer ledger-verified — drop its provenance.
+    const staleProvenance = [...overridden, ...cleared];
+    if (staleProvenance.length > 0) {
+      await supabase.from('answer_provenance').delete().eq('assessment_id', assessmentId).in('question_id', staleProvenance);
       qc.invalidateQueries({ queryKey: ['answerProvenance', assessmentId ?? ''] });
     }
   };
