@@ -3070,9 +3070,15 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   background: var(--surface-1); border: 1px solid var(--border-strong);
   border-radius: var(--radius); box-shadow: var(--shadow-lift); padding: 1.5rem;
   max-width: 26rem; width: 100%; display: flex; flex-direction: column; gap: 0.9rem;
+  /* Never taller than the viewport (backdrop pads 1.5rem top+bottom): a long
+     dialog — e.g. the engagement agreement with its legal body — scrolls its
+     body instead of pushing the title and action buttons off-screen. */
+  max-height: calc(100vh - 3rem);
 }
 .ui-modal h3 { margin: 0; }
-.ui-modal-body { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+/* The scroll region: min-height:0 lets it shrink below content height so the
+   flex title/actions stay pinned while overflow scrolls here. */
+.ui-modal-body { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; min-height: 0; overflow-y: auto; }
 .ui-modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
 
 /* ---- Engagement agreement acceptance (in the confirm modal) ---- */
