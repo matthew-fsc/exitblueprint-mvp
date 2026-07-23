@@ -183,6 +183,17 @@ describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
     const result = scoreFromAnswers(rubric, loadFixture(FIXTURE_NAMES[0]).answers);
     expect(result.subScores.every((s) => s.applicable)).toBe(true);
   });
+
+  it('revenue-model branch: a transactional business N/As the recurring-revenue sub-scores', () => {
+    const txn = loadFixture('company-5-cascade-precision-machining');
+    const result = scoreFromAnswers(rubric, txn.answers);
+    const na = result.subScores.filter((s) => !s.applicable).map((s) => s.code).sort();
+    expect(na).toEqual(['REV-DURABILITY', 'REV-NRR', 'REV-RECUR']);
+    // Revenue Quality is judged on the applicable sub-scores, not floored to zero
+    expect(result.gapCodes).not.toContain('RECURRING_LOW');
+    expect(result.gapCodes).not.toContain('CONTRACT_GAP');
+    expect(result.gapCodes).not.toContain('CHURN_HIGH');
+  });
 });
 
 describe('explainFromAnswers', () => {

@@ -45,6 +45,7 @@ export const FIXTURE_NAMES = [
   'company-2-apex-fabrication',
   'company-3-harborview-staffing',
   'company-4-northwind-vertical-saas',
+  'company-5-cascade-precision-machining',
 ] as const;
 
 export function loadFixture(name: string): Fixture {

@@ -41,6 +41,7 @@ questions = [
     ("REV-PRICING-CTX","REV","How would revenue be impacted by a 10-15% price increase?","select","minimal_churn|some_churn|major_churn|unknown",False,8),
     ("REV-FOUNDER-CTX","REV","Which revenue streams depend on the founder's personal relationships?","text","",False,9),
     ("BIZ-AGE-YEARS","REV","How many years has the business been operating?","numeric","",False,10),
+    ("REV-MODEL","REV","Which best describes the revenue model?","select","recurring|mixed|transactional_project|asset_rental",False,11),
     # FIN inputs
     ("FIN-RECON","FIN","How often are books reconciled against bank statements?","select","monthly|quarterly|annual|none",True,1),
     ("FIN-ADDBACK-DOC","FIN","How well documented are EBITDA addbacks (owner comp basis, personal expenses, one-time items)?","select","fully_documented|mostly_documented|partially_documented|undocumented",True,2),
@@ -98,19 +99,24 @@ questions = [
 # code, dimension, name, weight, formula_type, inputs, bands/logic json, notes
 subscores = [
     ("REV-RECUR","REV","Recurring Revenue Percentage",0.30,"band_gte","REV-RECUR-PCT",
-     {"bands":[[80,100],[60,75],[40,50],[20,25],[0,0]]},"Score=100 benchmark: >=80% recurring."),
+     {"bands":[[80,100],[60,75],[40,50],[20,25],[0,0]],
+      "na_when":{"answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
+     "Score=100 benchmark: >=80% recurring. N/A for transactional/project and asset-rental models, where recurring revenue is not the business shape."),
     ("REV-HHI","REV","Customer Concentration (HHI)",0.25,"hhi_from_top5","REV-TOP5-SHARES",
      {"bands_lt":[[1000,100],[1500,80],[2000,55],[2500,30]],"else":0,"cap_if_top1_gt":[30,60]},
      "HHI estimated as lower bound from top-5 shares (sum of squared %). Cap 60 if top customer >30%."),
     ("REV-DURABILITY","REV","Contract Durability",0.20,"durability","REV-CONTRACT-CUST-PCT,REV-CONTRACT-AVG-MO",
-     {"formula":"100*min(1,coverage/75)*min(1,months/18)"},"Benchmark: >=75% contracted with >=18mo avg remaining."),
+     {"formula":"100*min(1,coverage/75)*min(1,months/18)",
+      "na_when":{"answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
+     "Benchmark: >=75% contracted with >=18mo avg remaining. N/A for transactional/project and asset-rental models."),
     ("REV-GROWTH","REV","Revenue Growth Consistency",0.15,"growth_consistency","REV-ANNUAL",
      {"rules":"cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25",
       "na_when":{"history_years_lt":3}},
      "CAGR over provided fiscal years; down = count of down years. N/A below 3 fiscal years (consistency needs >=2 growth periods)."),
     ("REV-NRR","REV","Churn Rate (NRR)",0.10,"band_gte","REV-NRR",
-     {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25,"na_when":{"answer_unknown":"REV-NRR"}},
-     "Known NRR bands as before. 'unknown' is Not Applicable (excluded + re-normalized) rather than scored at the worst band; it still raises a not-tracked flag."),
+     {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25,
+      "na_when":{"answer_unknown":"REV-NRR","answer_in":{"question_code":"REV-MODEL","values":["transactional_project","asset_rental"]}}},
+     "Known NRR bands as before. Not Applicable when 'unknown' (still raises a not-tracked flag) or for transactional/asset-rental models; excluded + re-normalized rather than scored at the worst band."),
     ("FIN-RECON","FIN","Audit Trail / Reconciliation",0.30,"select_map","FIN-RECON",
      {"map":{"monthly":100,"quarterly":65,"annual":30,"none":0}},""),
     ("FIN-ADDBACK","FIN","Addback Defensibility Index",0.30,"select_map","FIN-ADDBACK-DOC",
@@ -548,6 +554,18 @@ fixtures = {
     "GRW-PIPELINE":4000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":70,
     "GOL-TIMELINE":"three_plus_yr","PFN-DEPEND":3,"PFN-OUTSIDE":"mostly","PFN-DEBT":"minor_issues",
     "VAL-LASTVAL":"never","VAL-CONF":3,"VAL-SEP":"mostly","BIZ-AGE-YEARS":2}},
+ "company-5-cascade-precision-machining": {
+  "profile": "18-year-old precision CNC job shop, $10.2M revenue, project/transactional model (no recurring), well-run with clean books and diversified OEM customers. Exercises the revenue-model branch: REV-RECUR, REV-DURABILITY and REV-NRR are Not Applicable (transactional), so Revenue Quality is judged on concentration + growth instead of being capped for lacking subscription revenue.",
+  "answers": {
+    "REV-RECUR-PCT":10,"REV-TOP5-SHARES":[18,12,9,7,5],"REV-CONTRACT-CUST-PCT":30,"REV-CONTRACT-AVG-MO":4,
+    "REV-ANNUAL":[8000000,8800000,9500000,10200000],"REV-NRR":"unknown","REV-MODEL":"transactional_project",
+    "FIN-RECON":"monthly","FIN-ADDBACK-DOC":"mostly_documented","FIN-BASIS":"accrual_consistent","FIN-STATEMENTS":"all_three",
+    "OPS-OWNER-HOURS":20,"OPS-SOP-PCT":70,"OPS-MGR-COUNT":3,"OPS-FUNC-COUNT":4,"OPS-AUTO-PCT":60,
+    "CUS-TENURE":7,"CUS-REV-CONTRACT-PCT":30,"CUS-CHURN":6,
+    "MGT-LAYERS":"one_clear_layer","MGT-NC-PCT":70,"MGT-COMP":"within_15pct","MGT-TURNOVER":9,
+    "GRW-PIPELINE":6000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":40,
+    "GOL-TIMELINE":"two_3yr","PFN-DEPEND":3,"PFN-OUTSIDE":"mostly","PFN-DEBT":"yes",
+    "VAL-LASTVAL":"one_3yr","VAL-CONF":4,"VAL-SEP":"fully","BIZ-AGE-YEARS":18}},
 }
 
 # ---------------- EMIT FILES ----------------

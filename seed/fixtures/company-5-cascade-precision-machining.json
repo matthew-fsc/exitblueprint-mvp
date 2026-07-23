@@ -1,0 +1,114 @@
+{
+  "profile": "18-year-old precision CNC job shop, $10.2M revenue, project/transactional model (no recurring), well-run with clean books and diversified OEM customers. Exercises the revenue-model branch: REV-RECUR, REV-DURABILITY and REV-NRR are Not Applicable (transactional), so Revenue Quality is judged on concentration + growth instead of being capped for lacking subscription revenue.",
+  "answers": {
+    "REV-RECUR-PCT": 10,
+    "REV-TOP5-SHARES": [
+      18,
+      12,
+      9,
+      7,
+      5
+    ],
+    "REV-CONTRACT-CUST-PCT": 30,
+    "REV-CONTRACT-AVG-MO": 4,
+    "REV-ANNUAL": [
+      8000000,
+      8800000,
+      9500000,
+      10200000
+    ],
+    "REV-NRR": "unknown",
+    "REV-MODEL": "transactional_project",
+    "FIN-RECON": "monthly",
+    "FIN-ADDBACK-DOC": "mostly_documented",
+    "FIN-BASIS": "accrual_consistent",
+    "FIN-STATEMENTS": "all_three",
+    "OPS-OWNER-HOURS": 20,
+    "OPS-SOP-PCT": 70,
+    "OPS-MGR-COUNT": 3,
+    "OPS-FUNC-COUNT": 4,
+    "OPS-AUTO-PCT": 60,
+    "CUS-TENURE": 7,
+    "CUS-REV-CONTRACT-PCT": 30,
+    "CUS-CHURN": 6,
+    "MGT-LAYERS": "one_clear_layer",
+    "MGT-NC-PCT": 70,
+    "MGT-COMP": "within_15pct",
+    "MGT-TURNOVER": 9,
+    "GRW-PIPELINE": 6000000,
+    "GRW-POSITIONING": "strong_defined",
+    "GRW-REPEAT-PCT": 40,
+    "GOL-TIMELINE": "two_3yr",
+    "PFN-DEPEND": 3,
+    "PFN-OUTSIDE": "mostly",
+    "PFN-DEBT": "yes",
+    "VAL-LASTVAL": "one_3yr",
+    "VAL-CONF": 4,
+    "VAL-SEP": "fully",
+    "BIZ-AGE-YEARS": 18
+  },
+  "expected": {
+    "sub_scores": {
+      "REV-RECUR": 0,
+      "REV-HHI": 100,
+      "REV-DURABILITY": 8.89,
+      "REV-GROWTH": 50,
+      "REV-NRR": 25,
+      "FIN-RECON": 100,
+      "FIN-ADDBACK": 70,
+      "FIN-GAAP": 100,
+      "FIN-STATEMENTS": 100,
+      "OPS-HOURS": 45,
+      "OPS-SOP": 70,
+      "OPS-DEPTH": 75,
+      "OPS-AUTO": 70,
+      "CUS-TOP1": 75,
+      "CUS-TOP5": 45,
+      "CUS-TENURE": 100,
+      "CUS-COVERAGE": 10,
+      "CUS-CHURN": 70,
+      "MGT-LAYERS": 65,
+      "MGT-NC": 35,
+      "MGT-COMP": 100,
+      "MGT-RETENTION": 100,
+      "GRW-CAGR": 40,
+      "GRW-PIPE": 0,
+      "GRW-POS": 100,
+      "GRW-REPEAT": 30
+    },
+    "dimension_scores": {
+      "REV": 81.25,
+      "FIN": 91.0,
+      "OPS": 62.25,
+      "CUS": 62.25,
+      "MGT": 73.25,
+      "GRW": 38.5
+    },
+    "drs": 71.5,
+    "tier": "Sale Ready",
+    "owner_readiness_index": 73.0,
+    "gaps": [
+      "CUSTOM_HEAVY",
+      "CUST_BASE_CONC",
+      "NONCOMPETE_GAP",
+      "OWNER_DEP",
+      "PIPELINE_BLIND"
+    ],
+    "flags": [
+      "NRR not tracked"
+    ],
+    "not_applicable": [
+      "REV-DURABILITY",
+      "REV-NRR",
+      "REV-RECUR"
+    ],
+    "computed": {
+      "hhi_est": 623,
+      "top1_pct": 18,
+      "top5_pct": 51,
+      "cagr_pct": 8.44,
+      "down_years": 0,
+      "pipeline_coverage": 0.59
+    }
+  }
+}

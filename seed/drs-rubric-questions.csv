@@ -9,6 +9,7 @@ REV-STREAMS-CTX,REV,Walk through the top three revenue streams: stability and wh
 REV-PRICING-CTX,REV,How would revenue be impacted by a 10-15% price increase?,select,minimal_churn|some_churn|major_churn|unknown,False,8
 REV-FOUNDER-CTX,REV,Which revenue streams depend on the founder's personal relationships?,text,,False,9
 BIZ-AGE-YEARS,REV,How many years has the business been operating?,numeric,,False,10
+REV-MODEL,REV,Which best describes the revenue model?,select,recurring|mixed|transactional_project|asset_rental,False,11
 FIN-RECON,FIN,How often are books reconciled against bank statements?,select,monthly|quarterly|annual|none,True,1
 FIN-ADDBACK-DOC,FIN,"How well documented are EBITDA addbacks (owner comp basis, personal expenses, one-time items)?",select,fully_documented|mostly_documented|partially_documented|undocumented,True,2
 FIN-BASIS,FIN,Accounting basis and revenue recognition consistency.,select,accrual_consistent|cash_with_bridge|cash_mixed|unreconcilable,True,3
