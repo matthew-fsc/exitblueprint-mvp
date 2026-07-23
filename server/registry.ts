@@ -237,7 +237,11 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // added.
   'generate-roadmap': {
     engine: 'rules',
-    scope: 'engagement',
+    // Materializes tasks/plans on the engagement — a staff write, so
+    // manage-engagement (advisor/admin only) rather than the read-open
+    // 'engagement' scope, which any owner/collaborator who can see the
+    // engagement would pass.
+    scope: 'manage-engagement',
     gated: true,
     handler: async ({ service, body, userId }) => {
       const engagementId = body.engagement_id as string;
@@ -254,9 +258,13 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   },
   'engagement-comparables': {
     engine: 'rules',
-    scope: 'engagement',
-    // Firm-scoped "relevant historical cases" — the caller is already authorized
-    // on this engagement; siblings are constrained to its firm.
+    // Returns SIBLING engagements across the firm (other clients' names, DRS
+    // scores, outcomes) as "relevant historical cases". That is firm-staff
+    // intelligence, not engagement-scoped data: the read-open 'engagement' scope
+    // would let an owner-client — or a view-only external collaborator pinned to
+    // one engagement — enumerate the firm's whole client book. Requires
+    // advisor/admin staff (manage-engagement).
+    scope: 'manage-engagement',
     handler: ({ service, body }) => engagementComparables(service, body.engagement_id as string).then(ok),
   },
   'advisory-items': {
@@ -572,7 +580,11 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   },
   'record-deal-outcome': {
     engine: 'knowledge',
-    scope: 'engagement',
+    // Records/overwrites the final deal result (an upsert on engagement_id) — an
+    // advisor action that feeds the firm's calibration corpus and the cross-firm
+    // calibration moat. Must be staff-only: the read-open 'engagement' scope let
+    // an owner set or overwrite outcome/final_ev/multiple on their own engagement.
+    scope: 'manage-engagement',
     handler: ({ service, body }) =>
       recordDealOutcome(
         service,
@@ -690,7 +702,11 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // ── Collaboration Engine — participants, review queue, verification hand-offs
   'invite-owner': {
     engine: 'collaboration',
-    scope: 'engagement',
+    // Provisions a new owner account against the engagement — a staff action
+    // (mirrors invite-collaborator below). The read-open 'engagement' scope let
+    // any principal who could see the engagement invite arbitrary owner accounts
+    // (spam/abuse vector); require advisor/admin staff (manage-engagement).
+    scope: 'manage-engagement',
     gated: true,
     handler: ({ service, body }) =>
       inviteOwner(service, body.engagement_id as string, body.email as string, body.full_name as string).then(ok),

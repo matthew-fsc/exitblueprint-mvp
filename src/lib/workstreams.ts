@@ -7,6 +7,8 @@
 // already loads and returns a state per stream. It computes no score and writes
 // nothing — it only summarizes progress a buyer's process moves through.
 
+import { fmtCurrencyCompact } from './format';
+
 export type StreamKey = 'readiness' | 'remediation' | 'evidence' | 'value' | 'deliverables';
 
 // done   — this stream's job is substantially complete.
@@ -48,13 +50,6 @@ export interface WorkstreamInput {
 }
 
 const EVIDENCE_DONE_PCT = 80; // "substantially proven" — the binder a buyer diligences
-
-function usd(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `$${Math.round(n / 1_000)}K`;
-  return `$${Math.round(n)}`;
-}
 
 // The measurement layer: is there a current, scored assessment?
 function readiness(i: WorkstreamInput): WorkstreamStatus {
@@ -99,7 +94,7 @@ function value(i: WorkstreamInput): WorkstreamStatus {
   const base = { key: 'value' as const, label: 'Value', to: '/valuation' };
   if (!i.assessed) return { ...base, state: 'blocked', headline: 'Awaiting assessment', detail: 'Valuation reads from the DRS.' };
   if (i.valuationSet) {
-    const gap = i.valueGap != null && i.valueGap > 0 ? ` · ${usd(i.valueGap)} gap` : '';
+    const gap = i.valueGap != null && i.valueGap > 0 ? ` · ${fmtCurrencyCompact(i.valueGap)} gap` : '';
     return { ...base, state: 'done', headline: `EV modeled${gap}`, detail: 'Current EV, target EV, and the value gap are sized.' };
   }
   return { ...base, state: 'todo', headline: 'Not sized', detail: 'Model current and target enterprise value.' };

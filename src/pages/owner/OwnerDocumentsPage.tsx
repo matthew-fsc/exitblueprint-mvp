@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOwnerContext } from '../../lib/owner';
 import { useEngagementDocuments } from '../../lib/queries';
-import { invokeFunctionBlob } from '../../lib/supabase';
+import { downloadDocumentPdf } from '../../lib/download';
 import { Card, EmptyState, ErrorState, PageHeader, SkeletonLines, useToast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import { renderMarkdown } from '../../lib/markdown';
@@ -22,16 +22,7 @@ export default function OwnerDocumentsPage() {
   const download = async (id: string, assessmentId: string, docType: string, filename: string) => {
     setBusy(id);
     try {
-      const blob = await invokeFunctionBlob('render-document-pdf', {
-        assessment_id: assessmentId,
-        doc_type: docType,
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadDocumentPdf(assessmentId, docType, filename);
     } catch (err) {
       toast.show((err as Error).message, 'error');
     }
