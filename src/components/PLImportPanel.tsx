@@ -41,7 +41,11 @@ function validateFile(file: File): string | null {
   const dot = file.name.lastIndexOf('.');
   const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return `That file type can't be read for financials. Upload a CSV or JSON export (${ALLOWED_EXTENSIONS.join(', ')}).`;
+    const hint =
+      ext === 'xlsx' || ext === 'xls' || ext === 'pdf'
+        ? ' In QuickBooks, open the Profit and Loss report and use Export → Export to CSV.'
+        : '';
+    return `That file type can't be read for financials. Upload a CSV or JSON export (${ALLOWED_EXTENSIONS.join(', ')}).${hint}`;
   }
   if (file.size === 0) return 'That file is empty.';
   if (file.size > MAX_BYTES) return 'That file is larger than the 5 MB limit.';

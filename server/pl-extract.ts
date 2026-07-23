@@ -129,16 +129,21 @@ export function validateShares(shares: number[]): string[] {
 
 const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9%]+/g, ' ').trim();
 
-// Revenue line, most-specific first so "total revenue" beats a bare "revenue"
-// and neither matches an unrelated "other income" line.
+// Revenue line, most-specific first. Every "total …" section-total variant
+// outranks the bare account lines so that a QuickBooks income section — where
+// "Total Income" is the roll-up and "Sales"/"Service Revenue" are indented
+// sub-accounts under it — reads the roll-up, not a single sub-account (which
+// would undercount revenue). Nothing here matches an unrelated "other income".
 const REVENUE_LABELS: RegExp[] = [
-  /^total (net )?revenue$/,
-  /^net revenue$/,
-  /^total (net )?sales$/,
-  /^net sales$/,
-  /^(gross )?revenue$/,
-  /^sales$/,
-  /^total income$/,
+  /^total (net )?revenue$/, // 0
+  /^total (net )?sales$/, // 1
+  /^total operating income$/, // 2 — QBO/GAAP operating-income roll-up
+  /^total income$/, // 3 — QuickBooks default P&L revenue roll-up
+  /^net revenue$/, // 4
+  /^net sales$/, // 5
+  /^(gross )?revenue$/, // 6
+  /^sales$/, // 7 — bare account line (only used if it carries figures)
+  /^income$/, // 8 — bare account line (a blank group header is skipped)
 ];
 
 const RECURRING_LABEL =
@@ -161,8 +166,15 @@ interface Table {
   rows: string[][];
 }
 
+// A UTF-8 BOM survives `Buffer.toString('utf8')` as U+FEFF and would corrupt the
+// first cell (or break JSON.parse). QuickBooks/Excel CSV exports routinely carry
+// one, so strip it before anything else looks at the text.
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 function readTable(bytes: Buffer): Table {
-  const text = bytes.toString('utf8');
+  const text = stripBom(bytes.toString('utf8'));
   const delimiter = text.includes('\t') && !text.includes(',') ? '\t' : ',';
   const records = parseCsv(text, {
     delimiter,
@@ -171,27 +183,67 @@ function readTable(bytes: Buffer): Table {
     trim: true,
   }) as string[][];
   if (records.length === 0) return { header: [], rows: [] };
-  return { header: records[0], rows: records.slice(1) };
+
+  // Real QuickBooks/accounting exports open with title/metadata rows (company
+  // name, "Profit and Loss", the reporting date range) before the actual column
+  // header. Those preamble lines are single-cell; the true header is the first
+  // multi-COLUMN row (e.g. `,Jan - Dec 2024,…,Total` or `,Total`) — note its
+  // first cell is often blank, so key on column count, not non-empty count, but
+  // still require one real cell so an all-empty `,,,,` spacer row is skipped.
+  const headerIdx = records.findIndex(
+    (r) => r.length >= 2 && r.some((c) => c && c.trim() !== ''),
+  );
+  if (headerIdx < 0) return { header: records[0], rows: records.slice(1) };
+  return { header: records[headerIdx], rows: records.slice(headerIdx + 1) };
 }
 
-// Keep the most recent up-to-4 periods. When header cells carry a 4-digit year we
-// sort by it; otherwise we trust left→right = oldest→newest and take the last 4.
-function orderRevenueSeries(header: string[], values: (number | null)[]): number[] {
-  const cols: { year: number | null; value: number }[] = [];
-  for (let i = 1; i < values.length; i++) {
-    const v = values[i];
+const yearOf = (label: string | undefined): number | null => {
+  const m = (label ?? '').match(/(19|20)\d{2}/);
+  return m ? Number(m[0]) : null;
+};
+
+// The data-bearing period columns of a report: every column past the label
+// column, EXCEPT a summary "Total" column. A QuickBooks comparison P&L appends a
+// "Total" column that sums the periods; left in, it is read as the most-recent
+// period and silently overstates current-year revenue. Its header normalizes to
+// exactly "total", which no real fiscal-period column does.
+function periodColumnIndices(header: string[], width: number): number[] {
+  const idxs: number[] = [];
+  for (let i = 1; i < width; i++) {
+    if (norm(header[i] ?? '') === 'total') continue;
+    idxs.push(i);
+  }
+  return idxs;
+}
+
+interface PeriodValue {
+  idx: number; // source column index (to align the recurring row to the same period)
+  year: number | null;
+  value: number;
+}
+
+// Keep the most recent up-to-4 periods, dropping any Total summary column. When
+// every period column carries a 4-digit year we sort by it; otherwise we trust
+// left→right = oldest→newest and take the last 4.
+function orderRevenuePeriods(
+  header: string[],
+  cells: (number | null)[],
+  periods: number[],
+): PeriodValue[] {
+  const cols: PeriodValue[] = [];
+  for (const i of periods) {
+    const v = cells[i];
     if (v == null) continue;
-    const ym = (header[i] ?? '').match(/(19|20)\d{2}/);
-    cols.push({ year: ym ? Number(ym[0]) : null, value: v });
+    cols.push({ idx: i, year: yearOf(header[i]), value: v });
   }
   const haveYears = cols.length > 0 && cols.every((c) => c.year != null);
   if (haveYears) cols.sort((a, b) => (a.year as number) - (b.year as number));
-  return cols.slice(-4).map((c) => c.value);
+  return cols.slice(-4);
 }
 
 function extractPL(table: Table): ExtractResult | null {
   const notes: string[] = [];
-  let revenueRow: { values: (number | null)[]; priority: number } | null = null;
+  let revenueRow: { cells: (number | null)[]; priority: number } | null = null;
   let recurringRow: string[] | null = null;
 
   for (const row of table.rows) {
@@ -199,9 +251,14 @@ function extractPL(table: Table): ExtractResult | null {
     if (!label) continue;
     const pr = revenuePriority(label);
     if (pr >= 0) {
-      // A better (lower-priority-index) revenue label supersedes a weaker one.
-      if (!revenueRow || pr < revenueRow.priority) {
-        revenueRow = { values: row.map((c) => parseNumber(c)), priority: pr };
+      const cells = row.map((c) => parseNumber(c));
+      // Only a row that actually carries a figure is a revenue row: a QuickBooks
+      // "Income" line is often just a blank section header sitting above the
+      // "Total Income" roll-up. A better (lower-index) label supersedes a weaker
+      // one, but never a blank header over a real total.
+      const hasFigure = cells.some((v, i) => i >= 1 && v != null);
+      if (hasFigure && (!revenueRow || pr < revenueRow.priority)) {
+        revenueRow = { cells, priority: pr };
       }
       continue;
     }
@@ -209,12 +266,31 @@ function extractPL(table: Table): ExtractResult | null {
   }
 
   if (!revenueRow) return null;
-  const series = orderRevenueSeries(table.header, revenueRow.values);
-  if (series.length === 0) return null;
 
+  const width = Math.max(
+    table.header.length,
+    revenueRow.cells.length,
+    ...table.rows.map((r) => r.length),
+  );
+  const periods = periodColumnIndices(table.header, width);
+  const cols = orderRevenuePeriods(table.header, revenueRow.cells, periods);
+  if (cols.length === 0) return null;
+
+  const series = cols.map((c) => c.value);
   const recognized: RecognizedFigure[] = [];
   const entries: ManualFinancialEntry[] = [];
   const warnings: string[] = validateRevenueSeries(series);
+
+  // Multiple period columns that all fall in ONE fiscal year are a monthly or
+  // quarterly P&L, not a year-over-year trend — reading them as annual revenue
+  // would be wrong. Flag it (so the figures record self-reported, not verified)
+  // rather than silently mis-labeling months as fiscal years.
+  const years = cols.map((c) => c.year).filter((y): y is number => y != null);
+  if (cols.length >= 2 && years.length === cols.length && new Set(years).size === 1) {
+    warnings.push(
+      'The revenue columns look like periods within a single year (a monthly or quarterly P&L), not separate fiscal years — upload an annual P&L or confirm the figures.',
+    );
+  }
 
   recognized.push({
     code: 'REV-ANNUAL',
@@ -224,19 +300,30 @@ function extractPL(table: Table): ExtractResult | null {
   });
   entries.push({ code: 'REV-ANNUAL', value: series });
 
-  const mostRecentRevenue = series[series.length - 1];
+  const mostRecent = cols[cols.length - 1];
+  const mostRecentRevenue = mostRecent.value;
   if (recurringRow) {
     const recurringCells = recurringRow.map((c) => parseNumber(c));
-    // A "% recurring" row is used directly; a dollar recurring row is divided by
-    // the same period's total revenue.
-    const lastIdx = recurringCells.map((v, i) => (v != null ? i : -1)).filter((i) => i >= 0).pop();
-    if (lastIdx != null && lastIdx >= 0) {
-      const recurringVal = recurringCells[lastIdx] as number;
+    // Read the recurring figure from the SAME period column as the most-recent
+    // revenue (so the cross-foot is apples-to-apples); if that specific cell is
+    // blank, fall back to the last populated period column. Never the Total
+    // column — periodColumnIndices already excluded it.
+    let recIdx: number | null = recurringCells[mostRecent.idx] != null ? mostRecent.idx : null;
+    if (recIdx == null) {
+      for (let k = periods.length - 1; k >= 0; k--) {
+        if (recurringCells[periods[k]] != null) {
+          recIdx = periods[k];
+          break;
+        }
+      }
+    }
+    if (recIdx != null) {
+      const recurringVal = recurringCells[recIdx] as number;
       // A cell written with a % sign is the recurring share itself; a dollar
       // recurring line is divided by the same period's total revenue.
       let pct: number | null = null;
       let detail = '';
-      if (isPercentCell(recurringRow[lastIdx])) {
+      if (isPercentCell(recurringRow[recIdx])) {
         pct = Math.round(recurringVal);
         detail = 'Recurring-revenue percentage read directly from the statement.';
       } else if (mostRecentRevenue > 0) {
@@ -266,27 +353,25 @@ function extractPL(table: Table): ExtractResult | null {
   return { format: 'pl_csv', entries, recognized, notes, warnings, verifiable: warnings.length === 0 };
 }
 
-// Revenue-by-customer report → REV-TOP5-SHARES. Detected when a percent/share
-// column exists over named rows and there is no revenue line to read as a P&L.
-function extractCustomerShares(table: Table): ExtractResult | null {
+// Aggregate rows ("All other customers", "Total", "Remaining") are not a single
+// customer — excluding them keeps concentration honest.
+const AGGREGATE_CUSTOMER = /^(all other|other|others|remaining|misc|miscellaneous|total|subtotal|grand total)\b/i;
+
+// Pick the amount column for a customer report that has no explicit share column:
+// prefer a header naming a money total, else the right-most column that actually
+// carries numbers (QuickBooks "Sales by Customer Summary" ends in a Total column).
+function pickAmountColumn(table: Table): number {
   const header = table.header.map((h) => norm(h));
-  const shareCol = header.findIndex((h) => /%|percent|share|concentration/.test(h));
-  if (shareCol <= 0) return null; // need a named first column + a share column
-
-  // Aggregate rows ("All other customers", "Total", "Remaining") are not a
-  // single customer — excluding them keeps concentration honest.
-  const AGGREGATE = /^(all other|other|others|remaining|misc|miscellaneous|total|subtotal|grand total)\b/i;
-  const shares: number[] = [];
-  for (const row of table.rows) {
-    const name = (row[0] ?? '').trim();
-    if (!name || AGGREGATE.test(name)) continue;
-    const pct = parseNumber(row[shareCol]);
-    if (pct == null) continue;
-    // Accept a fraction (0.32) or a percentage (32); normalize to a percentage.
-    shares.push(pct > 0 && pct <= 1 ? Math.round(pct * 1000) / 10 : pct);
+  const named = header.findIndex((h, i) => i > 0 && /\b(total|amount|revenue|sales|income)\b/.test(h));
+  if (named > 0) return named;
+  const width = Math.max(table.header.length, ...table.rows.map((r) => r.length), 0);
+  for (let i = width - 1; i >= 1; i--) {
+    if (table.rows.some((r) => parseNumber(r[i]) != null)) return i;
   }
-  if (shares.length === 0) return null;
+  return -1;
+}
 
+function customerResult(shares: number[], population: number, basis: string): ExtractResult {
   const warnings = validateShares(shares);
   const top5 = shares.sort((a, b) => b - a).slice(0, 5);
   return {
@@ -297,13 +382,53 @@ function extractCustomerShares(table: Table): ExtractResult | null {
         code: 'REV-TOP5-SHARES',
         label: 'Top-5 customer revenue shares (largest first)',
         value: top5,
-        detail: `Top ${top5.length} of ${shares.length} customers by revenue share.`,
+        detail: `Top ${top5.length} of ${population} customers by ${basis}.`,
       },
     ],
     notes: [],
     warnings,
     verifiable: warnings.length === 0,
   };
+}
+
+// Revenue-by-customer report → REV-TOP5-SHARES. Prefers an explicit percent/share
+// column; failing that, computes shares from a dollar amount column (the common
+// QuickBooks "Sales by Customer" export, which reports totals, not percentages).
+function extractCustomerShares(table: Table): ExtractResult | null {
+  const header = table.header.map((h) => norm(h));
+  const shareCol = header.findIndex((h) => /%|percent|share|concentration/.test(h));
+  if (shareCol > 0) {
+    const shares: number[] = [];
+    for (const row of table.rows) {
+      const name = (row[0] ?? '').trim();
+      if (!name || AGGREGATE_CUSTOMER.test(name)) continue;
+      const pct = parseNumber(row[shareCol]);
+      if (pct == null) continue;
+      // Accept a fraction (0.32) or a percentage (32); normalize to a percentage.
+      shares.push(pct > 0 && pct <= 1 ? Math.round(pct * 1000) / 10 : pct);
+    }
+    if (shares.length === 0) return null;
+    return customerResult(shares, shares.length, 'revenue share');
+  }
+
+  // No share column — derive shares from a dollar amount column. Shares are of
+  // the summed listed customers, so an export that hides customers under an
+  // "All other" line would overstate them; we exclude that aggregate and let
+  // validateShares flag anything implausible.
+  const amountCol = pickAmountColumn(table);
+  if (amountCol <= 0) return null;
+  const amounts: number[] = [];
+  for (const row of table.rows) {
+    const name = (row[0] ?? '').trim();
+    if (!name || AGGREGATE_CUSTOMER.test(name)) continue;
+    const amt = parseNumber(row[amountCol]);
+    if (amt == null || amt <= 0) continue;
+    amounts.push(amt);
+  }
+  const total = amounts.reduce((a, v) => a + v, 0);
+  if (amounts.length === 0 || total <= 0) return null;
+  const shares = amounts.map((a) => Math.round((a / total) * 1000) / 10);
+  return customerResult(shares, amounts.length, 'revenue (shares computed from the amount column)');
 }
 
 // --- JSON shape ------------------------------------------------------------
@@ -320,7 +445,7 @@ interface JsonFinancials {
 function extractJson(bytes: Buffer): ExtractResult {
   let doc: JsonFinancials;
   try {
-    doc = JSON.parse(bytes.toString('utf8'));
+    doc = JSON.parse(stripBom(bytes.toString('utf8')));
   } catch {
     return {
       format: 'unrecognized',
@@ -389,8 +514,12 @@ export function extractFinancials(input: ExtractInput): ExtractResult {
   if (input.bytes.length > MAX_BYTES) throw new Error(`file exceeds ${MAX_BYTES} byte limit`);
   const ext = extensionOf(input.filename);
   if (!ALLOWED_EXT.has(ext)) {
+    const hint =
+      ext === 'xlsx' || ext === 'xls' || ext === 'pdf'
+        ? " In QuickBooks, open the Profit and Loss report and use Export → Export to CSV (or 'Save as CSV')."
+        : '';
     throw new Error(
-      `file type '${ext || 'unknown'}' can't be read for financials; upload a CSV or JSON export (accepted: ${[...ALLOWED_EXT].join(', ')})`,
+      `file type '${ext || 'unknown'}' can't be read for financials; upload a CSV or JSON export (accepted: ${[...ALLOWED_EXT].join(', ')}).${hint}`,
     );
   }
 
