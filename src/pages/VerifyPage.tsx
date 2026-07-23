@@ -135,7 +135,7 @@ export default function VerifyPage() {
           <span className="tile-label">engine outputs matching the reference scorer</span>
         </div>
         <div className="tile">
-          <span className="tile-value">DRS-1.0</span>
+          <span className="tile-value">DRS-2.0</span>
           <span className="tile-label">rubric version (from /seed)</span>
         </div>
         <div className="tile">

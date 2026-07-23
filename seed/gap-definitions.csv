@@ -22,4 +22,4 @@ POSITIONING_WEAK,Undifferentiated Market Position,med,"{""type"": ""sub_score_be
 CUSTOM_HEAVY,Custom-Work Revenue Dependency,med,"{""type"": ""sub_score_below"", ""code"": ""GRW-REPEAT"", ""threshold"": 65}",GRW
 VALUE_GAP,Personal Value Gap,critical,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""PFN-OUTSIDE"", ""values"": [""partially"", ""no""]}, {""type"": ""answer_lte"", ""question_code"": ""VAL-CONF"", ""value"": 2}]}",PFN
 TIMELINE_MISMATCH,Exit Timeline vs Readiness Mismatch,high,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""GOL-TIMELINE"", ""values"": [""under_12mo""]}, {""type"": ""composite_below"", ""score_group"": ""business_readiness"", ""threshold"": 70}]}",GOL
-STALE_VALUATION,No Current Valuation,low,"{""type"": ""answer_in"", ""question_code"": ""VAL-LASTVAL"", ""values"": [""over_3yr"", ""never""]}",VAL
+STALE_VALUATION,No Current Valuation,low,"{""type"": ""all"", ""conditions"": [{""type"": ""answer_in"", ""question_code"": ""VAL-LASTVAL"", ""values"": [""over_3yr"", ""never""]}, {""type"": ""business_age_gte"", ""years"": 3}]}",VAL

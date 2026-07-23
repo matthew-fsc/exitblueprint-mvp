@@ -40,6 +40,7 @@ questions = [
     ("REV-STREAMS-CTX","REV","Walk through the top three revenue streams: stability and what would cause each to decline.","text","",False,7),
     ("REV-PRICING-CTX","REV","How would revenue be impacted by a 10-15% price increase?","select","minimal_churn|some_churn|major_churn|unknown",False,8),
     ("REV-FOUNDER-CTX","REV","Which revenue streams depend on the founder's personal relationships?","text","",False,9),
+    ("BIZ-AGE-YEARS","REV","How many years has the business been operating?","numeric","",False,10),
     # FIN inputs
     ("FIN-RECON","FIN","How often are books reconciled against bank statements?","select","monthly|quarterly|annual|none",True,1),
     ("FIN-ADDBACK-DOC","FIN","How well documented are EBITDA addbacks (owner comp basis, personal expenses, one-time items)?","select","fully_documented|mostly_documented|partially_documented|undocumented",True,2),
@@ -104,8 +105,9 @@ subscores = [
     ("REV-DURABILITY","REV","Contract Durability",0.20,"durability","REV-CONTRACT-CUST-PCT,REV-CONTRACT-AVG-MO",
      {"formula":"100*min(1,coverage/75)*min(1,months/18)"},"Benchmark: >=75% contracted with >=18mo avg remaining."),
     ("REV-GROWTH","REV","Revenue Growth Consistency",0.15,"growth_consistency","REV-ANNUAL",
-     {"rules":"cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25"},
-     "CAGR over provided fiscal years; down = count of down years."),
+     {"rules":"cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25",
+      "na_when":{"history_years_lt":3}},
+     "CAGR over provided fiscal years; down = count of down years. N/A below 3 fiscal years (consistency needs >=2 growth periods)."),
     ("REV-NRR","REV","Churn Rate (NRR)",0.10,"band_gte","REV-NRR",
      {"bands":[[110,100],[100,80],[90,50],[80,25],[0,0]],"unknown":25},
      "Unknown NRR scores 25 and raises a not-tracked flag (v1 convention)."),
@@ -131,7 +133,8 @@ subscores = [
     ("CUS-TOP5","CUS","Top 5 Customer Revenue %",0.25,"top5_band","REV-TOP5-SHARES",
      {"bands_lt":[[30,100],[45,75],[60,45],[75,20]],"else":0},""),
     ("CUS-TENURE","CUS","Average Customer Tenure",0.20,"band_gte","CUS-TENURE",
-     {"bands":[[5,100],[3,75],[2,50],[1,25],[0,0]]},""),
+     {"bands":[[5,100],[3,75],[2,50],[1,25],[0,0]],"na_when":{"business_age_lt":5}},
+     "N/A below 5 years in business: average tenure is bounded by company age, so a younger firm cannot attain the benchmark regardless of loyalty."),
     ("CUS-COVERAGE","CUS","Contract Coverage",0.15,"band_gte","CUS-REV-CONTRACT-PCT",
      {"bands":[[80,100],[60,70],[40,40],[0,10]]},""),
     ("CUS-CHURN","CUS","Annual Churn Rate",0.10,"band_ascending","CUS-CHURN",
@@ -144,9 +147,11 @@ subscores = [
      {"map":{"within_15pct":100,"below_15_25pct":50,"below_25pct_plus":0,"above_25pct_plus":70}},
      "Below market = flight risk; far above = cost structure risk."),
     ("MGT-RETENTION","MGT","Retention History",0.20,"band_ascending","MGT-TURNOVER",
-     {"bands_lt":[[10,100],[15,70],[25,35]],"else":0},"Lower is better."),
+     {"bands_lt":[[10,100],[15,70],[25,35]],"else":0,"na_when":{"business_age_lt":3}},
+     "Lower is better. N/A below 3 years in business (trailing-3yr turnover has no history)."),
     ("GRW-CAGR","GRW","Revenue CAGR (3yr)",0.35,"cagr_band","REV-ANNUAL",
-     {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20]],"negative":0},""),
+     {"bands":[[20,100],[15,85],[10,65],[5,40],[0,20]],"negative":0,"na_when":{"history_years_lt":3}},
+     "N/A below 3 fiscal years (a 2-point CAGR is not yet a trend)."),
     ("GRW-PIPE","GRW","Pipeline Coverage Ratio",0.30,"pipeline_ratio","GRW-PIPELINE,REV-ANNUAL",
      {"bands":[[3,100],[2,70],[1,35]],"else":0},"Ratio = qualified pipeline / most recent annual revenue. No pipeline = 0."),
     ("GRW-POS","GRW","Market Positioning",0.20,"select_map","GRW-POSITIONING",
@@ -160,7 +165,8 @@ subscores = [
     ("ORI-DEBT","PFN","Personal Obligations Alignment",0.10,"select_map","PFN-DEBT",
      {"map":{"yes":100,"minor_issues":60,"significant_issues":20}},"v1 convention"),
     ("ORI-LASTVAL","VAL","Valuation Currency",0.15,"select_map","VAL-LASTVAL",
-     {"map":{"within_12mo":100,"one_3yr":70,"over_3yr":30,"never":0}},"v1 convention"),
+     {"map":{"within_12mo":100,"one_3yr":70,"over_3yr":30,"never":0},"na_when":{"business_age_lt":3}},
+     "v1 convention. N/A below 3 years in business: too young to be expected to hold a current professional valuation."),
     ("ORI-CONF","VAL","Value-Goal Confidence",0.15,"scale_map","VAL-CONF",{"formula":"(v-1)*25"},"v1 convention"),
     ("ORI-SEP","VAL","Personal/Business Separation",0.10,"select_map","VAL-SEP",
      {"map":{"fully":100,"mostly":60,"mixed":20}},"v1 convention"),
@@ -192,7 +198,7 @@ gaps = [
     ("CUSTOM_HEAVY","Custom-Work Revenue Dependency","med",{"type":"sub_score_below","code":"GRW-REPEAT","threshold":65},"GRW","CM-BUYERQ-RECURRING","PB-GROWTH-ENGINE"),
     ("VALUE_GAP","Personal Value Gap","critical",{"type":"all","conditions":[{"type":"answer_in","question_code":"PFN-OUTSIDE","values":["partially","no"]},{"type":"answer_lte","question_code":"VAL-CONF","value":2}]},"PFN","CM-EDU-VALUE-GAP","PB-VALUE-GAP-PLAN"),
     ("TIMELINE_MISMATCH","Exit Timeline vs Readiness Mismatch","high",{"type":"all","conditions":[{"type":"answer_in","question_code":"GOL-TIMELINE","values":["under_12mo"]},{"type":"composite_below","score_group":"business_readiness","threshold":70}]},"GOL","CM-EDU-EXIT-TIMELINE","PB-VALUE-GAP-PLAN"),
-    ("STALE_VALUATION","No Current Valuation","low",{"type":"answer_in","question_code":"VAL-LASTVAL","values":["over_3yr","never"]},"VAL","CM-EDU-VALUE-GAP","PB-VALUE-GAP-PLAN"),
+    ("STALE_VALUATION","No Current Valuation","low",{"type":"all","conditions":[{"type":"answer_in","question_code":"VAL-LASTVAL","values":["over_3yr","never"]},{"type":"business_age_gte","years":3}]},"VAL","CM-EDU-VALUE-GAP","PB-VALUE-GAP-PLAN"),
 ]
 
 # ---------------- CONTENT MODULES (A13 buyer question prep + education) ----------------
@@ -415,39 +421,78 @@ def score_company(ans):
     ss["GRW-PIPE"] = 0 if ans["GRW-PIPELINE"] <= 0 else band_gte(pipe, [(3,100),(2,70),(1,35),(0,0)])
     ss["GRW-POS"] = {"strong_defined":80,"moderate":45,"undifferentiated_unclear":10}[ans["GRW-POSITIONING"]]
     ss["GRW-REPEAT"] = band_gte(ans["GRW-REPEAT-PCT"], [(70,100),(50,65),(30,30),(0,0)])
-    # dimensions
+    # applicability (na_when) — a sub-score can be Not Applicable for this
+    # assessment (insufficient operating history, or inapplicable to the revenue
+    # model). N/A sub-scores are excluded from their dimension, which re-normalizes
+    # over the remaining weights. Points are still computed (for the explain trace)
+    # but not counted.
+    biz_age = ans.get("BIZ-AGE-YEARS")
+    def applicable(logic):
+        na = logic.get("na_when")
+        if not na: return True
+        if "business_age_lt" in na and biz_age is not None and biz_age < na["business_age_lt"]:
+            return False
+        if "history_years_lt" in na and n < na["history_years_lt"]:
+            return False
+        if "answer_unknown" in na and ans.get(na["answer_unknown"]) == "unknown":
+            return False
+        if "answer_in" in na:
+            cond = na["answer_in"]
+            if ans.get(cond["question_code"]) in cond["values"]:
+                return False
+        return True
+    applic = {s[0]: applicable(s[6]) for s in subscores}
+    # dimensions — re-normalize ONLY when a sub-score is N/A. The all-applicable
+    # branch is the exact weighted sum, so unchanged assessments reproduce
+    # bit-for-bit (weights are validated to sum to 1.0 per dimension).
     dims = {}
     for dcode in ["REV","FIN","OPS","CUS","MGT","GRW"]:
-        parts = [(s[3], ss[s[0]]) for s in subscores if s[1] == dcode]
-        dims[dcode] = round(sum(w*v for w,v in parts), 2)
+        all_parts = [s for s in subscores if s[1] == dcode]
+        parts = [(s[3], ss[s[0]]) for s in all_parts if applic[s[0]]]
+        if len(parts) == len(all_parts):
+            dims[dcode] = round(sum(w*v for w,v in parts), 2)
+        else:
+            wsum = sum(w for w,_ in parts)
+            dims[dcode] = round(sum(w*v for w,v in parts)/wsum, 2) if wsum > 0 else 0
     weights = {"REV":0.25,"FIN":0.20,"OPS":0.20,"CUS":0.15,"MGT":0.10,"GRW":0.10}
     drs = round(sum(dims[d]*w for d,w in weights.items()), 1)
     tier = ("Institutional Grade" if drs>=85 else "Sale Ready" if drs>=70 else
             "Needs Work" if drs>=55 else "High Risk" if drs>=40 else "Not Saleable (Yet)")
-    # Owner Readiness Index
+    # Owner Readiness Index (owner_readiness group; never enters the DRS). Same
+    # exact-path-unless-N/A rule as the business dimensions.
     ori_parts = [
         (0.25,(ans["PFN-DEPEND"]-1)*25),
         (0.25,{"yes":100,"mostly":75,"partially":40,"no":0}[ans["PFN-OUTSIDE"]]),
         (0.10,{"yes":100,"minor_issues":60,"significant_issues":20}[ans["PFN-DEBT"]]),
-        (0.15,{"within_12mo":100,"one_3yr":70,"over_3yr":30,"never":0}[ans["VAL-LASTVAL"]]),
+    ]
+    if applic["ORI-LASTVAL"]:
+        ori_parts.append((0.15,{"within_12mo":100,"one_3yr":70,"over_3yr":30,"never":0}[ans["VAL-LASTVAL"]]))
+    ori_parts += [
         (0.15,(ans["VAL-CONF"]-1)*25),
         (0.10,{"fully":100,"mostly":60,"mixed":20}[ans["VAL-SEP"]]),
     ]
-    ori = round(sum(w*v for w,v in ori_parts), 1)
+    if applic["ORI-LASTVAL"]:
+        ori = round(sum(w*v for w,v in ori_parts), 1)
+    else:
+        owsum = sum(w for w,_ in ori_parts)
+        ori = round(sum(w*v for w,v in ori_parts)/owsum, 1)
     # gaps
     triggered = []
     for gcode, name, sev, trig, dim, cm, pb in gaps:
         t = trig
         def ev(t):
-            if t["type"] == "sub_score_below": return ss[t["code"]] < t["threshold"]
+            # a gap keyed on an N/A sub-score cannot fire (the metric doesn't apply)
+            if t["type"] == "sub_score_below": return applic.get(t["code"], True) and ss[t["code"]] < t["threshold"]
             if t["type"] == "answer_in": return ans.get(t["question_code"]) in t["values"]
             if t["type"] == "answer_lte": return ans.get(t["question_code"]) <= t["value"]
             if t["type"] == "composite_below": return drs < t["threshold"]
+            if t["type"] == "business_age_gte": return biz_age is None or biz_age >= t["years"]
             if t["type"] == "all": return all(ev(c) for c in t["conditions"])
             return False
         if ev(t): triggered.append(gcode)
     return {"sub_scores": ss, "dimension_scores": dims, "drs": drs, "tier": tier,
             "owner_readiness_index": ori, "gaps": sorted(triggered), "flags": flags,
+            "not_applicable": sorted(c for c,ok in applic.items() if not ok),
             "computed": {"hhi_est": hhi, "top1_pct": top1, "top5_pct": top5sum,
                          "cagr_pct": round(c,2), "down_years": down,
                          "pipeline_coverage": round(pipe,2)}}
@@ -490,6 +535,18 @@ fixtures = {
     "GRW-PIPELINE":8400000,"GRW-POSITIONING":"moderate","GRW-REPEAT-PCT":55,
     "GOL-TIMELINE":"one_2yr","PFN-DEPEND":2,"PFN-OUTSIDE":"partially","PFN-DEBT":"minor_issues",
     "VAL-LASTVAL":"over_3yr","VAL-CONF":3,"VAL-SEP":"mostly"}},
+ "company-4-northwind-vertical-saas": {
+  "profile": "2-year-old vertical SaaS, $2.6M revenue up from $1.2M, strong ops for its age, owner does not want to sell for 3+ years. Exercises the age-aware N/A mechanic: growth-history (REV-GROWTH, GRW-CAGR), customer tenure (CUS-TENURE), retention history (MGT-RETENTION), and valuation currency (ORI-LASTVAL) are all Not Applicable and re-normalized out, and STALE_VALUATION is suppressed.",
+  "answers": {
+    "REV-RECUR-PCT":70,"REV-TOP5-SHARES":[14,10,8,6,5],"REV-CONTRACT-CUST-PCT":70,"REV-CONTRACT-AVG-MO":14,
+    "REV-ANNUAL":[1200000,2600000],"REV-NRR":115,
+    "FIN-RECON":"monthly","FIN-ADDBACK-DOC":"mostly_documented","FIN-BASIS":"accrual_consistent","FIN-STATEMENTS":"all_three",
+    "OPS-OWNER-HOURS":30,"OPS-SOP-PCT":45,"OPS-MGR-COUNT":2,"OPS-FUNC-COUNT":4,"OPS-AUTO-PCT":55,
+    "CUS-TENURE":1.5,"CUS-REV-CONTRACT-PCT":70,"CUS-CHURN":8,
+    "MGT-LAYERS":"one_clear_layer","MGT-NC-PCT":60,"MGT-COMP":"within_15pct","MGT-TURNOVER":10,
+    "GRW-PIPELINE":4000000,"GRW-POSITIONING":"strong_defined","GRW-REPEAT-PCT":70,
+    "GOL-TIMELINE":"three_plus_yr","PFN-DEPEND":3,"PFN-OUTSIDE":"mostly","PFN-DEBT":"minor_issues",
+    "VAL-LASTVAL":"never","VAL-CONF":3,"VAL-SEP":"mostly","BIZ-AGE-YEARS":2}},
 }
 
 # ---------------- EMIT FILES ----------------

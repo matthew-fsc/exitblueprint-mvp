@@ -52,7 +52,7 @@ export const VALUATION_CONFIG = {
   target_drs: 85,
 };
 
-export const RUBRIC_VERSION_LABEL = 'DRS-1.0';
+export const RUBRIC_VERSION_LABEL = 'DRS-2.0';
 
 // Starter system Plans (docs/37): canonical, advisor-facing initiative bundles,
 // seeded as GLOBAL methodology (firm_id null) exactly like the rubric/advisory

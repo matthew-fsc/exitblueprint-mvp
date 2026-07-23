@@ -98,6 +98,28 @@ function growthInputs(annual: number[]): GrowthInputs {
   return { cagrPct: cagr * 100, downYears: down };
 }
 
+const BUSINESS_AGE_QUESTION = 'BIZ-AGE-YEARS';
+
+// Whether a sub-score counts for this assessment (docs/07). Mirrors applicable()
+// in seed/fixtures/reference_scorer.py — keep the two in lockstep (rule 1).
+function subScoreApplicable(logic: SubScoreDef['logic'], answers: Answers): boolean {
+  const na = logic.na_when;
+  if (!na) return true;
+  const age = answers[BUSINESS_AGE_QUESTION];
+  if (na.business_age_lt !== undefined && typeof age === 'number' && age < na.business_age_lt) {
+    return false;
+  }
+  if (na.history_years_lt !== undefined) {
+    const annual = answers['REV-ANNUAL'];
+    if (Array.isArray(annual) && annual.length < na.history_years_lt) return false;
+  }
+  if (na.answer_unknown !== undefined && answers[na.answer_unknown] === 'unknown') return false;
+  if (na.answer_in && na.answer_in.values.includes(answers[na.answer_in.question_code] as string)) {
+    return false;
+  }
+  return true;
+}
+
 function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): SubScoreResult {
   const logic = sub.logic;
   const inputs = sub.inputQuestionCodes;
@@ -212,7 +234,7 @@ function computeSubScore(sub: SubScoreDef, answers: Answers, flags: string[]): S
       throw new Error(`sub_score ${sub.code}: unknown formula_type ${sub.formulaType}`);
   }
 
-  return { code: sub.code, points, computedInputs };
+  return { code: sub.code, points, applicable: subScoreApplicable(sub.logic, answers), computedInputs };
 }
 
 export function drsTier(drs: number): string {
@@ -226,6 +248,7 @@ export function drsTier(drs: number): string {
 function evaluateTrigger(
   trigger: GapTrigger,
   subScorePoints: Map<string, number>,
+  applicable: Map<string, boolean>,
   answers: Answers,
   drs: number,
 ): boolean {
@@ -233,6 +256,8 @@ function evaluateTrigger(
     case 'sub_score_below': {
       const points = subScorePoints.get(trigger.code);
       if (points === undefined) throw new Error(`gap trigger references unknown sub_score ${trigger.code}`);
+      // a gap keyed on an N/A sub-score cannot fire (the metric doesn't apply)
+      if (applicable.get(trigger.code) === false) return false;
       return points < trigger.threshold;
     }
     case 'answer_in':
@@ -242,8 +267,13 @@ function evaluateTrigger(
     case 'composite_below':
       // business_readiness composite is the DRS (docs/03)
       return drs < trigger.threshold;
+    case 'business_age_gte': {
+      const age = answers[BUSINESS_AGE_QUESTION];
+      // missing age -> treat as old enough (age-structural gaps fire as before)
+      return typeof age !== 'number' || age >= trigger.years;
+    }
     case 'all':
-      return trigger.conditions.every((c) => evaluateTrigger(c, subScorePoints, answers, drs));
+      return trigger.conditions.every((c) => evaluateTrigger(c, subScorePoints, applicable, answers, drs));
     default:
       return false;
   }
@@ -359,21 +389,35 @@ export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult 
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
   const subScores = rubric.subScores.map((s) => computeSubScore(s, answers, flags));
   const pointsByCode = new Map(subScores.map((s) => [s.code, s.points]));
+  const applicableByCode = new Map(subScores.map((s) => [s.code, s.applicable]));
 
-  // Dimension score = sum(weight x points); computed for business dimensions.
-  // ORI = sum(weight x points) across the owner_readiness group as a whole
-  // (its weights sum to 1.0 across the group, per the reference scorer).
+  // Dimension score = weighted mean of its sub-scores. When every sub-score is
+  // applicable the weights sum to 1.0, so this is the exact weighted sum (an
+  // unchanged assessment reproduces bit-for-bit). When a na_when condition
+  // excludes a sub-score, the remaining applicable weights are re-normalized.
+  const weightedMean = (
+    parts: SubScoreDef[],
+    ndigits: number,
+  ): number => {
+    const applicable = parts.filter((s) => applicableByCode.get(s.code));
+    if (applicable.length === parts.length) {
+      return pyRound(parts.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0), ndigits);
+    }
+    const wsum = applicable.reduce((acc, s) => acc + s.weight, 0);
+    if (wsum <= 0) return 0;
+    return pyRound(
+      applicable.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0) / wsum,
+      ndigits,
+    );
+  };
+
   const businessDims = rubric.dimensions
     .filter((d) => d.scoreGroup === 'business_readiness')
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const dimensionScores = businessDims.map((d) => {
-    const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
-    const score = pyRound(
-      parts.reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0),
-      2,
-    );
-    return { code: d.code, score };
-  });
+  const dimensionScores = businessDims.map((d) => ({
+    code: d.code,
+    score: weightedMean(rubric.subScores.filter((s) => s.dimensionCode === d.code), 2),
+  }));
 
   const drsScore = pyRound(
     dimensionScores.reduce(
@@ -383,15 +427,15 @@ export function scoreFromAnswers(rubric: Rubric, answers: Answers): ScoreResult 
     1,
   );
 
-  const oriScore = pyRound(
-    rubric.subScores
-      .filter((s) => dimensionByCode.get(s.dimensionCode)!.scoreGroup === 'owner_readiness')
-      .reduce((acc, s) => acc + s.weight * pointsByCode.get(s.code)!, 0),
+  // ORI is one weighted mean across the whole owner_readiness group (its weights
+  // sum to 1.0 across the group, per the reference scorer).
+  const oriScore = weightedMean(
+    rubric.subScores.filter((s) => dimensionByCode.get(s.dimensionCode)!.scoreGroup === 'owner_readiness'),
     1,
   );
 
   const gapCodes = rubric.gapDefinitions
-    .filter((g) => evaluateTrigger(g.trigger, pointsByCode, answers, drsScore))
+    .filter((g) => evaluateTrigger(g.trigger, pointsByCode, applicableByCode, answers, drsScore))
     .map((g) => g.code)
     .sort();
 
@@ -419,6 +463,7 @@ export interface SubScoreExplain {
   points: number;
   weight: number;
   contribution: number;
+  applicable: boolean;
 }
 
 export interface ExplainResult {
@@ -448,23 +493,32 @@ export function projectDrs(
   rubric: Rubric,
   currentPoints: Map<string, number>,
   floors: Map<string, number>,
+  applicable?: Map<string, boolean>,
 ): number {
   const dimensionByCode = new Map(rubric.dimensions.map((d) => [d.code, d]));
   const points = new Map(currentPoints);
   for (const [code, floor] of floors) {
     points.set(code, Math.max(points.get(code) ?? 0, floor));
   }
+  const isApplicable = (code: string) => applicable?.get(code) !== false;
   const dimensionScores = rubric.dimensions
     .filter((d) => d.scoreGroup === 'business_readiness')
     .map((d) => {
       const parts = rubric.subScores.filter((s) => s.dimensionCode === d.code);
-      return {
-        code: d.code,
-        score: pyRound(
-          parts.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0),
-          2,
-        ),
-      };
+      const applic = parts.filter((s) => isApplicable(s.code));
+      const score =
+        applic.length === parts.length
+          ? pyRound(parts.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0), 2)
+          : (() => {
+              const wsum = applic.reduce((acc, s) => acc + s.weight, 0);
+              return wsum <= 0
+                ? 0
+                : pyRound(
+                    applic.reduce((acc, s) => acc + s.weight * (points.get(s.code) ?? 0), 0) / wsum,
+                    2,
+                  );
+            })();
+      return { code: d.code, score };
     });
   return pyRound(
     dimensionScores.reduce((acc, ds) => acc + ds.score * dimensionByCode.get(ds.code)!.drsWeight, 0),
@@ -489,7 +543,9 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
       logic: s.logic,
       points: r.points,
       weight: s.weight,
-      contribution: pyRound(s.weight * r.points, 2),
+      // an N/A sub-score does not contribute to its dimension
+      contribution: r.applicable ? pyRound(s.weight * r.points, 2) : 0,
+      applicable: r.applicable,
     };
   });
 
@@ -518,7 +574,8 @@ export function explainFromAnswers(rubric: Rubric, answers: Answers): ExplainRes
     }
   }
   const currentPoints = new Map(result.subScores.map((s) => [s.code, s.points]));
-  const projectedDrs = projectDrs(rubric, currentPoints, floors);
+  const applicableByCode = new Map(result.subScores.map((s) => [s.code, s.applicable]));
+  const projectedDrs = projectDrs(rubric, currentPoints, floors, applicableByCode);
 
   return {
     subScores,

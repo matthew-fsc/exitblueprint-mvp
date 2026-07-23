@@ -128,6 +128,63 @@ describe('input validation guards (crash / silent-corruption backstop)', () => {
   });
 });
 
+describe('age-aware applicability (N/A + re-normalization, docs/07)', () => {
+  const young = loadFixture('company-4-northwind-vertical-saas');
+
+  it('marks the age-gated sub-scores Not Applicable for a young business', () => {
+    const result = scoreFromAnswers(rubric, young.answers);
+    const na = result.subScores.filter((s) => !s.applicable).map((s) => s.code).sort();
+    expect(na).toEqual(['CUS-TENURE', 'GRW-CAGR', 'MGT-RETENTION', 'ORI-LASTVAL', 'REV-GROWTH']);
+  });
+
+  it('re-normalizes a dimension over its remaining sub-scores when one is N/A', () => {
+    const result = scoreFromAnswers(rubric, young.answers);
+    // CUS excludes CUS-TENURE and re-normalizes over the other four (weights 0.80)
+    const cus = result.dimensionScores.find((d) => d.code === 'CUS')!.score;
+    const parts = rubric.subScores.filter((s) => s.dimensionCode === 'CUS' && s.code !== 'CUS-TENURE');
+    const points = new Map(result.subScores.map((s) => [s.code, s.points]));
+    const wsum = parts.reduce((a, s) => a + s.weight, 0);
+    const expected = Number(
+      (parts.reduce((a, s) => a + s.weight * points.get(s.code)!, 0) / wsum).toFixed(2),
+    );
+    expect(cus).toBe(expected);
+    expect(cus).toBe(young.expected.dimension_scores.CUS);
+  });
+
+  it('does not fire a gap keyed on an N/A sub-score, and suppresses STALE_VALUATION when young', () => {
+    const result = scoreFromAnswers(rubric, young.answers);
+    // REV-GROWTH is N/A -> REV_VOLATILITY cannot fire; age < 3 -> STALE_VALUATION suppressed
+    expect(result.gapCodes).not.toContain('REV_VOLATILITY');
+    expect(result.gapCodes).not.toContain('STALE_VALUATION');
+  });
+
+  it('business_age_gte gates STALE_VALUATION: an older company with real history fires it', () => {
+    // 12 years old with four fiscal years: the age-gated (tenure, retention,
+    // valuation) AND history-gated (growth) sub-scores all apply again.
+    const asOld = {
+      ...young.answers,
+      'BIZ-AGE-YEARS': 12,
+      'REV-ANNUAL': [1_500_000, 1_900_000, 2_200_000, 2_600_000],
+    };
+    const result = scoreFromAnswers(rubric, asOld);
+    expect(result.subScores.every((s) => s.applicable)).toBe(true);
+    expect(result.gapCodes).toContain('STALE_VALUATION'); // VAL-LASTVAL 'never' + old enough
+  });
+
+  it('history gate is independent of age: an old company with only 2 fiscal years still N/As growth', () => {
+    const oldFewStatements = { ...young.answers, 'BIZ-AGE-YEARS': 20 };
+    const result = scoreFromAnswers(rubric, oldFewStatements);
+    const na = result.subScores.filter((s) => !s.applicable).map((s) => s.code).sort();
+    // age gates clear at 20yrs; the 2-year history still N/As the growth sub-scores
+    expect(na).toEqual(['GRW-CAGR', 'REV-GROWTH']);
+  });
+
+  it('a mature fixture has every sub-score applicable (no behavior change)', () => {
+    const result = scoreFromAnswers(rubric, loadFixture(FIXTURE_NAMES[0]).answers);
+    expect(result.subScores.every((s) => s.applicable)).toBe(true);
+  });
+});
+
 describe('explainFromAnswers', () => {
   it('decomposes the DRS into per-dimension and per-sub-score contributions', () => {
     const fixture = loadFixture(FIXTURE_NAMES[1]);

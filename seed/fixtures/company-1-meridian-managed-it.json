@@ -87,6 +87,7 @@
     "owner_readiness_index": 79.2,
     "gaps": [],
     "flags": [],
+    "not_applicable": [],
     "computed": {
       "hhi_est": 315,
       "top1_pct": 12,

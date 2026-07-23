@@ -2,7 +2,7 @@ code,dimension_code,name,weight,formula_type,input_question_codes,logic_json,not
 REV-RECUR,REV,Recurring Revenue Percentage,0.3,band_gte,REV-RECUR-PCT,"{""bands"": [[80, 100], [60, 75], [40, 50], [20, 25], [0, 0]]}",Score=100 benchmark: >=80% recurring.
 REV-HHI,REV,Customer Concentration (HHI),0.25,hhi_from_top5,REV-TOP5-SHARES,"{""bands_lt"": [[1000, 100], [1500, 80], [2000, 55], [2500, 30]], ""else"": 0, ""cap_if_top1_gt"": [30, 60]}",HHI estimated as lower bound from top-5 shares (sum of squared %). Cap 60 if top customer >30%.
 REV-DURABILITY,REV,Contract Durability,0.2,durability,"REV-CONTRACT-CUST-PCT,REV-CONTRACT-AVG-MO","{""formula"": ""100*min(1,coverage/75)*min(1,months/18)""}",Benchmark: >=75% contracted with >=18mo avg remaining.
-REV-GROWTH,REV,Revenue Growth Consistency,0.15,growth_consistency,REV-ANNUAL,"{""rules"": ""cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25""}",CAGR over provided fiscal years; down = count of down years.
+REV-GROWTH,REV,Revenue Growth Consistency,0.15,growth_consistency,REV-ANNUAL,"{""rules"": ""cagr>=15 and down==0 ->100; cagr>=10 and down<=1 ->75; cagr>=5 and down<=1 ->50; cagr<0 ->0; else 25"", ""na_when"": {""history_years_lt"": 3}}",CAGR over provided fiscal years; down = count of down years. N/A below 3 fiscal years (consistency needs >=2 growth periods).
 REV-NRR,REV,Churn Rate (NRR),0.1,band_gte,REV-NRR,"{""bands"": [[110, 100], [100, 80], [90, 50], [80, 25], [0, 0]], ""unknown"": 25}",Unknown NRR scores 25 and raises a not-tracked flag (v1 convention).
 FIN-RECON,FIN,Audit Trail / Reconciliation,0.3,select_map,FIN-RECON,"{""map"": {""monthly"": 100, ""quarterly"": 65, ""annual"": 30, ""none"": 0}}",
 FIN-ADDBACK,FIN,Addback Defensibility Index,0.3,select_map,FIN-ADDBACK-DOC,"{""map"": {""fully_documented"": 100, ""mostly_documented"": 70, ""partially_documented"": 40, ""undocumented"": 10}}",Questionnaire proxy for % of addback dollars rated LOW CHALLENGE (>=80% -> 100).
@@ -14,20 +14,20 @@ OPS-DEPTH,OPS,Management Depth Ratio,0.2,depth_ratio,"OPS-MGR-COUNT,OPS-FUNC-COU
 OPS-AUTO,OPS,Process Automation Level,0.15,band_gte,OPS-AUTO-PCT,"{""bands"": [[70, 100], [50, 70], [30, 40], [0, 15]]}",
 CUS-TOP1,CUS,Top 1 Customer Revenue %,0.3,top1_band,REV-TOP5-SHARES,"{""bands_lt"": [[10, 100], [20, 75], [30, 45], [40, 20]], ""else"": 0}",Single customer >40% = near-uninvestable.
 CUS-TOP5,CUS,Top 5 Customer Revenue %,0.25,top5_band,REV-TOP5-SHARES,"{""bands_lt"": [[30, 100], [45, 75], [60, 45], [75, 20]], ""else"": 0}",
-CUS-TENURE,CUS,Average Customer Tenure,0.2,band_gte,CUS-TENURE,"{""bands"": [[5, 100], [3, 75], [2, 50], [1, 25], [0, 0]]}",
+CUS-TENURE,CUS,Average Customer Tenure,0.2,band_gte,CUS-TENURE,"{""bands"": [[5, 100], [3, 75], [2, 50], [1, 25], [0, 0]], ""na_when"": {""business_age_lt"": 5}}","N/A below 5 years in business: average tenure is bounded by company age, so a younger firm cannot attain the benchmark regardless of loyalty."
 CUS-COVERAGE,CUS,Contract Coverage,0.15,band_gte,CUS-REV-CONTRACT-PCT,"{""bands"": [[80, 100], [60, 70], [40, 40], [0, 10]]}",
 CUS-CHURN,CUS,Annual Churn Rate,0.1,band_ascending,CUS-CHURN,"{""bands_lt"": [[5, 100], [10, 70], [15, 40], [20, 15]], ""else"": 0}",Lower is better.
 MGT-LAYERS,MGT,Management Layers Below Owner,0.3,select_map,MGT-LAYERS,"{""map"": {""two_plus_layers"": 100, ""one_clear_layer"": 65, ""informal_partial"": 30, ""none_all_report_to_owner"": 0}}",
 MGT-NC,MGT,Key Person Non-Competes,0.25,band_gte,MGT-NC-PCT,"{""bands"": [[100, 100], [75, 70], [50, 35], [0, 0]]}",Flag enforceability jurisdiction in narrative.
 MGT-COMP,MGT,Compensation vs Market,0.25,select_map,MGT-COMP,"{""map"": {""within_15pct"": 100, ""below_15_25pct"": 50, ""below_25pct_plus"": 0, ""above_25pct_plus"": 70}}",Below market = flight risk; far above = cost structure risk.
-MGT-RETENTION,MGT,Retention History,0.2,band_ascending,MGT-TURNOVER,"{""bands_lt"": [[10, 100], [15, 70], [25, 35]], ""else"": 0}",Lower is better.
-GRW-CAGR,GRW,Revenue CAGR (3yr),0.35,cagr_band,REV-ANNUAL,"{""bands"": [[20, 100], [15, 85], [10, 65], [5, 40], [0, 20]], ""negative"": 0}",
+MGT-RETENTION,MGT,Retention History,0.2,band_ascending,MGT-TURNOVER,"{""bands_lt"": [[10, 100], [15, 70], [25, 35]], ""else"": 0, ""na_when"": {""business_age_lt"": 3}}",Lower is better. N/A below 3 years in business (trailing-3yr turnover has no history).
+GRW-CAGR,GRW,Revenue CAGR (3yr),0.35,cagr_band,REV-ANNUAL,"{""bands"": [[20, 100], [15, 85], [10, 65], [5, 40], [0, 20]], ""negative"": 0, ""na_when"": {""history_years_lt"": 3}}",N/A below 3 fiscal years (a 2-point CAGR is not yet a trend).
 GRW-PIPE,GRW,Pipeline Coverage Ratio,0.3,pipeline_ratio,"GRW-PIPELINE,REV-ANNUAL","{""bands"": [[3, 100], [2, 70], [1, 35]], ""else"": 0}",Ratio = qualified pipeline / most recent annual revenue. No pipeline = 0.
 GRW-POS,GRW,Market Positioning,0.2,select_map,GRW-POSITIONING,"{""map"": {""strong_defined"": 80, ""moderate"": 45, ""undifferentiated_unclear"": 10}}",Max attainable is 80 per methodology.
 GRW-REPEAT,GRW,Product/Service Repeatability,0.15,band_gte,GRW-REPEAT-PCT,"{""bands"": [[70, 100], [50, 65], [30, 30], [0, 0]]}",
 ORI-DEPEND,PFN,Lifestyle Price Dependence,0.25,scale_map,PFN-DEPEND,"{""formula"": ""(v-1)*25""}",v1 convention
 ORI-OUTSIDE,PFN,Outside Assets Sufficiency,0.25,select_map,PFN-OUTSIDE,"{""map"": {""yes"": 100, ""mostly"": 75, ""partially"": 40, ""no"": 0}}",v1 convention
 ORI-DEBT,PFN,Personal Obligations Alignment,0.1,select_map,PFN-DEBT,"{""map"": {""yes"": 100, ""minor_issues"": 60, ""significant_issues"": 20}}",v1 convention
-ORI-LASTVAL,VAL,Valuation Currency,0.15,select_map,VAL-LASTVAL,"{""map"": {""within_12mo"": 100, ""one_3yr"": 70, ""over_3yr"": 30, ""never"": 0}}",v1 convention
+ORI-LASTVAL,VAL,Valuation Currency,0.15,select_map,VAL-LASTVAL,"{""map"": {""within_12mo"": 100, ""one_3yr"": 70, ""over_3yr"": 30, ""never"": 0}, ""na_when"": {""business_age_lt"": 3}}",v1 convention. N/A below 3 years in business: too young to be expected to hold a current professional valuation.
 ORI-CONF,VAL,Value-Goal Confidence,0.15,scale_map,VAL-CONF,"{""formula"": ""(v-1)*25""}",v1 convention
 ORI-SEP,VAL,Personal/Business Separation,0.1,select_map,VAL-SEP,"{""map"": {""fully"": 100, ""mostly"": 60, ""mixed"": 20}}",v1 convention

@@ -106,6 +106,7 @@
       "TURNOVER_HIGH"
     ],
     "flags": [],
+    "not_applicable": [],
     "computed": {
       "hhi_est": 822,
       "top1_pct": 22,

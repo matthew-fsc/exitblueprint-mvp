@@ -113,6 +113,7 @@
     "flags": [
       "NRR not tracked"
     ],
+    "not_applicable": [],
     "computed": {
       "hhi_est": 2178,
       "top1_pct": 41,

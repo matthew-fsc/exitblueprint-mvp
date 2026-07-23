@@ -1,0 +1,111 @@
+{
+  "profile": "2-year-old vertical SaaS, $2.6M revenue up from $1.2M, strong ops for its age, owner does not want to sell for 3+ years. Exercises the age-aware N/A mechanic: growth-history (REV-GROWTH, GRW-CAGR), customer tenure (CUS-TENURE), retention history (MGT-RETENTION), and valuation currency (ORI-LASTVAL) are all Not Applicable and re-normalized out, and STALE_VALUATION is suppressed.",
+  "answers": {
+    "REV-RECUR-PCT": 70,
+    "REV-TOP5-SHARES": [
+      14,
+      10,
+      8,
+      6,
+      5
+    ],
+    "REV-CONTRACT-CUST-PCT": 70,
+    "REV-CONTRACT-AVG-MO": 14,
+    "REV-ANNUAL": [
+      1200000,
+      2600000
+    ],
+    "REV-NRR": 115,
+    "FIN-RECON": "monthly",
+    "FIN-ADDBACK-DOC": "mostly_documented",
+    "FIN-BASIS": "accrual_consistent",
+    "FIN-STATEMENTS": "all_three",
+    "OPS-OWNER-HOURS": 30,
+    "OPS-SOP-PCT": 45,
+    "OPS-MGR-COUNT": 2,
+    "OPS-FUNC-COUNT": 4,
+    "OPS-AUTO-PCT": 55,
+    "CUS-TENURE": 1.5,
+    "CUS-REV-CONTRACT-PCT": 70,
+    "CUS-CHURN": 8,
+    "MGT-LAYERS": "one_clear_layer",
+    "MGT-NC-PCT": 60,
+    "MGT-COMP": "within_15pct",
+    "MGT-TURNOVER": 10,
+    "GRW-PIPELINE": 4000000,
+    "GRW-POSITIONING": "strong_defined",
+    "GRW-REPEAT-PCT": 70,
+    "GOL-TIMELINE": "three_plus_yr",
+    "PFN-DEPEND": 3,
+    "PFN-OUTSIDE": "mostly",
+    "PFN-DEBT": "minor_issues",
+    "VAL-LASTVAL": "never",
+    "VAL-CONF": 3,
+    "VAL-SEP": "mostly",
+    "BIZ-AGE-YEARS": 2
+  },
+  "expected": {
+    "sub_scores": {
+      "REV-RECUR": 75,
+      "REV-HHI": 100,
+      "REV-DURABILITY": 72.59,
+      "REV-GROWTH": 100,
+      "REV-NRR": 100,
+      "FIN-RECON": 100,
+      "FIN-ADDBACK": 70,
+      "FIN-GAAP": 100,
+      "FIN-STATEMENTS": 100,
+      "OPS-HOURS": 20,
+      "OPS-SOP": 40,
+      "OPS-DEPTH": 40,
+      "OPS-AUTO": 70,
+      "CUS-TOP1": 75,
+      "CUS-TOP5": 75,
+      "CUS-TENURE": 25,
+      "CUS-COVERAGE": 70,
+      "CUS-CHURN": 70,
+      "MGT-LAYERS": 65,
+      "MGT-NC": 35,
+      "MGT-COMP": 100,
+      "MGT-RETENTION": 70,
+      "GRW-CAGR": 100,
+      "GRW-PIPE": 35,
+      "GRW-POS": 80,
+      "GRW-REPEAT": 100
+    },
+    "dimension_scores": {
+      "REV": 84.73,
+      "FIN": 91.0,
+      "OPS": 37.5,
+      "CUS": 73.44,
+      "MGT": 66.56,
+      "GRW": 63.85
+    },
+    "drs": 70.9,
+    "tier": "Sale Ready",
+    "owner_readiness_index": 59.7,
+    "gaps": [
+      "MGMT_DEPTH",
+      "NONCOMPETE_GAP",
+      "OWNER_DEP",
+      "PIPELINE_BLIND",
+      "SOP_GAP"
+    ],
+    "flags": [],
+    "not_applicable": [
+      "CUS-TENURE",
+      "GRW-CAGR",
+      "MGT-RETENTION",
+      "ORI-LASTVAL",
+      "REV-GROWTH"
+    ],
+    "computed": {
+      "hhi_est": 421,
+      "top1_pct": 14,
+      "top5_pct": 43,
+      "cagr_pct": 116.67,
+      "down_years": 0,
+      "pipeline_coverage": 1.54
+    }
+  }
+}

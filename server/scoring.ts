@@ -160,9 +160,9 @@ async function scoreAndPersist(
 
   for (const s of result.subScores) {
     await db.query(
-      `insert into sub_score_results (assessment_id, sub_score_id, points, computed_inputs)
-       values ($1, $2, $3, $4)`,
-      [assessment.id, subScoreIds.get(s.code), s.points, JSON.stringify(s.computedInputs)],
+      `insert into sub_score_results (assessment_id, sub_score_id, points, applicable, computed_inputs)
+       values ($1, $2, $3, $4, $5)`,
+      [assessment.id, subScoreIds.get(s.code), s.points, s.applicable, JSON.stringify(s.computedInputs)],
     );
   }
   for (const d of result.dimensionScores) {

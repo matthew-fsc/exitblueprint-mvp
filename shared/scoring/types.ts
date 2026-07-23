@@ -35,6 +35,17 @@ export interface QuestionDef {
   sortOrder: number;
 }
 
+// When present, marks a sub-score Not Applicable for an assessment that meets the
+// condition. An N/A sub-score is excluded from its dimension, which re-normalizes
+// over the remaining weights (docs/07). Data-driven so the methodology stays in
+// the rubric, not the engine (CLAUDE.md rule 3).
+export interface NaWhen {
+  business_age_lt?: number; // years in business below this -> N/A
+  history_years_lt?: number; // fewer than this many fiscal years of revenue -> N/A
+  answer_unknown?: string; // the named question answered 'unknown' -> N/A
+  answer_in?: { question_code: string; values: string[] }; // named answer in set -> N/A
+}
+
 export interface SubScoreLogic {
   bands?: [number, number][];
   bands_lt?: [number, number][];
@@ -45,6 +56,7 @@ export interface SubScoreLogic {
   negative?: number;
   formula?: string;
   rules?: string;
+  na_when?: NaWhen;
 }
 
 export interface SubScoreDef {
@@ -63,6 +75,7 @@ export type GapTrigger =
   | { type: 'answer_in'; question_code: string; values: string[] }
   | { type: 'answer_lte'; question_code: string; value: number }
   | { type: 'composite_below'; score_group: ScoreGroup; threshold: number }
+  | { type: 'business_age_gte'; years: number }
   | { type: 'all'; conditions: GapTrigger[] };
 
 export type GapSeverity = 'low' | 'med' | 'high' | 'critical';
@@ -88,6 +101,10 @@ export type Answers = Record<string, AnswerValue>;
 export interface SubScoreResult {
   code: string;
   points: number;
+  // false when a na_when condition excludes this sub-score from its dimension for
+  // this assessment. Points are still computed (for the explain trace) but not
+  // counted, and gaps keyed on it do not fire.
+  applicable: boolean;
   computedInputs: Record<string, number | string | number[] | null>;
 }
 
