@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm ci)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:rls:*)",
+      "Bash(npm run db:migrate:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(npm run seed:demo:*)",
+      "Bash(npm run eval:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run serve:functions:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx vite:*)",
+      "Bash(bash scripts/devdb.sh:*)",
+      "Bash(bash .claude/hooks/bootstrap-db.sh:*)",
+      "Bash(bash .claude/hooks/test-rls.sh:*)",
+      "Bash(source .claude/.session-env:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash:*)",
+      "Bash(git fetch:*)",
+      "Bash(git push:*)",
+      "Bash(rg:*)"
+    ]
+  }
+}
