@@ -4,10 +4,14 @@
 
 // Scores are 0–100, one decimal only when needed (DRS is rounded to 1dp by the
 // engine; dimension scores to 2dp). We display DRS/ORI as given.
-export function fmtScore(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+export function fmtScore(n: number | string | null | undefined): string {
+  if (n === null || n === undefined || n === '') return '—';
+  // Numeric DB columns arrive as strings; coerce here so callers don't wrap in
+  // Number() — which turns a genuine null into 0 and defeats this "—" guard.
+  const num = typeof n === 'number' ? n : Number(n);
+  if (Number.isNaN(num)) return '—';
   // trim a trailing .0 but keep genuine decimals
-  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+  return Number.isInteger(num) ? String(num) : String(Math.round(num * 100) / 100);
 }
 
 // Signed delta with an arrow, for DeltaChip and prose. Zero renders as an
@@ -40,7 +44,9 @@ export function fmtCurrency(n: number | null | undefined): string {
 export function fmtCurrencyCompact(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  // Threshold at 999_500, not 1_000_000: a value like $999,600 rounds up to
+  // 1000K in the K branch, which must render as "$1.0M", never "$1000K".
+  if (abs >= 999_500) return `$${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
   if (abs >= 1_000) return `$${Math.round(n / 1_000)}K`;
   return USD.format(n);
 }

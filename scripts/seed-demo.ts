@@ -199,26 +199,31 @@ async function main() {
     const roadmap = await instantiateTasksForGaps(db, engagementId, new Date().toISOString().slice(0, 10));
     if (roadmap.tasksCreated > 0) console.log(`seed-demo: roadmap built — ${roadmap.tasksCreated} tasks`);
 
-    // Sell-side verification demo: attach a fixture financial document, then run
-    // the verification pipeline + findings so the Verification tab is populated
-    // out of the box (reconciled values, a low-confidence review item, and the
-    // customer_concentration finding awaiting approval). Uses the fixture parser;
-    // idempotent because the pipeline rebuilds the engagement's derived data.
+    // Sell-side verification demo: attach the demo client's financial statement,
+    // then run the verification pipeline + findings so the Verification tab is
+    // populated out of the box. The document reconciles cleanly against Cascade's
+    // self-reported answers — revenue ($6.9M) and recurring share (66%) verify
+    // green, while the extracted EBITDA lands at low confidence to demonstrate one
+    // review-queue item. Its customer mix mirrors the revenue-by-customer file
+    // (top customer 14%), so buy-side findings correctly surface NO concentration
+    // risk — coherent with Cascade's diversified book (REV-HHI = 100), not a
+    // fabricated flag. Uses the fixture parser; idempotent because the pipeline
+    // rebuilds the engagement's derived data.
     process.env.EB_PARSER = process.env.EB_PARSER ?? 'fixture';
     const fixtureBytes = readFileSync(
-      join(root, 'fixtures', 'sellside', 'customer-financials.doc.json'),
+      join(root, 'seed', 'demo', 'files', 'cascade-verification.doc.json'),
     );
     let verifyDocId = (
       await db.query(
         `select id from documents where engagement_id = $1 and original_filename = $2`,
-        [engagementId, 'financials-demo.json'],
+        [engagementId, 'cascade-financials-2025.json'],
       )
     ).rows[0]?.id as string | undefined;
     verifyDocId ??= (
       await db.query(
         `insert into documents
            (firm_id, engagement_id, category, original_filename, mime_type, byte_size, status)
-         values ($1, $2, 'financial_statement', 'financials-demo.json', 'application/json', $3, 'uploaded')
+         values ($1, $2, 'financial_statement', 'cascade-financials-2025.json', 'application/json', $3, 'uploaded')
          returning id`,
         [firmId, engagementId, fixtureBytes.length],
       )
@@ -368,9 +373,9 @@ async function main() {
     // engagement deal-team picker aren't empty out of the box. Idempotent on
     // (firm_id, full_name).
     for (const [full_name, organization, kind, email] of [
-      ['Marcus Bell', 'Bell & Associates CPAs', 'cpa', 'marcus@bellcpas.example'],
-      ['Priya Nair', 'Nair Corporate Law', 'attorney', 'priya@nairlaw.example'],
-      ['Tom Okafor', 'Meridian M&A Partners', 'ma_advisor', 'tom@meridianma.example'],
+      ['Marcus Bell', 'Bell & Associates CPAs', 'cpa', 'marcus@bellcpas.example.com'],
+      ['Priya Nair', 'Nair Corporate Law', 'attorney', 'priya@nairlaw.example.com'],
+      ['Tom Okafor', 'Meridian M&A Partners', 'ma_advisor', 'tom@meridianma.example.com'],
     ] as [string, string, string, string][]) {
       await db.query(
         `insert into firm_professionals (firm_id, full_name, organization, kind, email)

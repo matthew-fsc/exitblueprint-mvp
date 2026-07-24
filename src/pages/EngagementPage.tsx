@@ -702,7 +702,7 @@ export default function EngagementPage() {
                   const gap = (gapsQ.data ?? []).find((g) => g.id === entry.gap_id);
                   return (
                     <li key={entry.id} className="log-entry">
-                      <span className={`log-kind log-kind-${entry.kind}`}>{entry.kind}</span>
+                      <span className={`log-kind log-kind-${entry.kind}`}>{humanizeKey(entry.kind)}</span>
                       <div className="log-body">
                         <div className="log-head">
                           <strong>{entry.title}</strong>
@@ -1271,7 +1271,7 @@ function ComparePanel({ assessments, embedded = false }: { assessments: Assessme
   if (assessments.length < 2) return null;
 
   const label = (a: AssessmentRow) =>
-    `#${a.sequence_number} · DRS ${fmtScore(Number(a.drs_score))} · ${a.completed_at ? fmtDate(a.completed_at) : ''}`;
+    `#${a.sequence_number} · DRS ${fmtScore(a.drs_score)} · ${a.completed_at ? fmtDate(a.completed_at) : ''}`;
 
   const cmp = compareQ.data;
   const dimCols: Column<{ code: string; prior: number; current: number; delta: number }>[] = [
@@ -1373,9 +1373,9 @@ function AssessmentCard({ a }: { a: AssessmentRow }) {
       {a.status === 'completed' ? (
         <>
           <span className="assessment-score">
-            DRS <strong className="tnum">{fmtScore(Number(a.drs_score))}</strong>{' '}
+            DRS <strong className="tnum">{fmtScore(a.drs_score)}</strong>{' '}
             {a.drs_tier && <TierBadge tier={a.drs_tier} size="sm" />} · ORI{' '}
-            <span className="tnum">{fmtScore(Number(a.ori_score))}</span>
+            <span className="tnum">{fmtScore(a.ori_score)}</span>
           </span>
           <span className="muted">{a.completed_at ? fmtDate(a.completed_at) : ''}</span>
           <Link className="button-link" to={`/assessment/${a.id}/results`}>
