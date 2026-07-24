@@ -134,7 +134,17 @@ const OPTION_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-export function humanizeOption(value: string): string {
+// Per-question overrides where the shared label reads wrong in context. The
+// global `none` -> "Not done" fits a reconciliation-frequency question, but for
+// "significant assets that may need separate valuation?" the honest label is
+// simply "None". Keyed by question code, then raw option value.
+const QUESTION_OPTION_LABELS: Record<string, Record<string, string>> = {
+  'VAL-ASSETS-CTX': { none: 'None' },
+  'CUS-COC-CTX': { none: 'None' },
+};
+
+export function humanizeOption(value: string, code?: string): string {
+  if (code && QUESTION_OPTION_LABELS[code]?.[value]) return QUESTION_OPTION_LABELS[code][value];
   if (OPTION_LABELS[value]) return OPTION_LABELS[value];
   return value
     .split('_')

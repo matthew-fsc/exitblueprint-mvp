@@ -94,12 +94,16 @@ export function NumberField({
         <input
           type="number"
           step="any"
+          min={0}
           inputMode="decimal"
           disabled={disabled}
           aria-label={ariaLabel}
           placeholder={unit.placeholder ?? ''}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          // No intake figure is meaningfully negative (revenue, percentages,
+          // counts, hours). Strip a leading minus so a negative can't be typed;
+          // the engine also rejects negatives on scored answers as a backstop.
+          onChange={(e) => onChange(e.target.value.replace(/^-/, ''))}
         />
         {unit.suffix && <span className="numfield-affix numfield-suffix">{unit.suffix}</span>}
       </div>
@@ -186,7 +190,7 @@ export function QuestionControl({
                 className={`option-card ${text === o ? 'option-card-on' : ''}`}
                 onClick={() => onChange(q.id, { kind: 'text', text: o })}
               >
-                {humanizeOption(o)}
+                {humanizeOption(o, q.code)}
               </button>
             ))}
           </div>
@@ -199,7 +203,7 @@ export function QuestionControl({
             <option value="">Choose one…</option>
             {options.map((o) => (
               <option key={o} value={o}>
-                {humanizeOption(o)}
+                {humanizeOption(o, q.code)}
               </option>
             ))}
           </select>
@@ -212,7 +216,7 @@ export function QuestionControl({
           {draft.order.map((item, i) => (
             <li key={item}>
               <span className="rank-num">{i + 1}</span>
-              <span className="rank-label">{humanizeOption(item)}</span>
+              <span className="rank-label">{humanizeOption(item, q.code)}</span>
               <span className="rank-buttons">
                 <button
                   type="button"
