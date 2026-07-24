@@ -4,7 +4,7 @@
 // authorized; siblings are constrained to its firm_id (never cross-firm).
 import type pg from 'pg';
 import { rankComparables, type ComparableCandidate, type Comparable } from '../shared/comparables';
-import { aggregateOwnBook, type OwnBookMultiple } from '../shared/own-book';
+import { aggregateOwnBook, type OwnBookMultiple, type MarketMultiple } from '../shared/own-book';
 
 // ── Own-book valuation multiple (docs/09 §2, moat 2) ──────────────────────────
 // The realized EV/EBITDA multiple from THIS FIRM'S OWN closed deals in the same
@@ -39,6 +39,46 @@ export async function ownBookMultiple(
   ).rows.map((r) => ({ multiple: Number(r.multiple), sizeBand: r.size_band as string | null }));
 
   return aggregateOwnBook(deals, args.sizeBand);
+}
+
+// ── Market reference multiple (docs/sellside-ai/01, build order step 1) ───────────
+// The licensed sector multiple for a subject's industry_key × size band, read from
+// the NON-TENANT `market` schema (20260724013906_market_reference_schema.sql).
+//
+// ISOLATION — deliberately NOT firm-scoped. Unlike ownBookMultiple above (which is
+// STRICTLY `o.firm_id = $firmId`, a firm only ever sees its own realized deals),
+// `market` is GLOBAL LICENSED REFERENCE DATA, not any firm's tenant data — the
+// explicit CLAUDE.md §5 non-tenant exception (docs/sellside-ai/01 "Data model").
+// There is no firm_id to filter on; any per-license exposure limit is enforced by
+// this retrieval layer, not RLS. The caller is already authorized on the engagement;
+// the industry_key/size_band it passes were derived from that engagement's own data.
+//
+// Picks the most authoritative row: the most-recent dataset (`as_of`), breaking ties
+// by the largest sample. Returns null when nothing matches — the caller (valuation)
+// treats absence as "no market candidate" and falls back to the table multiple.
+export async function marketMultiple(
+  db: pg.ClientBase,
+  args: { industryKey: string; sizeBand: string },
+): Promise<MarketMultiple | null> {
+  const row = (
+    await db.query(
+      `select m.median_multiple, m.p25_multiple, m.p75_multiple, m.sample_size
+         from market.multiples m
+         join market.datasets d on d.id = m.dataset_id
+        where m.industry_key = $1 and m.size_band = $2
+        order by d.as_of desc nulls last, m.as_of desc nulls last, m.sample_size desc
+        limit 1`,
+      [args.industryKey, args.sizeBand],
+    )
+  ).rows[0];
+  if (!row) return null;
+
+  return {
+    median: Number(row.median_multiple),
+    p25: row.p25_multiple != null ? Number(row.p25_multiple) : Number(row.median_multiple),
+    p75: row.p75_multiple != null ? Number(row.p75_multiple) : Number(row.median_multiple),
+    sample_size: Number(row.sample_size ?? 0),
+  };
 }
 
 export async function engagementComparables(

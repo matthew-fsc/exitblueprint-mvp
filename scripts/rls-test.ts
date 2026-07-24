@@ -357,6 +357,24 @@ async function main() {
     await db.query(
       `insert into valuation_rules_versions (version_label, status) values ('RLS-VAL-1', 'active')`,
     );
+    // Market reference data (docs/sellside-ai/01) — a NON-TENANT dataset + multiple in
+    // the global `market` schema. Seeded as the service role here (rls-test precedes
+    // db:seed) so the "reference data is globally readable, carries no firm_id" checks
+    // below have a row to read. There is deliberately NO firm_id on either table.
+    const marketDataset = (
+      await db.query(
+        `insert into market.datasets
+           (name, vendor, display_scope, ai_ingestion_allowed, derivative_rights, purge_on_termination, as_of)
+         values ('RLS Market Ref', 'TestVendor', 'aggregate_only', false, false, true, '2026-01-01')
+         returning id`,
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into market.multiples
+         (dataset_id, industry_key, size_band, median_multiple, p25_multiple, p75_multiple, sample_size, as_of)
+       values ($1, 'manufacturing', '1_3m', 5.9, 5.2, 6.4, 14, '2026-01-01')`,
+      [marketDataset],
+    );
     // A Data Room template row (also seeded here, since rls-test precedes db:seed)
     // so the firm-scoped engagement_data_room_items FK resolves.
     await db.query(`insert into data_room_sections (code, name) values ('FIN', 'Financial')`);
@@ -527,6 +545,35 @@ async function main() {
       await db.query('rollback to savepoint pr');
     }
     check('cannot read analytics.prompt_templates (service-role only)', promptRegistryDenied);
+
+    // The `market` schema is the OPPOSITE case to analytics: it is GLOBAL LICENSED
+    // REFERENCE DATA, the explicit CLAUDE.md §5 non-tenant exception
+    // (docs/sellside-ai/01). So — unlike the walled analytics schema above — an
+    // authenticated tenant role CAN read it, and it deliberately carries NO firm_id.
+    // These checks assert that intended posture, and that granting it did not open a
+    // tenant table (the market grant is scoped to schema `market` alone; every
+    // firm-isolation check in this file still holds around it).
+    const marketRead = await db.query('select count(*)::int c from market.multiples');
+    check('reads global market reference data (non-tenant, no RLS)', marketRead.rows[0].c >= 1,
+      `saw ${marketRead.rows[0].c}`);
+    const marketFirmIdCols = await db.query(
+      `select count(*)::int c from information_schema.columns
+        where table_schema = 'market' and table_name in ('multiples', 'datasets')
+          and column_name = 'firm_id'`,
+    );
+    check('market tables carry no firm_id (intentionally non-tenant reference data)',
+      marketFirmIdCols.rows[0].c === 0, `saw ${marketFirmIdCols.rows[0].c} firm_id columns`);
+    // Reference data is the SAME for every firm (no firm scoping): the row is visible
+    // here regardless of firm_id because there is none to filter on — it is not a
+    // tenant leak, it is bought global data whose exposure is governed at the
+    // retrieval layer, not RLS.
+    const marketRow = await db.query(
+      `select industry_key, median_multiple from market.multiples where industry_key = 'manufacturing'`,
+    );
+    check('market reference row is globally visible (not firm-scoped)',
+      marketRow.rows.length === 1 && marketRow.rows[0].industry_key === 'manufacturing',
+      `saw ${JSON.stringify(marketRow.rows)}`);
+
     let writeBlocked = false;
     try {
       await db.query('savepoint w');

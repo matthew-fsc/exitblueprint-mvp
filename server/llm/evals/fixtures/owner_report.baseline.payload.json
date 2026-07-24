@@ -1,0 +1,23 @@
+{
+  "company": { "name": "Ridgeline Field Services", "industry": "Field Services" },
+  "engagement_target_window": "18-24 months",
+  "overall_score": 58,
+  "band": "Developing",
+  "owner_readiness_index": 64,
+  "dimensions": [
+    { "name": "Financial Hygiene", "score": 52, "meaning": "Weighted 0.25 of the overall score" },
+    { "name": "Revenue Quality", "score": 66, "meaning": "Weighted 0.20 of the overall score" },
+    { "name": "Operational Maturity", "score": 61, "meaning": "Weighted 0.15 of the overall score" },
+    { "name": "Management Depth", "score": 55, "meaning": "Weighted 0.15 of the overall score" },
+    { "name": "Legal and Compliance", "score": 49, "meaning": "Weighted 0.10 of the overall score" },
+    { "name": "Growth Story", "score": 71, "meaning": "Weighted 0.15 of the overall score" }
+  ],
+  "top_gaps": [
+    { "name": "Financial Reporting Quality", "severity": "critical", "remediation": "Move to accrual-basis statements and stand up a monthly close so numbers are diligence-ready." },
+    { "name": "Customer Concentration", "severity": "high", "remediation": "Broaden the account base and lock multi-year agreements with the largest customers." }
+  ],
+  "flags": [
+    "Owner is the primary relationship holder for the top accounts"
+  ],
+  "prior_comparison": null
+}
