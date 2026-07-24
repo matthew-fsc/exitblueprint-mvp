@@ -3368,6 +3368,58 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   }
 }
 
+/* ============================================================
+   Forced colors — Windows "High Contrast" / "Contrast themes"
+   (and similar OS accessibility overrides). In this mode the browser
+   REPLACES author colors with the user's system palette: every surface
+   collapses to Canvas (pure white or pure black — never our #eeefee
+   gray ground), text to CanvasText, borders to CanvasText. That is a
+   deliberate accessibility choice we respect, not fight — we don't try
+   to restore the brand gray. We only patch the three things the
+   substitution otherwise breaks:
+     1. the DRS tier / status hues, which carry ORDINAL meaning (amber
+        "Needs Work" must not flatten into the same ink as green "Sale
+        Ready") — same intent as the @media print block above;
+     2. keyboard focus, whose box-shadow ring is dropped in this mode;
+     3. primary buttons, whose borderless fill loses its edge on Canvas.
+   forced-color-adjust is inherited, so setting it on a container (e.g.
+   .score-gauge) also covers that instrument's ring, track and value.
+   ============================================================ */
+@media (forced-colors: active) {
+  .tier-badge,
+  .status-chip,
+  .score-gauge,
+  .score-gauge-fill,
+  .dim-track,
+  .dim-fill,
+  .dimbar-track,
+  .dimbar-fill,
+  .tc-point-outer,
+  .gap-chip {
+    forced-color-adjust: none;
+  }
+
+  /* Our focus indicator is a box-shadow ring, which forced-colors flattens;
+     restore a real outline so keyboard focus stays visible. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  /* Filled buttons rely on a background fill for their shape; give them a
+     visible edge once that fill becomes ButtonFace on a Canvas ground.
+     (.linkish / .button-link stay borderless — they're links, not buttons.) */
+  button:not(.linkish):not(.button-link) {
+    border: 1px solid ButtonText;
+  }
+}
+
 /* ---- branded report header/footer (F1) ---- */
 .report-brandbar {
   display: flex;
