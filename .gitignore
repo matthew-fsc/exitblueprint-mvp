@@ -10,5 +10,15 @@ supabase/.temp/
 
 # Local agent skill tooling (installed via `npx skills add`, not app code)
 .agents/
-.claude/
 skills-lock.json
+
+# .claude/: ignore local skill/plugin installs and personal overrides, but keep
+# the shared, checked-in agent infra (SessionStart bootstrap, permission
+# allowlist, slash commands). See .claude/README.md.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/commands/
+!.claude/README.md
+.claude/settings.local.json
+.claude/.session-env
