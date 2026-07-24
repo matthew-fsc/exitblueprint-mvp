@@ -103,8 +103,8 @@ function AttentionPanel({ data }: { data: AttentionShape }) {
           onOpen={open}
           render={(it) =>
             it.readyPlanCount === 1
-              ? `${it.readyPlanNames} complete — reassess to capture the gains`
-              : `${it.readyPlanCount} plans complete — reassess to capture the gains`
+              ? `${it.readyPlanNames} complete. Reassess to capture the gains`
+              : `${it.readyPlanCount} plans complete. Reassess to capture the gains`
           }
         />
         <AttentionGroup
@@ -118,7 +118,7 @@ function AttentionPanel({ data }: { data: AttentionShape }) {
           items={data.stalledTasks}
           emphasis
           onOpen={open}
-          render={(t) => (t.pastDue ? `${t.title} — ${t.daysOverdue}d overdue` : `${t.title} — untouched ${t.daysStalled}d`)}
+          render={(t) => (t.pastDue ? `${t.title}: ${t.daysOverdue}d overdue` : `${t.title}: untouched ${t.daysStalled}d`)}
         />
         <AttentionGroup
           title="Gone quiet"
@@ -224,7 +224,7 @@ export default function DashboardPage() {
         r.deltaState === 'value' ? (
           <DeltaChip value={r.delta} />
         ) : r.deltaState === 'incomparable' ? (
-          <span className="muted" title="Prior assessment used a different rubric version — scores are not comparable" style={{ whiteSpace: 'nowrap' }}>
+          <span className="muted" title="Prior assessment used a different rubric version. Scores are not comparable" style={{ whiteSpace: 'nowrap' }}>
             new rubric
           </span>
         ) : (
@@ -337,7 +337,7 @@ export default function DashboardPage() {
         <ErrorState
           variant="section"
           title="No engagement agreement"
-          message={`Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are set up with a default agreement automatically — if you’re seeing this, contact your ${BRAND.name} administrator to add one.`}
+          message={`Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are set up with a default agreement automatically. If you’re seeing this, contact your ${BRAND.name} administrator to add one.`}
         />
       )}
 
@@ -515,7 +515,7 @@ function AddEngagementDialog({
       });
       qc.invalidateQueries({ queryKey: qk.engagements() });
       qc.invalidateQueries({ queryKey: qk.portfolio() });
-      toast.show('Agreement recorded — engagement started', 'good');
+      toast.show('Agreement recorded. Engagement started', 'good');
       onCreated(createdEng.engagement_id);
     } catch (err) {
       setError((err as Error).message);
@@ -624,7 +624,7 @@ function AddEngagementDialog({
             <legend>Data-use consent (as authorized by the client)</legend>
             <p className="muted" style={{ margin: '0 0 var(--space-2)' }}>
               Covers de-identified and aggregate use only. Pre-selected for
-              convenience — uncheck any the client has not authorized.
+              convenience. Uncheck any the client has not authorized.
             </p>
             <label>
               <input

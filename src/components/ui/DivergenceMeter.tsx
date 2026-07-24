@@ -39,8 +39,8 @@ export function DivergenceMeter({
       </div>
       <p className={`diverge-note ${divergent ? 'diverge-note-alert' : ''}`}>
         {divergent
-          ? `${gap.toFixed(0)} points apart — the business and the owner are at different stages. The plan has to move both, not just one.`
-          : `${gap.toFixed(0)} points apart — business and owner readiness are broadly aligned.`}
+          ? `${gap.toFixed(0)} points apart: the business and the owner are at different stages. The plan has to move both, not just one.`
+          : `${gap.toFixed(0)} points apart: business and owner readiness are broadly aligned.`}
       </p>
     </div>
   );

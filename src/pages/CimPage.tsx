@@ -91,7 +91,7 @@ export function CimPanel({
       emptyHint={
         <p className="muted">
           The CIM is drafted server-side from the company profile, the assessment’s strengths, and the
-          evidence already collected. It is a buyer-facing marketing draft — review and edit it before
+          evidence already collected. It is a buyer-facing marketing draft. Review and edit it before
           sharing. No number is invented; no weakness is surfaced.
         </p>
       }

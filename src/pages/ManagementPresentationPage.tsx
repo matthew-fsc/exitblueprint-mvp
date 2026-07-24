@@ -14,7 +14,7 @@ export function ManagementPresentationPanel({ assessmentId }: { assessmentId: st
       docType="management_presentation"
       emptyHint={
         <p className="muted">
-          The management presentation is the equity story as a talking-point outline for the buyer meeting —
+          The management presentation is the equity story as a talking-point outline for the buyer meeting:
           an agenda and speaking points drawn from the assessment strengths. It is buyer-facing material the
           advisor controls; review and edit it before the meeting. No number is invented; no weakness is
           surfaced.

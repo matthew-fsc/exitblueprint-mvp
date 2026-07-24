@@ -199,8 +199,8 @@ export function PLImportPanel({
       const n = result.entries.length;
       toast.show(
         documented
-          ? `Filled ${n} financial field${n > 1 ? 's' : ''} from the file — recorded as verified`
-          : `Filled ${n} field${n > 1 ? 's' : ''} — recorded as self-reported (no stored document backing them)`,
+          ? `Filled ${n} financial field${n > 1 ? 's' : ''} from the file, recorded as verified`
+          : `Filled ${n} field${n > 1 ? 's' : ''}, recorded as self-reported (no stored document backing them)`,
         documented ? 'good' : 'default',
       );
     } catch (err) {
@@ -221,10 +221,10 @@ export function PLImportPanel({
           {open ? '▾' : '▸'}
         </span>
         <span>
-          <strong>Fill financials from a P&amp;L</strong>
+          <strong>Fill financials from a P&amp;L.</strong>
           <span className="muted">
             {' '}
-            — upload a profit &amp; loss statement or revenue export and we’ll pre-fill the
+            Upload a profit &amp; loss statement or revenue export and we’ll pre-fill the
             revenue, recurring-revenue, and concentration questions.
           </span>
         </span>
@@ -235,7 +235,7 @@ export function PLImportPanel({
           <p className="muted m-0">
             Values are read directly from the file (no AI) and shown for your review. On apply, the
             file is stored as the backing document and the figures are recorded as{' '}
-            <strong>verified</strong> — unless a plausibility check flags them, in which case they are
+            <strong>verified</strong>, unless a plausibility check flags them, in which case they are
             recorded as self-reported for you to confirm. Everything else stays for you to answer.{' '}
             <button type="button" className="linkish" onClick={downloadSample}>
               Download a sample P&amp;L (CSV)

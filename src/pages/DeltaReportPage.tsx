@@ -65,7 +65,7 @@ export function DeltaReportPanel({
           </>
         )
       ) : (
-        <>No prior assessment — this renders as a baseline report.</>
+        <>No prior assessment. This renders as a baseline report.</>
       )}
     </p>
   );
@@ -86,7 +86,7 @@ export function DeltaReportPanel({
       {(md) => (
         <BrandedSheet wrap={false} articleClassName="delta-preview">
           <h1 className="mt-0">
-            {isBaseline ? 'Baseline readiness' : 'Progress this period'} — {companyName}
+            {isBaseline ? 'Baseline readiness' : 'Progress this period'}: {companyName}
           </h1>
 
           {!isBaseline && cmp && cmp.comparable ? (

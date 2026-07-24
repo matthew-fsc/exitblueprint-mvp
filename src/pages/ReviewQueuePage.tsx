@@ -96,7 +96,7 @@ export function ReviewPanel({ engagementId }: { engagementId: string | undefined
     <div className="stack-lg">
       <SectionCard
         title="Review"
-        subtitle="Everything awaiting a reviewer for this engagement — uploaded documents and reconciliation / finding decisions — in one place. Each opens its existing resolution view."
+        subtitle="Everything awaiting a reviewer for this engagement, in one place: uploaded documents and reconciliation / finding decisions. Each opens its existing resolution view."
       >
         {loading ? (
           <SkeletonLines lines={4} />

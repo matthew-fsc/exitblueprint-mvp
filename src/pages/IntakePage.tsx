@@ -302,8 +302,8 @@ export default function IntakePage() {
           <div>
             <strong>Starting from your last assessment.</strong>{' '}
             <span className="muted">
-              These answers carried forward from assessment #{assessment.sequence_number - 1} —
-              review each one and update what’s changed this quarter. Financial figures revert to
+              These answers carried forward from assessment #{assessment.sequence_number - 1}.
+              Review each one and update what’s changed this quarter. Financial figures revert to
               self-reported until re-verified.
             </span>
           </div>
@@ -317,7 +317,7 @@ export default function IntakePage() {
             <span className="muted">
               Automatic import of verified figures lands with the live{' '}
               {connectedProvider === 'quickbooks' ? 'QuickBooks' : 'Xero'} integration. For now, enter
-              the financials below — they count as verified when they come from the client's financial
+              the financials below. They count as verified when they come from the client's financial
               statements.
             </span>
           </div>

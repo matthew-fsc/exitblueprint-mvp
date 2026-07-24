@@ -117,7 +117,7 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
   return (
     <SectionCard
       title="Branding"
-      subtitle={`How your firm appears on every client-facing report and portal — ${BRAND.name} stays in the background.`}
+      subtitle={`How your firm appears on every client-facing report and portal. ${BRAND.name} stays in the background.`}
     >
       {error && <ErrorState variant="inline" error={error} />}
       <div
@@ -322,7 +322,7 @@ function TeamCard({ firmId, meId }: { firmId?: string; meId?: string }) {
           {devNote && (
             <span className="muted text-sm">
               {devNote}
-              {isDevStack && ' (dev stack — no email is sent)'}
+              {isDevStack && ' (dev stack: no email is sent)'}
             </span>
           )}
         </div>
@@ -413,7 +413,7 @@ export default function OrganizationPage() {
     <div className="stack-lg">
       <PageHeader
         title="Organization"
-        subtitle="Your firm's team, branding, professional network, and engagement ownership — the controls that run the practice."
+        subtitle="Your firm's team, branding, professional network, and engagement ownership. The controls that run the practice."
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Organization' }]}
       />
       <SubTabs tabs={ORG_TABS} activeKey={tab} onSelect={setTab} ariaLabel="Organization controls" />

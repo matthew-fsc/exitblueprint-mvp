@@ -150,7 +150,7 @@ export default function VerifyPage() {
         </div>
       </section>
       <p className="dev-note">
-        DEV verification — the deterministic engine (shared/scoring) is executing live on this
+        DEV verification: the deterministic engine (shared/scoring) is executing live on this
         page against the bundled seed rubric. Production scoring reads the rubric from the
         database; no AI touches any number shown here.
       </p>

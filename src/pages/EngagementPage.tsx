@@ -117,7 +117,7 @@ function reassessView(s: ReassessmentStatus): {
       return {
         tone: 'good',
         label: 'Ready to re-assess',
-        detail: 'Remediation is complete — re-assess now to capture the score gains.',
+        detail: 'Remediation is complete. Re-assess now to capture the score gains.',
       };
     case 'due':
       return {
@@ -142,8 +142,8 @@ type EngagementStatus = 'active' | 'paused' | 'exited' | 'churned';
 const STATUS_LABEL: Record<EngagementStatus, string> = {
   active: 'Active',
   paused: 'Paused',
-  exited: 'Exited — deal closed',
-  churned: 'Churned — left before exit',
+  exited: 'Exited: deal closed',
+  churned: 'Churned: left before exit',
 };
 
 const PROCESS_LABEL: Record<string, string> = {
@@ -536,7 +536,7 @@ export default function EngagementPage() {
           ⟳
         </span>
         <span className="reassess-bar-text">
-          <strong>{reassessV.label}</strong> — {reassessV.detail}
+          <strong>{reassessV.label}</strong>: {reassessV.detail}
         </span>
       </div>
       {error && <ErrorState variant="inline" error={error} />}
@@ -612,7 +612,7 @@ export default function EngagementPage() {
                           <span className="eng-gap-text">
                             <strong>{g.name}</strong>
                             {g.remediationName && (
-                              <span className="muted"> — {g.remediationName}: {g.remediationSummary}</span>
+                              <span className="muted">. {g.remediationName}: {g.remediationSummary}</span>
                             )}
                           </span>
                         </li>
@@ -662,7 +662,7 @@ export default function EngagementPage() {
           </div>
           </section>
 
-          <PageSection title="Analysis & detail" note="Deeper analysis — pick a view">
+          <PageSection title="Analysis & detail" note="Deeper analysis: pick a view">
           <SubTabs
             tabs={analysisTabs}
             activeKey={activeAnalysis}
@@ -694,7 +694,7 @@ export default function EngagementPage() {
               <ul className="log-list">
                 {(logQ.data ?? []).length === 0 && (
                   <p className="muted m-0">
-                    No entries yet — record a meeting or the reasoning behind a recommendation so it
+                    No entries yet. Record a meeting or the reasoning behind a recommendation so it
                     compounds into the firm’s knowledge, not one advisor’s memory.
                   </p>
                 )}
@@ -738,7 +738,7 @@ export default function EngagementPage() {
                   </select>
                 </div>
                 <input
-                  placeholder="e.g. Q2 review — agreed to prioritize customer diversification"
+                  placeholder="e.g. Q2 review: agreed to prioritize customer diversification"
                   value={logTitle}
                   onChange={(e) => setLogTitle(e.target.value)}
                   required
@@ -1210,7 +1210,7 @@ function DeleteEngagementCard({
           <strong>Delete this engagement</strong>
           <p className="muted text-sm m-0">
             Permanently removes the engagement and everything under it. This cannot be undone. If the
-            client simply finished or paused, use the status control above instead.
+            client finished or paused, use the status control above instead.
           </p>
         </div>
         <button className="btn-danger" onClick={() => setOpen(true)}>

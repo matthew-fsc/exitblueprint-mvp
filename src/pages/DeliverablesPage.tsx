@@ -73,14 +73,14 @@ export default function DeliverablesPage() {
         <PageHeader
           title="Deliverables"
           crumbs={engagementCrumbs(engagementId, companyName, 'Deliverables')}
-          subtitle="Curate the client documents — the score becomes the story, drafted by an AI narrator from the deterministic results, then finalized and branded."
+          subtitle="Curate the client documents. The score becomes the story, drafted by an AI narrator from the deterministic results, then finalized and branded."
         />
         {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
 
       {completed.length === 0 ? (
         <EmptyState title="No completed assessments yet">
-          Complete a baseline assessment first — the deliverables are drafted from its scores and flagged
+          Complete a baseline assessment first. The deliverables are drafted from its scores and flagged
           gaps.
         </EmptyState>
       ) : (

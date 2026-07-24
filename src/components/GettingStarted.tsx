@@ -140,7 +140,7 @@ export function GettingStarted({
       body:
         firmLibraryCount > 0
           ? `Your firm has authored ${firmLibraryCount} advisory ${firmLibraryCount === 1 ? 'item' : 'items'}.`
-          : 'Put your own buyer questions, value initiatives, or diligence risk flags into the Advisory Library. They fire automatically on the engagements that need them — this is how your expertise becomes part of the workspace.',
+          : 'Put your own buyer questions, value initiatives, or diligence risk flags into the Advisory Library. They fire automatically on the engagements that need them. This is how your expertise becomes part of the workspace.',
       done: firmLibraryCount > 0,
       action: (
         <Link className="button-link button-primary" to="/library">

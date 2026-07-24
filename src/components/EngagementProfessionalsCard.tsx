@@ -264,7 +264,7 @@ export function EngagementProfessionalsCard({
             {available.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.full_name}
-                {p.organization ? ` — ${p.organization}` : ''} ({KIND_LABEL[p.kind]})
+                {p.organization ? ` · ${p.organization}` : ''} ({KIND_LABEL[p.kind]})
               </option>
             ))}
           </select>

@@ -12,7 +12,7 @@ export function OwnerReportPanel({ assessmentId }: { assessmentId: string | unde
       docType="owner_report"
       emptyHint={
         <p className="muted">
-          The report is built server-side from this assessment’s scores and flagged gaps — every figure
+          The report is built server-side from this assessment’s scores and flagged gaps. Every figure
           traces back to an answer, and no number is invented.
         </p>
       }

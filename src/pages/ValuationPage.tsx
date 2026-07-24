@@ -206,8 +206,8 @@ export default function ValuationPage() {
                     <div className="val-gap val-gap-prompt">
                       <span className="val-gap-label">Wealth gap</span>
                       <span className="muted">
-                        Set the owner's wealth goal — the number they need from the sale to fund their next
-                        chapter — to size the gap and complete the financial readiness picture.
+                        Set the owner's wealth goal (the number they need from the sale to fund their next
+                        chapter) to size the gap and complete the financial readiness picture.
                       </span>
                       <form
                         className="val-goal-form"
@@ -292,7 +292,7 @@ export default function ValuationPage() {
                       : 'The estimate uses the generic table multiple; your own realized median is shown for reference. '}
                   {val.market_multiple != null &&
                     (val.base_multiple < val.market_multiple
-                      ? 'It sits below the sector median — closing readiness gaps is what moves it up within the range. '
+                      ? 'It sits below the sector median. Closing readiness gaps is what moves it up within the range. '
                       : val.base_multiple > val.market_multiple
                         ? 'It sits above the sector median, reflecting the readiness already in place. '
                         : 'It is in line with the sector median. ')}

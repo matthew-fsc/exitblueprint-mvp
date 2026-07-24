@@ -10,7 +10,7 @@ const TIER_PLAIN: Record<string, string> = {
   'Sale Ready': 'Your business is in good shape to begin a sale process.',
   'Needs Work': 'There is meaningful work to do before going to market.',
   'High Risk': 'Significant gaps would concern a buyer today.',
-  'Not Saleable (Yet)': 'The business is not ready to go to market yet — but there is a clear path.',
+  'Not Saleable (Yet)': 'The business is not ready to go to market yet, but there is a clear path.',
 };
 
 export default function OwnerHomePage() {
@@ -51,7 +51,7 @@ export default function OwnerHomePage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title={`Welcome back${company ? ` — ${company.name}` : ''}`}
+        title={`Welcome back${company ? `, ${company.name}` : ''}`}
         subtitle="Where your business stands today, and what we're working on together."
       />
 
@@ -114,7 +114,7 @@ export default function OwnerHomePage() {
             )}
           </div>
           <p className="muted text-sm" style={{ margin: 'var(--space-3) 0 0', fontStyle: 'italic' }}>
-            An estimate to guide planning — not an appraisal. Finishing your plan is worth about{' '}
+            An estimate to guide planning, not an appraisal. Finishing your plan is worth about{' '}
             {fmtCurrencyCompact(val.value_creation_gap)} more in enterprise value.
           </p>
         </SectionCard>
@@ -129,7 +129,7 @@ export default function OwnerHomePage() {
               {topGaps.map((g) => (
                 <li key={g.id}>
                   <GapSeverityChip severity={g.severity} />
-                  <span><strong>{g.name}</strong>{g.remediationName && <span className="muted"> — {g.remediationName}</span>}</span>
+                  <span><strong>{g.name}</strong>{g.remediationName && <span className="muted">: {g.remediationName}</span>}</span>
                 </li>
               ))}
             </ul>

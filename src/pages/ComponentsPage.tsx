@@ -65,7 +65,7 @@ export default function ComponentsPage() {
     <div>
       <PageHeader
         title="Component gallery"
-        subtitle="Dev-only — every F0 component in every state"
+        subtitle="Dev-only: every F0 component in every state"
         crumbs={[{ label: 'Dev' }, { label: 'Components' }]}
         actions={<span className="dev-badge">dev</span>}
       />
