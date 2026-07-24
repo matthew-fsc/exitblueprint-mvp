@@ -203,6 +203,96 @@ function CalibrationBandsTable({ rows, groupHeader }: { rows: Row[]; groupHeader
   return <DataTable columns={columns} rows={rows} keyFor={(r) => String(r.band_label)} initialSort={{ key: 'band_label', dir: 'desc' }} />;
 }
 
+// ---- Deliverable quality — ExitBlueprint Bench (docs/sellside-ai/02) ----
+
+// Score fractions [0,1] rendered as a whole-number percent. Pass thresholds are
+// per-axis (docs/sellside-ai/02): answer must be ≥ 90%, source must be a perfect
+// 100% (every claim traceable). A failing cell gets the subtle warning tone, and
+// the row carries a Pass/Review chip — neutral when both axes pass.
+const benchPct = (v: unknown) => `${Math.round(toNumber(v) * 100)}%`;
+const ANSWER_PASS = 0.9;
+
+function BenchTable({ rows }: { rows: Row[] }) {
+  if (!rows.length)
+    return (
+      <EmptyState
+        icon="empty"
+        title="No bench results yet — run the Bench (run-bench) to populate this scorecard."
+      />
+    );
+  const columns: Column<Row>[] = [
+    {
+      key: 'doc_type',
+      header: 'Doc type',
+      render: (r) => (
+        <span>
+          <strong>{humanizeKey(String(r.doc_type ?? '—'))}</strong>
+          {r.case_name != null && (
+            <span className="muted text-sm" style={{ display: 'block' }}>
+              {String(r.case_name)}
+            </span>
+          )}
+        </span>
+      ),
+      sortValue: (r) => String(r.doc_type ?? ''),
+    },
+    {
+      key: 'prompt_version',
+      header: 'Prompt version',
+      render: (r) => String(r.prompt_version ?? '—'),
+      sortValue: (r) => String(r.prompt_version ?? ''),
+    },
+    {
+      key: 'tier',
+      header: 'Tier',
+      render: (r) => (r.tier ? humanizeKey(String(r.tier)) : '—'),
+      sortValue: (r) => String(r.tier ?? ''),
+    },
+    {
+      key: 'answer_score',
+      header: 'Answer',
+      numeric: true,
+      render: (r) => {
+        const pass = toNumber(r.answer_score) >= ANSWER_PASS;
+        return <span className={pass ? undefined : 'cal-miss'}>{benchPct(r.answer_score)}</span>;
+      },
+      sortValue: (r) => toNumber(r.answer_score),
+    },
+    {
+      key: 'source_score',
+      header: 'Source',
+      numeric: true,
+      render: (r) => {
+        const pass = toNumber(r.source_score) >= 1;
+        return <span className={pass ? undefined : 'cal-miss'}>{benchPct(r.source_score)}</span>;
+      },
+      sortValue: (r) => toNumber(r.source_score),
+    },
+    {
+      key: 'result',
+      header: 'Result',
+      render: (r) => {
+        const pass = toNumber(r.answer_score) >= ANSWER_PASS && toNumber(r.source_score) >= 1;
+        return (
+          <span className={`status-chip ${pass ? 'status-neutral' : 'status-warning'}`}>
+            {pass ? 'Pass' : 'Review'}
+          </span>
+        );
+      },
+      sortValue: (r) =>
+        toNumber(r.answer_score) >= ANSWER_PASS && toNumber(r.source_score) >= 1 ? 1 : 0,
+    },
+  ];
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      keyFor={(r) => JSON.stringify(r)}
+      initialSort={{ key: 'result', dir: 'asc' }}
+    />
+  );
+}
+
 // ---- the firm account / churn book (the BD readout) ----
 
 function FirmBook({ firms }: { firms: Row[] }) {
@@ -680,6 +770,26 @@ export default function PlatformConsolePage() {
             </div>
           )}
           <p className="muted text-sm">{s.calibration.note}</p>
+        </div>
+      </SectionCard>
+
+      {/* Deliverable quality — ExitBlueprint Bench (docs/sellside-ai/02): a
+          BigLaw-Bench-style scorecard of generated deliverables, per prompt version. */}
+      <SectionCard
+        title="Deliverable quality — ExitBlueprint Bench"
+        subtitle={
+          s.bench.last_run_at
+            ? `Last run ${fmtDate(s.bench.last_run_at)}`
+            : 'Not run yet'
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+          <p className="muted text-sm">
+            Measured deliverable quality per prompt version — answer = % of an
+            advisor-quality deliverable produced; source = % of claims traceable. Pass
+            thresholds: answer ≥ 90%, source = 100%.
+          </p>
+          <BenchTable rows={s.bench.results} />
         </div>
       </SectionCard>
 

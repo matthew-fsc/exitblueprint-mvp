@@ -61,6 +61,11 @@ export interface PlatformSnapshot {
     bands: Row[];
     note: string;
   };
+  // Deliverable-quality scorecard (docs/sellside-ai/02): per (doc_type, prompt_version)
+  // bench results grading generated deliverables on two independent axes — answer
+  // (% of an advisor-quality deliverable produced) and source (% of claims traceable).
+  // Kept Row-loose like `moats`/`corpus`; the run owns the exact columns.
+  bench: { last_run_at: string | null; results: Row[] };
 }
 
 // Split the calibration bands into a score group ('drs' | 'ori'), ascending by
