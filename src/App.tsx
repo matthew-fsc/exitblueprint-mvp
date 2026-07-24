@@ -27,6 +27,7 @@ const DeliverablesPage = lazy(() => import('./pages/DeliverablesPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
 const DiligenceQaPage = lazy(() => import('./pages/DiligenceQaPage'));
+const CopilotPage = lazy(() => import('./pages/CopilotPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const BuyersPage = lazy(() => import('./pages/BuyersPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
@@ -295,6 +296,9 @@ function AppBar() {
             <NavLink to="/" end className="app-nav-link">
               Engagements
             </NavLink>
+            <NavLink to="/copilot" className="app-nav-link">
+              Copilot
+            </NavLink>
             <ReviewNavLink />
             <NavLink to="/library" className="app-nav-link">
               Library
@@ -442,6 +446,19 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <DashboardPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          {/* Advisor copilot (WS-COPILOT) — a firm-level, read-only NL assistant over
+              the firm's own book. A top-level advisor surface (not engagement-scoped),
+              so it sits beside Engagements rather than under one. */}
+          <Route
+            path="/copilot"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <CopilotPage />
                 </Shell>
               </RequireAdvisor>
             }
