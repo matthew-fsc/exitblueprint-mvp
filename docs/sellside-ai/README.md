@@ -38,7 +38,11 @@ enforces, independently:
 So these writeups are not "adopt a new architecture." They are **three
 extensions** of what exists, in priority order.
 
-## The three writeups
+## The writeups
+
+The first three are the Harvey-pattern extensions; **04** is a follow-on on the
+same paid-data theme as 01 — how a *user* meets aggregate data, how the own book
+blends with it, and who pays for it.
 
 1. **[01 — Market-intelligence RAG (paid third-party data)](./01-market-intelligence-rag.md)**
    The grounded retrieval layer over *licensed* M&A data — comps, precedent
@@ -65,6 +69,16 @@ extensions** of what exists, in priority order.
    declarative, firm-tailorable workflow surface on top of the six-engine
    registry and the prompt registry, so a firm can encode *its* house process
    without a deploy.
+
+4. **[04 — Benchmarking & aggregate-data interaction (and how we buy it)](./04-benchmarking-data-interaction.md)**
+   Research record, not a Harvey extension. Disentangles the three aggregate
+   pools (licensed `market` / firm own-book / cross-firm calibration), and
+   answers three questions: benchmarks are a **lens on the deterministic score**
+   (with `n`/`as_of`/k-anonymity), the own book **blends** with paid data via a
+   deterministic confidence-weighted function (never a dataset merge), and the
+   **buy-vs-pass-through** call maps onto the two lanes — **pay to own the facts,
+   pass through (or gate) the copyrightable text.** Decision-framing for Matthew +
+   counsel; nothing to build until requested.
 
 ## Suggested build order
 
