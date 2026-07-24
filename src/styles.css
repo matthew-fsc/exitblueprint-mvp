@@ -6342,3 +6342,69 @@ pre {
 }
 .eg-brief-card .report-body > :first-child { margin-top: 0; }
 .eg-brief-card .report-body > :last-child { margin-bottom: 0; }
+
+/* ============================================================
+   Engagements dashboard — wealth-gap column, open-work pills,
+   and the table totals row (replaces the "Book at a glance" band).
+   ============================================================ */
+
+/* Wealth gap: a shortfall reads serious, a covered goal reads good. Mono/tabular
+   so the money column lines up like the rest of the numeric columns. */
+.wealth-gap-short {
+  color: var(--status-serious);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wealth-gap-ok {
+  color: var(--status-good);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Open-work cell: gaps + tasks pills side by side, wrapping right-aligned to sit
+   under the numeric header. Reuses .count-pill; the soft/warn variants tint tasks
+   (amber when any is overdue, quiet otherwise) so overdue work stands out. */
+.work-cell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+.count-pill.count-pill-soft {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.count-pill.count-pill-warn {
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  color: var(--status-warning);
+}
+/* The pills carry a label ("2 tasks · 1 overdue"), so let them size to content
+   instead of the fixed count circle. */
+.work-cell .count-pill {
+  width: auto;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Totals row. A quiet raised band, top hairline, small-caps-ish sub labels under
+   the primary figure — a footer, not another data row. */
+.ui-table-foot .book-totals-row td {
+  background: var(--surface-2);
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  vertical-align: baseline;
+}
+.book-totals-row .foot-strong { font-weight: 700; }
+.book-totals-row .foot-sub {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+}

@@ -23,6 +23,7 @@ export function DataTable<Row>({
   error,
   empty,
   initialSort,
+  footer,
 }: {
   columns: Column<Row>[];
   rows: Row[];
@@ -32,6 +33,10 @@ export function DataTable<Row>({
   error?: string | null;
   empty?: ReactNode;
   initialSort?: { key: string; dir: 'asc' | 'desc' };
+  // Optional totals/summary row rendered in a sticky <tfoot>. The caller supplies
+  // the <tr> (and its <td>s in column order) so it can align figures under their
+  // columns — e.g. the engagements book totals. Not shown while loading/empty.
+  footer?: ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(
     initialSort ?? null,
@@ -145,6 +150,7 @@ export function DataTable<Row>({
             </tr>
           ))}
         </tbody>
+        {footer && <tfoot className="ui-table-foot">{footer}</tfoot>}
       </table>
     </div>
   );

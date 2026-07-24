@@ -47,6 +47,7 @@ A developer index: the durable features and the files that own them. Pair with
 | Identity (Clerk) + RLS | `server/auth-jwt.ts`, `server/http.ts`, migrations | 30, 28 |
 | Deterministic scoring (DRS/ORI) | `shared/scoring/engine.ts` · `seed/fixtures/reference_scorer.py` | 03, 07 |
 | Assessment lifecycle (immutable) | `server/scoring.ts`, `supabase/migrations/*` | 02, 03 |
+| **Client-portal intake** (advisor shares an in-progress assessment; the owner fills the questionnaire in their portal while the advisor co-edits; `shared_with_client_at`/`client_submitted_at` + owner `answers` RLS; `assessment-staff` scope keeps submit/scoring advisor-only) | `server/client-portal.ts` · `src/components/SendToClientButton.tsx` · `src/pages/owner/OwnerIntakePage.tsx` · `src/lib/intakeSave.ts` · `supabase/migrations/*_share_assessment_with_client.sql` | 02 |
 | Roadmap & tasks | `server/roadmap.ts` (auto-applies Plans; playbooks retired) | 02, 17 §2 |
 | **Library** (atomic items: tasks · education · advisory) | `src/pages/LibraryPage.tsx` · `library_tasks`/`content_modules`/`advisory_library_items` | 37, 02 |
 | **Plans** (bundles of Library items) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |

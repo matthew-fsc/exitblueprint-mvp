@@ -283,3 +283,42 @@ export async function computeValuation(
     wealth_gap: wealthGap,
   };
 }
+
+// A compact per-engagement valuation summary for the book-level dashboard — the
+// few figures the engagements table and its totals row need, without shipping the
+// full ValuationResult for every row. `wealth_gap` is the CFP-facing metric
+// (owner's target − net-to-owner); null when the owner's goal isn't set yet.
+export interface PortfolioValuationSummary {
+  engagement_id: string;
+  ev_base: number;
+  net_proceeds: number;
+  owner_wealth_target: number | null;
+  wealth_gap: number | null;
+}
+
+// Batch valuation for the whole book (firm-scoped, read-only). Only engagements
+// with an EBITDA recast can be valued, so we look those up first and compute just
+// them — a book of clients where nobody has started a recast costs one query, not
+// one-per-engagement. Deterministic like computeValuation; no value is persisted
+// (rule #1) — this is a view over the same engine the Valuation tab runs.
+export async function portfolioValuations(
+  db: pg.ClientBase,
+  firmId: string,
+): Promise<PortfolioValuationSummary[]> {
+  const { rows } = await db.query(
+    `select engagement_id from ebitda_recasts where firm_id = $1`,
+    [firmId],
+  );
+  const summaries: PortfolioValuationSummary[] = [];
+  for (const { engagement_id } of rows as { engagement_id: string }[]) {
+    const v = await computeValuation(db, engagement_id);
+    summaries.push({
+      engagement_id,
+      ev_base: v.ev_base,
+      net_proceeds: v.net_proceeds,
+      owner_wealth_target: v.owner_wealth_target,
+      wealth_gap: v.wealth_gap,
+    });
+  }
+  return summaries;
+}

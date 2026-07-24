@@ -5,7 +5,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { invokeFunction, supabase } from './supabase';
 import { loadRubric, type RubricData } from './rubric';
-import { buildPortfolioRows, type PortfolioRow } from './portfolio';
+import { buildPortfolioRows, type PortfolioRow, type PortfolioTaskInput } from './portfolio';
 
 export type { PortfolioRow } from './portfolio';
 
@@ -41,6 +41,7 @@ export const qk = {
   engineRubric: (rubricVersionId: string) => ['engineRubric', rubricVersionId] as const,
   answers: (assessmentId: string) => ['answers', assessmentId] as const,
   portfolio: () => ['portfolio'] as const,
+  portfolioValuations: () => ['portfolioValuations'] as const,
   engagementGaps: (engagementId: string) => ['engagementGaps', engagementId] as const,
   engagementDocuments: (engagementId: string) => ['engagementDocuments', engagementId] as const,
   engagementOutcome: (engagementId: string) => ['engagementOutcome', engagementId] as const,
@@ -92,6 +93,8 @@ export interface CompanyRow {
   name: string;
   industry: string | null;
   revenue_band: string | null;
+  owner_contact_name: string | null;
+  owner_contact_email: string | null;
 }
 export interface EngagementRow {
   id: string;
@@ -115,6 +118,11 @@ export interface AssessmentRow {
   drs_tier: string | null;
   ori_score: number | null;
   created_at: string;
+  // Client-portal intake (docs/02 rule 5): non-null shared_with_client_at = this
+  // in-progress assessment is shared to the owner's portal for co-editing; non-null
+  // client_submitted_at = the client marked it ready for advisor review.
+  shared_with_client_at: string | null;
+  client_submitted_at: string | null;
 }
 export interface BrandingRow {
   firm_id: string;
@@ -462,13 +470,19 @@ export function usePortfolio(): UseQueryResult<PortfolioRow[]> {
   return useQuery({
     queryKey: qk.portfolio(),
     queryFn: async () => {
-      const [engagements, companies, assessments, gaps] = await Promise.all([
+      const [engagements, companies, assessments, gaps, tasks] = await Promise.all([
         supabase.from('engagements').select('*'),
         supabase.from('companies').select('*'),
         supabase.from('active_assessments').select('*').eq('status', 'completed').order('sequence_number'),
         supabase.from('gaps').select('engagement_id,status').in('status', ['open', 'in_remediation']),
+        // Open roadmap tasks (action items) across the book — every non-done
+        // status — for the per-engagement open/overdue task counts. Enumerated with
+        // `.in` rather than `.neq('status','done')` because the local dev REST
+        // emulator only supports the `in` filter (same reason the gaps read above
+        // uses it); task_status is ('todo','doing','done','blocked').
+        supabase.from('tasks').select('engagement_id,status,due_date').in('status', ['todo', 'doing', 'blocked']),
       ]);
-      for (const r of [engagements, companies, assessments, gaps]) {
+      for (const r of [engagements, companies, assessments, gaps, tasks]) {
         if (r.error) throw new Error(r.error.message);
       }
       return buildPortfolioRows(
@@ -476,7 +490,30 @@ export function usePortfolio(): UseQueryResult<PortfolioRow[]> {
         (companies.data ?? []) as CompanyRow[],
         (assessments.data ?? []) as AssessmentRow[],
         (gaps.data ?? []) as { engagement_id: string; status: string }[],
+        (tasks.data ?? []) as PortfolioTaskInput[],
       );
+    },
+  });
+}
+
+// Book-level valuation summaries (wealth gap, net-to-owner, EV per engagement).
+// Firm-scoped, read-only, computed by the same deterministic engine as the
+// per-engagement Valuation tab (server `portfolio-valuations`). Returned as a Map
+// keyed by engagementId so the dashboard can merge it into portfolio rows.
+export interface PortfolioValuationSummary {
+  engagement_id: string;
+  ev_base: number;
+  net_proceeds: number;
+  owner_wealth_target: number | null;
+  wealth_gap: number | null;
+}
+
+export function usePortfolioValuations(): UseQueryResult<Map<string, PortfolioValuationSummary>> {
+  return useQuery({
+    queryKey: qk.portfolioValuations(),
+    queryFn: async () => {
+      const list = await invokeFunction<PortfolioValuationSummary[]>('portfolio-valuations', {});
+      return new Map(list.map((v) => [v.engagement_id, v]));
     },
   });
 }

@@ -28,7 +28,7 @@ import { verificationSummary } from './verification';
 import { syncLedgerToAssessment, enterManualFinancials, type ManualFinancialEntry } from './ledger';
 import { extractFinancials } from './pl-extract';
 import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './ledger-oauth';
-import { computeValuation } from './valuation';
+import { computeValuation, portfolioValuations } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { computeCalibration, readCalibration } from './calibration';
 import { recordBenchRun } from './bench-metrics';
@@ -42,6 +42,7 @@ import { redeemCompCode } from './comp-codes';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
 import { inviteCollaborator, revokeCollaborator } from './collaborators';
+import { shareAssessmentWithClient, submitClientIntake } from './client-portal';
 import { assignEngagement } from './organization';
 import { createEngagementWithAgreement } from './agreements';
 import { deleteEngagement } from './engagements';
@@ -124,6 +125,7 @@ export type AuthScope =
   | 'engagement' // the referenced engagement is visible to the caller under RLS
   | 'manage-engagement' // firm staff (advisor/admin) + the target engagement visible under RLS
   | 'assessment' // the referenced assessment(s) are visible to the caller under RLS
+  | 'assessment-staff' // firm staff (advisor/admin) + the referenced assessment(s) visible under RLS
   | 'platform-admin'; // cross-tenant governance; caller's id in the superadmin allowlist
 
 export type FunctionResult =
@@ -199,7 +201,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // ── Rules Engine — deterministic facts (scoring, valuation, roadmap, calibration)
   'score-assessment': {
     engine: 'rules',
-    scope: 'assessment',
+    scope: 'assessment-staff', // advisor-only submit: an owner may see a shared draft but never score it
     gated: true,
     handler: async ({ service, body, userId }) => {
       const assessmentId = body.assessment_id as string;
@@ -264,6 +266,16 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'engagement',
     gated: true,
     handler: ({ service, body }) => computeValuation(service, body.engagement_id as string).then(ok),
+  },
+  // Book-level valuation summaries for the engagements dashboard (wealth gap,
+  // net-to-owner, EV per row + firm totals). Firm-scoped and read-only: it re-runs
+  // the same deterministic engine as compute-valuation over the firm's own
+  // engagements and persists nothing, so — unlike the per-engagement paid action —
+  // it is NOT gated (viewing your own book's numbers is never billed).
+  'portfolio-valuations': {
+    engine: 'rules',
+    scope: 'firm',
+    handler: ({ service, firmId }) => portfolioValuations(service, firmId as string).then(ok),
   },
   'engagement-comparables': {
     engine: 'rules',
@@ -401,7 +413,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // ── Reasoning Engine — AI narratives & assembled documents (always draft)
   'generate-document': {
     engine: 'reasoning',
-    scope: 'assessment',
+    scope: 'assessment-staff', // staff-only: owners render finalized docs, never generate drafts
     gated: true,
     handler: ({ service, body }) =>
       generateDocument(service, body.assessment_id as string, (body.doc_type as string) ?? 'owner_report').then(ok),
@@ -444,7 +456,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // like the other reasoning deliverables.
   'institutional-review': {
     engine: 'reasoning',
-    scope: 'assessment',
+    scope: 'assessment-staff', // staff-only AI reviewer, not owner-consumed
     gated: true,
     handler: ({ service, body }) =>
       generateInstitutionalReview(service, body.assessment_id as string).then(ok),
@@ -616,7 +628,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   // ── Knowledge Engine — structured business knowledge (evidence, financials, outcomes)
   'sync-ledger': {
     engine: 'knowledge',
-    scope: 'assessment',
+    scope: 'assessment-staff', // writes verified financial answers — advisor tool
     handler: async ({ service, body, userId }) => {
       const actor = await anyActorId(service, userId);
       return syncLedgerToAssessment(service, body.assessment_id as string, actor).then(ok);
@@ -624,7 +636,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   },
   'enter-manual-financials': {
     engine: 'knowledge',
-    scope: 'assessment',
+    scope: 'assessment-staff', // writes answers + provenance — advisor tool
     handler: async ({ service, body, userId }) => {
       const actor = await anyActorId(service, userId);
       return enterManualFinancials(
@@ -644,7 +656,7 @@ export const REGISTRY: Record<string, FunctionSpec> = {
   },
   'extract-financials-from-file': {
     engine: 'knowledge',
-    scope: 'assessment',
+    scope: 'assessment-staff', // advisor P&L-import tool, keeps the financial group staff-only
     // Read-only: parse an uploaded P&L / financials export into PROPOSED answers
     // for the derivable financial questions. Deterministic, no LLM, writes
     // nothing — the advisor reviews the proposals and applies them through
@@ -894,6 +906,30 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'manage-engagement',
     handler: ({ service, body, firmId }) =>
       revokeCollaborator(service, firmId as string, body.collaborator_id as string).then(ok),
+  },
+  // Send an in-progress assessment to the business owner: invite them if needed
+  // (idempotent) + mark it shared so the client can fill the questionnaire in their
+  // portal (owner_shared_intake_* RLS). Scope 'assessment-staff' keeps this
+  // advisor/admin-only even though owners can now see a shared draft. NOT gated:
+  // assembling client access mirrors ungated invite-collaborator; the paid surface
+  // is scoring/generation, not the hand-off.
+  'share-assessment-with-client': {
+    engine: 'collaboration',
+    scope: 'assessment-staff',
+    handler: ({ service, body }) =>
+      shareAssessmentWithClient(service, body.assessment_id as string, {
+        email: (body.email as string) ?? null,
+        fullName: (body.full_name as string) ?? null,
+      }).then(ok),
+  },
+  // The owner (or advisor) signals the client's first pass is done — "ready for
+  // review". Read-open 'assessment' scope: anyone who can SEE the assessment may
+  // mark it submitted (for an owner that means it's shared to them); the handler
+  // re-verifies shared + in_progress and writes only the flag, never scoring data.
+  'submit-client-intake': {
+    engine: 'workflow',
+    scope: 'assessment',
+    handler: ({ service, body }) => submitClientIntake(service, body.assessment_id as string).then(ok),
   },
   // Firm-staff invitation (self-serve team management, docs/archive/35 #1). Scope
   // 'admin' resolves the caller's own firm from an admin-only profile — growing

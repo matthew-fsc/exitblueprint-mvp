@@ -130,6 +130,41 @@ describe('buildPortfolioRows — counts and joins', () => {
     expect(byId.e2.openGaps).toBe(0);
   });
 
+  it('counts open tasks and the overdue subset, ignoring done tasks', () => {
+    const rows = buildPortfolioRows(
+      [engagement('e1', 'c1'), engagement('e2', 'c2')],
+      [company('c1', 'Meridian'), company('c2', 'Apex')],
+      [
+        assessment({ engagement_id: 'e1', sequence_number: 1 }),
+        assessment({ engagement_id: 'e2', sequence_number: 1 }),
+      ],
+      [],
+      [
+        { engagement_id: 'e1', status: 'todo', due_date: '2026-01-01' }, // overdue vs today
+        { engagement_id: 'e1', status: 'doing', due_date: '2026-12-31' }, // open, not overdue
+        { engagement_id: 'e1', status: 'done', due_date: '2026-01-01' }, // done — ignored
+        { engagement_id: 'e2', status: 'blocked', due_date: null }, // open, no due date
+      ],
+      '2026-06-01',
+    );
+    const byId = Object.fromEntries(rows.map((r) => [r.engagementId, r]));
+    expect(byId.e1.openTasks).toBe(2);
+    expect(byId.e1.overdueTasks).toBe(1);
+    expect(byId.e2.openTasks).toBe(1);
+    expect(byId.e2.overdueTasks).toBe(0);
+  });
+
+  it('leaves task counts at zero when no tasks are supplied', () => {
+    const rows = buildPortfolioRows(
+      [engagement('e1', 'c1')],
+      [company('c1', 'Meridian')],
+      [assessment({ engagement_id: 'e1', sequence_number: 1 })],
+      [],
+    );
+    expect(rows[0].openTasks).toBe(0);
+    expect(rows[0].overdueTasks).toBe(0);
+  });
+
   it('renders an engagement with no assessments as an empty shell (no crash, nulls)', () => {
     const rows = buildPortfolioRows(
       [engagement('e1', 'c1')],

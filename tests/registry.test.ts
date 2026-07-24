@@ -23,6 +23,7 @@ const VALID_SCOPES: AuthScope[] = [
   'engagement',
   'manage-engagement',
   'assessment',
+  'assessment-staff',
   'platform-admin',
 ];
 
@@ -103,6 +104,28 @@ describe('function registry', () => {
       const spec = REGISTRY[name];
       expect(spec, `${name} present`).toBeDefined();
       expect(readOpen, `${name} must not be read-open`).not.toContain(spec.scope);
+    }
+  });
+
+  it('submit + write + paid-generate on an assessment are staff-only (not read-open assessment scope)', () => {
+    // The plain 'assessment' scope authorizes on RLS visibility alone. Once an owner
+    // can SEE a shared in-progress assessment (owner_shared_intake_read), that scope
+    // would let them score it (violating advisor-only submit) or trigger the paid AI
+    // generators. These must resolve a staff firm via 'assessment-staff'. The
+    // read-only / owner-consumed endpoints (explain, compare, verification-summary,
+    // render-*-pdf) deliberately stay on 'assessment'. Locks the split.
+    const STAFF_ONLY_ASSESSMENT = [
+      'score-assessment',
+      'generate-document',
+      'institutional-review',
+      'sync-ledger',
+      'enter-manual-financials',
+      'extract-financials-from-file',
+    ];
+    for (const name of STAFF_ONLY_ASSESSMENT) {
+      const spec = REGISTRY[name];
+      expect(spec, `${name} present`).toBeDefined();
+      expect(spec.scope, `${name} must be assessment-staff, not read-open assessment`).toBe('assessment-staff');
     }
   });
 

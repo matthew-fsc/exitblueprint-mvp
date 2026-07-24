@@ -220,6 +220,11 @@ action: meetings, decisions, and the rationale behind recommendations.
 - drs_score numeric null, drs_tier text null, ori_score numeric null
 - record_status (active|superseded) default active, superseded_by_assessment_id (fk assessments) null, supersede_reason text null
   (named record_status because status already tracks the intake lifecycle)
+- **shared_with_client_at** timestamptz null — non-null = the advisor SHARED this
+  in-progress assessment with the business owner (client-portal intake). Opens the
+  owner RLS write path below. **client_submitted_at** timestamptz null — non-null =
+  the client marked their intake "ready for review". Only the advisor submits/scores
+  (advisor-only submit); see the owner-write note under Tenancy/RLS.
 
 **active_assessments** (view, security_invoker)
 - assessments where record_status = 'active'. ALL longitudinal reads — score
@@ -227,6 +232,18 @@ action: meetings, decisions, and the rationale behind recommendations.
 
 **answers**
 - assessment_id, question_id, value jsonb, answered_by (fk profiles)
+- **Owner write exception (client-portal intake).** Owners are otherwise read-only
+  (rule 5) — they may write only `engagement_comments`, their own company's data-room
+  items, and, via this path, `answers` on an assessment their advisor SHARED with them
+  (`assessments.shared_with_client_at` set, still `in_progress`). RLS policies
+  `owner_shared_intake_read` (assessment) + `owner_shared_intake_answers` (answers)
+  scope it to shared + in_progress + own company; the immutability trigger freezes it
+  on score, so the owner loses writes the moment the advisor completes it. `answered_by`
+  distinguishes owner- from advisor-entered answers. **Advisor-only submit**: scoring
+  (`score-assessment`) and the paid AI generators sit behind the `assessment-staff`
+  auth scope (advisor/admin + assessment visible), so an owner who can *see* a shared
+  draft still cannot score it; the client instead sets `client_submitted_at`
+  ("ready for review") via `submit-client-intake`.
 
 **sub_score_results**
 - assessment_id, sub_score_id, points numeric, computed_inputs jsonb (e.g. hhi_est, cagr_pct, down_years - the explain trace)
