@@ -324,6 +324,7 @@ export default function ValuationPage() {
               <label className="val-reported">Reported EBITDA
                 <MoneyInput initial={recast.reported_ebitda} onCommit={(v) => updateReported(String(v ?? 0))} ariaLabel="Reported EBITDA" />
               </label>
+              <div className="scroll-x">
               <table className="val-addbacks">
                 <tbody>
                   {addbacks.map((a) => (
@@ -340,6 +341,7 @@ export default function ValuationPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <form className="val-ab-form" onSubmit={addAddback}>
                 <input placeholder="Add-back (e.g. Owner comp above market)" value={abLabel} onChange={(e) => setAbLabel(e.target.value)} required />
                 <MoneyInput key={abFormKey} initial={abAmount} live onCommit={(v) => setAbAmount(v == null ? '' : String(v))} placeholder="Amount" ariaLabel="Add-back amount" />
@@ -375,6 +377,7 @@ export default function ValuationPage() {
                 </label>
               </div>
               {val?.has_recast && (
+                <div className="scroll-x">
                 <table className="val-net">
                   <tbody>
                     <tr><td>Enterprise value</td><td>{fmtCurrency(val.ev_base)}</td></tr>
@@ -384,6 +387,7 @@ export default function ValuationPage() {
                     <tr className="val-net-total"><td>Net to owner (estimated)</td><td>{fmtCurrency(val.net_proceeds)}</td></tr>
                   </tbody>
                 </table>
+                </div>
               )}
             </SectionCard>
           </div>

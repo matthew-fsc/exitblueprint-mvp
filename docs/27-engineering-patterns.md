@@ -103,6 +103,15 @@ right guard (`RequireAdvisor`/`RequireStaff`/`RequireOwner`).
 of re-writing the `setBusy(true) … try/catch/toast … setBusy(false)` block that
 ~10 pages had copied. See the hook's doc comment.
 
+**Overflow & spacing.** Any new row, card, or input must not overflow or let
+items touch — this is a recurring defect class, so it has a documented layer
+(`docs/26` → "Overflow & spacing protection"). Before shipping a flex/grid row:
+give the text column `.min-w-0` (+ `.truncate`/`.clamp-*` if it can be long),
+raw machine strings `.break-anywhere`, wide blocks `.scroll-x`, and any
+horizontal group a `gap` (use `.cluster`) — never a flex control on a bare
+`min-width:<Npx>` floor. The global guards (input/media caps, vertical-only
+textarea resize) are already on.
+
 **DoD:** builds; driven live in a browser (see `verify`/`run` skills); no console
 errors.
 
