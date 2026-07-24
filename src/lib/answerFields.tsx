@@ -278,13 +278,17 @@ function ListField({
     next[i] = v;
     onChange(q.id, { kind: 'list', items: next });
   };
+  // Data index order is preserved (the engine reads position); `descending` only
+  // reverses the VISUAL row order so, e.g., the most recent fiscal year is on top.
+  const order = items.map((_, i) => i);
+  if (cfg.descending) order.reverse();
   return (
     <div className="list-field">
-      {items.map((val, i) => (
+      {order.map((i) => (
         <div className="list-row" key={i}>
           <span className="list-row-label">{cfg.labels[i] ?? `Item ${i + 1}`}</span>
           <NumberField
-            value={val}
+            value={items[i]}
             unit={cfg.unit}
             ariaLabel={cfg.labels[i] ?? `Item ${i + 1}`}
             onChange={(v) => setItem(i, v)}

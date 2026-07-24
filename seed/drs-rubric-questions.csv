@@ -3,7 +3,7 @@ REV-RECUR-PCT,REV,What percentage of TTM revenue is contractually recurring or s
 REV-TOP5-SHARES,REV,"List the top five customers' share of TTM revenue as percentages, largest first.",numeric_list,,True,2
 REV-CONTRACT-CUST-PCT,REV,"What percentage of active customers have a signed contract, MSA, or retainer in place?",numeric,,True,3
 REV-CONTRACT-AVG-MO,REV,"Average remaining contract term across contracted customers, in months.",numeric,,True,4
-REV-ANNUAL,REV,"Annual revenue for the last four years, oldest first.",numeric_list,,True,5
+REV-ANNUAL,REV,Annual revenue for each of the last four fiscal years.,numeric_list,,True,5
 REV-NRR,REV,Revenue retention on recurring revenue for the most recent year (%). Enter 'unknown' if not tracked.,numeric_or_unknown,,True,6
 REV-STREAMS-CTX,REV,Walk through the top three revenue streams: stability and what would cause each to decline.,text,,False,7
 REV-PRICING-CTX,REV,How would revenue be impacted by a 10-15% price increase?,select,minimal_churn|some_churn|major_churn|unknown,False,8

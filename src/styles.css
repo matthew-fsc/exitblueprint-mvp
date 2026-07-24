@@ -2352,8 +2352,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 .option-card:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
   background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .option-card-on,
@@ -2394,8 +2395,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 .scale-seg:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
   background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .scale-seg-on,
@@ -4917,8 +4919,12 @@ textarea:focus {
 /* ---- Fill financials from a P&L (deterministic file import → answers) ---- */
 .pl-import { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1.2rem; overflow: hidden; }
 .pl-import-toggle { display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
-  background: var(--surface-1); border: none; padding: 0.85rem 1.1rem; cursor: pointer; color: inherit; font: inherit; }
-.pl-import-toggle:hover { background: var(--hover); }
+  background: var(--surface-1); border: none; padding: 0.9rem 1.1rem; cursor: pointer; color: inherit; font: inherit;
+  line-height: 1.45; }
+/* :not(:disabled) raises specificity above the global `button:hover` filled-green
+   rule, which would otherwise turn this header bar dark green and hide its text. */
+.pl-import-toggle:hover:not(:disabled) { background: var(--hover); }
+.pl-import-toggle .muted { display: inline-block; margin-top: 0.1rem; }
 .pl-import-toggle-icon { color: var(--text-secondary); font-size: 0.8rem; }
 .pl-import-body { padding: 0 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem;
   border-top: 1px solid var(--border); }
@@ -5007,6 +5013,12 @@ textarea:focus {
 @media (max-width: 620px) { .invite-form { grid-template-columns: 1fr; } }
 .invite-form input { padding: 0.45rem 0.6rem; min-width: 0; }
 .invite-form button { white-space: nowrap; }
+/* Compact single-row share form for the "Send to client" header action: just an
+   email + send + cancel (the client's name comes from the company contact), so it
+   never wraps onto a second row. */
+.stc-form { display: flex; align-items: center; gap: var(--space-2); flex-wrap: nowrap; }
+.stc-form input { width: 12rem; max-width: 42vw; min-width: 0; padding: 0.45rem 0.6rem; }
+.stc-form button { white-space: nowrap; }
 .invite-devnote { margin-top: 0.8rem; font-size: 0.78rem; color: var(--text-secondary);
   background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }
 .invite-devnote code { background: var(--surface-3); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.85em; }

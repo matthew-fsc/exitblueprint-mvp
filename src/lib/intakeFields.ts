@@ -32,24 +32,36 @@ export function fieldUnit(q: QuestionRow): FieldUnit {
 }
 
 export interface ListConfig {
-  labels: string[]; // one per row, in order
+  labels: string[]; // one per row, in DATA order (the engine reads position)
   unit: FieldUnit;
+  // When true the UI renders the rows in reverse (most-recent first) while the
+  // stored array keeps its data order. Used by REV-ANNUAL so the client sees the
+  // latest fiscal year at the top without changing what the scorer receives.
+  descending?: boolean;
 }
 
-// The two list questions, rendered as labeled per-item rows instead of one
+// The list questions, rendered as labeled per-item rows instead of one
 // comma-separated box. Order matters (the engine reads position).
 const LISTS: Record<string, ListConfig> = {
   'REV-TOP5-SHARES': {
     labels: ['Largest customer', '2nd largest', '3rd largest', '4th largest', '5th largest'],
     unit: { suffix: '%', placeholder: '0' },
   },
-  'REV-ANNUAL': {
-    labels: ['Oldest year', 'Next year', 'Following year', 'Most recent year'],
-    unit: { prefix: '$', dollars: true, placeholder: '0' },
-  },
 };
 
 export function listConfig(q: QuestionRow): ListConfig {
+  if (q.code === 'REV-ANNUAL') {
+    // Auto-label each row with its actual fiscal year. The data order is oldest ->
+    // newest (index 0 = oldest, which the engine relies on for CAGR/down-years), so
+    // the four most recent COMPLETED years are (currentYear-4 … currentYear-1). The
+    // UI shows them most-recent first (descending) per the intake design.
+    const y = new Date().getFullYear();
+    return {
+      labels: [y - 4, y - 3, y - 2, y - 1].map((yr) => String(yr)),
+      unit: { prefix: '$', dollars: true, placeholder: '0' },
+      descending: true,
+    };
+  }
   return (
     LISTS[q.code] ?? {
       // Generic fallback: four unlabeled rows the user can add to.

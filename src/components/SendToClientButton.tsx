@@ -34,7 +34,6 @@ export function SendToClientButton({
   const owner = ownerQ.data;
 
   const [expanded, setExpanded] = useState(false);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [devNote, setDevNote] = useState<ShareResult['invite'] | null>(null);
 
@@ -60,7 +59,6 @@ export function SendToClientButton({
     }).then((r) => {
       if (!r) return;
       setExpanded(false);
-      setName('');
       setEmail('');
       if (isDevStack && r.invite.dev_password) setDevNote(r.invite);
       invalidate();
@@ -75,13 +73,13 @@ export function SendToClientButton({
     );
   }
 
-  // No owner yet → collect name/email (prefilled from the company contact) and
-  // invite + share together.
+  // No owner yet → collect just the client's email (their name comes from the
+  // company contact) and invite + share together, all on one row.
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void share({
       assessment_id: assessmentId,
-      full_name: name || companyQ.data?.owner_contact_name || null,
+      full_name: companyQ.data?.owner_contact_name || null,
       email: email || companyQ.data?.owner_contact_email || '',
     });
   };
@@ -93,7 +91,6 @@ export function SendToClientButton({
           className="btn-secondary"
           disabled={busy || ownerQ.isLoading}
           onClick={() => {
-            setName(companyQ.data?.owner_contact_name ?? '');
             setEmail(companyQ.data?.owner_contact_email ?? '');
             setExpanded(true);
           }}
@@ -110,9 +107,16 @@ export function SendToClientButton({
   }
 
   return (
-    <form className="invite-form" onSubmit={submit}>
-      <input placeholder="Client name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input type="email" placeholder="Client email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+    <form className="stc-form" onSubmit={submit}>
+      <input
+        type="email"
+        placeholder="Client email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        aria-label="Client email"
+        autoFocus
+        required
+      />
       <button type="submit" disabled={busy}>
         {busy ? 'Sending…' : 'Invite & send'}
       </button>
