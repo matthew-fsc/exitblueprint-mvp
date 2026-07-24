@@ -1,6 +1,22 @@
 # 01 — Market-intelligence RAG (paid third-party data)
 
-**Status:** Strategy / architecture proposal. Not built. Design record only.
+**Status:** Partially built. Design record + as-built notes.
+
+> **As-built (2026-07).** The **deterministic multiple lane** (a versioned
+> `'market'` source in `selectValuationMultiple`, seeded from a clearly-labeled
+> placeholder dataset, reference-only) and the **retrieval lane** (`market.passages`
+> + `retrieveMarketContext` + the `retrieve-market-context` registry function)
+> both shipped, plus the **`citationPostCheck`** source-score guard and the UI
+> panels (Valuation "Market comparables", Buyer Lens "Market context").
+> **One deviation from the design below:** the retrieval lane uses Postgres
+> **structured + full-text** search (`tsvector`/GIN/`ts_rank`), *not* pgvector —
+> CI and the target Postgres run stock `postgres:16` with no `vector` extension.
+> Semantic embeddings (`market.passages.embedding`, vector search) are the
+> documented follow-on for when pgvector is provisioned; the schema and the
+> `retrieveMarketContext` API are shaped so adding the embedding column and an
+> ANN rank is additive. Still open: injecting cited market context into a
+> *generated* deliverable (Bench-gated), and swapping the placeholder dataset for
+> a licensed one after counsel review (§ IP & licensing, docs/41 §8).
 
 ## The idea, and why it's worth doing
 

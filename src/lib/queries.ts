@@ -68,6 +68,7 @@ export const qk = {
   buyers: (firmId: string) => ['buyers', firmId] as const,
   buyerMandates: (buyerId: string) => ['buyerMandates', buyerId] as const,
   buyerMatches: (engagementId: string) => ['buyerMatches', engagementId] as const,
+  marketContext: (engagementId: string) => ['marketContext', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -1106,6 +1107,38 @@ export function useDiligenceSimulation(
   });
 }
 
+// ---- market context (docs/sellside-ai/01) ----------------------------------
+// Cited market-reference passages (sector commentary, precedent transactions)
+// for the engagement's industry/size, retrieved from the non-tenant `market`
+// schema. Every passage carries a human `citation` + a short `cite_id`, so the
+// UI can render the source next to any figure it shows (the source-score
+// contract). Reference/context only — no scoring, no LLM in the retrieval loop.
+export interface MarketPassage {
+  body: string;
+  cite_id: string;
+  citation: string;
+  dataset: string;
+  as_of: string | null;
+  kind: string;
+}
+
+export interface MarketContextResult {
+  passages: MarketPassage[];
+}
+
+export function useMarketContext(
+  engagementId: string | undefined,
+): UseQueryResult<MarketContextResult> {
+  return useQuery({
+    queryKey: qk.marketContext(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<MarketContextResult>('retrieve-market-context', {
+        engagement_id: engagementId,
+      }),
+  });
+}
+
 // ---- financial verification (Phase 1) --------------------------------------
 export type ProvenanceSource = 'self_reported' | 'document' | 'connected_ledger';
 export type VerificationTier = 'self_reported' | 'partly_verified' | 'document_verified';
@@ -1263,7 +1296,12 @@ export interface ValuationResult {
   industry_key: string;
   size_band: string;
   base_multiple: number;
-  multiple_source: 'table' | 'override' | 'own_book';
+  multiple_source: 'table' | 'override' | 'own_book' | 'market';
+  // Own-book (moat 2) and licensed-market reference multiples are shown ALONGSIDE
+  // the table multiple; either drives only when a valuation_rules_version elects
+  // it (own_book_driving / multiple_source === 'market'). The market lane is
+  // reference-only today (docs/sellside-ai/01), so market_* populate whenever the
+  // firm's sector has seeded market data even when 'market' is not the source.
   own_book_sample_size: number | null;
   own_book_same_band: number | null;
   own_book_multiple: number | null;
@@ -1271,6 +1309,11 @@ export interface ValuationResult {
   own_book_p75: number | null;
   own_book_confidence: 'low' | 'moderate' | 'high' | null;
   own_book_driving: boolean;
+  market_multiple: number | null; // median from licensed/placeholder market comps
+  market_p25: number | null;
+  market_p75: number | null;
+  market_sample_size: number | null;
+  market_source: string | null; // 'market' only when it drives the base multiple
   drs_score: number | null;
   drs_tier: string | null;
   readiness_factor: number;
