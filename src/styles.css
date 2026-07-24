@@ -1,5 +1,5 @@
 /* ============================================================
-   Exit Blueprint — application theme
+   ExitBlueprint — application theme
    Semantic design tokens with a light and a dark theme.
    Brand identity (F0): institutional-wealth register —
    deep forest/green, warm-cool neutrals, a confident forest accent.
@@ -78,6 +78,9 @@
   /* typography — self-hosted Inter (see main.tsx); system stack is the fallback */
   --font-display: 'Inter Tight Variable', 'Inter Variable', 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* monospace — the one mono stack for codes, keys, ids (was referenced as an
+     undefined --mono/--font-mono with ad-hoc fallbacks scattered across the file). */
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   /* tighter geometry — crisp institutional surfaces, not consumer-rounded */
   --radius: 8px;
@@ -441,6 +444,8 @@ button:disabled {
 }
 .inline-input {
   width: 9rem;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.35rem 0.5rem;
 }
 
@@ -770,7 +775,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 0.95rem 1.15rem;
+  padding: var(--space-4) var(--space-5);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -780,6 +785,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .client-name {
   font-weight: 600;
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .client-meta {
@@ -792,9 +799,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 1rem 1.15rem;
+  padding: var(--space-4) var(--space-5);
   display: flex;
-  gap: 0.6rem;
+  gap: var(--space-2);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -804,15 +811,22 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   font-size: 0.95rem;
 }
 
+/* Controls in the wrapping inline form (notably file inputs, which carry a wide
+   intrinsic min-content width) must be allowed to shrink so they wrap instead of
+   overflowing the panel. */
+.inline-form input,
+.inline-form select,
+.inline-form textarea { min-width: 0; }
+
 .assessment-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 0.85rem 1.15rem;
+  padding: var(--space-3) var(--space-5);
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .assessment-seq {
@@ -901,11 +915,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   margin-left: 0.5rem;
 }
 
-.control-row {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-}
+/* .control-row is defined once, in the intake "not-tracked toggle" section
+   (flex · gap · align-center · flex-wrap). A duplicate definition used to live
+   here and was overridden by that one anyway; removed to keep a single source. */
 
 .checkbox-label {
   display: inline-flex;
@@ -1519,7 +1531,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   padding: 0.35rem 0;
 }
 .cim-section-narrative { grid-template-columns: minmax(120px, 1fr) auto; }
-.cim-section-name { font-size: 0.86rem; font-weight: 600; }
+.cim-section-name { font-size: 0.86rem; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .cim-section-tag { font-size: 0.76rem; justify-self: end; }
 .cim-section-track {
   height: 7px;
@@ -1731,6 +1743,12 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .check-detail {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  /* Diagnostics carry long unbreakable tokens (Clerk ids, https URLs, UUIDs,
+     Postgres error strings) inside a flex row — let them break so the row can't
+     out-measure the shell and get clipped. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ============================================================
@@ -1801,8 +1819,9 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
 .fixture-header {
@@ -1810,11 +1829,14 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  min-width: 0;
 }
 
 .fixture-header h2 {
   margin: 0;
   font-size: 1.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .fixture-profile {
@@ -2054,6 +2076,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 
 .intake-dim-head h3 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .dimension-group {
@@ -2313,6 +2337,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .scale-anchors {
   display: flex;
   justify-content: space-between;
+  gap: var(--space-2);
   font-size: 0.78rem;
 }
 
@@ -2453,6 +2478,8 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .wb-dim-head h3 {
   margin: 0;
   font-size: 1.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .wb-dim-code {
   font-family: ui-monospace, monospace;
@@ -3059,7 +3086,21 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   height: 2rem; width: 2rem; border-radius: 6px;
   background: var(--brand); color: var(--on-brand); font-weight: 800; font-family: var(--font-display);
 }
-.powered-by { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.02em; }
+.powered-by { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 0.35rem; }
+.powered-by-mark { flex: none; opacity: 0.75; }
+
+/* ExitBlueprint wordmark — the engine's own lockup (mark + weight-differentiated
+   name). The mark spends the accent; the text carries brand emphasis. */
+.brand-wordmark {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--font-display); color: var(--brand); letter-spacing: -0.02em;
+}
+.brand-wordmark-mark { color: var(--accent-strong); flex: none; }
+.brand-wordmark-text { font-weight: 500; }
+.brand-wordmark-text b { font-weight: 800; }
+.brand-wordmark-sm .brand-wordmark-text { font-size: 0.95rem; }
+.brand-wordmark-md .brand-wordmark-text { font-size: 1.2rem; }
+.brand-wordmark-lg .brand-wordmark-text { font-size: 1.6rem; }
 
 /* ---- ConfirmDialog / modal ---- */
 .ui-modal-backdrop {
@@ -3127,26 +3168,30 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border-radius: var(--radius-sm); background: var(--surface-1); cursor: pointer; font-size: 0.85rem;
 }
 .prompt-registry-item.is-active { border-color: var(--border-strong); background: var(--surface-2); }
-.prompt-registry-key { font-family: var(--font-mono, monospace); overflow: hidden; text-overflow: ellipsis; }
+.prompt-registry-key { font-family: var(--font-mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prompt-registry-tag { font-size: 0.68rem; padding: 0.05rem 0.4rem; border-radius: 999px; white-space: nowrap; }
 .prompt-registry-tag-db { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
 .prompt-registry-tag-file { background: var(--surface-3); color: var(--text-muted); }
 .prompt-registry-editor { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
 .prompt-registry-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.prompt-registry-error { color: var(--status-critical); }
+.prompt-registry-error { color: var(--status-critical); min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 720px) { .prompt-registry { grid-template-columns: 1fr; } }
 .add-eng-newco input { width: 100%; }
 
 /* ---- Documents + review queue (beta R3) ---- */
-.doc-upload input[type='file'] { font-size: 0.9rem; }
+.doc-upload input[type='file'] { font-size: 0.9rem; min-width: 0; }
 .doc-list, .review-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .doc-row, .review-queue-row {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.7rem 0.95rem;
 }
-.doc-name { display: block; font-weight: 600; }
-.doc-meta { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; }
+/* Left column of a doc/review row (an unclassed wrapper div) must be allowed to
+   shrink so a long filename / snake_case key wraps instead of shoving the
+   trailing chips off the row. Mirrors .review-queue-main. */
+.doc-row > div { min-width: 0; }
+.doc-name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.doc-meta { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; overflow-wrap: anywhere; }
 .review-queue-main { min-width: 0; }
 
 .review-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
@@ -3358,7 +3403,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   letter-spacing: var(--eyebrow-tracking);
   color: var(--text-muted);
 }
-.filter-control select { min-width: 12rem; }
+.filter-control select { min-width: min(12rem, 100%); }
 .filter-count { margin-left: auto; font-size: 0.85rem; align-self: center; }
 .stale-flag {
   color: var(--status-serious);
@@ -3681,7 +3726,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   gap: 0.9rem;
   flex-wrap: wrap;
 }
-.compare-controls select { min-width: 15rem; }
+.compare-controls select { min-width: min(15rem, 100%); }
 .compare-arrow { color: var(--text-muted); font-weight: 700; padding: 0 0.2rem; }
 .compare-headline {
   display: flex;
@@ -4316,7 +4361,7 @@ textarea:focus {
 .advisory-item-head { display: flex; gap: 0.85rem; align-items: flex-start; }
 .advisory-item-titles { flex: 1; min-width: 0; }
 .advisory-item-title { margin: 0; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.advisory-item-body { margin: 0.25rem 0 0; color: var(--text-2, var(--status-neutral)); font-size: 0.92rem; line-height: 1.45; }
+.advisory-item-body { margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.45; }
 .advisory-item-score {
   font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap;
   flex-shrink: 0; padding-top: 0.15rem;
@@ -4380,7 +4425,7 @@ textarea:focus {
      across the whole control in dark theme (and vanish in light). */
   background-color: var(--surface-1); color: inherit; font-size: 0.9rem;
 }
-.advisory-filters input[type="search"] { flex: 1; min-width: 12rem; }
+.advisory-filters input[type="search"] { flex: 1; min-width: min(12rem, 100%); }
 .advisory-filters-count { margin-left: auto; font-size: 0.85rem; }
 
 .advisory-form { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -4507,7 +4552,7 @@ textarea:focus {
 
 /* ---- DivergenceMeter: DRS vs ORI ---------------------------------------- */
 .diverge { display: flex; flex-direction: column; gap: 0.7rem; }
-.diverge-heads { display: flex; justify-content: space-between; }
+.diverge-heads { display: flex; justify-content: space-between; gap: var(--space-2); }
 .diverge-head { display: flex; flex-direction: column; }
 .diverge-head-right { text-align: right; }
 .diverge-num { font-family: var(--font-display); font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
@@ -4540,6 +4585,7 @@ textarea:focus {
   gap: var(--space-2);
 }
 .nextup-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.nextup-head > :first-child { min-width: 0; }
 .nextup-count { font-size: 0.8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nextup-count strong { font-weight: 700; }
 .nextup-task { margin: 0; font-size: 0.85rem; font-weight: 600; line-height: 1.35; }
@@ -4596,9 +4642,9 @@ textarea:focus {
 .verif-row { display: grid; grid-template-columns: 9rem 1fr 10rem; gap: 0.75rem; align-items: center;
   padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .verif-row:last-child { border-bottom: none; }
-.verif-code { font-family: var(--mono, ui-monospace, monospace); font-size: 0.72rem; color: var(--text-secondary);
+.verif-code { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary);
   font-weight: 600; }
-.verif-prompt { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verif-prompt { font-size: 0.85rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .verif-select { font-size: 0.8rem; padding: 0.3rem 0.5rem; }
 .verif-select.verif-src-document { border-color: var(--status-warning); }
 .verif-select.verif-src-connected_ledger { border-color: var(--status-good); }
@@ -4658,9 +4704,9 @@ textarea:focus {
 .learn-item-rec { border-left-color: var(--accent); }
 .learn-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   background: none; border: none; padding: 0.85rem 0; cursor: pointer; text-align: left; color: inherit; }
-.learn-titles { display: flex; align-items: center; gap: 0.6rem; }
-.learn-title { font-weight: 600; }
-.learn-dim { font-size: 0.68rem; font-family: var(--mono, monospace); color: var(--text-secondary);
+.learn-titles { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1 1 auto; }
+.learn-title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.learn-dim { font-size: 0.68rem; font-family: var(--font-mono); color: var(--text-secondary);
   border: 1px solid var(--border-strong); border-radius: 5px; padding: 0.05rem 0.35rem; }
 .learn-toggle { font-size: 1.2rem; color: var(--text-secondary); }
 .learn-body { padding: 0 0 1rem; font-size: 0.9rem; line-height: 1.55; color: var(--text-secondary); white-space: pre-wrap; }
@@ -4686,11 +4732,12 @@ textarea:focus {
 
 .connect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
 @media (max-width: 620px) { .connect-grid { grid-template-columns: 1fr; } }
-.connect-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.2rem;
-  display: flex; flex-direction: column; gap: 0.5rem; }
+.connect-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: var(--space-4) var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-2); }
 .connect-card-on { border-color: var(--status-good); background: color-mix(in srgb, var(--status-good) 6%, transparent); }
-.connect-card-head { display: flex; align-items: center; justify-content: space-between; }
-.connect-name { font-weight: 700; font-size: 1.05rem; }
+.connect-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.connect-name { font-weight: 700; font-size: 1.05rem; min-width: 0; overflow-wrap: anywhere; }
 .connect-status { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
 .connect-status-on { color: var(--status-good); }
 .connect-blurb { font-size: 0.82rem; margin: 0; }
@@ -4717,7 +4764,7 @@ textarea:focus {
   border-top: 1px solid var(--border); }
 .pl-import-body .inline-form { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; margin: 0; }
 .pl-import-result { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+  box-shadow: var(--shadow-sm); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .pl-import-figures { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
 .pl-import-figures li { display: flex; flex-direction: column; gap: 0.15rem; padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--border); }
@@ -4787,7 +4834,7 @@ textarea:focus {
 
 /* ---- Advisor accounting connection card ---- */
 .acct-rows { display: flex; flex-direction: column; gap: 0.5rem; }
-.acct-row { display: grid; grid-template-columns: 7rem 1fr auto; gap: 0.75rem; align-items: center;
+.acct-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr) auto; gap: 0.75rem; align-items: center;
   padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .acct-row:last-child { border-bottom: none; }
 .acct-name { font-weight: 600; font-size: 0.9rem; }
@@ -4970,7 +5017,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 .val-gap-prompt { gap: 0.4rem; }
 .val-goal-form { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
 .val-goal-form input {
-  flex: 1; min-width: 150px; padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border));
+  flex: 1; min-width: min(150px, 100%); padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border));
   border-radius: 6px; font-size: 0.85rem;
 }
 .val-goal-form button {
@@ -4996,7 +5043,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 .rm-task-due:hover, .rm-task-due:focus { border-color: var(--accent); color: var(--text-primary); }
 .rm-add-task { border-top: 1px dashed var(--border); padding-top: 0.9rem; }
 .eng-timeline-form { display: flex; gap: 1rem; flex-wrap: wrap; }
-.eng-timeline-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.eng-timeline-form label { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
 .eng-timeline-form input, .eng-timeline-form select {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; font-size: 0.9rem;
 }
@@ -5023,7 +5070,7 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
 .plan-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.plan-card-name { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); }
+.plan-card-name { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); min-width: 0; overflow-wrap: anywhere; }
 .plan-card-limits { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
 .plan-features { list-style: none; margin: 0; padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 auto; border-top: 1px solid var(--border); }
 .plan-feature { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 0.85rem; color: var(--text-primary); line-height: 1.3; }
@@ -5062,11 +5109,11 @@ a.evidence-guide-hit:hover { border-color: var(--accent); }
 .log-detail { margin: 0.25rem 0 0; font-size: 0.86rem; color: var(--text-secondary); }
 .log-gap { display: inline-block; margin-top: 0.3rem; font-size: 0.76rem; font-weight: 600; color: var(--accent-strong, var(--accent)); }
 .log-form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.log-form-row select, .log-form-row input { flex: 1; min-width: 130px; }
+.log-form-row select, .log-form-row input { flex: 1; min-width: min(130px, 100%); }
 
 /* Engagement knowledge chain — "how the plan connects" (docs/archive/21 Category B) */
 .chain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
-.chain { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; }
+.chain { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3); }
 .chain-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .chain-status { font-size: var(--eyebrow-size); font-weight: var(--eyebrow-weight); text-transform: uppercase; letter-spacing: var(--eyebrow-tracking); color: var(--status-good); }
 .chain-progress { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
@@ -5260,7 +5307,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .plan-item-row select, .plan-item-row input {
   padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
   /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
-  background-color: var(--surface); color: var(--text-primary); font: inherit;
+  background-color: var(--input-bg); color: var(--text-primary); font: inherit;
 }
 .plan-apply-row {
   display: flex; gap: var(--space-3); align-items: flex-end; flex-wrap: wrap;
@@ -5270,7 +5317,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .plan-apply-row select, .plan-apply-row input {
   padding: 0.4rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
   /* background-color (not shorthand) so the select chevron isn't reset — see note above. */
-  background-color: var(--surface); color: var(--text-primary); font: inherit;
+  background-color: var(--input-bg); color: var(--text-primary); font: inherit;
 }
 
 /* ============================================================
@@ -5319,11 +5366,12 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .plan-progress-list { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); }
 .plan-progress-row { display: flex; flex-direction: column; gap: 0.35rem; }
 .plan-progress-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.plan-progress-name { font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; }
+.plan-progress-name { font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .plan-progress-track { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; }
-.plan-progress-fill-done { background: var(--good, var(--accent-strong)); }
+.plan-progress-fill-done { background: var(--status-good); }
 .plan-rec-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.plan-rec-row > :first-child { min-width: 0; }
 
 /* Plan-grouped roadmap board — each applied plan (and the gap-driven bucket) is
    a collapsible group card with its own progress, tasks, and milestones. */
@@ -5578,6 +5626,130 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
 }
 
 /* ============================================================
+   Overflow & spacing protection — the defensive layer
+   -----------------------------------------------------------
+   The systemic backstop against the two UI defects that keep
+   recurring: (1) content overflowing its container — an input
+   wider than its card, a long email / URL / id / snake_case key
+   forcing sideways scroll, a table or code block blowing out the
+   layout; and (2) items touching with no breathing room. These
+   global guards + opt-in utilities are the ONE documented way to
+   prevent both — see docs/26-ui-system.md "Overflow & spacing
+   protection". Reach for a utility here before hand-rolling
+   overflow CSS or an inline width. It sits late so the guards
+   win over component defaults, and before the Mobile pass so
+   mobile still overrides where it must.
+   ============================================================ */
+
+/* ---- Global guards: defensive defaults, no markup change ---- */
+
+/* A form control never out-measures its container. Inputs carry an intrinsic
+   (~20ch) width and don't grow, but dropped into a narrow card or a flex column
+   they could otherwise overflow — cap every one to its box. (In a flex ROW the
+   control also needs its item to allow shrinking; that's .min-w-0 below.) */
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+/* Textareas resize only vertically. A horizontal drag would out-measure the row
+   and, inside a flex layout, shove siblings off-screen; height stays the user's
+   to grow. (`.advisory-form textarea` already did this; this makes it universal.) */
+textarea {
+  resize: vertical;
+}
+
+/* Replaced elements never exceed their container. Charts/sparklines already pin
+   width:100%; this catches every other logo, QR, icon, or embedded frame so none
+   can force horizontal scroll. width-only (no forced height) preserves aspect
+   ratio for elements that set an explicit height. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Raw <pre> (debug dumps, JSON, keys) scrolls inside its own box rather than
+   dragging the page sideways. Designed panels should prefer .scroll-x or
+   white-space:pre-wrap; this is the unstyled backstop. */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* ---- Overflow utilities: opt-in, the documented fix ---- */
+
+/* Let a flex/grid child shrink below its content width so its text can
+   truncate or wrap instead of stretching the row. THE fix for the classic
+   "a long company name / filename pushes the whole row wide" bug: add .min-w-0
+   to the text column of a space-between row (every flex ancestor up to the row
+   edge must allow shrinking, so this may be needed on more than one level). */
+.min-w-0 { min-width: 0; }
+
+/* Single-line truncation with an ellipsis. Self-applies min-width:0; still needs
+   its flex ancestors to allow shrinking (pair with .min-w-0 above them). */
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Multi-line truncation — clamp to N lines, then ellipsis. */
+.clamp-2,
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
+}
+.clamp-2 { -webkit-line-clamp: 2; line-clamp: 2; }
+.clamp-3 { -webkit-line-clamp: 3; line-clamp: 3; }
+
+/* Force a long unbreakable token — URL, email, id, storage path, API key — to
+   break rather than push its container wider. Put it on the element that holds
+   the raw string. (Body text already sets overflow-wrap:break-word; this is the
+   stronger "break mid-token if you must" for machine strings.) */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Wrap wide content — a table, chart, or code block — in a box that scrolls
+   sideways inside itself instead of dragging the page. (Data tables have their
+   own .ui-table-wrap; use .scroll-x for anything else.) */
+.scroll-x {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* ---- Spacing primitives: items never touch ---- */
+
+/* .cluster — the canonical horizontal group: wraps and always keeps a gap, so
+   chips, buttons, tags, and inline meta never butt together or overflow on a
+   narrow width. Default gap is --gap-tight; .cluster-tight / .cluster-sm tune it,
+   .cluster-between pushes the ends apart. (Supersedes the older .row-gap, which
+   is the same shape at the same gap and stays as a legacy alias.) */
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-tight);
+}
+.cluster-tight { gap: var(--space-1); }
+.cluster-sm { gap: var(--space-3); }
+.cluster-between { justify-content: space-between; }
+
+/* .stack / .stack-sm — vertical rhythm, the companions to the existing
+   .stack-lg (--gap-block). Every child is separated by a gap so blocks never
+   touch. (.stack-sm was already referenced in markup without a definition —
+   this is its home.) */
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ============================================================
    Mobile optimization pass
    The app is advisor-desktop-first; this section makes every
    surface usable on a phone. It is grouped here (not scattered
@@ -5758,9 +5930,9 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
    advisor can capture knowledge without configuring the DRS. */
 .advisory-form-advanced {
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2, transparent);
+  background: var(--surface-2);
 }
 .advisory-form-advanced > summary {
   cursor: pointer;
@@ -5851,9 +6023,9 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 1px 6px;
-  border-radius: var(--radius-1, 4px);
-  background: var(--surface-3, var(--border));
-  color: var(--text-muted, inherit);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-muted);
 }
 .comment-date {
   font-size: 0.8rem;
@@ -5881,9 +6053,9 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
 .dsim-toolbar-status { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .dsim-findings { display: flex; flex-direction: column; }
 .dsim-finding {
-  padding: 0.9rem 0 0.9rem 0.85rem;
+  padding: var(--space-4) 0 var(--space-4) var(--space-3);
   border-left: 3px solid var(--status-neutral);
-  border-bottom: 1px solid var(--hairline, rgba(0, 0, 0, 0.08));
+  border-bottom: 1px solid var(--border);
 }
 .dsim-finding:last-child { border-bottom: none; }
 .dsim-finding.sev-critical { border-left-color: var(--status-critical); }
@@ -5907,9 +6079,9 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
 .dsim-finding-titles { flex: 1; min-width: 0; }
 .dsim-finding-title { margin: 0; font-weight: 600; }
 .dsim-finding-meta { margin: 0.15rem 0 0; font-size: 0.85rem; }
-.dsim-finding-why { margin: 0.5rem 0 0; font-size: 0.92rem; line-height: 1.45; color: var(--text-2, inherit); }
+.dsim-finding-why { margin: 0.5rem 0 0; font-size: 0.92rem; line-height: 1.45; color: var(--text-secondary); }
 .dsim-finding-fix { margin: 0.4rem 0 0; font-size: 0.88rem; }
-.dsim-finding-fix-label { color: var(--text-2, var(--status-neutral)); }
+.dsim-finding-fix-label { color: var(--text-secondary); }
 .dsim-narrative { margin-top: 0.5rem; }
 /* Own-book comparables panel (docs/09 §2, moat 2) — the firm's realized multiple
    vs. the generic table multiple, with sample size and a confidence indicator. */
