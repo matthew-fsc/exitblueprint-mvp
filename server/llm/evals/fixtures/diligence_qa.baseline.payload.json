@@ -1,0 +1,23 @@
+{
+  "question": "What is your customer concentration, and how exposed are you to your largest accounts?",
+  "facts": [
+    {
+      "cite_id": "VF-CUST-TOP",
+      "citation": "Verified fact — customer revenue ledger",
+      "source": "verified_fact",
+      "body": "The largest customer represented 28 percent of trailing twelve month revenue."
+    },
+    {
+      "cite_id": "VF-CUST-FIVE",
+      "citation": "Verified fact — customer revenue ledger",
+      "source": "verified_fact",
+      "body": "The five largest customers together represented 61 percent of revenue."
+    },
+    {
+      "cite_id": "GAP-CONC",
+      "citation": "Fired gap — Customer Concentration",
+      "source": "gap",
+      "body": "Customer concentration is recorded as a high severity readiness gap in the current assessment."
+    }
+  ]
+}

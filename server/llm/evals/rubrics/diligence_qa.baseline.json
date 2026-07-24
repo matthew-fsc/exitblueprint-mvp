@@ -1,0 +1,82 @@
+{
+  "docType": "diligence_qa",
+  "answer": [
+    {
+      "id": "uses-top-customer-fact",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "answers the question using the largest-customer concentration fact (traceable by its cite_id)",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.0.cite_id" }
+    },
+    {
+      "id": "uses-top-five-fact",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "answers using the top-five concentration fact (traceable by its cite_id)",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.1.cite_id" }
+    },
+    {
+      "id": "uses-concentration-gap-fact",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "surfaces the fired concentration gap rather than hiding it (traceable by its cite_id)",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.2.cite_id" }
+    },
+    {
+      "id": "no-hallucinated-number",
+      "weight": 5,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must use only numbers present in the retrieved facts (numeral firewall) — no invented or computed figure",
+      "check": { "type": "no_hallucinated_number" }
+    },
+    {
+      "id": "explains-why-buyer-cares",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "explains, in plain language a non-financial owner could follow, WHY a buyer cares about this concentration (impact on price or deal certainty) rather than only stating the numbers",
+      "check": {
+        "type": "llm_judge",
+        "question": "Does the answer explain, in plain language a non-financial owner could follow, WHY a buyer cares about the customer concentration — connecting it to buyer impact such as price, deal certainty, or the risk that revenue leaves after the sale — rather than only stating the concentration figures?"
+      }
+    }
+  ],
+  "source": [
+    {
+      "id": "every-fact-cited",
+      "weight": 1,
+      "kind": "negative",
+      "axis": "source",
+      "description": "every retrieved figure stated in the answer carries its [cite_id] on the same line (citation contract) — no figure appears without its source",
+      "check": { "type": "facts_carry_citation", "factsPath": "facts" }
+    },
+    {
+      "id": "top-customer-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the largest-customer figure traces to its retrieved fact by cite_id",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.0.cite_id" }
+    },
+    {
+      "id": "top-five-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the top-five figure traces to its retrieved fact by cite_id",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.1.cite_id" }
+    },
+    {
+      "id": "gap-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the concentration gap traces to its retrieved fact by cite_id",
+      "check": { "type": "payload_field_present_in_output", "path": "facts.2.cite_id" }
+    }
+  ]
+}
