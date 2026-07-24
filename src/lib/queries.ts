@@ -92,6 +92,8 @@ export interface CompanyRow {
   name: string;
   industry: string | null;
   revenue_band: string | null;
+  owner_contact_name: string | null;
+  owner_contact_email: string | null;
 }
 export interface EngagementRow {
   id: string;
@@ -115,6 +117,11 @@ export interface AssessmentRow {
   drs_tier: string | null;
   ori_score: number | null;
   created_at: string;
+  // Client-portal intake (docs/02 rule 5): non-null shared_with_client_at = this
+  // in-progress assessment is shared to the owner's portal for co-editing; non-null
+  // client_submitted_at = the client marked it ready for advisor review.
+  shared_with_client_at: string | null;
+  client_submitted_at: string | null;
 }
 export interface BrandingRow {
   firm_id: string;

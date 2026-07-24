@@ -15,6 +15,10 @@ export interface OwnerContext {
   engagement: EngagementRow | null;
   completed: AssessmentRow[];
   latest: AssessmentRow | null;
+  // The one in-progress assessment the advisor has shared to this portal for the
+  // client to fill out (null when none is shared). Owner RLS already narrows the
+  // assessment list to completed rows + this shared draft.
+  sharedAssessment: AssessmentRow | null;
   loading: boolean;
   // A failed load must never be silently indistinguishable from "no data yet" —
   // every owner page branches on this before falling through to an empty state.
@@ -43,12 +47,16 @@ export function useOwnerContext(): OwnerContext {
   const engagement = engagementQ.data ?? null;
   const assessmentsQ = useAssessmentsByEngagement(engagement?.id);
   const completed = (assessmentsQ.data ?? []).filter((a) => a.status === 'completed');
+  // RLS only ever exposes a single in-progress assessment to the owner (the shared
+  // one), so the first in-progress row is it.
+  const sharedAssessment = (assessmentsQ.data ?? []).find((a) => a.status === 'in_progress') ?? null;
   return {
     companyId,
     company: companyQ.data ?? null,
     engagement,
     completed,
     latest: completed[completed.length - 1] ?? null,
+    sharedAssessment,
     loading: engagementQ.isLoading || (!!engagement && assessmentsQ.isLoading),
     isError: companyQ.isError || engagementQ.isError || assessmentsQ.isError,
     error: engagementQ.error ?? assessmentsQ.error ?? companyQ.error,
