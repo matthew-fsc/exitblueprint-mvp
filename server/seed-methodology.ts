@@ -99,6 +99,42 @@ export function parseMarketMultiples(csvText: string): MarketMultipleSeed[] {
   }));
 }
 
+// Retrievable market passages (docs/sellside-ai/01, build order step 2): the cited
+// text chunks the reasoning lane grounds narrative on, loaded under the SAME
+// placeholder dataset as the market multiples. PLACEHOLDER content, not a licensed
+// feed — it exercises the structured + full-text retrieval lane (market.passages)
+// before a licensed comps dataset is purchased. `sizeBand` is optional (a
+// band-agnostic sector_commentary carries an empty cell → null).
+export interface MarketPassageSeed {
+  industryKey: string;
+  sizeBand: string | null;
+  kind: string;
+  body: string;
+  citeId: string;
+  citation: string;
+  asOf: string | null;
+}
+
+// Mirrors parseMarketMultiples: pure, no DB, columns → typed rows. Empty size_band /
+// as_of cells normalize to null. Exported so tests/market-retrieval.test.ts can
+// validate the CSV hermetically.
+export function parseMarketPassages(csvText: string): MarketPassageSeed[] {
+  const rows = parse(csvText, { columns: true, skip_empty_lines: true }) as Record<
+    string,
+    string
+  >[];
+  const orNull = (v: string | undefined) => (v == null || v.trim() === '' ? null : v.trim());
+  return rows.map((r) => ({
+    industryKey: r.industry_key,
+    sizeBand: orNull(r.size_band),
+    kind: r.kind,
+    body: r.body,
+    citeId: r.cite_id,
+    citation: r.citation,
+    asOf: orNull(r.as_of),
+  }));
+}
+
 // Starter system Plans (docs/37): canonical, advisor-facing initiative bundles,
 // seeded as GLOBAL methodology (firm_id null) exactly like the rubric/advisory
 // catalog. Curated inline (like VALUATION_CONFIG above) because the set is small
@@ -362,6 +398,7 @@ export interface SeedBundle {
   advisoryItems: ReturnType<typeof parseAdvisoryLibrary>;
   valuationMultiples: ReturnType<typeof parseValuationMultiples>;
   marketMultiples: MarketMultipleSeed[];
+  marketPassages: MarketPassageSeed[];
   dataRoomSections: ReturnType<typeof parseDataRoomSections>;
   dataRoomItems: ReturnType<typeof parseDataRoomItems>;
 }
@@ -386,6 +423,7 @@ export function loadSeedBundle(seedDir = resolveSeedDir()): SeedBundle {
   const advisoryItems = parseAdvisoryLibrary(read('advisory-library.csv'));
   const valuationMultiples = parseValuationMultiples(read('valuation-multiples.csv'));
   const marketMultiples = parseMarketMultiples(read('market-multiples.csv'));
+  const marketPassages = parseMarketPassages(read('market-passages.csv'));
   const dataRoomSections = parseDataRoomSections(read('data-room-sections.csv'));
   const dataRoomItems = parseDataRoomItems(read('data-room-items.csv'));
 
@@ -410,6 +448,7 @@ export function loadSeedBundle(seedDir = resolveSeedDir()): SeedBundle {
     advisoryItems,
     valuationMultiples,
     marketMultiples,
+    marketPassages,
     dataRoomSections,
     dataRoomItems,
   };
@@ -429,6 +468,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     advisoryItems,
     valuationMultiples,
     marketMultiples,
+    marketPassages,
     dataRoomSections,
     dataRoomItems,
   } = bundle;
@@ -801,6 +841,36 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
+    // Market-reference passages (docs/sellside-ai/01, build order step 2): the cited
+    // text chunks the retrieval lane (server/market-retrieval.ts) grounds narrative
+    // on, loaded under the SAME placeholder dataset row created above. Idempotent on
+    // the natural key (dataset_id, cite_id) so a re-seed refreshes bodies/citations
+    // rather than duplicating rows. STRUCTURED + FULL-TEXT retrieval only — no
+    // embeddings (CI has no pgvector; deferred follow-on).
+    for (const p of marketPassages) {
+      await upsert(
+        'market.passages',
+        `insert into market.passages
+           (dataset_id, industry_key, size_band, kind, body, cite_id, citation, as_of)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (dataset_id, cite_id) do update
+           set industry_key = excluded.industry_key, size_band = excluded.size_band,
+               kind = excluded.kind, body = excluded.body, citation = excluded.citation,
+               as_of = excluded.as_of
+         returning id, (xmax = 0) as inserted`,
+        [
+          marketDatasetId,
+          p.industryKey,
+          p.sizeBand,
+          p.kind,
+          p.body,
+          p.citeId,
+          p.citation,
+          p.asOf,
+        ],
+      );
+    }
+
     // Data Room template (docs/15 work stream B): global methodology, like the
     // rubric. Sections then items; items carry a soft gap_code (shared taxonomy).
     for (const s of dataRoomSections) {
@@ -852,6 +922,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     valuation_multiples: valuationMultiples.length,
     'market.datasets': 1,
     'market.multiples': marketMultiples.length,
+    'market.passages': marketPassages.length,
     data_room_sections: dataRoomSections.length,
     data_room_items: dataRoomItems.length,
     // One recipe Plan per (former) playbook + the curated System Plans.
@@ -907,6 +978,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     // load. (name/vendor carry no single quotes, so inlining them is safe.)
     'market.datasets': `where name = '${MARKET_DATASET.name}' and vendor = '${MARKET_DATASET.vendor}'`,
     'market.multiples': `where dataset_id in (select id from market.datasets where name = '${MARKET_DATASET.name}' and vendor = '${MARKET_DATASET.vendor}')`,
+    'market.passages': `where dataset_id in (select id from market.datasets where name = '${MARKET_DATASET.name}' and vendor = '${MARKET_DATASET.vendor}')`,
   };
 
   const rows: SeedTableReport[] = [];
