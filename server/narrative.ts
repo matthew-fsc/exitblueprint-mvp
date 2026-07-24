@@ -3,33 +3,30 @@
 // explain trace, precomputed deltas. It never writes to scoring tables and
 // never computes a number (CLAUDE.md rule 2). Server-side only: the API key
 // is read from the server environment, never shipped to the client.
-import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { compareAssessments, explainAssessment } from './scoring';
 import type { ExplainResult } from '../shared/scoring/engine';
 import { gapReason, interpretSubScore, tierMeaning } from '../shared/scoring/interpret';
 import { buildCimPayload, composeCim, composeManagementPresentation, composeTeaser } from './cim';
-import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
-import { resolvePromptBody } from './prompt-registry';
+import { runGroundedGeneration } from './intelligence/runtime';
 import { getAgentOrThrow } from './agents/registry';
+
+// The numeral firewall and citation contract moved to the shared intelligence
+// runtime (server/intelligence/guards.ts). Re-exported here so the many external
+// importers that reach for them via './narrative' (the bench, tests, and the
+// diligence/institutional seams) keep working unchanged.
+export { numeralPostCheck, citationPostCheck } from './intelligence/guards';
+import type { GeneratedText, GenerateFn } from './intelligence/runtime';
+export type { GeneratedText, GenerateFn };
 
 // prompt_version + rule-based-model label come from the agent registry (the single
 // source of truth) rather than local literals. The values are byte-identical to
 // the constants that lived here — this is pure indirection, no behavior change.
 const OWNER_REPORT_AGENT = getAgentOrThrow('owner_report');
 const PROMPT_VERSION = OWNER_REPORT_AGENT.promptVersion;
-const MODEL = 'claude-opus-4-8';
 // Model label stored on documents written by the deterministic composer, so a
 // reader can always tell a rule-based report from an AI-drafted one.
 const RULE_BASED_MODEL = OWNER_REPORT_AGENT.ruleBasedModel;
-
-export interface GeneratedText {
-  text: string;
-  model: string;
-}
-
-// Injectable for tests; the default calls the Claude API.
-export type GenerateFn = (systemPrompt: string, userContent: string) => Promise<GeneratedText>;
 
 // Every generated document is persisted the same way: look up the owning
 // firm/engagement from the assessment, then insert one row into
@@ -66,28 +63,6 @@ async function persistGeneratedDocument(
     ],
   );
   return row.rows[0];
-}
-
-async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  const provider = resolveProvider();
-  if (!provider) {
-    throw new Error(
-      'narrative service not configured: set AI_GATEWAY_API_KEY in the server environment',
-    );
-  }
-  const response = await provider.client.messages.create({
-    model: provider.modelFor(MODEL),
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userContent }],
-  });
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
-  if (!text) throw new Error(`narrative generation returned no text (${response.stop_reason})`);
-  return { text, model: response.model };
 }
 
 // --- Payload (the only numbers the model may use) ------------------------------
@@ -167,67 +142,6 @@ export async function buildOwnerReportPayload(db: pg.ClientBase, assessmentId: s
           }
         : { comparable: false, reason: comparison.reason },
   };
-}
-
-// --- Numeral post-check (docs/04, amended S4.5 B2) ------------------------------
-// Strict: every numeral in the output must appear in the input payload.
-// Whitelist: years, markdown list numbering, and numbers present in the payload.
-
-const NUMERAL = /\d+(?:\.\d+)?/g;
-
-export function numeralPostCheck(outputMd: string, payload: unknown): string[] {
-  const allowed = new Set<string>(JSON.stringify(payload).match(NUMERAL) ?? []);
-  const violations: string[] = [];
-  for (const line of outputMd.split('\n')) {
-    // markdown list numbering ("1. ..." / "2) ...") is whitelisted
-    const body = line.replace(/^\s*\d+[.)]\s/, '');
-    for (const numeral of body.match(NUMERAL) ?? []) {
-      if (allowed.has(numeral)) continue;
-      if (/^(19|20)\d{2}$/.test(numeral)) continue; // years
-      violations.push(numeral);
-    }
-  }
-  return [...new Set(violations)];
-}
-
-// --- Citation contract post-check (docs/sellside-ai/01, "The citation contract")
-// The source-score guard that will police MARKET claims once retrieved market
-// context is injected into a deliverable's payload (a later slice — this is NOT
-// wired into generateDocument yet). It extends the numeral firewall: where
-// numeralPostCheck proves a numeral was in the data, this proves a *market*
-// numeral is rendered ADJACENT to the citation of the passage it came from, so
-// an advisor can put the figure in front of a buyer with its source attached.
-//
-// Rule: for each retrieved passage, take the numerals present in its body (the
-// same NUMERAL regex the firewall uses). Any such market numeral appearing on an
-// output line must have that passage's cite_id on the SAME line — either raw
-// (PLACE-FS-01) or bracketed ([PLACE-FS-01]); both satisfy a substring check.
-// Numerals that are not in any passage body (years, payload figures) are the
-// numeral firewall's job, not this one, so they are never policed here. No
-// passages → nothing to police → []. Pure: no I/O, changes no existing behavior.
-export function citationPostCheck(
-  outputMd: string,
-  marketContext: { passages: { cite_id: string; body: string }[] },
-): string[] {
-  const violations: string[] = [];
-  const passages = marketContext.passages.map((p) => ({
-    cite_id: p.cite_id,
-    numerals: new Set(p.body.match(NUMERAL) ?? []),
-  }));
-  for (const line of outputMd.split('\n')) {
-    const lineNumerals = new Set(line.match(NUMERAL) ?? []);
-    if (lineNumerals.size === 0) continue;
-    for (const passage of passages) {
-      if (line.includes(passage.cite_id)) continue; // cited on this line — fine
-      for (const numeral of passage.numerals) {
-        if (!lineNumerals.has(numeral)) continue;
-        violations.push(
-          `market figure ${numeral} stated without its [${passage.cite_id}] citation`,
-        );
-      }
-    }
-  }
-  return [...new Set(violations)];
 }
 
 // --- Deterministic composer (no API key required) -------------------------------
@@ -349,66 +263,6 @@ export function composeOwnerReport(
 
 // --- generateDocument -----------------------------------------------------------
 
-async function generateWithClaude(
-  db: pg.ClientBase,
-  payload: unknown,
-  generate: GenerateFn,
-  promptVersion: string = PROMPT_VERSION,
-): Promise<GeneratedText> {
-  const systemPrompt = await resolvePromptBody(db, promptVersion);
-  const userContent = `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`;
-
-  // One regeneration on a numeral violation, then fail loudly (docs/04).
-  let generated = await generate(systemPrompt, userContent);
-  let violations = numeralPostCheck(generated.text, payload);
-  if (violations.length > 0) {
-    generated = await generate(
-      systemPrompt,
-      `${userContent}\n\nIMPORTANT: your previous draft used numbers not present in the data (${violations.join(', ')}). Use only numbers from the payload.`,
-    );
-    violations = numeralPostCheck(generated.text, payload);
-    if (violations.length > 0) {
-      throw new Error(
-        `narrative rejected: output contains numerals not present in the input payload: ${violations.join(', ')}`,
-      );
-    }
-  }
-  return generated;
-}
-
-// Pick the generator and produce the text + model label for one document.
-//   - An explicit generator (tests) forces the AI path and stays strict: a
-//     numeral violation throws, so the firewall contract is unchanged.
-//   - Otherwise, when AI is configured, try Claude and FALL BACK to the
-//     deterministic composer on any failure. This is the seamless "no money in
-//     the account" path: an empty gateway balance (or any API error) surfaces
-//     here, we log why, and the report still generates from the composer,
-//     honestly labeled rule-based rather than erroring out.
-//   - Unconfigured → the composer, same as before.
-// composeFallback is lazy so the happy AI path never pays for the composer's
-// extra queries.
-async function pickNarrative(
-  db: pg.ClientBase,
-  payload: unknown,
-  promptVersion: string,
-  ruleBasedModel: string,
-  composeFallback: () => string | Promise<string>,
-  generate?: GenerateFn,
-): Promise<GeneratedText> {
-  if (generate) return generateWithClaude(db, payload, generate, promptVersion);
-  if (aiConfigured()) {
-    try {
-      return await generateWithClaude(db, payload, callClaude, promptVersion);
-    } catch (err) {
-      console.warn(
-        `narrative ${promptVersion}: AI generation failed (${aiFailureReason(err)}); ` +
-          'falling back to the deterministic composer',
-      );
-    }
-  }
-  return { text: await composeFallback(), model: ruleBasedModel };
-}
-
 export async function generateDocument(
   db: pg.ClientBase,
   assessmentId: string,
@@ -431,14 +285,14 @@ export async function generateDocument(
 
   const payload = await buildOwnerReportPayload(db, assessmentId);
 
-  const { text, model } = await pickNarrative(
+  const { text, model } = await runGroundedGeneration({
     db,
-    payload,
-    PROMPT_VERSION,
-    RULE_BASED_MODEL,
-    async () => composeOwnerReport(payload, await explainAssessment(db, assessmentId)),
+    promptVersion: PROMPT_VERSION,
+    ruleBasedModel: RULE_BASED_MODEL,
+    userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: async () => composeOwnerReport(payload, await explainAssessment(db, assessmentId)),
     generate,
-  );
+  });
 
   return persistGeneratedDocument(db, {
     assessmentId,
@@ -653,14 +507,14 @@ async function generateDeltaReport(
 ) {
   const payload = await buildDeltaReportPayload(db, currentAssessmentId);
 
-  const { text, model } = await pickNarrative(
+  const { text, model } = await runGroundedGeneration({
     db,
-    payload,
-    DELTA_PROMPT_VERSION,
-    DELTA_REPORT_AGENT.ruleBasedModel,
-    () => composeDeltaReport(payload),
+    promptVersion: DELTA_PROMPT_VERSION,
+    ruleBasedModel: DELTA_REPORT_AGENT.ruleBasedModel,
+    userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeDeltaReport(payload),
     generate,
-  );
+  });
 
   return persistGeneratedDocument(db, {
     assessmentId: currentAssessmentId,
@@ -683,14 +537,14 @@ const CIM_PROMPT_VERSION = CIM_AGENT.promptVersion;
 async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  const { text, model } = await pickNarrative(
+  const { text, model } = await runGroundedGeneration({
     db,
-    payload,
-    CIM_PROMPT_VERSION,
-    CIM_AGENT.ruleBasedModel,
-    () => composeCim(payload),
+    promptVersion: CIM_PROMPT_VERSION,
+    ruleBasedModel: CIM_AGENT.ruleBasedModel,
+    userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeCim(payload),
     generate,
-  );
+  });
 
   return persistGeneratedDocument(db, {
     assessmentId,
@@ -714,14 +568,14 @@ const TEASER_PROMPT_VERSION = TEASER_AGENT.promptVersion;
 async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  const { text, model } = await pickNarrative(
+  const { text, model } = await runGroundedGeneration({
     db,
-    payload,
-    TEASER_PROMPT_VERSION,
-    TEASER_AGENT.ruleBasedModel,
-    () => composeTeaser(payload),
+    promptVersion: TEASER_PROMPT_VERSION,
+    ruleBasedModel: TEASER_AGENT.ruleBasedModel,
+    userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeTeaser(payload),
     generate,
-  );
+  });
 
   return persistGeneratedDocument(db, {
     assessmentId,
@@ -738,14 +592,14 @@ const MGMT_PROMPT_VERSION = MGMT_AGENT.promptVersion;
 async function generateManagementPresentation(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
 
-  const { text, model } = await pickNarrative(
+  const { text, model } = await runGroundedGeneration({
     db,
-    payload,
-    MGMT_PROMPT_VERSION,
-    MGMT_AGENT.ruleBasedModel,
-    () => composeManagementPresentation(payload),
+    promptVersion: MGMT_PROMPT_VERSION,
+    ruleBasedModel: MGMT_AGENT.ruleBasedModel,
+    userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeManagementPresentation(payload),
     generate,
-  );
+  });
 
   return persistGeneratedDocument(db, {
     assessmentId,

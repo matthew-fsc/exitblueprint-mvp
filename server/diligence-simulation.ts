@@ -23,12 +23,9 @@
 //     (rule 2). Every run narrative is labeled DRAFT and carries a prompt_version.
 //   * Runs are immutable snapshots (rule 4): a run and its findings are inserted
 //     once and never updated; re-running produces a NEW run (rule 6 versioning).
-import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { explainAssessment } from './scoring';
-import { numeralPostCheck, type GenerateFn, type GeneratedText } from './narrative';
-import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
-import { resolvePromptBody } from './prompt-registry';
+import { runGroundedGeneration, withDraftBanner, type GenerateFn } from './intelligence/runtime';
 import { fireAdvisoryItems } from './advisory';
 import { buildInstitutionalReviewPayload, type ReviewPayload } from './institutional-review';
 import { getAgentOrThrow } from './agents/registry';
@@ -38,7 +35,6 @@ import { getAgentOrThrow } from './agents/registry';
 // the constants that lived here — pure indirection, no behavior change.
 const DILIGENCE_AGENT = getAgentOrThrow('diligence_simulation');
 const PROMPT_VERSION = DILIGENCE_AGENT.promptVersion;
-const MODEL = 'claude-opus-4-8';
 // Model label stored on a run drafted by the deterministic composer, so a reader
 // can always tell a rule-based narrative from an AI-drafted one.
 const RULE_BASED_MODEL = DILIGENCE_AGENT.ruleBasedModel;
@@ -349,10 +345,6 @@ export function buildNarrativePayload(
   };
 }
 
-function withDraftBanner(text: string): string {
-  return text.startsWith(DRAFT_BANNER) ? text : `${DRAFT_BANNER}\n\n${text}`;
-}
-
 // Rule-based narrative — invents nothing, computes nothing (rule 1/2-safe). Every
 // numeral it emits is a payload numeral, so numeralPostCheck(compose(p), p) is
 // empty by construction. Always available (demos, key-less environments).
@@ -395,59 +387,7 @@ export function composeDiligenceNarrative(payload: NarrativePayload): string {
     `Treat the ranked items above as a diligence rehearsal${window}. Each is a question to answer, or a gap to close, before the market asks. Legal and tax structure belong with the advisor and counsel; this simulation does not opine on them.`,
   );
 
-  return withDraftBanner(lines.join('\n'));
-}
-
-// ── AI generation (injectable generator + numeral firewall) ────────────────────
-
-async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  const provider = resolveProvider();
-  if (!provider) {
-    throw new Error(
-      'diligence simulation service not configured: set AI_GATEWAY_API_KEY in the server environment',
-    );
-  }
-  const response = await provider.client.messages.create({
-    model: provider.modelFor(MODEL),
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userContent }],
-  });
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
-  if (!text) throw new Error(`diligence simulation returned no text (${response.stop_reason})`);
-  return { text, model: response.model };
-}
-
-// Read the versioned prompt, generate, enforce the numeral firewall (one
-// regeneration, then fail loudly), and stamp the DRAFT banner. Mirrors
-// narrative.ts / institutional-review.ts exactly.
-async function narrativeWithGenerator(
-  db: pg.ClientBase,
-  payload: NarrativePayload,
-  generate: GenerateFn,
-): Promise<GeneratedText> {
-  const systemPrompt = await resolvePromptBody(db, PROMPT_VERSION);
-  const userContent = `Diligence simulation data (JSON):\n${JSON.stringify(payload, null, 2)}`;
-
-  let generated = await generate(systemPrompt, userContent);
-  let violations = numeralPostCheck(generated.text, payload);
-  if (violations.length > 0) {
-    generated = await generate(
-      systemPrompt,
-      `${userContent}\n\nIMPORTANT: your previous draft used numbers not present in the data (${violations.join(', ')}). Use only numbers from the payload, and never compute a number of your own.`,
-    );
-    violations = numeralPostCheck(generated.text, payload);
-    if (violations.length > 0) {
-      throw new Error(
-        `diligence simulation rejected: output contains numerals not present in the input payload: ${violations.join(', ')}`,
-      );
-    }
-  }
-  return { text: withDraftBanner(generated.text), model: generated.model };
+  return withDraftBanner(lines.join('\n'), DRAFT_BANNER);
 }
 
 // ── Run (persist an immutable snapshot) & read (latest) ─────────────────────────
@@ -486,27 +426,20 @@ export async function draftAndPersistRun(
 ): Promise<DiligenceRunView> {
   const payload = buildNarrativePayload(context, findings);
 
-  let narrative: string;
-  let model: string;
-  if (generate) {
-    ({ text: narrative, model } = await narrativeWithGenerator(db, payload, generate));
-  } else if (aiConfigured()) {
-    // Try the gateway; on any failure (e.g. empty balance) fall back to the
-    // deterministic composer so a run always produces — matching narrative.ts.
-    try {
-      ({ text: narrative, model } = await narrativeWithGenerator(db, payload, callClaude));
-    } catch (err) {
-      console.warn(
-        `diligence simulation ${PROMPT_VERSION}: AI generation failed (${aiFailureReason(err)}); ` +
-          'falling back to the deterministic composer',
-      );
-      narrative = composeDiligenceNarrative(payload);
-      model = RULE_BASED_MODEL;
-    }
-  } else {
-    narrative = composeDiligenceNarrative(payload);
-    model = RULE_BASED_MODEL;
-  }
+  // The shared intelligence runtime owns the pick/firewall/fallback contract; this
+  // module keeps its own immutable-run persistence below. The label, regen
+  // instruction, and DRAFT banner reproduce this pipeline's exact prior wording.
+  const { text: narrative, model } = await runGroundedGeneration({
+    db,
+    promptVersion: PROMPT_VERSION,
+    ruleBasedModel: RULE_BASED_MODEL,
+    userContent: `Diligence simulation data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeDiligenceNarrative(payload),
+    draftBanner: DRAFT_BANNER,
+    generate,
+    label: 'diligence simulation',
+    regenInstruction: 'Use only numbers from the payload, and never compute a number of your own.',
+  });
 
   // Persist the immutable snapshot: one run row + one row per finding, atomically.
   await db.query('begin');
