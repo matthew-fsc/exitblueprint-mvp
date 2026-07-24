@@ -81,6 +81,45 @@ user.
 - `DataTable` keeps its own built-in `loading`/`error`/`empty` props — don't wrap
   a table in `AsyncBoundary`.
 
+## Overflow & spacing protection — never let content escape or touch
+The two defects that keep recurring: content **overflowing** its container (an
+input wider than its card, a long email / URL / id / snake_case key forcing the
+page to scroll sideways, a table or code block blowing out the layout) and items
+**touching** with no gap. There is now one documented defensive layer for both —
+the "Overflow & spacing protection" section in `styles.css`. **Use it; don't
+hand-roll overflow CSS or an inline width.**
+
+**Global guards (already on, nothing to do).** `input/select/textarea` are capped
+at `max-width:100%`; `textarea` resizes vertical-only; `img/svg/video/canvas` are
+capped at `max-width:100%`; raw `<pre>` scrolls in its own box. You get these for
+free — don't re-declare them.
+
+**The overflow trap you must still handle: the flex row.** A flex/grid child
+defaults to `min-width:auto`, so a long name/value **stretches the row wider than
+its parent** instead of truncating. This is the #1 UI bug in this codebase. The fix:
+
+- **`.min-w-0`** on the text column of a `justify-content:space-between` row (and on
+  *every* flex ancestor up to the row edge — one level is often not enough). This
+  lets it shrink so the text can truncate/wrap.
+- **`.truncate`** — single-line ellipsis (self-applies `min-width:0`, still needs
+  `.min-w-0` ancestors). **`.clamp-2` / `.clamp-3`** — multi-line clamp.
+- **`.break-anywhere`** — on the element holding a raw machine string (URL, email,
+  id, storage path, API key) so it breaks instead of pushing the container wider.
+- **`.scroll-x`** — wrap any wide block (chart, non-`DataTable` table, code) so it
+  scrolls inside itself. (Data tables already have `.ui-table-wrap`; a fixed input
+  width goes through `MoneyInput`/`.numfield`, which are already safe.)
+- **Flex controls float on a floor, not a wall.** An input/select in a flex row
+  wants `flex: 1 1 <preferred>; min-width: 0`, never a bare `min-width:<Npx>` —
+  the floor keeps it from shrinking and it overflows on narrow widths.
+
+**Spacing primitives — items never touch.** `.cluster` is the canonical horizontal
+group (wraps, always keeps `--gap-tight`; `.cluster-tight`/`.cluster-sm` tune the
+gap, `.cluster-between` pushes the ends apart) — reach for it for any row of chips,
+buttons, tags, or inline meta instead of a bare `display:flex`. `.stack` /
+`.stack-sm` / `.stack-lg` are the vertical rhythms; a stack's `gap` is the single
+source of spacing between blocks, so blocks never butt together. **A horizontal
+group of items always has a `gap` and (unless deliberately single-line) `flex-wrap`.**
+
 ## Formatting — always via `src/lib/format.ts`
 `fmtCurrency` / `fmtCurrencyCompact`, `fmtScore`, `fmtDelta`, `fmtDate`, and —
 for anything coming from the DB — **`humanizeKey`** (snake_case → label; machine
@@ -89,10 +128,13 @@ currency, ratio → %, other numbers → separators). No raw integers or snake_c
 in the UI.
 
 ## Utilities
-`.text-xs/-sm/-md`, `.m-0`, `.mt-0`, `.muted`, `.eyebrow`. Utilities are for
-one-off nudges; a recurring need becomes a token or a component, not a repeated
-inline `style`. (Inline `style` stays only for genuinely dynamic values — chart
-geometry, computed widths.)
+Text/margin: `.text-xs/-sm/-md`, `.m-0`, `.mt-0`, `.muted`, `.eyebrow`.
+Overflow: `.min-w-0`, `.truncate`, `.clamp-2/-3`, `.break-anywhere`, `.scroll-x`.
+Spacing: `.cluster` (+ `.cluster-tight/-sm/-between`), `.stack/-sm/-lg`. See
+"Overflow & spacing protection" above for when to reach for each. Utilities are
+for one-off nudges; a recurring need becomes a token or a component, not a
+repeated inline `style`. (Inline `style` stays only for genuinely dynamic values
+— chart geometry, computed widths.)
 
 ## Theming
 Light/dark via `:root[data-theme]` + `prefers-color-scheme`. Every color is a
