@@ -3,8 +3,8 @@ REV-RECUR-PCT,REV,What percentage of TTM revenue is contractually recurring or s
 REV-TOP5-SHARES,REV,"List the top five customers' share of TTM revenue as percentages, largest first.",numeric_list,,True,2
 REV-CONTRACT-CUST-PCT,REV,"What percentage of active customers have a signed contract, MSA, or retainer in place?",numeric,,True,3
 REV-CONTRACT-AVG-MO,REV,"Average remaining contract term across contracted customers, in months.",numeric,,True,4
-REV-ANNUAL,REV,"Annual revenue for the last four fiscal years, oldest first.",numeric_list,,True,5
-REV-NRR,REV,Net revenue retention for the most recent year (%). Enter 'unknown' if not tracked.,numeric_or_unknown,,True,6
+REV-ANNUAL,REV,"Annual revenue for the last four years, oldest first.",numeric_list,,True,5
+REV-NRR,REV,Revenue retention on recurring revenue for the most recent year (%). Enter 'unknown' if not tracked.,numeric_or_unknown,,True,6
 REV-STREAMS-CTX,REV,Walk through the top three revenue streams: stability and what would cause each to decline.,text,,False,7
 REV-PRICING-CTX,REV,How would revenue be impacted by a 10-15% price increase?,select,minimal_churn|some_churn|major_churn|unknown,False,8
 REV-FOUNDER-CTX,REV,Which revenue streams depend on the founder's personal relationships?,text,,False,9
@@ -14,6 +14,8 @@ FIN-RECON,FIN,How often are books reconciled against bank statements?,select,mon
 FIN-ADDBACK-DOC,FIN,"How well documented are EBITDA addbacks (owner comp basis, personal expenses, one-time items)?",select,fully_documented|mostly_documented|partially_documented|undocumented,True,2
 FIN-BASIS,FIN,Accounting basis and revenue recognition consistency.,select,accrual_consistent|cash_with_bridge|cash_mixed|unreconcilable,True,3
 FIN-STATEMENTS,FIN,Which financial statements are produced and internally consistent?,select,all_three|pl_and_bs|pl_only|spreadsheet_only,True,4
+FIN-CASHFLOW-13WK,FIN,Are you producing a rolling 13-week cash flow forecast?,select,yes|no,False,9
+FIN-CASHFLOW-CYCLICAL,FIN,Is your cash flow cyclical or seasonal?,select,yes|no,False,10
 FIN-HISTORY-CTX,FIN,Is 36+ months of financial history available?,select,yes_clean|yes_gaps|no,False,5
 FIN-RELPARTY-CTX,FIN,"Describe any related-party transactions (owner-affiliated rent, family salaries, affiliated vendors).",text,,False,6
 FIN-ONETIME-CTX,FIN,Describe any one-time revenue items or non-recurring expenses in the reported period.,text,,False,7
@@ -29,7 +31,8 @@ OPS-KEYREL-CTX,OPS,Which customer relationships are personally owned by the foun
 OPS-LICENSE-DEP,OPS,"Does operating the business depend on a license, certification, CON, or franchise that may not transfer automatically to a buyer?",select,no|transfers_easily|requires_requalification|may_not_transfer,False,9
 CUS-TENURE,CUS,"Average length of an active customer relationship, in years.",numeric,,True,1
 CUS-REV-CONTRACT-PCT,CUS,Percentage of active revenue covered by formal contracts.,numeric,,True,2
-CUS-CHURN,CUS,Annual revenue churn rate from customer losses (%). ,numeric,,True,3
+CUS-CHURN,CUS,Annual revenue churn from recurring revenue (%).,numeric,,True,3
+CUS-CLIENTS-CHURNED,CUS,Number of clients lost to churn in the last 12 months.,numeric,,False,7
 CUS-COC-CTX,CUS,Any termination-for-convenience or change-of-control clauses in key customer contracts?,select,none|some_unreviewed|yes_material,False,4
 CUS-SIGNALS-CTX,CUS,Have any customers given notice they are evaluating alternatives or reducing scope?,select,no|one_minor|yes_material,False,5
 CUS-TOP5-CTX,CUS,Top five customers: names and contract terms with each.,text,,False,6
@@ -41,12 +44,12 @@ MGT-FLIGHT-CTX,MGT,Has any key manager indicated they would leave in the event o
 EMPLOYEE-COUNT,MGT,How many non-owner employees does the business have (full-time equivalent)?,numeric,,False,7
 MGT-CFO-CTX,MGT,"Who is responsible for the numbers (CFO, controller, bookkeeper, owner)?",text,,False,6
 GRW-PIPELINE,GRW,"Estimated dollar value of qualified pipeline (identified need, budget, timeline). Enter 0 if no formal pipeline.",numeric,,True,1
-GRW-POSITIONING,GRW,"Market positioning: defined ICP, clear differentiation, repeatable sales motion.",select,strong_defined|moderate|undifferentiated_unclear,True,2
+GRW-POSITIONING,GRW,"Market positioning: defined ideal customer profile, clear differentiation, repeatable sales motion.",select,strong_defined|moderate|undifferentiated_unclear,True,2
 GRW-REPEAT-PCT,GRW,"Percentage of revenue from standardized, repeatable offerings vs fully custom work.",numeric,,True,3
 GRW-INVEST-CTX,GRW,What investments are required to sustain current growth?,text,,False,4
 GRW-EXPAND-CTX,GRW,"Untapped markets or geographies, and what limits expansion?",text,,False,5
 GOL-STAY,GOL,Do you want to stay on or leave after selling?,select,stay_longterm|transition_period|leave_immediately,False,1
-GOL-PATH,GOL,Preferred exit path.,select,third_party|mgmt_employee|partner|family|step_back_retain,False,2
+GOL-PATH,GOL,Rank your preferred exit paths from most to least preferred.,rank,third_party|mgmt_employee|partner|family|step_back_retain,False,2
 GOL-PRIORITIES,GOL,Rank outcome priorities.,rank,max_price|protect_employees|legacy|family_ownership|exit_quickly|reduce_risk|ongoing_income,False,3
 GOL-TIMELINE,GOL,How quickly do you want to exit?,select,under_12mo|one_2yr|two_3yr|three_plus_yr,True,4
 PFN-DEPEND,PFN,How dependent is your future lifestyle on achieving a specific sale price? (1 fully dependent - 5 not dependent),scale_1_5,,True,1

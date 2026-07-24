@@ -157,9 +157,20 @@ export default function IntakePage() {
     [rubric],
   );
   const answeredCount = scoredQuestions.filter(isAnswered).length;
+  const remainingCount = scoredQuestions.length - answeredCount;
   const progressPct = scoredQuestions.length
     ? Math.round((answeredCount / scoredQuestions.length) * 100)
     : 0;
+  // A single, state-aware nudge that pushes the assessment toward completion
+  // (docs/archive/34): empty -> orient, in-progress -> count down, done -> submit.
+  const progressNudge =
+    scoredQuestions.length === 0
+      ? null
+      : remainingCount === 0
+        ? 'Every question is answered — submit below to generate the readiness score.'
+        : answeredCount === 0
+          ? 'Answer each question to build the readiness score. You can save and return anytime.'
+          : `${remainingCount} question${remainingCount === 1 ? '' : 's'} left to unlock the score — keep going.`;
 
   const saveStep = async (): Promise<void> => {
     const savedByQuestion = new Map((answersQ.data ?? []).map((a) => [a.question_id, a.value]));
@@ -285,13 +296,23 @@ export default function IntakePage() {
         {engagementId && <EngagementNav engagementId={engagementId} />}
       </header>
 
-      <div className="intake-progress">
-        <div className="intake-progress-track">
-          <div className="intake-progress-fill" style={{ width: `${progressPct}%` }} />
+      <div
+        className={`intake-progress ${progressPct === 100 ? 'intake-progress-complete' : ''}`}
+        role="progressbar"
+        aria-valuenow={progressPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Assessment completion"
+      >
+        <div className="intake-progress-bar">
+          <div className="intake-progress-track">
+            <div className="intake-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <span className="intake-progress-label muted">
+            {answeredCount} of {scoredQuestions.length} answered · {progressPct}%
+          </span>
         </div>
-        <span className="intake-progress-label muted">
-          {answeredCount} of {scoredQuestions.length} answered
-        </span>
+        {progressNudge && <p className="intake-progress-nudge">{progressNudge}</p>}
       </div>
 
       {/* Carried forward from the prior assessment (docs/archive/34 C1): re-assessments
