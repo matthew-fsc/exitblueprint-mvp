@@ -86,12 +86,24 @@ export interface FactsCarryCitationCheck {
   factsPath?: string;
 }
 
+/** Every MARKET figure stated in the output must be cited: a numeral drawn from a
+ *  retrieved market passage must appear on the same line as that passage's
+ *  [cite_id]. Runs the citation contract (server/intelligence/guards.ts
+ *  citationPostCheck) over the payload's `market_context` passages. "Fired" means
+ *  an uncited market figure was found. Used as a NEGATIVE source criterion
+ *  (traceability). No `market_context` in the payload → nothing to police → does
+ *  not fire (graceful — a deliverable with no market grounding is not penalized). */
+export interface UncitedMarketFigureCheck {
+  type: 'uncited_market_figure';
+}
+
 export type BenchCheck =
   | NoHallucinatedNumberCheck
   | MustNotContainCheck
   | MustContainAnyCheck
   | PayloadFieldPresentCheck
-  | FactsCarryCitationCheck;
+  | FactsCarryCitationCheck
+  | UncitedMarketFigureCheck;
 
 /** A SUBJECTIVE criterion no regex can grade ("explains why a buyer cares in
  *  plain language"). It is NOT a deterministic BenchCheck: the pure CI grader
@@ -211,6 +223,15 @@ const CHECKS: {
       )
       .map((f) => ({ cite_id: String(f.cite_id), body: String(f.body) }));
     // Fired = at least one stated figure lacks its passage's [cite_id] on the line.
+    return citationPostCheck(markdown, { passages }).length > 0;
+  },
+
+  uncited_market_figure: (markdown, payload) => {
+    // The payload's market_context (server/cim.ts CimPayload) holds the retrieved,
+    // cited passages; citationPostCheck flags any market figure stated without its
+    // [cite_id] on the same line. No market_context → no passages → no violations.
+    const passages =
+      (payload as { market_context?: { cite_id: string; body: string }[] }).market_context ?? [];
     return citationPostCheck(markdown, { passages }).length > 0;
   },
 };

@@ -51,6 +51,7 @@ A developer index: the durable features and the files that own them. Pair with
 | **Plans** (bundles of Library items) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |
 | **Deliverables studio** (owner report · delta · CIM) | `src/pages/DeliverablesPage.tsx` · `src/components/DocumentCurator.tsx` · `shared/documents/catalog.ts` · `server/documents/catalog.ts` | 17 §5 |
 | CIM (readiness + generation) | `shared/cim/template.ts`, `server/cim.ts` | 17 §5 |
+| **Market-cited deliverables** (CIM/teaser/mgmt-presentation ground on licensed market context — `retrieveCimMarketContext` → `marketSource`; the wired `citation_contract` on the AI path + cited market blocks in the composers; Bench `uncited_market_figure` source check) | `server/cim.ts` · `server/narrative.ts` (`generateCim/Teaser/Management*`) · `prompts/{cim,teaser,management_presentation}.v1.md` · `server/llm/evals/rubrics/{cim,teaser}.baseline.json` | sellside-ai/05 |
 | Narrative (AI, draft-only) | `server/narrative.ts` | 04 |
 | **Buyer lens + Diligence simulation** (institutional reviewer → ranked, persisted blind-spot report) | `server/institutional-review.ts` · `server/diligence-simulation.ts` · `prompts/diligence_simulation.v1.md` · `diligence_simulation_runs`/`_findings` · `src/pages/BuyerLensPage.tsx` | 20, 40 §3, 04 |
 | Valuation & comparables | `server/valuation.ts`, `server/comparables.ts` | 17 §4 |

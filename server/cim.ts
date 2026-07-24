@@ -22,6 +22,8 @@ import { computeValuation } from './valuation';
 import { listDataRoom, type DataRoomState } from './data-room';
 import { interpretSubScore } from '../shared/scoring/interpret';
 import { CIM_SECTIONS, type CimSectionDef } from '../shared/cim/template';
+import { marketSource, type GroundedPassage } from './intelligence/retrieval';
+import { marketIndustryKey, marketSizeBand } from '../shared/market-keys';
 
 // --- Evidence coverage (posture) ---------------------------------------------
 
@@ -163,6 +165,48 @@ export interface CimPayload {
   verified_evidence: string[];
   // The section scaffold (structure + guidance) the composer/prompt writes to.
   sections: { code: string; name: string; guidance: string }[];
+  // Retrieved, cited market-context passages (server/intelligence/retrieval.ts
+  // marketSource) that ground the buyer-facing document in the sector's licensed
+  // market data. Every market FIGURE the composer or the AI states must carry its
+  // [cite_id] on the same line (the citation contract, enforced by the runtime on
+  // the AI path and by construction in the composer). Empty — or absent on a payload
+  // literal built before this field existed — when no licensed market data resolves
+  // for the company's sector/size, in which case the citation guard simply no-ops.
+  market_context?: GroundedPassage[];
+}
+
+// Buyer-facing deliverables ground on aggregate, directional sector references —
+// the SAME exposure the market-context registry endpoint uses. An aggregate market
+// range with its citation is licensed use for any dataset; row-level/third-party
+// display is a stricter intent this path never needs. Kept small: a handful of
+// cited passages is enough context for a marketing document.
+const CIM_MARKET_EXPOSURE = 'aggregate_only' as const;
+const CIM_MARKET_LIMIT = 4;
+
+// Resolve the subject's sector/size into the valuation key-space (shared/market-keys.ts
+// — the SAME buckets the valuation table and own-book use) and retrieve the top
+// cited market passages. GRACEFUL BY DESIGN (rule: never throw for lack of market
+// data): any failure, or an environment with no market schema, yields [] so a
+// CIM/teaser/management deck always generates and the citation contract no-ops.
+export async function retrieveCimMarketContext(
+  db: pg.ClientBase,
+  company: { industry: string | null; revenue_band: string | null },
+): Promise<GroundedPassage[]> {
+  try {
+    const { passages } = await marketSource(db, {
+      industryKey: marketIndustryKey(company.industry),
+      sizeBand: marketSizeBand(company.revenue_band),
+      exposure: CIM_MARKET_EXPOSURE,
+      limit: CIM_MARKET_LIMIT,
+    });
+    return passages;
+  } catch (err) {
+    console.warn(
+      `cim market context unavailable (${err instanceof Error ? err.message : String(err)}); ` +
+        'proceeding without market grounding',
+    );
+    return [];
+  }
 }
 
 // Strong sub-scores read as buyer-relevant facts; a weak one inside an otherwise
@@ -231,6 +275,14 @@ export async function buildCimPayload(db: pg.ClientBase, assessmentId: string): 
     .filter((i) => i.readiness_state === 'ready')
     .map((i) => i.label);
 
+  // Licensed market context for the sector/size, each passage cited. Graceful:
+  // resolves to [] when no market data is available, so the deliverable still
+  // generates and the citation contract no-ops.
+  const market_context = await retrieveCimMarketContext(db, {
+    industry: company.industry ?? null,
+    revenue_band: company.revenue_band ?? null,
+  });
+
   return {
     company: {
       name: company.name,
@@ -247,6 +299,7 @@ export async function buildCimPayload(db: pg.ClientBase, assessmentId: string): 
       name: s.name,
       guidance: s.narrativeGuidance,
     })),
+    market_context,
   };
 }
 
@@ -265,6 +318,24 @@ export function fmtCompactUsd(n: number): string {
   if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
   if (abs >= 1_000) return `$${Math.round(n / 1_000)}K`;
   return `$${Math.round(n)}`;
+}
+
+// Render the retrieved market passages as a cited block. Each figure is stated on
+// the SAME line as its bracketed [cite_id] (mirroring prompts/diligence_qa.v1.md
+// and the AI-path citation contract), so the deterministic fallback is
+// citation-valid by construction: citationPostCheck sees every market numeral
+// beside its source. Numeral-firewall-safe too — every numeral emitted comes from
+// a passage body/citation, which live in the payload. Empty passages → no block.
+function marketContextLines(passages: readonly GroundedPassage[] | undefined): string[] {
+  if (!passages || passages.length === 0) return [];
+  const lines: string[] = ['## Market Context'];
+  lines.push(
+    'The following figures are drawn from licensed market references. Each is stated with its source citation so a buyer can attribute it.',
+  );
+  for (const p of passages) {
+    lines.push(`- ${p.body} (${p.citation}) [${p.cite_id}]`);
+  }
+  return lines;
 }
 
 export function composeCim(payload: CimPayload): string {
@@ -329,6 +400,13 @@ export function composeCim(payload: CimPayload): string {
     lines.push('');
   }
 
+  // Market context — cited sector references, each figure beside its [cite_id].
+  const market = marketContextLines(payload.market_context);
+  if (market.length > 0) {
+    lines.push(...market);
+    lines.push('');
+  }
+
   return lines.join('\n').trimEnd();
 }
 
@@ -389,6 +467,15 @@ export function composeTeaser(payload: CimPayload): string {
   }
   if (company.revenue_band) lines.push(`Reported revenue is in the ${company.revenue_band} range.`);
   lines.push('');
+
+  // Market context — sector-level references only (no identity), each figure
+  // beside its [cite_id]. Safe in a blind profile: it describes the market, not
+  // the company.
+  const market = marketContextLines(payload.market_context);
+  if (market.length > 0) {
+    lines.push(...market);
+    lines.push('');
+  }
 
   // Next step — the whole point of a teaser is to route an interested buyer to
   // the NDA and the full memorandum.
@@ -473,6 +560,12 @@ export function composeManagementPresentation(payload: CimPayload): string {
   if (payload.verified_evidence.length > 0) {
     lines.push(`- Diligence-ready materials include: ${payload.verified_evidence.slice(0, 6).join('; ')}.`);
   }
+  lines.push('');
+
+  // Market context — cited sector references to frame the equity story, each
+  // figure beside its [cite_id].
+  const market = marketContextLines(payload.market_context);
+  if (market.length > 0) lines.push(...market);
 
   return lines.join('\n').trimEnd();
 }
