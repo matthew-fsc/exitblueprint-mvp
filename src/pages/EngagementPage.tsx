@@ -68,6 +68,7 @@ import {
 } from '../components/ui';
 import { EngagementTeamCard } from '../components/EngagementTeamCard';
 import { EngagementComments } from '../components/EngagementComments';
+import { SendToClientButton } from '../components/SendToClientButton';
 import { fmtDate, fmtScore, humanizeKey } from '../lib/format';
 
 // Methodology target: "Competitive Process Ready" at DRS 85 (docs/07). Shown as
@@ -522,9 +523,17 @@ export default function EngagementPage() {
             </button>
           ) : (
             inProgress && (
-              <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
-                Resume intake →
-              </Link>
+              <span className="cluster" style={{ gap: 'var(--space-3)' }}>
+                <SendToClientButton
+                  assessmentId={inProgress.id}
+                  companyId={engagement.company_id}
+                  sharedAt={inProgress.shared_with_client_at}
+                  submittedAt={inProgress.client_submitted_at}
+                />
+                <Link className="button-link" to={`/assessment/${inProgress.id}/intake`}>
+                  Resume intake →
+                </Link>
+              </span>
             )
           )
         }

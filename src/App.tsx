@@ -33,6 +33,7 @@ const BuyersPage = lazy(() => import('./pages/BuyersPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
 const ValuationPage = lazy(() => import('./pages/ValuationPage'));
 const OwnerHomePage = lazy(() => import('./pages/owner/OwnerHomePage'));
+const OwnerIntakePage = lazy(() => import('./pages/owner/OwnerIntakePage'));
 const OwnerPlanPage = lazy(() => import('./pages/owner/OwnerPlanPage'));
 const OwnerLearnPage = lazy(() => import('./pages/owner/OwnerLearnPage'));
 const OwnerDocumentsPage = lazy(() => import('./pages/owner/OwnerDocumentsPage'));
@@ -651,6 +652,10 @@ export default function App() {
           <Route path="/settings" element={<Navigate to="/" replace />} />
           <Route path="/settings/billing" element={<Navigate to="/billing" replace />} />
           <Route path="/portal" element={<RequirePortal><OwnerShell><OwnerHomePage /></OwnerShell></RequirePortal>} />
+          {/* The client fills out an assessment the advisor shared to their portal
+              (assessments.shared_with_client_at). Owner-writable via RLS; scoring
+              stays advisor-only. */}
+          <Route path="/portal/assessment/:assessmentId" element={<RequirePortal><OwnerShell><OwnerIntakePage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/plan" element={<RequirePortal><OwnerShell><OwnerPlanPage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/learn" element={<RequirePortal><OwnerShell><OwnerLearnPage /></OwnerShell></RequirePortal>} />
           <Route path="/portal/documents" element={<RequirePortal><OwnerShell><OwnerDocumentsPage /></OwnerShell></RequirePortal>} />

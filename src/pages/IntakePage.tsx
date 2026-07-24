@@ -23,6 +23,8 @@ import {
   toAnswerValue,
   type Draft,
 } from '../lib/answerFields';
+import { saveAnswers } from '../lib/intakeSave';
+import { SendToClientButton } from '../components/SendToClientButton';
 
 export default function IntakePage() {
   const { assessmentId } = useParams();
@@ -174,41 +176,17 @@ export default function IntakePage() {
 
   const saveStep = async (): Promise<void> => {
     const savedByQuestion = new Map((answersQ.data ?? []).map((a) => [a.question_id, a.value]));
-    const rows = [];
-    const overridden: string[] = []; // ledger/doc answers the advisor edited by hand
-    const cleared: string[] = []; // previously-saved answers the advisor emptied
-    for (const q of questions) {
-      const draft = drafts.get(q.id);
-      if (!draft) continue;
-      const value = toAnswerValue(q, draft);
-      if (value === undefined) {
-        // Draft present but empty = the advisor cleared a field that was saved
-        // before. Remove the persisted row (and its provenance) so the DB matches
-        // the emptied UI instead of keeping a stale value the advisor no longer
-        // sees. An untouched (never-saved) question falls through harmlessly.
-        if (savedByQuestion.has(q.id)) cleared.push(q.id);
-        continue;
-      }
-      rows.push({ assessment_id: assessmentId, question_id: q.id, value, answered_by: profile?.id ?? null });
-      const src = provenance[q.id];
-      if (
-        (src === 'connected_ledger' || src === 'document') &&
-        JSON.stringify(value) !== JSON.stringify(savedByQuestion.get(q.id))
-      ) {
-        overridden.push(q.id);
-      }
-    }
-    if (rows.length > 0) {
-      const { error } = await supabase
-        .from('answers')
-        .upsert(rows, { onConflict: 'assessment_id,question_id' });
-      if (error) throw new Error(error.message);
-    }
-    if (cleared.length > 0) {
-      const { error } = await supabase.from('answers').delete().eq('assessment_id', assessmentId).in('question_id', cleared);
-      if (error) throw new Error(error.message);
-    }
-    // A hand-edited or cleared figure is no longer ledger-verified — drop its provenance.
+    // Upsert/delete via the shared core (also used by the owner portal intake).
+    const { changed, cleared } = await saveAnswers({
+      assessmentId: assessmentId!,
+      questions,
+      drafts,
+      savedByQuestion,
+      answeredBy: profile?.id ?? null,
+    });
+    // A hand-edited or cleared figure is no longer ledger-verified — drop its
+    // provenance. `overridden` = changed answers that were ledger/document-sourced.
+    const overridden = changed.filter((id) => provenance[id] === 'connected_ledger' || provenance[id] === 'document');
     const staleProvenance = [...overridden, ...cleared];
     if (staleProvenance.length > 0) {
       await supabase.from('answer_provenance').delete().eq('assessment_id', assessmentId).in('question_id', staleProvenance);
@@ -288,9 +266,19 @@ export default function IntakePage() {
             { label: 'Assessment intake' },
           ]}
           actions={
-            <button className="linkish" onClick={() => navigate(`/engagement/${engagementId}`)}>
-              Save &amp; exit
-            </button>
+            <span className="cluster" style={{ gap: 'var(--space-3)' }}>
+              {assessment && (
+                <SendToClientButton
+                  assessmentId={assessment.id}
+                  companyId={companyId}
+                  sharedAt={assessment.shared_with_client_at}
+                  submittedAt={assessment.client_submitted_at}
+                />
+              )}
+              <button className="linkish" onClick={() => navigate(`/engagement/${engagementId}`)}>
+                Save &amp; exit
+              </button>
+            </span>
           }
         />
         {engagementId && <EngagementNav engagementId={engagementId} />}
