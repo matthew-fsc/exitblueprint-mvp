@@ -52,6 +52,46 @@ tokens, so changing the token restyles every label. **New label → use `.eyebro
   button — don't re-roll a bespoke square-icon control per surface. All size off
   `--control-h` / `--control-h-sm`.
 
+## Structures — the card, row & content skeletons (compose these, don't re-roll)
+Three structural primitives cover almost every panel in the app. The recurring
+mistake is hand-rolling a `.xxx-card` / `.xxx-row` that re-implements one of them
+and drifts — hand-picked padding, a missing `min-width:0`, no `gap`, a raw `px`
+radius. **Reuse the primitive; add a bespoke class only for genuinely new
+structure.**
+
+- **Surface = `Card` / `SectionCard`** (`.ui-card`). One bordered box:
+  `--surface-1` fill, `--border` frame, `--radius` (8px), `--shadow-sm` at rest,
+  `--pad-card` padding. A *titled* panel is a `SectionCard` (eyebrow title +
+  optional subtitle + right-aligned `action`), never `<Card><h3>` or a fresh
+  `.xxx-card`. Padding is `pad="md|lg|flush"`, not a hand-picked rem. Elevation is
+  the border + tonal step — a drop shadow is only `--shadow-lift` (hover/popover),
+  never a resting card.
+
+- **List row = `.eb-list-row`** — the "left info block + trailing chips/actions"
+  record row. Its structure is fixed so it never overflows or lets items touch:
+  `.eb-list-row` (flex · `gap` · `align-items:center` · hairline divider) →
+  `.eb-list-row-main` (the shrinkable `min-width:0` text column) →
+  `.eb-list-row-push` (trailing actions, `margin-left:auto`); it wraps on a phone.
+  Use it for any "name + meta + actions" row instead of a new `.xxx-row`. (Tabular
+  data is a `DataTable`, not a stack of rows; a label→value row is `.list-row`, a
+  `160px 1fr` grid.)
+
+- **Content inside a card:**
+  - **Form field = `.field`** (`.field-label` + control + `.field-hint`) — the
+    vertical label/control/hint group; a row of fields is a `.cluster` or a grid
+    that wraps.
+  - **Vertical rhythm = `.stack` / `.stack-sm` / `.stack-lg`** — a card body is a
+    stack so blocks never butt together.
+  - **Horizontal group = `.cluster`** — chips, buttons, inline meta; always gapped
+    and wrapping (see "Overflow & spacing protection").
+
+**Every card/row shares one token set:** `--radius` for a surface, `--radius-sm`
+for controls/chips, `--shadow-sm` at rest, `--surface-1` fill, `--border` frame,
+`--space-*`/`--pad-card` for padding — never a raw `px` radius, a hand-picked rem
+pad, or an **undefined** token (`--radius-1`, `--radius-2`, `--surface`,
+`--text-2` are not in `:root`; a `var()` on them silently resolves to nothing —
+use `--radius-sm`, `--input-bg`/`--surface-1`, `--text-secondary`).
+
 ## Loading & error states — never bare text
 A loading or error message is a **component**, never a raw `<p>Loading…</p>` or
 `<p className="form-error">{err.message}</p>`. Two symptoms this rule kills:
