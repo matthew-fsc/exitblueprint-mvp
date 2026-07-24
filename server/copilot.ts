@@ -23,7 +23,7 @@
 // the advisor to read, stamped so a reader can tell it apart from an AI synthesis.
 import type pg from 'pg';
 import type Anthropic from '@anthropic-ai/sdk';
-import { resolveProvider, aiFailureReason } from './llm/provider';
+import { aiConfigured, aiFailureReason, createMessage, messageText } from './llm/provider';
 import { modelForTier } from './llm/models';
 import { numeralPostCheck } from './intelligence/guards';
 import { resolvePromptBody } from './prompt-registry';
@@ -85,26 +85,22 @@ export interface AdvisorCopilotOptions {
   tools?: CopilotTool[];
 }
 
-// Build the default transport, or null when AI is unconfigured.
+// Build the default transport, or null when AI is unconfigured. Routes through the
+// shared createMessage (server/llm/provider.ts) so the copilot's request is built
+// exactly like the narrative runtime and the extraction client.
 function defaultTransport(): CopilotTransport | null {
-  const provider = resolveProvider();
-  if (!provider) return null;
+  if (!aiConfigured()) return null;
   return (turn) =>
-    provider.client.messages.create({
-      model: provider.modelFor(turn.model),
-      max_tokens: turn.max_tokens,
+    createMessage({
+      model: turn.model,
       system: turn.system,
       tools: turn.tools,
       messages: turn.messages,
+      maxTokens: turn.max_tokens,
     });
 }
 
-const textOf = (msg: Anthropic.Message): string =>
-  msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
+const textOf = (msg: Anthropic.Message): string => messageText(msg).trim();
 
 const toolUsesOf = (msg: Anthropic.Message): Anthropic.ToolUseBlock[] =>
   msg.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
@@ -248,9 +244,66 @@ async function runToolLoop(
   };
 }
 
+// --- Readable rendering for the fallback (no raw JSON in a client surface) --------
+// snake_case_key → "Title Case". A tool result's field names become readable labels.
+function titleCase(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// A missing/empty value shows as the app's em-dash null placeholder, not "null".
+function fmtScalar(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  return String(value);
+}
+
+// A one-line summary of an object's SCALAR fields ("Company: Acme · Final EV: 12"),
+// used to render each item in a list of objects compactly.
+function summarizeObject(obj: Record<string, unknown>): string {
+  const parts = Object.entries(obj)
+    .filter(([, v]) => v === null || typeof v !== 'object')
+    .map(([k, v]) => `${titleCase(k)}: ${fmtScalar(v)}`);
+  return parts.length ? parts.join(' · ') : '(details)';
+}
+
+// Render a JSON-serializable tool result as readable markdown bullets — NEVER a raw
+// JSON blob. Scalars inline; arrays become bullet lists (objects summarized to one
+// line, capped so a long list stays skimmable); nested objects flatten to a summary.
+function renderResult(data: unknown): string[] {
+  if (data === null || typeof data !== 'object') return [fmtScalar(data)];
+  if (Array.isArray(data)) {
+    if (data.length === 0) return ['_None._'];
+    const rows = data
+      .slice(0, 10)
+      .map((item) =>
+        item !== null && typeof item === 'object'
+          ? `- ${summarizeObject(item as Record<string, unknown>)}`
+          : `- ${fmtScalar(item)}`,
+      );
+    if (data.length > 10) rows.push(`- _…and ${data.length - 10} more_`);
+    return rows;
+  }
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (value === null || typeof value !== 'object') {
+      lines.push(`- **${titleCase(key)}:** ${fmtScalar(value)}`);
+    } else if (Array.isArray(value)) {
+      lines.push(`- **${titleCase(key)}:**${value.length ? '' : ' _none_'}`);
+      for (const item of value.slice(0, 10)) {
+        lines.push(
+          `    - ${item !== null && typeof item === 'object' ? summarizeObject(item as Record<string, unknown>) : fmtScalar(item)}`,
+        );
+      }
+      if (value.length > 10) lines.push(`    - _…and ${value.length - 10} more_`);
+    } else {
+      lines.push(`- **${titleCase(key)}:** ${summarizeObject(value as Record<string, unknown>)}`);
+    }
+  }
+  return lines.length ? lines : ['_No data._'];
+}
+
 // Deterministic degradation: run the firm-scoped (no-input) read tools directly and
-// render their results for the advisor to read. Honest "AI unavailable — here are the
-// raw tool results", grounded entirely in real reads, so it never invents anything.
+// render their results — readably — for the advisor. Honest "AI synthesis unavailable",
+// grounded entirely in real reads, so it never invents anything.
 async function fallback(
   db: pg.ClientBase,
   firmId: string,
@@ -261,7 +314,7 @@ async function fallback(
   const noInput = tools.filter((t) => !((t.input_schema.required as string[] | undefined)?.length));
   const toolCalls: { name: string; input: unknown }[] = [];
   const lines: string[] = [];
-  lines.push('_AI synthesis is unavailable — here are the raw results of the firm read tools to review._');
+  lines.push('AI synthesis is unavailable right now, so here is what your firm reads show. Open the matching page for the full detail.');
   lines.push('');
   lines.push(`**Your question:** ${question}`);
 
@@ -274,13 +327,11 @@ async function fallback(
     }
     toolCalls.push({ name: tool.name, input: {} });
     lines.push('');
-    lines.push(`### ${tool.name}`);
-    lines.push('```json');
-    lines.push(JSON.stringify(data, null, 2));
-    lines.push('```');
+    lines.push(`### ${tool.label ?? tool.name}`);
+    lines.push(...renderResult(data));
   }
 
-  console.warn(`advisor copilot fallback (${reason}): returned ${noInput.length} raw tool result(s)`);
+  console.warn(`advisor copilot fallback (${reason}): rendered ${noInput.length} firm read(s)`);
 
   return {
     question,
