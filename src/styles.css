@@ -75,9 +75,13 @@
      one theme. Every interactive :hover row/control routes through it. */
   --hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
   --hover-strong: color-mix(in srgb, var(--text-primary) 10%, transparent);
-  /* Text selection — tuned per theme (was `--accent 22%`, but --accent flips
-     from dark forest to bright mint, so one formula looked wrong in one theme). */
-  --selection: color-mix(in srgb, var(--brand-green) 24%, transparent);
+  /* Text selection — a NEUTRAL slate highlight, never the brand green. A green
+     highlight behind a green link (`--accent`) is green-on-green and unreadable,
+     so selection is deliberately off-brand: an opaque neutral ground plus a
+     forced high-contrast ink (`--selection-fg`) keeps ANY selected text legible,
+     colored links included. */
+  --selection: #dbe3e8;
+  --selection-fg: #12211a;
 
   /* semantic status — SEPARATE from the brand/readiness green so "saved" never
      reads as "high readiness". Muted success green + amber + clay. */
@@ -207,7 +211,8 @@
   --input-bg: #101812;
   --input-border: #3a4c40;
   --focus-ring: 0 0 0 3px rgba(152, 212, 175, 0.20);
-  --selection: color-mix(in srgb, var(--mint) 30%, transparent);
+  --selection: #33414c;
+  --selection-fg: #eef3ef;
 
   --status-good: #6bbf89;
   --status-ok: #58b98c;
@@ -258,7 +263,8 @@
     --input-bg: #101812;
     --input-border: #3a4c40;
     --focus-ring: 0 0 0 3px rgba(152, 212, 175, 0.20);
-    --selection: color-mix(in srgb, var(--mint) 30%, transparent);
+    --selection: #33414c;
+    --selection-fg: #eef3ef;
     --status-good: #6bbf89;
     --status-ok: #58b98c;
     --status-warning: #d9b25f;
@@ -5384,7 +5390,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .tier-badge-sm { border-radius: 5px; }
 
 /* the small tells of a crafted app: tinted selection + a subtle scrollbar */
-::selection { background: var(--selection); }
+::selection { background: var(--selection); color: var(--selection-fg); }
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }

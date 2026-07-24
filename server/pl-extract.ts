@@ -8,6 +8,7 @@
 // for manual entry, and it only ever proposes codes in LEDGER_DERIVABLE_CODES.
 import { parse as parseCsv } from 'csv-parse/sync';
 import { LEDGER_DERIVABLE_CODES, type ManualFinancialEntry } from './ledger';
+import { xlsxToRows } from './xlsx';
 
 // Codes this extractor knows how to source from a financial document. A strict
 // subset of LEDGER_DERIVABLE_CODES — a P&L evidences the revenue trend and the
@@ -173,6 +174,22 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
+// Turn a raw record grid (from CSV or .xlsx) into a header + data rows. Real
+// QuickBooks/accounting exports open with title/metadata rows (company name,
+// "Profit and Loss", the reporting date range) before the actual column header.
+// Those preamble lines are single-cell; the true header is the first multi-COLUMN
+// row (e.g. `,Jan - Dec 2024,…,Total` or `,Total`) — note its first cell is often
+// blank, so key on column count, not non-empty count, but still require one real
+// cell so an all-empty `,,,,` spacer row is skipped.
+function detectTable(records: string[][]): Table {
+  if (records.length === 0) return { header: [], rows: [] };
+  const headerIdx = records.findIndex(
+    (r) => r.length >= 2 && r.some((c) => c && c.trim() !== ''),
+  );
+  if (headerIdx < 0) return { header: records[0], rows: records.slice(1) };
+  return { header: records[headerIdx], rows: records.slice(headerIdx + 1) };
+}
+
 function readTable(bytes: Buffer): Table {
   const text = stripBom(bytes.toString('utf8'));
   const delimiter = text.includes('\t') && !text.includes(',') ? '\t' : ',';
@@ -182,19 +199,14 @@ function readTable(bytes: Buffer): Table {
     relax_column_count: true,
     trim: true,
   }) as string[][];
-  if (records.length === 0) return { header: [], rows: [] };
+  return detectTable(records);
+}
 
-  // Real QuickBooks/accounting exports open with title/metadata rows (company
-  // name, "Profit and Loss", the reporting date range) before the actual column
-  // header. Those preamble lines are single-cell; the true header is the first
-  // multi-COLUMN row (e.g. `,Jan - Dec 2024,…,Total` or `,Total`) — note its
-  // first cell is often blank, so key on column count, not non-empty count, but
-  // still require one real cell so an all-empty `,,,,` spacer row is skipped.
-  const headerIdx = records.findIndex(
-    (r) => r.length >= 2 && r.some((c) => c && c.trim() !== ''),
-  );
-  if (headerIdx < 0) return { header: records[0], rows: records.slice(1) };
-  return { header: records[headerIdx], rows: records.slice(headerIdx + 1) };
+// The .xlsx counterpart to readTable: unzip the workbook's first sheet into the
+// same record grid, then apply the identical preamble/header detection so a P&L
+// exported as Excel reads exactly like the CSV export of the same report.
+function readXlsxTable(bytes: Buffer): Table {
+  return detectTable(xlsxToRows(bytes).map((row) => row.map((c) => c.trim())));
 }
 
 const yearOf = (label: string | undefined): number | null => {
@@ -499,7 +511,7 @@ function extractJson(bytes: Buffer): ExtractResult {
 
 // --- entry point -----------------------------------------------------------
 
-const ALLOWED_EXT = new Set(['csv', 'tsv', 'txt', 'json']);
+const ALLOWED_EXT = new Set(['csv', 'tsv', 'txt', 'xlsx', 'json']);
 
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf('.');
@@ -515,11 +527,13 @@ export function extractFinancials(input: ExtractInput): ExtractResult {
   const ext = extensionOf(input.filename);
   if (!ALLOWED_EXT.has(ext)) {
     const hint =
-      ext === 'xlsx' || ext === 'xls' || ext === 'pdf'
-        ? " In QuickBooks, open the Profit and Loss report and use Export → Export to CSV (or 'Save as CSV')."
-        : '';
+      ext === 'xls'
+        ? ' Re-save it as .xlsx (Excel’s "Save As"), or export the Profit and Loss report to CSV.'
+        : ext === 'pdf'
+          ? " In QuickBooks, open the Profit and Loss report and use Export → Export to CSV (or 'Save as CSV')."
+          : '';
     throw new Error(
-      `file type '${ext || 'unknown'}' can't be read for financials; upload a CSV or JSON export (accepted: ${[...ALLOWED_EXT].join(', ')}).${hint}`,
+      `file type '${ext || 'unknown'}' can't be read for financials; upload an Excel (.xlsx), CSV, or JSON export (accepted: ${[...ALLOWED_EXT].join(', ')}).${hint}`,
     );
   }
 
@@ -527,7 +541,7 @@ export function extractFinancials(input: ExtractInput): ExtractResult {
   if (ext === 'json') {
     result = extractJson(input.bytes);
   } else {
-    const table = readTable(input.bytes);
+    const table = ext === 'xlsx' ? readXlsxTable(input.bytes) : readTable(input.bytes);
     result =
       extractPL(table) ??
       extractCustomerShares(table) ?? {

@@ -150,7 +150,7 @@ describe('extractFinancials — guardrails', () => {
 
   it('throws on empty, oversize, or unsupported files', () => {
     expect(() => extractFinancials({ bytes: Buffer.alloc(0), filename: 'x.csv' })).toThrow(/empty/);
-    expect(() => extractFinancials({ bytes: buf('x'), filename: 'scan.pdf' })).toThrow(/CSV or JSON/);
+    expect(() => extractFinancials({ bytes: buf('x'), filename: 'scan.pdf' })).toThrow(/CSV, or JSON/);
     expect(() =>
       extractFinancials({ bytes: Buffer.alloc(6 * 1024 * 1024, 1), filename: 'big.csv' }),
     ).toThrow(/limit/);
@@ -209,9 +209,34 @@ describe('extractFinancials — real QuickBooks P&L exports', () => {
     expect(entryFor(r, 'REV-ANNUAL')).toEqual([1_000_000, 1_200_000]);
   });
 
-  it('hints at exporting as CSV when an .xlsx is uploaded', () => {
-    expect(() => extractFinancials({ bytes: buf('x'), filename: 'ProfitAndLoss.xlsx' })).toThrow(
-      /Export to CSV/i,
+  it('hints at re-saving as .xlsx or CSV when a legacy .xls is uploaded', () => {
+    expect(() => extractFinancials({ bytes: buf('x'), filename: 'ProfitAndLoss.xls' })).toThrow(
+      /\.xlsx|CSV/i,
+    );
+  });
+});
+
+describe('extractFinancials — real .xlsx export', () => {
+  // A genuine Excel workbook (OOXML/ZIP), authored by exceljs, holding the same
+  // P&L as the downloadable CSV sample — a title/date preamble, indented
+  // sub-accounts, a "Total revenue" roll-up, and an "of which recurring" memo
+  // line, with the amounts as real numeric cells. Proves the dependency-free
+  // xlsx reader (server/xlsx.ts) feeds the same table pipeline as CSV.
+  const xlsx = () => readFileSync(join(root, 'tests', 'fixtures', 'sample-pl.xlsx'));
+
+  it('reads the revenue trend and recurring share from an .xlsx the same as CSV', () => {
+    const r = extractFinancials({ bytes: xlsx(), filename: 'ProfitAndLoss.xlsx' });
+    expect(r.format).toBe('pl_csv');
+    expect(entryFor(r, 'REV-ANNUAL')).toEqual([4_800_000, 5_400_000, 6_200_000, 6_900_000]);
+    // 4,554,000 / 6,900,000 = 66%.
+    expect(entryFor(r, 'REV-RECUR-PCT')).toBe(66);
+    expect(r.verifiable).toBe(true);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('rejects bytes that are not a valid workbook', () => {
+    expect(() => extractFinancials({ bytes: buf('not a zip'), filename: 'broken.xlsx' })).toThrow(
+      /xlsx|ZIP/i,
     );
   });
 });

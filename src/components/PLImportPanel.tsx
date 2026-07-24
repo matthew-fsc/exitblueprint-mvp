@@ -26,7 +26,7 @@ interface ExtractResult {
 }
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = ['csv', 'tsv', 'txt', 'json'];
+const ALLOWED_EXTENSIONS = ['xlsx', 'csv', 'tsv', 'txt', 'json'];
 const ACCEPT_ATTR = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',');
 
 const toBase64 = (file: File): Promise<string> =>
@@ -42,10 +42,12 @@ function validateFile(file: File): string | null {
   const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     const hint =
-      ext === 'xlsx' || ext === 'xls' || ext === 'pdf'
-        ? ' In QuickBooks, open the Profit and Loss report and use Export → Export to CSV.'
-        : '';
-    return `That file type can't be read for financials. Upload a CSV or JSON export (${ALLOWED_EXTENSIONS.join(', ')}).${hint}`;
+      ext === 'xls'
+        ? ' Re-save it as .xlsx (Excel’s “Save As”), or export the Profit and Loss report to CSV.'
+        : ext === 'pdf'
+          ? ' In QuickBooks, open the Profit and Loss report and use Export → Export to CSV.'
+          : '';
+    return `That file type can't be read for financials. Upload an Excel (.xlsx), CSV, or JSON export (${ALLOWED_EXTENSIONS.join(', ')}).${hint}`;
   }
   if (file.size === 0) return 'That file is empty.';
   if (file.size > MAX_BYTES) return 'That file is larger than the 5 MB limit.';
@@ -64,15 +66,36 @@ function renderValue(fig: RecognizedFigure): string {
   return String(fig.value);
 }
 
-// A downloadable sample so the expected P&L shape is discoverable. Mirrors what
-// the extractor recognizes: a total-revenue line across year columns plus a
-// recurring-revenue line.
+// A downloadable sample so the expected P&L shape is discoverable. This is a
+// realistic, fully-footing four-year statement — a title/date preamble, indented
+// sub-accounts under section roll-ups, a "Total revenue" line across year
+// columns, an "of which recurring" memo line, COGS, gross profit, an operating-
+// expense breakdown, and operating income — the shape a real QuickBooks/Excel
+// P&L export takes. The extractor reads the Total revenue trend and the recurring
+// share from it; everything else is there so the file looks like the advisor's
+// own statement, not a toy.
 const SAMPLE_CSV = [
-  'Line item,FY2022,FY2023,FY2024,FY2025',
+  'Cascade Water Solutions',
+  'Profit & Loss Statement — fiscal years ending December 31',
+  '(USD)',
+  ',FY2022,FY2023,FY2024,FY2025',
+  'Revenue,,,,',
+  '  Product revenue,"1,900,000","2,050,000","2,300,000","2,500,000"',
+  '  Service revenue,"2,900,000","3,350,000","3,900,000","4,400,000"',
   'Total revenue,"4,800,000","5,400,000","6,200,000","6,900,000"',
-  'Recurring revenue,"3,100,000","3,600,000","4,100,000","4,554,000"',
-  'Cost of goods sold,"2,100,000","2,300,000","2,600,000","2,850,000"',
-  'Operating expenses,"1,900,000","2,050,000","2,250,000","2,400,000"',
+  '  of which recurring revenue,"2,976,000","3,510,000","4,092,000","4,554,000"',
+  'Cost of goods sold,,,,',
+  '  Materials & equipment,"1,180,000","1,290,000","1,440,000","1,560,000"',
+  '  Direct labor,"932,000","1,032,000","1,164,000","1,269,000"',
+  'Total cost of goods sold,"2,112,000","2,322,000","2,604,000","2,829,000"',
+  'Gross profit,"2,688,000","3,078,000","3,596,000","4,071,000"',
+  'Operating expenses,,,,',
+  '  Salaries & wages,"1,260,000","1,380,000","1,560,000","1,700,000"',
+  '  Sales & marketing,"400,000","470,000","560,000","620,000"',
+  '  Rent & facilities,"210,000","220,000","230,000","240,000"',
+  '  General & administrative,"178,000","188,000","246,000","311,000"',
+  'Total operating expenses,"2,048,000","2,258,000","2,596,000","2,871,000"',
+  'Operating income,"640,000","820,000","1,000,000","1,200,000"',
 ].join('\n');
 
 /**
@@ -236,9 +259,10 @@ export function PLImportPanel({
             Values are read directly from the file (no AI) and shown for your review. On apply, the
             file is stored as the backing document and the figures are recorded as{' '}
             <strong>verified</strong>, unless a plausibility check flags them, in which case they are
-            recorded as self-reported for you to confirm. Everything else stays for you to answer.{' '}
+            recorded as self-reported for you to confirm. Everything else stays for you to answer.
+            Accepts Excel (.xlsx), CSV, and JSON exports.{' '}
             <button type="button" className="linkish" onClick={downloadSample}>
-              Download a sample P&amp;L (CSV)
+              Download a sample P&amp;L
             </button>
           </p>
 
