@@ -290,6 +290,43 @@ hard lockout.
 completing test checkout flips it to `active` and unblocks; `payment_failed` →
 grace → read-only; portal card fix → restore; every webhook idempotent + signature-verified.
 
+### 5.7 Comp codes — self-serve complimentary access (the GTM paywall path)
+
+The first GTM is a **vendor-provisioned, comped pilot** (see the GTM readiness
+review): the paywall is real, but design-partner firms get in free. Rather than
+hand-editing `firm_subscriptions.comp` per firm, an operator mints a **redeemable
+access code** and the firm applies it themselves.
+
+- **Turn the paywall on:** set `BILLING_ENFORCED=true`. Gated functions (those
+  declaring `gated: true` in `server/registry.ts`) now refuse a non-entitled firm
+  with `402`; viewing existing data is never gated. A brand-new firm with no
+  subscription row is therefore paywalled until it either subscribes (Stripe) or
+  redeems a code.
+- **Mint a code (operator):**
+  `npm run admin -- create-comp-code --code PILOT-2026 --label "Design partners" [--plan practice] [--max 15] [--expires 2026-12-31]`.
+  `--plan` attaches a plan (its feature set) on redeem; omit for **bare comp** =
+  full access. `--max` caps distinct firms; `--expires` is an ISO date. Re-running
+  with the same code updates its label/limits (idempotent).
+- **Redeem (advisor):** Billing page → "Have an access code?" → enter the code.
+  The `redeem-comp-code` function (firm-scoped, **ungated** so a paywalled firm can
+  reach it) sets `firm_subscriptions.comp = true`; the entitlement resolver treats
+  `comp` as fully entitled regardless of Stripe status. Redemption is idempotent
+  per (code, firm) — re-applying never consumes a second slot.
+- **Security posture:** a code is a credential. `comp_codes` /
+  `comp_code_redemptions` are **service-role only** (no authenticated grant, RLS
+  deny-by-default, verified in `scripts/rls-test.ts` alongside `billing_events`),
+  so a valid code can never be read out of the client. Codes are stored normalized
+  (trim + upper-case); the validity rules (active / not expired / not exhausted)
+  are a pure, unit-tested core (`server/comp-codes.ts`, `tests/comp-codes.test.ts`).
+- **Files:** migration `…_comp_codes.sql`, `server/comp-codes.ts`,
+  `redeem-comp-code` in `server/registry.ts`, `scripts/admin.ts create-comp-code`,
+  the access-code card in `src/pages/BillingPage.tsx`.
+
+**Comp DoD:** with `BILLING_ENFORCED=true`, a fresh firm is refused a gated action;
+redeeming a valid code flips it to entitled (`reason: comp`) and unblocks; an
+expired / inactive / exhausted code is refused with a clear message; the code
+tables are unreadable by any tenant role.
+
 ---
 
 ## 6. Sequencing & dependencies

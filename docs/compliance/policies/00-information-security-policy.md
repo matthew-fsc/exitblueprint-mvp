@@ -115,7 +115,7 @@ transfer, acceptance, or avoidance, with the Security Officer as decision owner.
 - We commit to breach notification within **30 days of discovery (target: 72 hours)**;
   the contract clause carrying this is 🟡 being finalized.
 - Data-processing and consent obligations are governed by the engagement agreement and
-  the DPA (`docs/02-data-model.md`, `docs/41-legal-counsel-talking-points.md`).
+  the DPA (`docs/02-data-model.md`, `docs/43-legal-counsel-talking-points.md`).
 
 ## 8. Enforcement & exceptions
 

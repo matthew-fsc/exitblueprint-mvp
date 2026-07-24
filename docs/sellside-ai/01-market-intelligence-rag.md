@@ -198,7 +198,7 @@ These are first-class, not afterthoughts — a paid dataset has terms:
 ## IP & licensing — the two-lane split is also a risk gradient
 
 External data is the highest *legal* risk in this proposal, and the counsel
-agenda already anticipates it: **`docs/41-legal-counsel-talking-points.md` §8**
+agenda already anticipates it: **`docs/43-legal-counsel-talking-points.md` §8**
 ("third-party / external paid data") covers permitted-use scope, derivative
 ownership, AI/ML-training clauses, survivability/purge, and the scraped-data
 caveat. That section was written for the *deterministic* "blend purchased comps
