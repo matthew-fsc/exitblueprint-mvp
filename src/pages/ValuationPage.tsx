@@ -288,7 +288,7 @@ export default function ValuationPage() {
               <div className="val-ob">
                 <div className="val-ob-cols">
                   <div className="val-ob-col">
-                    <span className="stat-block-label">Market median</span>
+                    <span className="stat-block-label">Sector median</span>
                     <span className="val-ob-mult">
                       {val.market_multiple.toFixed(1)}×
                       {val.market_source === 'market' && <span className="val-ob-tag">in use</span>}
@@ -296,13 +296,23 @@ export default function ValuationPage() {
                     <span className="muted">
                       {val.market_p25?.toFixed(1)}–{val.market_p75?.toFixed(1)}× range
                       {' · '}
-                      {val.market_sample_size} comp{val.market_sample_size === 1 ? '' : 's'}
+                      {val.market_sample_size} comparable{val.market_sample_size === 1 ? '' : 's'}
                     </span>
+                  </div>
+                  <div className="val-ob-col">
+                    <span className="stat-block-label">Your estimate uses</span>
+                    <span className="val-ob-mult">{val.base_multiple.toFixed(1)}×</span>
+                    <span className="muted">{MULTIPLE_SOURCE_LABEL[val.multiple_source] ?? val.multiple_source}</span>
                   </div>
                 </div>
                 <p className="muted val-ob-note">
-                  Market comparables are directional reference data (placeholder until a licensed dataset
-                  is loaded) and drive the estimate only when a valuation rules version elects them.
+                  {val.base_multiple < val.market_multiple
+                    ? 'Your estimate sits below the sector median — closing readiness gaps is what moves it up within the range. '
+                    : val.base_multiple > val.market_multiple
+                      ? 'Your estimate sits above the sector median, reflecting the readiness already in place. '
+                      : 'Your estimate is in line with the sector median. '}
+                  Directional market reference for context — not a licensed data feed. It informs the
+                  estimate only when a valuation rules version elects it.
                 </p>
               </div>
             </SectionCard>

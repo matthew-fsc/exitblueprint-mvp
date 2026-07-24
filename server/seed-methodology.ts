@@ -63,8 +63,13 @@ export const RUBRIC_VERSION_LABEL = 'DRS-2.0';
 // derivative rights) so nothing in retrieval can over-expose it; a real licensed
 // dataset gets its terms encoded here after counsel review, without code change.
 export const MARKET_DATASET = {
-  name: 'Directional public comps (placeholder)',
-  vendor: 'placeholder',
+  // Client-facing name/vendor stay professional (this string renders as the
+  // citation on client surfaces). The fact that it's directional/not-licensed
+  // lives in the license flags below + seed/SOURCES.md + the in-UI disclaimer —
+  // not in a word like "placeholder" on a page a business owner reads. A real
+  // licensed feed swaps these two strings + the flags after counsel review.
+  name: 'Directional market reference (composite)',
+  vendor: 'Internal composite estimate',
   displayScope: 'aggregate_only',
   aiIngestionAllowed: false,
   derivativeRights: false,
