@@ -182,6 +182,14 @@ semantic token (`--surface-*`, `--text-*`, `--border*`, `--status-*`, `--chip-*`
 `--tier-*`); per-firm branding overrides `--accent` only. Never a raw hex in a
 component.
 
+**Cursor highlight.** Every interactive `:hover` (rows, nav, menu items, icon
+buttons, collapsibles) routes through one token, `--hover` (`--hover-strong` for
+denser controls), a subtle tonal wash built from `--text-primary` — so it adapts
+correctly per theme (a soft dark wash on light, a soft light wash on dark) instead
+of a fixed color that only looks right in one. Text `::selection` uses `--selection`
+(brand green on light, mint on dark) — never `--accent`, which flips too hard
+between themes.
+
 ## Brand system (marketing-aligned — matches exitblueprint.net)
 The app and the marketing site read as one brand. The pinned palette is forest
 `#0C2218` (ink/`--brand`), brand green `#438663` (`--brand-green`, focus borders),
@@ -195,10 +203,13 @@ uppercase eyebrow/label). **Semantic status** (`--status-*`: muted success green
 amber `#C79A4A`, clay `#B0563C`) is deliberately kept **separate** from the
 readiness green so "saved" never reads as "high readiness."
 
-**Tier ramp is single-hue green** (risk = dim, ready = bright), always co-encoded
-in form + number (never color alone): 85–100 `#98D4AF` · 70–84 `#5FB488` · 55–69
-`#438663` · 40–54 `#4E7B63` · <40 `#3E5A4C`. Mirrored in `src/lib/tokens.ts` for
-chart consumers.
+**Tier ramp is a multi-hue ordinal scale**, always labeled: 85–100 teal `#0E8F9E` ·
+70–84 green `#2F9E44` · 55–69 amber `#9A7D0A` · 40–54 orange `#E0670F` · <40 red
+`#C0362C`. A single green hue is deliberately **not** used here — "Needs Work"
+must not read green like "Sale Ready" — so the hue itself carries the readiness
+signal (falling teal→green→amber→orange→red). Mirrored in `src/lib/tokens.ts` for
+chart consumers. (Note: this is distinct from the brand/status greens; the tier
+scale is the one place hue is spent on ordinal meaning.)
 
 **The DRS score instrument (the signature).** `ScoreDial` renders every score as a
 clean circular ring that sits on its card (no panel fill), theme-aware, reused on

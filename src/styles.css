@@ -68,6 +68,17 @@
   --input-border: #cbd0c8;
   --focus-ring: 0 0 0 3px rgba(67, 134, 99, 0.14); /* soft brand ring */
 
+  /* One standardized cursor-highlight, theme-adaptive by construction: built
+     from --text-primary (which flips per theme), it is a subtle tonal wash that
+     reads correctly on ANY surface — a soft dark wash in light mode, a soft
+     light wash in dark mode — instead of a fixed color that looks right in only
+     one theme. Every interactive :hover row/control routes through it. */
+  --hover: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  --hover-strong: color-mix(in srgb, var(--text-primary) 10%, transparent);
+  /* Text selection — tuned per theme (was `--accent 22%`, but --accent flips
+     from dark forest to bright mint, so one formula looked wrong in one theme). */
+  --selection: color-mix(in srgb, var(--brand-green) 24%, transparent);
+
   /* semantic status — SEPARATE from the brand/readiness green so "saved" never
      reads as "high readiness". Muted success green + amber + clay. */
   --status-good: #4c8a63;   /* muted success */
@@ -85,13 +96,14 @@
   --chip-critical-bg: #f3e1db; --chip-critical-fg: #8f4230;
   --chip-neutral-bg: #ecede9; --chip-neutral-fg: #556158;
 
-  /* DRS tiers — single-hue green ramp (risk = dim, ready = bright). Tier is
-     always co-encoded in form + number, never color alone. */
-  --tier-institutional: #98d4af; /* 85–100 */
-  --tier-sale-ready: #5fb488;    /* 70–84 */
-  --tier-needs-work: #438663;    /* 55–69 */
-  --tier-high-risk: #4e7b63;     /* 40–54 */
-  --tier-not-saleable: #3e5a4c;  /* <40 */
+  /* DRS tiers — multi-hue ordinal palette (validated, always labeled). A single
+     hue is misleading here: "Needs Work" must NOT read green like "Sale Ready",
+     so the scale runs teal → green → amber → orange → red as readiness falls. */
+  --tier-institutional: #0e8f9e; /* 85–100 */
+  --tier-sale-ready: #2f9e44;    /* 70–84 */
+  --tier-needs-work: #9a7d0a;    /* 55–69 — amber, reads as caution not "good" */
+  --tier-high-risk: #e0670f;     /* 40–54 */
+  --tier-not-saleable: #c0362c;  /* <40 */
 
   /* typography — self-hosted brand fonts (see main.tsx); system stack fallback.
      Schibsted Grotesk = headings + scores, Figtree = body/UI, Spline Sans Mono
@@ -195,6 +207,7 @@
   --input-bg: #101812;
   --input-border: #3a4c40;
   --focus-ring: 0 0 0 3px rgba(152, 212, 175, 0.20);
+  --selection: color-mix(in srgb, var(--mint) 30%, transparent);
 
   --status-good: #6bbf89;
   --status-ok: #58b98c;
@@ -210,11 +223,11 @@
   --chip-critical-bg: #331b17; --chip-critical-fg: #e29580;
   --chip-neutral-bg: #1f2a23; --chip-neutral-fg: #9caea2;
 
-  --tier-institutional: #b6e6cb; /* 85–100 */
-  --tier-sale-ready: #7fca9f;    /* 70–84 */
-  --tier-needs-work: #5aa87e;    /* 55–69 */
-  --tier-high-risk: #4e8a68;     /* 40–54 */
-  --tier-not-saleable: #416a54;  /* <40 */
+  --tier-institutional: #35b6c9; /* 85–100 */
+  --tier-sale-ready: #46c46f;    /* 70–84 */
+  --tier-needs-work: #d9b23a;    /* 55–69 — amber */
+  --tier-high-risk: #f0883c;     /* 40–54 */
+  --tier-not-saleable: #ef6a5e;  /* <40 */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -245,6 +258,7 @@
     --input-bg: #101812;
     --input-border: #3a4c40;
     --focus-ring: 0 0 0 3px rgba(152, 212, 175, 0.20);
+    --selection: color-mix(in srgb, var(--mint) 30%, transparent);
     --status-good: #6bbf89;
     --status-ok: #58b98c;
     --status-warning: #d9b25f;
@@ -257,11 +271,11 @@
     --chip-serious-bg: #331f13; --chip-serious-fg: #e0a97f;
     --chip-critical-bg: #331b17; --chip-critical-fg: #e29580;
     --chip-neutral-bg: #1f2a23; --chip-neutral-fg: #9caea2;
-    --tier-institutional: #b6e6cb;
-    --tier-sale-ready: #7fca9f;
-    --tier-needs-work: #5aa87e;
-    --tier-high-risk: #4e8a68;
-    --tier-not-saleable: #416a54;
+    --tier-institutional: #35b6c9;
+    --tier-sale-ready: #46c46f;
+    --tier-needs-work: #d9b23a;
+    --tier-high-risk: #f0883c;
+    --tier-not-saleable: #c0362c;
   }
 }
 
@@ -2805,11 +2819,13 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
-  /* text is readable ink (never mint on a light ground); the tier hue is carried
-     by the leading dot + the always-present label, so color is never the sole cue */
-  color: var(--brand);
-  background: color-mix(in srgb, var(--tier) 20%, var(--surface-1));
-  border: 1px solid color-mix(in srgb, var(--tier) 40%, var(--border));
+  /* the tier hue carries meaning (amber "Needs Work" ≠ green "Sale Ready"), so
+     the label itself is tinted its tier color — the multi-hue palette is
+     AA-validated for text on this tint. Paired with the leading dot + the
+     always-present label, color is never the sole cue. */
+  color: var(--tier);
+  background: color-mix(in srgb, var(--tier) 14%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--tier) 32%, transparent);
 }
 .tier-badge::before {
   content: '';
@@ -2961,7 +2977,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ui-table td.num { font-family: var(--font-mono); }
 .ui-table tbody tr:last-child td { border-bottom: none; }
 .ui-table tbody tr.clickable { cursor: pointer; }
-.ui-table tbody tr.clickable:hover { background: var(--surface-2); }
+.ui-table tbody tr.clickable:hover { background: var(--hover); }
 /* keyboard focus on a clickable row — inset so overflow-x on the wrap can't clip it */
 .ui-table tbody tr.clickable:focus-visible {
   outline: 2px solid var(--accent);
@@ -3384,7 +3400,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: none;
   cursor: pointer;
 }
-.attn-item:hover, .attn-item:focus-visible { background: var(--surface-2); }
+.attn-item:hover, .attn-item:focus-visible { background: var(--hover); }
 .attn-company { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-reason { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-more { margin: var(--space-1) 0 0 var(--space-2); }
@@ -3466,7 +3482,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   user-select: none;
 }
 .ui-collapsible-summary::-webkit-details-marker { display: none; }
-.ui-collapsible-summary:hover { background: var(--surface-2); border-radius: var(--radius); }
+.ui-collapsible-summary:hover { background: var(--hover); border-radius: var(--radius); }
 .ui-collapsible-chevron {
   display: inline-flex;
   color: var(--text-secondary);
@@ -3620,7 +3636,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   min-width: 0;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.ws-chip:hover { background: var(--surface-2); }
+.ws-chip:hover { background: var(--hover); }
 .ws-chip.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .ws-chip-step {
   flex-shrink: 0;
@@ -3868,7 +3884,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .app-nav-link:hover {
   color: var(--text-primary);
-  background: var(--surface-2);
+  background: var(--hover);
 }
 .app-nav-link.active {
   color: var(--accent-strong);
@@ -3942,7 +3958,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: 1px solid transparent;
 }
 .user-signout:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--hover);
   color: var(--status-critical);
   border-color: var(--border);
 }
@@ -3959,7 +3975,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   border: 1px solid transparent;
   color: var(--text-secondary);
 }
-.user-menu-trigger:hover { background: var(--surface-2); border-color: var(--border); }
+.user-menu-trigger:hover { background: var(--hover); border-color: var(--border); }
 .user-menu-caret { color: var(--text-muted); flex-shrink: 0; }
 .user-menu-panel {
   position: absolute;
@@ -3999,10 +4015,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   cursor: pointer;
 }
 .user-menu-item:hover,
-.user-menu-item:focus-visible { background: var(--surface-2); }
+.user-menu-item:focus-visible { background: var(--hover); }
 .user-menu-item-danger { color: var(--status-critical); }
 .user-menu-item-danger:hover,
-.user-menu-item-danger:focus-visible { background: var(--surface-2); color: var(--status-critical); }
+.user-menu-item-danger:focus-visible { background: var(--hover); color: var(--status-critical); }
 @media (max-width: 760px) {
   .user-email { display: none; }
   .app-bar-left .app-bar-divider { display: none; }
@@ -4163,7 +4179,7 @@ textarea:focus {
   transition: background-color 0.1s ease;
 }
 .ui-table tbody tr:hover {
-  background: var(--surface-2);
+  background: var(--hover);
 }
 .ui-table thead th {
   border-bottom: 1px solid var(--border-strong);
@@ -4524,7 +4540,7 @@ textarea:focus {
   transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
 .ui-pageheader-actions .button-link:hover {
-  background: var(--surface-2);
+  background: var(--hover);
   border-color: var(--accent);
   color: var(--accent-strong);
 }
@@ -4709,7 +4725,7 @@ textarea:focus {
 .owner-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.8rem; }
 .owner-link { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--surface-2); transition: border-color 0.14s, background 0.14s; }
-.owner-link:hover { border-color: var(--accent); background: var(--surface-3); }
+.owner-link:hover { border-color: var(--accent); background: var(--hover-strong); }
 .owner-link-title { font-weight: 600; color: var(--text-primary); }
 .owner-link-sub { font-size: 0.78rem; color: var(--text-secondary); }
 
@@ -4795,7 +4811,7 @@ textarea:focus {
 .pl-import { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1.2rem; overflow: hidden; }
 .pl-import-toggle { display: flex; gap: 0.6rem; align-items: baseline; width: 100%; text-align: left;
   background: var(--surface-1); border: none; padding: 0.85rem 1.1rem; cursor: pointer; color: inherit; font: inherit; }
-.pl-import-toggle:hover { background: var(--surface-2); }
+.pl-import-toggle:hover { background: var(--hover); }
 .pl-import-toggle-icon { color: var(--text-secondary); font-size: 0.8rem; }
 .pl-import-body { padding: 0 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem;
   border-top: 1px solid var(--border); }
@@ -5261,7 +5277,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .tier-badge-sm { border-radius: 5px; }
 
 /* the small tells of a crafted app: tinted selection + a subtle scrollbar */
-::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+::selection { background: var(--selection); }
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
@@ -5608,7 +5624,7 @@ input[type='radio']:disabled { opacity: 0.5; cursor: default; }
   transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
 }
 .icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--hover);
   color: var(--text-primary);
   border-color: var(--border);
 }
@@ -5915,7 +5931,7 @@ pre {
     box-shadow: none;
     flex-shrink: 0;
   }
-  .app-nav-toggle:hover:not(:disabled) { background: var(--surface-3); }
+  .app-nav-toggle:hover:not(:disabled) { background: var(--hover-strong); }
 
   .app-nav {
     position: absolute;
