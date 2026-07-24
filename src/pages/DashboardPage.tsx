@@ -20,15 +20,18 @@ import {
   qk,
   useActiveAgreementVersions,
   useCompanies,
+  useEngagementGraphBrief,
   useEngagements,
   useFirmAttention,
   usePortfolio,
   type AgreementVersionRow,
   type AttentionShape,
   type CompanyRow,
+  type EngagementGraphBriefView,
   type EngagementRow,
   type PortfolioRow,
 } from '../lib/queries';
+import { renderMarkdown } from '../lib/markdown';
 import { useAuth } from '../lib/auth';
 import { GettingStarted } from '../components/GettingStarted';
 import { invokeFunction } from '../lib/supabase';
@@ -128,6 +131,30 @@ function AttentionPanel({ data }: { data: AttentionShape }) {
   );
 }
 
+// The narrative half of the engagement graph (WS-GRAPH, docs/09 moat 3): a labeled
+// draft that reads the firm's own remediation record back to the advisor. Every
+// figure comes from the deterministic engagement graph; the model only frames the
+// pattern. Hidden until at least one gap has cleared on the same rubric (nothing to
+// narrate before then), so it never shows an empty shell.
+function EngagementGraphBriefPanel({ brief }: { brief: EngagementGraphBriefView }) {
+  const ruleBased = brief.model.startsWith('rule-based:');
+  return (
+    <PageSection
+      title="Engagement graph"
+      note="Which cleared gaps have moved the score across your book"
+    >
+      <div className="eg-brief-card">
+        <div className="qa-answer-head">
+          <span className="status-chip status-neutral">
+            {ruleBased ? 'Rule-based draft — advisor review' : 'AI draft — advisor review'}
+          </span>
+        </div>
+        <div className="report-body">{renderMarkdown(brief.content_md)}</div>
+      </div>
+    </PageSection>
+  );
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const portfolioQ = usePortfolio();
@@ -135,6 +162,7 @@ export default function DashboardPage() {
   const companiesQ = useCompanies();
   const engagementsQ = useEngagements();
   const attentionQ = useFirmAttention();
+  const graphBriefQ = useEngagementGraphBrief();
   const agreementsQ = useActiveAgreementVersions();
   const agreement: AgreementVersionRow | undefined = agreementsQ.data?.[0];
   const [tier, setTier] = useState<TierFilter>('all');
@@ -327,6 +355,10 @@ export default function DashboardPage() {
       </PageSection>
 
       {attentionQ.data && attentionQ.data.counts.total > 0 && <AttentionPanel data={attentionQ.data} />}
+
+      {graphBriefQ.data && graphBriefQ.data.payload.gaps_cleared > 0 && (
+        <EngagementGraphBriefPanel brief={graphBriefQ.data} />
+      )}
 
       <PageSection
         title="Engagements"

@@ -33,6 +33,7 @@ import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './out
 import { computeCalibration, readCalibration } from './calibration';
 import { recordBenchRun } from './bench-metrics';
 import { engagementGraph } from './engagement-graph';
+import { generateEngagementGraphBrief } from './engagement-brief';
 import { generateInstitutionalReview } from './institutional-review';
 import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
 import { answerDiligenceQuestion, listDiligenceQa } from './diligence-qa';
@@ -307,6 +308,17 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'rules',
     scope: 'firm',
     handler: ({ service, firmId }) => engagementGraph(service, firmId as string).then(ok),
+  },
+  // The narrative half of the engagement graph (WS-GRAPH, docs/09 moat 3): drafts a
+  // labeled brief FROM the deterministic engagement graph (+ optional firm
+  // calibration) so an advisor reads back "gaps like these moved the DRS by about X,
+  // and their deals closed around Y." Reasoning Engine, narrative-only (rules 1-2):
+  // every figure is the graph's, the model only frames the pattern; output is always
+  // a draft. Firm-scoped and read-only (persist 'none'); not a paid action, so ungated.
+  'engagement-graph-brief': {
+    engine: 'reasoning',
+    scope: 'firm',
+    handler: ({ service, firmId }) => generateEngagementGraphBrief(service, firmId as string).then(ok),
   },
   // Platform administration — load the canonical /seed methodology (rubric,
   // playbooks, valuation rules, data-room template, …) into the DB from inside

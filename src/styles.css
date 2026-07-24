@@ -6196,3 +6196,16 @@ pre {
 .candidate-code { font-weight: 600; }
 .candidate-value { font-variant-numeric: tabular-nums; }
 .candidate-actions { flex: 0 0 auto; }
+/* Engagement graph brief (WS-GRAPH, docs/09 moat 3) — the labeled draft narrative
+   of the firm's remediation record, shown on the Engagements dashboard. Reuses the
+   card/surface tokens; the report-body inside carries the markdown rhythm. */
+.eg-brief-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  min-width: 0;
+}
+.eg-brief-card .report-body > :first-child { margin-top: 0; }
+.eg-brief-card .report-body > :last-child { margin-bottom: 0; }

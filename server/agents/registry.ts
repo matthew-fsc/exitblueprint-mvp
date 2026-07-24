@@ -178,6 +178,25 @@ export const AGENTS: AgentSpec[] = [
     persist: 'diligence_qa',
     describe: 'Buyer diligence-question answer drafted from the engagement\'s own cited knowledge, degrading to retrieval-only when AI is unavailable.',
   },
+  {
+    key: 'engagement_graph_brief',
+    engine: 'reasoning',
+    scope: 'firm',
+    promptKey: 'engagement_graph_brief.v1',
+    promptVersion: 'engagement_graph_brief.v1',
+    ruleBasedModel: 'rule-based:engagement_graph_brief.v1',
+    // Standard: an advisor-facing internal narrative over the deterministic
+    // engagement-graph numbers — the cheap tier is the right spend.
+    modelTier: 'standard',
+    // Advisor-facing narrative of the firm's remediation record (DRAFT_BANNER is
+    // the draft label; every figure is the deterministic engagement graph's, the
+    // model only frames the pattern). Firm-scoped, read-only ('none' — returns an
+    // in-memory labeled draft and writes to no table). Not market-facing, so no
+    // citation contract.
+    guards: ['numeral_firewall', 'draft_label'],
+    persist: 'none',
+    describe: 'Read-only engagement-graph brief narrating which cleared gaps moved the DRS and how their deals closed, as a labeled draft.',
+  },
 ];
 
 // Look up an agent by its key (prompt_version stem). Returns undefined for an
