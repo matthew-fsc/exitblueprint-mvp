@@ -3443,13 +3443,33 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 
 /* ---- portfolio dashboard (F2) ---- */
 /* "Needs attention" worklist on the dashboard (docs/archive/35 Phase 9). */
+/* Each attention bucket is a bordered card (same surface + hairline as the
+   engagements table), laid out in a wrapping row that CAPS each card's width so
+   a single active bucket sits at a readable measure instead of spanning the
+   whole page (which turned each item into a full-bleed band). */
 .attn-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--gap-block);
+  align-items: flex-start;
 }
-.attn-group { min-width: 0; }
-.attn-group-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.attn-group {
+  flex: 1 1 17rem;
+  max-width: 24rem;
+  min-width: 0;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+.attn-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
 .attn-count {
   display: inline-flex;
   align-items: center;
@@ -3467,7 +3487,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 .attn-count-warn { background: color-mix(in srgb, var(--status-critical) 12%, transparent); border-color: color-mix(in srgb, var(--status-critical) 35%, transparent); color: var(--status-critical); }
 .attn-group-title { font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
-.attn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.attn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 .attn-item {
   display: flex;
   flex-direction: column;
@@ -3479,11 +3499,16 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   background: transparent;
   border: none;
   cursor: pointer;
+  transition: background-color 0.12s ease;
 }
-.attn-item:hover, .attn-item:focus-visible { background: var(--hover); }
+/* The descendant selector out-specifies the global `button:hover` filled-primary
+   rule; without it the worklist rows flashed solid brand-green on hover instead
+   of this quiet wash. */
+.attn-list .attn-item:hover,
+.attn-list .attn-item:focus-visible { background: var(--hover); }
 .attn-company { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attn-reason { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attn-more { margin: var(--space-1) 0 0 var(--space-2); }
+.attn-more { margin: var(--space-2) 0 0; color: var(--text-muted); }
 
 /* First-run activation checklist (GettingStarted) — a quiet, border-defined
    step list; the one active step is tinted with the accent, done steps read
@@ -4146,7 +4171,8 @@ summary:focus-visible,
 .comparison-toggle,
 .advisory-item-toggle,
 .button-danger-link,
-.learn-head {
+.learn-head,
+.attn-item {
   box-shadow: none;
   background-image: none;
 }
@@ -4154,7 +4180,8 @@ summary:focus-visible,
 .comparison-toggle:active:not(:disabled),
 .advisory-item-toggle:active:not(:disabled),
 .button-danger-link:active:not(:disabled),
-.learn-head:active:not(:disabled) {
+.learn-head:active:not(:disabled),
+.attn-item:active:not(:disabled) {
   transform: none;
 }
 /* destructive confirm/action button — a class, so it keeps hover feedback
@@ -5344,7 +5371,7 @@ button {
    toggles, danger links) are reset to no fill above; keep them excluded here too
    or this later, higher-specificity gradient re-paints them as faint raised
    boxes — which read as "weirdly shadowed" columns in table headers. */
-button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not(.comparison-toggle):not(.advisory-item-toggle):not(.button-danger-link):not(.learn-head):not(.rm-group-toggle) {
+button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not(.comparison-toggle):not(.advisory-item-toggle):not(.button-danger-link):not(.learn-head):not(.rm-group-toggle):not(.attn-item) {
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.04));
 }
 .btn-secondary, .btn-ghost, .linkish, .rm-group-toggle { box-shadow: none; background-image: none; }
