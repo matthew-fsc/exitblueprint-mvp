@@ -234,13 +234,14 @@ export default function ValuationPage() {
             </Card>
           )}
 
-          {/* own-book comparables (docs/09 §2, moat 2) */}
+          {/* comparables — the applied multiple against the own-book and market
+              reference lanes (docs/09 §2, moat 2; docs/sellside-ai/01) */}
           {val?.has_recast && (
-            <SectionCard title="Own-book comparables">
+            <SectionCard title="Comparables">
               <div className="val-ob">
                 <div className="val-ob-cols">
                   <div className="val-ob-col">
-                    <span className="stat-block-label">Multiple applied</span>
+                    <span className="stat-block-label">Your estimate uses</span>
                     <span className="val-ob-mult">{val.base_multiple.toFixed(1)}×</span>
                     <span className="muted">{MULTIPLE_SOURCE_LABEL[val.multiple_source] ?? val.multiple_source}</span>
                   </div>
@@ -268,6 +269,20 @@ export default function ValuationPage() {
                       <span className="muted">No closed deals in this industry yet to draw an own-book multiple from.</span>
                     )}
                   </div>
+                  {val.market_multiple != null && (
+                    <div className="val-ob-col">
+                      <span className="stat-block-label">Sector median</span>
+                      <span className="val-ob-mult">
+                        {val.market_multiple.toFixed(1)}×
+                        {val.market_source === 'market' && <span className="val-ob-tag">in use</span>}
+                      </span>
+                      <span className="muted">
+                        {val.market_p25?.toFixed(1)}–{val.market_p75?.toFixed(1)}× range
+                        {' · '}
+                        {val.market_sample_size} comparable{val.market_sample_size === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <p className="muted val-ob-note">
                   {val.own_book_driving
@@ -275,44 +290,15 @@ export default function ValuationPage() {
                     : val.multiple_source === 'override'
                       ? 'A manual multiple override is in effect; your own-book median is shown for reference. '
                       : 'The estimate uses the generic table multiple; your own realized median is shown for reference. '}
-                  Own-book multiples come from this firm’s closed deals only. Adopting them into the estimate
-                  ships as a new valuation rules version.
-                </p>
-              </div>
-            </SectionCard>
-          )}
-
-          {/* market comparables — reference lane (docs/sellside-ai/01) */}
-          {val?.has_recast && val.market_multiple != null && (
-            <SectionCard title="Market comparables">
-              <div className="val-ob">
-                <div className="val-ob-cols">
-                  <div className="val-ob-col">
-                    <span className="stat-block-label">Sector median</span>
-                    <span className="val-ob-mult">
-                      {val.market_multiple.toFixed(1)}×
-                      {val.market_source === 'market' && <span className="val-ob-tag">in use</span>}
-                    </span>
-                    <span className="muted">
-                      {val.market_p25?.toFixed(1)}–{val.market_p75?.toFixed(1)}× range
-                      {' · '}
-                      {val.market_sample_size} comparable{val.market_sample_size === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <div className="val-ob-col">
-                    <span className="stat-block-label">Your estimate uses</span>
-                    <span className="val-ob-mult">{val.base_multiple.toFixed(1)}×</span>
-                    <span className="muted">{MULTIPLE_SOURCE_LABEL[val.multiple_source] ?? val.multiple_source}</span>
-                  </div>
-                </div>
-                <p className="muted val-ob-note">
-                  {val.base_multiple < val.market_multiple
-                    ? 'Your estimate sits below the sector median — closing readiness gaps is what moves it up within the range. '
-                    : val.base_multiple > val.market_multiple
-                      ? 'Your estimate sits above the sector median, reflecting the readiness already in place. '
-                      : 'Your estimate is in line with the sector median. '}
-                  Directional market reference for context — not a licensed data feed. It informs the
-                  estimate only when a valuation rules version elects it.
+                  {val.market_multiple != null &&
+                    (val.base_multiple < val.market_multiple
+                      ? 'It sits below the sector median — closing readiness gaps is what moves it up within the range. '
+                      : val.base_multiple > val.market_multiple
+                        ? 'It sits above the sector median, reflecting the readiness already in place. '
+                        : 'It is in line with the sector median. ')}
+                  Own-book multiples come from this firm’s closed deals only; the market median is a directional
+                  reference, not a licensed data feed. Adopting either into the estimate ships as a new valuation
+                  rules version.
                 </p>
               </div>
             </SectionCard>
