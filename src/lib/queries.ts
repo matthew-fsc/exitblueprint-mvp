@@ -1108,6 +1108,48 @@ export function useDiligenceSimulation(
   });
 }
 
+// ---- engagement graph brief (WS-GRAPH, docs/09 moat 3) ----------------------
+// The narrative half of the engagement graph: a labeled draft that reads the
+// firm's own remediation record back to the advisor ("gaps like these moved the
+// DRS by about X, and their deals closed around Y"). Every figure is the
+// deterministic engagement graph's; the model only frames the pattern. Read-only,
+// firm-scoped, never persisted — regenerated on demand.
+export interface EngagementGraphBriefGap {
+  gap_code: string;
+  gap_name: string;
+  dimension_code: string;
+  severity: string;
+  clears: number;
+  incomparable_clears: number;
+  avg_drs_delta: number | null;
+  avg_dimension_delta: number | null;
+  deals_closed: number;
+  avg_final_multiple: number | null;
+}
+
+export interface EngagementGraphBriefView {
+  doc_type: 'engagement_graph_brief';
+  prompt_version: string;
+  model: string;
+  is_draft: true;
+  content_md: string;
+  payload: {
+    firm_id: string;
+    gaps_cleared: number;
+    incomparable_clears: number;
+    effectiveness: EngagementGraphBriefGap[];
+    calibration: { closed: number; avg_final_multiple: number | null } | null;
+  };
+}
+
+export function useEngagementGraphBrief(enabled = true): UseQueryResult<EngagementGraphBriefView> {
+  return useQuery({
+    queryKey: ['engagementGraphBrief'],
+    enabled,
+    queryFn: () => invokeFunction<EngagementGraphBriefView>('engagement-graph-brief', {}),
+  });
+}
+
 // ---- market context (docs/sellside-ai/01) ----------------------------------
 // Cited market-reference passages (sector commentary, precedent transactions)
 // for the engagement's industry/size, retrieved from the non-tenant `market`

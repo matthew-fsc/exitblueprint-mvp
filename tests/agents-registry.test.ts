@@ -25,6 +25,7 @@ describe('agent registry', () => {
         'delta_report',
         'diligence_qa',
         'diligence_simulation',
+        'engagement_graph_brief',
         'institutional_review',
         'management_presentation',
         'owner_report',
