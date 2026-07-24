@@ -97,6 +97,9 @@ export async function callClaude(
     system: systemPrompt,
     messages: [{ role: 'user', content: userContent }],
     maxTokens: MAX_OUTPUT_TOKENS,
+    // If the gateway can't serve this tier's model for the account, upgrade to premium
+    // rather than dropping to the deterministic composer.
+    fallbackModel: modelForTier('premium'),
   });
   const text = messageText(response);
   if (!text) {

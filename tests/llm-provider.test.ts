@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   aiConfigured,
   aiFailureReason,
+  isModelAccessError,
   resolveProvider,
   toGatewayModel,
 } from '../server/llm/provider';
@@ -31,6 +32,24 @@ describe('toGatewayModel', () => {
   it('leaves single-number versions and already-namespaced ids alone', () => {
     expect(toGatewayModel('claude-sonnet-5')).toBe('anthropic/claude-sonnet-5');
     expect(toGatewayModel('anthropic/claude-opus-4.8')).toBe('anthropic/claude-opus-4.8');
+  });
+});
+
+describe('isModelAccessError', () => {
+  it('is true for 401/403/404 — the gateway cannot serve the model for this account', () => {
+    // The reported failure mode: Haiku routed to Vertex AI → 403. Retrying the same
+    // model won't help, but a different (premium) model may be served.
+    expect(isModelAccessError({ status: 403 })).toBe(true);
+    expect(isModelAccessError({ status: 401 })).toBe(true);
+    expect(isModelAccessError({ status: 404 })).toBe(true);
+  });
+
+  it('is false for transient / other errors (retrying the SAME model may work)', () => {
+    expect(isModelAccessError({ status: 429 })).toBe(false);
+    expect(isModelAccessError({ status: 500 })).toBe(false);
+    expect(isModelAccessError({ status: 402 })).toBe(false); // billing — a different concern
+    expect(isModelAccessError(new Error('network'))).toBe(false);
+    expect(isModelAccessError(undefined)).toBe(false);
   });
 });
 

@@ -70,6 +70,21 @@ export interface CreateMessageRequest {
   system?: string;
   tools?: Anthropic.Tool[];
   signal?: AbortSignal;
+  // A model to retry with when the primary `model` is one the gateway can't serve for
+  // this account (an access error — see isModelAccessError). Callers pass the premium
+  // tier here so a cheap-tier model the gateway routes to a provider the account lacks
+  // (e.g. Haiku → Vertex AI → 403) transparently upgrades to a served model instead of
+  // failing the whole call to a composer/retrieval fallback. Omit to disable.
+  fallbackModel?: string;
+}
+
+// A model-ACCESS error: the gateway can't serve the requested model for this account —
+// not authorized / not found on whichever upstream provider it routed to (401/403/404).
+// Retrying the SAME model won't help (unlike a transient 429/5xx), but a DIFFERENT model
+// the account CAN reach may succeed. This is the "Haiku routed to Vertex AI → 403" case.
+export function isModelAccessError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  return status === 401 || status === 403 || status === 404;
 }
 
 export async function createMessage(req: CreateMessageRequest): Promise<Anthropic.Message> {
@@ -77,16 +92,33 @@ export async function createMessage(req: CreateMessageRequest): Promise<Anthropi
   if (!provider) {
     throw new Error('AI is not configured: set AI_GATEWAY_API_KEY in the server environment');
   }
-  return provider.client.messages.create(
-    {
-      model: provider.modelFor(req.model),
-      max_tokens: req.maxTokens,
-      ...(req.system !== undefined ? { system: req.system } : {}),
-      ...(req.tools ? { tools: req.tools } : {}),
-      messages: req.messages,
-    },
-    req.signal ? { signal: req.signal } : undefined,
-  );
+  const send = (model: string) =>
+    provider.client.messages.create(
+      {
+        model: provider.modelFor(model),
+        max_tokens: req.maxTokens,
+        ...(req.system !== undefined ? { system: req.system } : {}),
+        ...(req.tools ? { tools: req.tools } : {}),
+        messages: req.messages,
+      },
+      req.signal ? { signal: req.signal } : undefined,
+    );
+  try {
+    return await send(req.model);
+  } catch (err) {
+    // A cheap-tier model the gateway can't serve → upgrade once to the served fallback,
+    // rather than failing the call. Only for access errors, and only when the fallback
+    // is a DIFFERENT model (never retry the same id).
+    if (req.fallbackModel && req.fallbackModel !== req.model && isModelAccessError(err)) {
+      console.warn(
+        `AI model '${req.model}' is not served by the gateway for this account ` +
+          `(${(err as { status?: number }).status}); retrying with '${req.fallbackModel}'. ` +
+          'Set AI_MODEL_* to a served model to avoid the extra call.',
+      );
+      return send(req.fallbackModel);
+    }
+    throw err;
+  }
 }
 
 // The concatenated text of a message's text blocks — the standard "give me the answer
