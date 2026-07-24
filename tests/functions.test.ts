@@ -367,6 +367,87 @@ describe.skipIf(!url)('handleFunctionCall (portable router)', () => {
     await service.query(`delete from auth.users where id = any($1)`, [[ownerUserId, collabUserId]]);
   });
 
+  it('share-assessment-with-client + client intake: advisor shares, owner co-edits, only the advisor submits', async () => {
+    const rv = (await service.query(`select id from rubric_versions where status = 'active' limit 1`)).rows[0].id;
+    const companyId = (await service.query(`select company_id from engagements where id = $1`, [engagementId])).rows[0]
+      .company_id;
+    // A fresh in-progress assessment (the fixture's seq-1 row is completed).
+    const draftId = (
+      await service.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, sequence_number, status)
+         values ($1, $2, $3, 2, 'in_progress') returning id`,
+        [firmId, engagementId, rv],
+      )
+    ).rows[0].id;
+    // The company's owner already has a login (so inviteOwner is a no-op 'exists').
+    const ownerUserId = (
+      await service.query(
+        `insert into auth.users (id, email) values (gen_random_uuid(), 'router.shareowner@test.co') returning id`,
+      )
+    ).rows[0].id;
+    await service.query(
+      `insert into profiles (user_id, firm_id, role, full_name, company_id) values ($1, $2, 'owner', 'Share Owner', $3)`,
+      [ownerUserId, firmId, companyId],
+    );
+
+    // (a) The advisor shares the draft with the client.
+    const shared = await handleFunctionCall(
+      'share-assessment-with-client',
+      { assessment_id: draftId },
+      ctxFor(advisorUserId),
+    );
+    expect(shared.kind).toBe('json');
+    if (shared.kind === 'json') expect(shared.status).toBe(200);
+    const sharedAt = (await service.query(`select shared_with_client_at from assessments where id = $1`, [draftId]))
+      .rows[0].shared_with_client_at;
+    expect(sharedAt).not.toBeNull();
+
+    // The owner can now SEE + WRITE the shared draft's answers under RLS.
+    const q = (await service.query(`select id from questions limit 1`)).rows[0].id;
+    const ownerWrote = await ctxFor(ownerUserId).asUser(async (c) => {
+      await c.query(`insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb)`, [draftId, q]);
+      return (await c.query(`select count(*)::int n from answers where assessment_id = $1`, [draftId])).rows[0].n;
+    });
+    expect(ownerWrote).toBe(1);
+
+    // (b) Advisor-only submit / staff-only compute: the owner cannot score, generate
+    // a document, or (re)share — even though they can now see the assessment (403).
+    for (const name of ['score-assessment', 'generate-document', 'share-assessment-with-client']) {
+      const denied = await handleFunctionCall(name, { assessment_id: draftId }, ctxFor(ownerUserId));
+      expect(denied.kind).toBe('json');
+      if (denied.kind === 'json') expect(denied.status).toBe(403);
+    }
+
+    // (c) The owner marks the intake ready for review.
+    const submitted = await handleFunctionCall('submit-client-intake', { assessment_id: draftId }, ctxFor(ownerUserId));
+    expect(submitted.kind).toBe('json');
+    if (submitted.kind === 'json') expect(submitted.status).toBe(200);
+    const submittedAt = (await service.query(`select client_submitted_at from assessments where id = $1`, [draftId]))
+      .rows[0].client_submitted_at;
+    expect(submittedAt).not.toBeNull();
+
+    // The owner can see the COMPLETED fixture assessment, but it is not open for
+    // client intake → handler rejects (400), never silently stamps it.
+    const onCompleted = await handleFunctionCall(
+      'submit-client-intake',
+      { assessment_id: assessmentId },
+      ctxFor(ownerUserId),
+    );
+    expect(onCompleted.kind).toBe('json');
+    if (onCompleted.kind === 'json') expect(onCompleted.status).toBeGreaterThanOrEqual(400);
+
+    // (d) The advisor can also mark it (idempotent).
+    const advSubmit = await handleFunctionCall('submit-client-intake', { assessment_id: draftId }, ctxFor(advisorUserId));
+    expect(advSubmit.kind).toBe('json');
+    if (advSubmit.kind === 'json') expect(advSubmit.status).toBe(200);
+
+    // Cleanup.
+    await service.query(`delete from answers where assessment_id = $1`, [draftId]);
+    await service.query(`delete from assessments where id = $1`, [draftId]);
+    await service.query(`delete from profiles where user_id = $1`, [ownerUserId]);
+    await service.query(`delete from auth.users where id = $1`, [ownerUserId]);
+  });
+
   it('create-engagement: creates the engagement and its acceptance atomically, gating assessments', async () => {
     const companyId = (
       await service.query(`insert into companies (firm_id, name) values ($1, 'CE Co') returning id`, [firmId])

@@ -299,6 +299,24 @@ async function main() {
         [ids.firm_a],
       )
     ).rows[0].id;
+    // Client-portal sharing fixtures (20260724 share_assessment_with_client): the
+    // firm-A seq-2 in_progress assessment is SHARED with the owner (owner may fill
+    // its answers); a second seq-3 in_progress assessment stays UNSHARED (owner must
+    // never see or write it).
+    const assessmentAShared = (
+      await db.query(
+        `update assessments set shared_with_client_at = now()
+         where firm_id = $1 and status = 'in_progress' and sequence_number = 2 returning id`,
+        [ids.firm_a],
+      )
+    ).rows[0].id;
+    const assessmentAUnshared = (
+      await db.query(
+        `insert into assessments (firm_id, engagement_id, rubric_version_id, status, sequence_number)
+         values ($1, $2, $3, 'in_progress', 3) returning id`,
+        [ids.firm_a, engagementA, rubric],
+      )
+    ).rows[0].id;
     const subScoreId = (
       await db.query(
         `insert into sub_scores (dimension_id, code, name, weight, formula_type, input_question_codes)
@@ -509,6 +527,30 @@ async function main() {
       await db.query('rollback to savepoint be');
     }
     check('cannot read billing_events (service-role only)', billingEventsDenied);
+    // Comp codes are credentials (docs/24 §5.7): possession of a valid code grants
+    // access, so comp_codes / comp_code_redemptions have no authenticated grant —
+    // a tenant read is a hard permission error, like billing_events. Redemption is
+    // done by the redeem-comp-code function under the service role.
+    let compCodesDenied = false;
+    try {
+      await db.query('savepoint cc');
+      await db.query('select count(*) from comp_codes');
+      await db.query('release savepoint cc');
+    } catch {
+      compCodesDenied = true;
+      await db.query('rollback to savepoint cc');
+    }
+    check('cannot read comp_codes (service-role only)', compCodesDenied);
+    let compRedemptionsDenied = false;
+    try {
+      await db.query('savepoint ccr');
+      await db.query('select count(*) from comp_code_redemptions');
+      await db.query('release savepoint ccr');
+    } catch {
+      compRedemptionsDenied = true;
+      await db.query('rollback to savepoint ccr');
+    }
+    check('cannot read comp_code_redemptions (service-role only)', compRedemptionsDenied);
     // Platform monitoring rails (docs/38): the cross-tenant `analytics` schema is
     // granted to service_role ONLY. An authenticated tenant role has no USAGE on
     // the schema, so a read is a hard permission error, not an empty RLS result.
@@ -1333,9 +1375,91 @@ async function main() {
     await asUser(ids.user_o);
     const coO = await db.query('select name from companies');
     check('sees only their company', coO.rows.length === 1 && coO.rows[0].name === 'Alpha Co');
-    const assessO = await db.query('select status from assessments');
-    check('sees only completed assessments', assessO.rows.length === 1 && assessO.rows[0].status === 'completed',
-      `saw ${JSON.stringify(assessO.rows)}`);
+    // Owner sees their completed assessments AND the one shared in-progress draft
+    // (owner_shared_intake_read) — but NOT the unshared in-progress one.
+    const assessO = await db.query('select id, status from assessments order by status');
+    check(
+      'sees completed + the shared in-progress assessment (not the unshared one)',
+      assessO.rows.length === 2 &&
+        assessO.rows.some((r) => r.status === 'completed') &&
+        assessO.rows.some((r) => r.id === assessmentAShared) &&
+        !assessO.rows.some((r) => r.id === assessmentAUnshared),
+      `saw ${JSON.stringify(assessO.rows)}`,
+    );
+
+    // Owner CAN fill the shared draft's answers (insert/update/delete), the one v2
+    // write path (owner_shared_intake_answers).
+    const ownerAnswerWrite = await db.query(
+      `insert into answers (assessment_id, question_id, value) values ($1, $2, '5'::jsonb)
+       on conflict (assessment_id, question_id) do update set value = excluded.value returning id`,
+      [assessmentAShared, questionId],
+    );
+    check('owner can write answers on the shared draft', ownerAnswerWrite.rowCount === 1);
+    const ownerAnswerDelete = await db.query(
+      `delete from answers where assessment_id = $1 and question_id = $2 returning id`,
+      [assessmentAShared, questionId],
+    );
+    check('owner can delete answers on the shared draft', ownerAnswerDelete.rowCount === 1);
+
+    // Owner CANNOT write answers on the unshared in-progress assessment (invisible).
+    let unsharedBlocked = false;
+    try {
+      await db.query('savepoint ua');
+      const r = await db.query(
+        `insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb) returning id`,
+        [assessmentAUnshared, questionId],
+      );
+      unsharedBlocked = r.rowCount === 0;
+      await db.query('release savepoint ua');
+    } catch {
+      unsharedBlocked = true;
+      await db.query('rollback to savepoint ua');
+    }
+    check('owner cannot write answers on an unshared in-progress assessment', unsharedBlocked);
+
+    // Owner CANNOT write answers on a completed assessment (frozen; no owner write policy).
+    let completedBlocked = false;
+    try {
+      await db.query('savepoint ca');
+      const r = await db.query(
+        `insert into answers (assessment_id, question_id, value) values ($1, $2, '9'::jsonb) returning id`,
+        [assessmentACompleted, questionId],
+      );
+      completedBlocked = r.rowCount === 0;
+      await db.query('release savepoint ca');
+    } catch {
+      completedBlocked = true;
+      await db.query('rollback to savepoint ca');
+    }
+    check('owner cannot write answers on a completed assessment', completedBlocked);
+
+    // Once the shared draft is scored (in_progress -> completed), the owner loses
+    // write access even though it stays visible read-only (owner_completed_read).
+    await asSuper();
+    await db.query(`update assessments set status = 'completed', completed_at = now() where id = $1`, [
+      assessmentAShared,
+    ]);
+    await asUser(ids.user_o);
+    let afterScoreBlocked = false;
+    try {
+      await db.query('savepoint sc');
+      const r = await db.query(
+        `insert into answers (assessment_id, question_id, value) values ($1, $2, '1'::jsonb) returning id`,
+        [assessmentAShared, questionId],
+      );
+      afterScoreBlocked = r.rowCount === 0;
+      await db.query('release savepoint sc');
+    } catch {
+      afterScoreBlocked = true;
+      await db.query('rollback to savepoint sc');
+    }
+    check('owner loses answer writes once the shared assessment is scored', afterScoreBlocked);
+    // Restore the shared draft to in_progress so later assertions see the fixture as set up.
+    await asSuper();
+    await db.query(`update assessments set status = 'in_progress', completed_at = null where id = $1`, [
+      assessmentAShared,
+    ]);
+    await asUser(ids.user_o);
     let ownerWriteBlocked = false;
     try {
       await db.query('savepoint w2');
@@ -1561,8 +1685,11 @@ async function main() {
     check('admin sees exactly own firm companies',
       admCo.rows.length === 1 && admCo.rows[0].name === 'Alpha Co', `saw ${JSON.stringify(admCo.rows)}`);
     const admAssess = await db.query('select status from assessments');
-    check('admin sees own firm assessments (both statuses, like an advisor)',
-      admAssess.rows.length === 2, `saw ${admAssess.rows.length}`);
+    // Firm A has three: completed (seq 1), shared in_progress (seq 2), unshared
+    // in_progress (seq 3) — an admin (like an advisor) sees them all regardless of
+    // status or client-sharing.
+    check('admin sees own firm assessments (all statuses, like an advisor)',
+      admAssess.rows.length === 3, `saw ${admAssess.rows.length}`);
     const admFirmB = await db.query('select id from companies where firm_id = $1', [ids.firm_b]);
     check('admin cannot read firm B companies', admFirmB.rows.length === 0, `saw ${admFirmB.rows.length}`);
     // Staff-only table (engagement_log): admin reads own firm, proving the staff

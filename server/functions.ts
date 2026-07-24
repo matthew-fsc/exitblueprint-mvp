@@ -225,6 +225,26 @@ async function authorize(
       if (!visible) return { error: err(404, 'assessment not found') };
       return { firmId: null };
     }
+    case 'assessment-staff': {
+      // Firm staff acting on an assessment: resolve the caller's own advisor/admin
+      // firm (rejecting owners/collaborators), THEN confirm every referenced
+      // assessment is visible under RLS. Because an owner can now SEE a shared
+      // in-progress assessment (owner_shared_intake_read), the plain 'assessment'
+      // scope — which authorizes on visibility alone — would let them submit/score
+      // it. This scope keeps submit + the paid AI generators advisor-only while the
+      // read-only/owner-consumed assessment endpoints stay on 'assessment'.
+      const firmId = await firmFromProfile(ctx, ['advisor', 'admin']);
+      if (!firmId) return { error: err(403, 'advisor profile required') };
+      const ids = [body.assessment_id, body.prior_assessment_id, body.current_assessment_id].filter(
+        (v): v is string => typeof v === 'string',
+      );
+      const visible = await ctx.asUser(async (c) => {
+        const r = await c.query(`select id from assessments where id = any($1)`, [ids]);
+        return ids.length > 0 && r.rowCount === ids.length;
+      });
+      if (!visible) return { error: err(404, 'assessment not found') };
+      return { firmId };
+    }
     case 'platform-admin': {
       // Cross-tenant governance (methodology publishing), NOT a firm-scoped role.
       // The gate is the caller's Clerk id against the platform-superadmin

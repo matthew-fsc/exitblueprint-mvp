@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { qk, useAnswerCandidates, type AnswerCandidateRow } from '../lib/queries';
-import { Card, EmptyState, ErrorState, SkeletonLines } from './ui';
+import { Card, ErrorState, SkeletonLines } from './ui';
 import { useAsyncAction } from '../lib/useAsyncAction';
 import { humanizeKey } from '../lib/format';
 
@@ -62,6 +62,13 @@ export function AnswerCandidatesPanel({ engagementId }: { engagementId: string |
   }
   if (listQ.isError) return <ErrorState variant="inline" error={listQ.error} />;
 
+  // Answer extraction has no advisor-facing trigger wired yet (docs/sellside-ai
+  // WS-EXTRACT is a staging queue only). With no candidates there is nothing to
+  // review, so the panel self-hides rather than showing an orphaned empty card
+  // that tells the advisor to "run extraction" with no way to do so. It appears
+  // the moment a candidate exists.
+  if (candidates.length === 0) return null;
+
   return (
     <Card>
       <div className="cluster-between">
@@ -74,12 +81,7 @@ export function AnswerCandidatesPanel({ engagementId }: { engagementId: string |
         answers.
       </p>
 
-      {candidates.length === 0 ? (
-        <EmptyState icon="check" title="No proposed answers">
-          Run extraction on a data-room document to propose candidate answers here.
-        </EmptyState>
-      ) : (
-        <ul className="candidate-list">
+      <ul className="candidate-list">
           {candidates.map((c) => (
             <li key={c.id} className="candidate-row eb-list-row">
               <div className="candidate-main min-w-0">
@@ -115,7 +117,6 @@ export function AnswerCandidatesPanel({ engagementId }: { engagementId: string |
             </li>
           ))}
         </ul>
-      )}
     </Card>
   );
 }

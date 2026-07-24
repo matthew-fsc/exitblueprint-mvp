@@ -16,12 +16,13 @@ Point-in-time audits and superseded runbooks have been moved to
 > `// docs/NN` pointers, `render.yaml`, scripts), so numbers are stable and never
 > reused. Archived docs keep their number under `archive/`.
 >
-> ⚠️ **Number collision — needs Matthew.** Two docs currently share number **41**:
-> [`41-advisor-library-research-plan.md`](./41-advisor-library-research-plan.md)
-> (registered as `docs/41` in the decisions log, 2026-07-21) and
-> [`41-legal-counsel-talking-points.md`](./41-legal-counsel-talking-points.md)
-> (added the same day with no decisions-log entry). Numbering is Matthew-owned —
-> one of these needs a fresh, never-reused number assigned. Not resolved here.
+> ✅ **#41 collision resolved (2026-07-24).** The two docs that shared number **41**
+> were split: [`41-advisor-library-research-plan.md`](./41-advisor-library-research-plan.md)
+> keeps **41** (it was the one registered as `docs/41` in the decisions log), and
+> the legal-counsel briefing moved to **43**
+> ([`43-legal-counsel-talking-points.md`](./43-legal-counsel-talking-points.md)).
+> Maintained references were updated; historical decisions-log entries (append-only)
+> still name the old `docs/41-legal-counsel-talking-points` path by design.
 
 ---
 
@@ -46,6 +47,7 @@ A developer index: the durable features and the files that own them. Pair with
 | Identity (Clerk) + RLS | `server/auth-jwt.ts`, `server/http.ts`, migrations | 30, 28 |
 | Deterministic scoring (DRS/ORI) | `shared/scoring/engine.ts` · `seed/fixtures/reference_scorer.py` | 03, 07 |
 | Assessment lifecycle (immutable) | `server/scoring.ts`, `supabase/migrations/*` | 02, 03 |
+| **Client-portal intake** (advisor shares an in-progress assessment; the owner fills the questionnaire in their portal while the advisor co-edits; `shared_with_client_at`/`client_submitted_at` + owner `answers` RLS; `assessment-staff` scope keeps submit/scoring advisor-only) | `server/client-portal.ts` · `src/components/SendToClientButton.tsx` · `src/pages/owner/OwnerIntakePage.tsx` · `src/lib/intakeSave.ts` · `supabase/migrations/*_share_assessment_with_client.sql` | 02 |
 | Roadmap & tasks | `server/roadmap.ts` (auto-applies Plans; playbooks retired) | 02, 17 §2 |
 | **Library** (atomic items: tasks · education · advisory) | `src/pages/LibraryPage.tsx` · `library_tasks`/`content_modules`/`advisory_library_items` | 37, 02 |
 | **Plans** (bundles of Library items) | `server/plans.ts` · `src/pages/PlansPage.tsx` · `src/pages/owner/OwnerPlanPage.tsx` | **37**, 02 |
@@ -117,7 +119,7 @@ A developer index: the durable features and the files that own them. Pair with
 | [13-security-summary](./13-security-summary.md) | Customer one-pager of implemented controls (backs the `/security` page) | Reference |
 | [16-vendor-security-dd](./16-vendor-security-dd.md) | Full vendor-security-DD questionnaire response + open-items list | Reference |
 | [15-buyer-expectations-and-vendor-dd](./15-buyer-expectations-and-vendor-dd.md) | Analysis of real DD artifacts → rubric/data-room/vendor-DD work | Reference |
-| [41-legal-counsel-talking-points](./41-legal-counsel-talking-points.md) | Briefing agenda for outside counsel — ToS, in-product disclaimers, trade-secret & trademark protection, privacy/DPA, AI, third-party data licensing, advisor-channel, go-live priority | Reference |
+| [43-legal-counsel-talking-points](./43-legal-counsel-talking-points.md) | Briefing agenda for outside counsel — ToS, in-product disclaimers, trade-secret & trademark protection, privacy/DPA, AI, third-party data licensing, advisor-channel, go-live priority | Reference |
 | [42-lwg-vendor-dd-response](./42-lwg-vendor-dd-response.md) | Completed LWG Vendor Due Diligence Questionnaire (L2) — form-shaped answers to the real packet; the specific instance of 16's generic pack | Reference |
 
 > ✅ **Subprocessor register reconciled (P5.4 done).** `seed/subprocessors.csv`,
@@ -129,6 +131,7 @@ A developer index: the durable features and the files that own them. Pair with
 ## Production & operations
 | Doc | What it is | Status |
 | --- | --- | --- |
+| [44-gtm-readiness-review](./44-gtm-readiness-review.md) | **GTM readiness review (2026-07)** — the first-GTM motion (comped design-partner pilot), the short finish-before-launch list, what to hide, and what to defer | Reference |
 | [24-production-readiness-clerk-stripe](./24-production-readiness-clerk-stripe.md) | The v2 master plan — Clerk + Stripe + remaining ops/legal gaps (re-baselines archived doc 10) | Reference |
 | [29-exitblueprint-net-golive](./29-exitblueprint-net-golive.md) | The live go-live runbook for exitblueprint.net (auth steps → 30) | Runbook |
 | [39-sales-demo-runbook](./39-sales-demo-runbook.md) | Stand up a hosted sales-demo tenant + advisor & owner logins (`npm run demo:sales`); plus the **Dogfooding** section — ExitBlueprint as its own tenant (`npm run dogfood`) | Runbook |

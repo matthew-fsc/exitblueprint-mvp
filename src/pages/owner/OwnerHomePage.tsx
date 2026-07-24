@@ -13,8 +13,25 @@ const TIER_PLAIN: Record<string, string> = {
   'Not Saleable (Yet)': 'The business is not ready to go to market yet, but there is a clear path.',
 };
 
+// The advisor shared an in-progress assessment to this portal for the client to
+// fill out. Surface it prominently — it's the client's active task.
+function ClientIntakeCta({ assessmentId, submitted }: { assessmentId: string; submitted: boolean }) {
+  return (
+    <SectionCard title="Your advisor invited you to complete your assessment">
+      <p className="muted" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
+        {submitted
+          ? 'Thanks — you’ve sent this to your advisor for review. You can still make changes.'
+          : 'Answer the questions about your business and your goals. Your advisor is working on this with you and can help with anything you’re unsure about.'}
+      </p>
+      <Link className="owner-more" to={`/portal/assessment/${assessmentId}`}>
+        {submitted ? 'Review your answers →' : 'Continue your assessment →'}
+      </Link>
+    </SectionCard>
+  );
+}
+
 export default function OwnerHomePage() {
-  const { company, engagement, latest, loading, isError, error, refetch } = useOwnerContext();
+  const { company, engagement, latest, sharedAssessment, loading, isError, error, refetch } = useOwnerContext();
   const explainQ = useExplain(latest?.id);
   const gapsQ = useEngagementGaps(engagement?.id, latest?.rubric_version_id);
   const verifQ = useVerification(latest?.id);
@@ -38,10 +55,14 @@ export default function OwnerHomePage() {
     return (
       <>
         <PageHeader title={company?.name ?? 'Welcome'} subtitle="Your exit-readiness workspace" />
-        <EmptyState title="Your assessment is being prepared">
-          Your advisor is setting up your readiness assessment. You'll see your score and plan here
-          once it's ready.
-        </EmptyState>
+        {sharedAssessment ? (
+          <ClientIntakeCta assessmentId={sharedAssessment.id} submitted={!!sharedAssessment.client_submitted_at} />
+        ) : (
+          <EmptyState title="Your assessment is being prepared">
+            Your advisor is setting up your readiness assessment. You'll see your score and plan here
+            once it's ready.
+          </EmptyState>
+        )}
       </>
     );
   }
@@ -54,6 +75,10 @@ export default function OwnerHomePage() {
         title={`Welcome back${company ? `, ${company.name}` : ''}`}
         subtitle="Where your business stands today, and what we're working on together."
       />
+
+      {sharedAssessment && (
+        <ClientIntakeCta assessmentId={sharedAssessment.id} submitted={!!sharedAssessment.client_submitted_at} />
+      )}
 
       <div className="owner-hero">
         <Card>
