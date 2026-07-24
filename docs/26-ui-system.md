@@ -201,10 +201,10 @@ in form + number (never color alone): 85–100 `#98D4AF` · 70–84 `#5FB488` ·
 chart consumers.
 
 **The DRS score instrument (the signature).** `ScoreDial` renders every score as a
-forest-dark circular ring on a `--radius-lg` panel — the one deliberate dark
-moment on the light app — reused on dashboard, results, and reports. The number is
-always printed immediately (Schibsted, tabular); only the ring sweeps, once per
-page load, and never under `prefers-reduced-motion`.
+clean circular ring that sits on its card (no panel fill), theme-aware, reused on
+dashboard, results, and reports. The ring is the tier color; the number is always
+printed immediately (Schibsted, ink, tabular) and never hidden behind the sweep,
+which runs once per page load and never under `prefers-reduced-motion`.
 
 ## Institutional register — the craft bar
 The app should read like software a billion-dollar firm runs on, not a generic
