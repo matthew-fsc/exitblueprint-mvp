@@ -17,9 +17,12 @@ const body = (r: FunctionResult) => r as { kind: 'json'; status: number; body: a
 
 describe('llm client cost ledger', () => {
   it('returns the completion even when the ledger write fails', async () => {
-    const transport: LlmTransport = async (req) => ({
+    // Pin a PAID model so the nonzero-cost path is exercised: extraction now routes
+    // to the free economy tier (server/llm/models.ts), which prices at $0, but this
+    // test is about the ledger-failure fallback, not extraction's tier.
+    const transport: LlmTransport = async () => ({
       text: 'done',
-      model: req.model,
+      model: 'claude-opus-4-8',
       usage: { input_tokens: 5, output_tokens: 5 },
     });
     // A db whose insert always throws; the call must still resolve.

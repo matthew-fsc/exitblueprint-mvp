@@ -16,11 +16,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { numeralPostCheck, citationPostCheck } from './guards';
 import { aiConfigured, aiFailureReason, resolveProvider } from '../llm/provider';
+import { modelForTier, type ModelTier } from '../llm/models';
 import { resolvePromptBody } from '../prompt-registry';
-
-// The AI model every reasoning agent drafts with. Namespaced to the gateway slug
-// by resolveProvider().modelFor at call time.
-const MODEL = 'claude-opus-4-8';
 
 export interface GeneratedText {
   text: string;
@@ -60,6 +57,11 @@ export interface GroundedRequest {
   // Explicit generator forces the strict AI path (tests). Omit it and the runtime
   // picks: Claude when configured (falling back to compose on any failure), else compose.
   generate?: GenerateFn;
+  // The cost/capability tier the AI draft is generated at (server/llm/models.ts).
+  // Omitted → the safe premium default, so an unspecified caller never silently
+  // downgrades; existing callers now pass their agent's declared modelTier. Ignored
+  // on the composer/retrieval-only fallback path (no model call happens there).
+  modelTier?: ModelTier;
   // Per-caller strings, defaulted to narrative.ts's wording, so every existing path
   // stays byte-identical while the loop is shared:
   //   label            — the module name in the hard-throw + the fallback warn.
@@ -76,8 +78,14 @@ export function withDraftBanner(text: string, banner: string): string {
 }
 
 // The one way to Claude. Body is narrative.ts's callClaude verbatim; the "not
-// configured" / "no text" errors are thrown as narrative.ts threw them.
-export async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
+// configured" / "no text" errors are thrown as narrative.ts threw them. The model
+// is chosen by the caller's tier (server/llm/models.ts), defaulting to premium so a
+// direct caller that names no tier keeps the prior frontier-model behavior.
+export async function callClaude(
+  systemPrompt: string,
+  userContent: string,
+  model: string = modelForTier('premium'),
+): Promise<GeneratedText> {
   const provider = resolveProvider();
   if (!provider) {
     throw new Error(
@@ -85,7 +93,7 @@ export async function callClaude(systemPrompt: string, userContent: string): Pro
     );
   }
   const response = await provider.client.messages.create({
-    model: provider.modelFor(MODEL),
+    model: provider.modelFor(model),
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
     system: systemPrompt,
@@ -175,6 +183,7 @@ export async function runGroundedGeneration(req: GroundedRequest): Promise<Gener
     draftBanner,
     citation,
     generate,
+    modelTier,
     label = 'narrative',
     regenInstruction = 'Use only numbers from the payload.',
   } = req;
@@ -191,8 +200,12 @@ export async function runGroundedGeneration(req: GroundedRequest): Promise<Gener
 
   if (aiConfigured()) {
     try {
+      // Bind the caller's tier to the model call, keeping GenerateFn a 2-arg fn so
+      // the firewall loop is unchanged: the tier only selects which model drafts.
+      const model = modelForTier(modelTier);
+      const tierGenerate: GenerateFn = (system, user) => callClaude(system, user, model);
       const generated = await firewallGenerate(
-        db, promptVersion, userContent, callClaude, label, regenInstruction, citation,
+        db, promptVersion, userContent, tierGenerate, label, regenInstruction, citation,
       );
       return { text: applyBanner(generated.text), model: generated.model };
     } catch (err) {

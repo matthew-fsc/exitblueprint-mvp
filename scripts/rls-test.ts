@@ -443,6 +443,15 @@ async function main() {
        values ($1, $2, 'Secret question', 'Secret answer', 'retrieval_only', 'retrieval-only:diligence_qa.v1', 'diligence_qa.v1')`,
       [ids.firm_b, engagementB],
     );
+    // Firm B answer_candidates row (docs/sellside-ai WS-EXTRACT) for the staging-
+    // queue isolation check. A candidate is AI-proposed staging data, never scoring
+    // data; it still carries firm_id under RLS like every domain table.
+    await db.query(
+      `insert into answer_candidates
+         (firm_id, engagement_id, assessment_id, question_code, candidate_value, confidence, model, prompt_version)
+       values ($1, $2, $3, 'RLS-Q1', '1'::jsonb, 0.9, 'claude-haiku-4-5-20251001', 'extract.answer_candidates.v1')`,
+      [ids.firm_b, engagementB, assessmentBId],
+    );
     await db.query(
       `insert into jobs (firm_id, engagement_id, pipeline, step) values ($1, $2, 'sellside_intake', 'intake')`,
       [ids.firm_b, engagementB],
@@ -807,6 +816,28 @@ async function main() {
       'sees no firm B diligence_qa',
       (await db.query('select id from diligence_qa')).rows.length === 0,
     );
+    // answer_candidates (WS-EXTRACT staging queue): firm isolation — advisor A
+    // reads none of firm B's candidates and cannot stage one into firm B.
+    check(
+      'sees no firm B answer_candidates',
+      (await db.query('select id from answer_candidates')).rows.length === 0,
+    );
+    let acBWriteBlocked = false;
+    try {
+      await db.query('savepoint ac');
+      const ins = await db.query(
+        `insert into answer_candidates
+           (firm_id, engagement_id, assessment_id, question_code, candidate_value, model, prompt_version)
+         values ($1, $2, $3, 'RLS-Q1', '1'::jsonb, 'm', 'p')`,
+        [ids.firm_b, engagementB, assessmentBId],
+      );
+      acBWriteBlocked = ins.rowCount === 0;
+      await db.query('release savepoint ac');
+    } catch {
+      acBWriteBlocked = true;
+      await db.query('rollback to savepoint ac');
+    }
+    check('cannot stage an answer_candidate into firm B', acBWriteBlocked);
     check('sees no firm B jobs', (await db.query('select id from jobs')).rows.length === 0);
     check('sees no firm B review_items', (await db.query('select id from review_items')).rows.length === 0);
     check('sees no firm B llm_calls', (await db.query('select id from llm_calls')).rows.length === 0);

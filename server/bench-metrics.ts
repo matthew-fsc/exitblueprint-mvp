@@ -23,8 +23,12 @@ import {
   runGeneratedBench,
   BENCH_CASES,
   GENERATED_BENCH_CASES,
+  subjectiveCriteria,
   type BenchScore,
+  type BenchRubric,
+  type LLMJudge,
 } from './llm/evals/bench';
+import { judgeDeliverable } from './llm/evals/judge';
 import { getAgent } from './agents/registry';
 
 // Either a pooled client or the Pool itself — both expose `.query`. The read path
@@ -46,6 +50,10 @@ export interface BenchResultRow {
   case_name: string;
   answer_score: number;
   source_score: number;
+  // The third, LLM-judge axis (subjective quality). NULL for a row graded with
+  // deterministic checks only — the judge tier is secret-gated and off by default,
+  // so most runs carry no judge score. A number in [0,1] when a judge graded it.
+  judge_score: number | null;
   model: string;
   run_at: string;
 }
@@ -91,6 +99,8 @@ interface PendingRow {
   tier: 'static' | 'generated';
   answerScore: number;
   sourceScore: number;
+  // null unless a judge graded this case's subjective criteria (opts.judge).
+  judgeScore: number | null;
 }
 
 function toPending(
@@ -109,8 +119,25 @@ function toPending(
       tier,
       answerScore: s.answerScore,
       sourceScore: s.sourceScore,
+      judgeScore: null,
     };
   });
+}
+
+// Grade the static cases' SUBJECTIVE criteria with a judge, returning case_name →
+// judge axis score. Only invoked when a caller explicitly passes a judge (the
+// secret-gated [eval] path); the default DB run never calls a model. De-identified
+// like everything else here — the output is a single [0,1] quality number.
+async function judgeStaticScores(judge: LLMJudge): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const c of BENCH_CASES) {
+    const rubric = JSON.parse(readFileSync(c.rubricPath, 'utf8')) as BenchRubric;
+    if (subjectiveCriteria(rubric).length === 0) continue;
+    const markdown = readFileSync(c.deliverablePath, 'utf8');
+    const axis = await judgeDeliverable(judge, markdown, rubric);
+    out.set(c.name, axis.judgeScore);
+  }
+  return out;
 }
 
 // Run the bench and persist its grades as one new run. Static tier always runs (pure
@@ -120,12 +147,26 @@ function toPending(
 // deterministic composer branch (rule-based, no API key). NOTE: that composer
 // legitimately persists a generated_documents DRAFT as a side effect — acceptable for
 // a superadmin-gated quality run. Superadmin/service-role only.
-export async function recordBenchRun(db: pg.ClientBase): Promise<{ run_at: string; inserted: number }> {
+export async function recordBenchRun(
+  db: pg.ClientBase,
+  opts: { judge?: LLMJudge } = {},
+): Promise<{ run_at: string; inserted: number }> {
   const staticScores = await runBench();
   const staticDocTypes = staticDocTypeByName();
   const rows: PendingRow[] = toPending(staticScores, 'static', (name) =>
     staticDocTypes.get(name) ?? name.replace(/\.[^.]+$/, ''),
   );
+
+  // Judge axis (subjective quality) — persisted ONLY when a caller passes a judge
+  // (the secret-gated [eval] path). Default runs leave judge_score NULL, so the DB
+  // path stays deterministic and never makes an API call.
+  if (opts.judge) {
+    const judged = await judgeStaticScores(opts.judge);
+    for (const r of rows) {
+      const js = judged.get(r.caseName);
+      if (js != null) r.judgeScore = js;
+    }
+  }
 
   // Generated tier — only if there is a completed assessment to grade against.
   const completed = (
@@ -149,9 +190,20 @@ export async function recordBenchRun(db: pg.ClientBase): Promise<{ run_at: strin
   for (const r of rows) {
     await db.query(
       `insert into analytics.bench_results
-         (run_id, run_at, doc_type, prompt_version, model, case_name, tier, answer_score, source_score)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [runId, runAt, r.docType, r.promptVersion, r.model, r.caseName, r.tier, r.answerScore, r.sourceScore],
+         (run_id, run_at, doc_type, prompt_version, model, case_name, tier, answer_score, source_score, judge_score)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        runId,
+        runAt,
+        r.docType,
+        r.promptVersion,
+        r.model,
+        r.caseName,
+        r.tier,
+        r.answerScore,
+        r.sourceScore,
+        r.judgeScore,
+      ],
     );
   }
 
@@ -170,7 +222,7 @@ export async function benchSummary(db: Queryable): Promise<BenchSummary> {
   try {
     const rows = (
       await db.query(
-        `select run_at, doc_type, prompt_version, model, case_name, tier, answer_score, source_score
+        `select run_at, doc_type, prompt_version, model, case_name, tier, answer_score, source_score, judge_score
            from analytics.bench_latest
           order by tier, doc_type, case_name`,
       )
@@ -185,6 +237,7 @@ export async function benchSummary(db: Queryable): Promise<BenchSummary> {
       case_name: String(r.case_name),
       answer_score: num(r.answer_score),
       source_score: num(r.source_score),
+      judge_score: r.judge_score == null ? null : num(r.judge_score),
       model: String(r.model),
       run_at: r.run_at ? new Date(r.run_at).toISOString() : '',
     }));

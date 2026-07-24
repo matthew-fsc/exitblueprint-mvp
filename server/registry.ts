@@ -33,6 +33,7 @@ import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './out
 import { computeCalibration, readCalibration } from './calibration';
 import { recordBenchRun } from './bench-metrics';
 import { engagementGraph } from './engagement-graph';
+import { generateEngagementGraphBrief } from './engagement-brief';
 import { generateInstitutionalReview } from './institutional-review';
 import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
 import { answerDiligenceQuestion, listDiligenceQa } from './diligence-qa';
@@ -80,6 +81,8 @@ import { logAccess } from './audit';
 import { seedMethodology } from './seed-methodology';
 import { listPromptTemplates, setPromptTemplate, resetPromptTemplate } from './prompt-registry';
 import { renderDocumentPdf } from './documents/catalog';
+import { extractAnswerCandidates, confirmAnswerCandidate } from './answer-extraction';
+import { advisorCopilot } from './copilot';
 
 // ── The six engines (architecture doc §01) ────────────────────────────────────
 // Every endpoint belongs to exactly one. `identity` is intentionally never used
@@ -307,6 +310,17 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'firm',
     handler: ({ service, firmId }) => engagementGraph(service, firmId as string).then(ok),
   },
+  // The narrative half of the engagement graph (WS-GRAPH, docs/09 moat 3): drafts a
+  // labeled brief FROM the deterministic engagement graph (+ optional firm
+  // calibration) so an advisor reads back "gaps like these moved the DRS by about X,
+  // and their deals closed around Y." Reasoning Engine, narrative-only (rules 1-2):
+  // every figure is the graph's, the model only frames the pattern; output is always
+  // a draft. Firm-scoped and read-only (persist 'none'); not a paid action, so ungated.
+  'engagement-graph-brief': {
+    engine: 'reasoning',
+    scope: 'firm',
+    handler: ({ service, firmId }) => generateEngagementGraphBrief(service, firmId as string).then(ok),
+  },
   // Platform administration — load the canonical /seed methodology (rubric,
   // playbooks, valuation rules, data-room template, …) into the DB from inside
   // the system, so a hosted beta seeds itself without anyone running the CLI
@@ -482,6 +496,24 @@ export const REGISTRY: Record<string, FunctionSpec> = {
       listDiligenceQa(service, body.engagement_id as string).then((items) => ok({ items })),
   },
 
+  // Advisor copilot (WS-COPILOT): a READ-ONLY natural-language assistant over the
+  // firm's own book. It runs a bounded Anthropic tool-use loop over a CURATED subset
+  // of registry READ functions (server/copilot-tools.ts — never a write or gated
+  // action) and returns a DRAFT-LABELED synthesis. Narrative-only (rules 1-2): the
+  // numeral firewall grounds every figure in a tool result and the model authors no
+  // number; it degrades to raw tool results when AI is unavailable (no credit).
+  // Firm-scoped (firm resolved from the profile) and NOT gated — asking questions
+  // about your own book is free; the copilot cannot reach any paid action. v1 is
+  // stateless (no persistence, no migration), so it is not an AgentSpec.
+  'advisor-copilot': {
+    engine: 'reasoning',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      advisorCopilot(service, firmId as string, userId, body.question as string).then((result) =>
+        ok({ result }),
+      ),
+  },
+
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles
   // Authoring is firm-scoped and ungated (composing methodology is core, not a
   // paid action; applying a Plan to an engagement — PL3 — is where gating lands).
@@ -625,6 +657,37 @@ export const REGISTRY: Record<string, FunctionSpec> = {
           mimeType: (body.mime_type as string) ?? null,
         }),
       );
+    },
+  },
+  // Answer extraction (docs/sellside-ai WS-EXTRACT). Reads a data-room document
+  // and PROPOSES candidate answers into the answer_candidates STAGING queue — the
+  // AI never writes to a scoring table (rules 1 & 2). Writes firm-scoped rows and
+  // materializes proposals on the engagement's open assessment, so it is
+  // manage-engagement (advisor/admin staff; firm resolved from the profile), like
+  // the other engagement-writing knowledge endpoints. The economy model tier does
+  // the mechanical, values-only extraction; the strict schema rejects bad output.
+  'extract-answer-candidates': {
+    engine: 'knowledge',
+    scope: 'manage-engagement',
+    handler: ({ service, body, firmId }) =>
+      extractAnswerCandidates(service, {
+        firmId: firmId as string,
+        engagementId: body.engagement_id as string,
+        documentId: body.document_id as string,
+      }).then(ok),
+  },
+  // Confirm a pending candidate → promote it to a real assessment answer through
+  // the EXISTING deterministic answer-writing path (so scoring stays rule-based +
+  // human-gated). Staff action (advisor/reviewer/admin) — a reviewer confirming an
+  // extracted answer is exactly the review-hand-off shape — so the staff
+  // sellside-engagement scope (firm from profile, engagement visible under RLS).
+  // The candidate id names WHICH proposal; the engagement id gates authorization.
+  'confirm-answer-candidate': {
+    engine: 'knowledge',
+    scope: 'sellside-engagement',
+    handler: async ({ service, body, firmId, userId }) => {
+      const actor = await staffActorId(service, userId, firmId as string);
+      return confirmAnswerCandidate(service, body.candidate_id as string, actor).then(ok);
     },
   },
   'verification-summary': {

@@ -33,6 +33,11 @@ import {
 } from '../../narrative';
 import { buildCimPayload } from '../../cim';
 import { explainAssessment } from '../../scoring';
+// The citation contract from the intelligence runtime IS the source-axis check
+// for a Q&A/deliverable that answers FROM retrieved passages: every figure a
+// passage carries must be stated adjacent to that passage's [cite_id]. Reuse it
+// verbatim so the bench polices exactly what the shipping runtime polices.
+import { citationPostCheck } from '../../intelligence/guards';
 
 // --- Check descriptors ---------------------------------------------------------
 // A criterion names a small, pure check by its `type`. The registry
@@ -70,11 +75,51 @@ export interface PayloadFieldPresentCheck {
   path: string;
 }
 
+/** Every retrieved passage under `factsPath` (default "facts") that carries a
+ *  numeral in its `body` must have that passage's `cite_id` on the SAME output
+ *  line as the numeral — the citation contract (server/intelligence/guards.ts
+ *  citationPostCheck), reused verbatim. "Fired" means at least one figure is
+ *  stated without its source citation. Used as a NEGATIVE source criterion
+ *  (satisfied = did NOT fire), so an untraceable stated fact fails the axis. */
+export interface FactsCarryCitationCheck {
+  type: 'facts_carry_citation';
+  factsPath?: string;
+}
+
+/** Every MARKET figure stated in the output must be cited: a numeral drawn from a
+ *  retrieved market passage must appear on the same line as that passage's
+ *  [cite_id]. Runs the citation contract (server/intelligence/guards.ts
+ *  citationPostCheck) over the payload's `market_context` passages. "Fired" means
+ *  an uncited market figure was found. Used as a NEGATIVE source criterion
+ *  (traceability). No `market_context` in the payload → nothing to police → does
+ *  not fire (graceful — a deliverable with no market grounding is not penalized). */
+export interface UncitedMarketFigureCheck {
+  type: 'uncited_market_figure';
+}
+
 export type BenchCheck =
   | NoHallucinatedNumberCheck
   | MustNotContainCheck
   | MustContainAnyCheck
-  | PayloadFieldPresentCheck;
+  | PayloadFieldPresentCheck
+  | FactsCarryCitationCheck
+  | UncitedMarketFigureCheck;
+
+/** A SUBJECTIVE criterion no regex can grade ("explains why a buyer cares in
+ *  plain language"). It is NOT a deterministic BenchCheck: the pure CI grader
+ *  SKIPS it, and the separate, secret-gated LLM-judge tier (server/llm/evals/
+ *  judge.ts) grades it against the human golden set. `question` is the yes/no
+ *  the judge answers. Kept OUT of BenchCheck so the deterministic CHECKS
+ *  registry never has to (and never can) dispatch an LLM call. */
+export interface LlmJudgeCheck {
+  type: 'llm_judge';
+  question: string;
+}
+
+/** The full set a rubric criterion may carry: a deterministic check OR the
+ *  judge-only subjective check. The deterministic grader handles the former and
+ *  skips the latter. */
+export type BenchCriterionCheck = BenchCheck | LlmJudgeCheck;
 
 // --- Rubric types --------------------------------------------------------------
 
@@ -85,7 +130,13 @@ export interface BenchCriterion {
   axis: 'answer' | 'source';
   /** Human-readable statement of what the criterion asserts (for failures). */
   description: string;
-  check: BenchCheck;
+  check: BenchCriterionCheck;
+}
+
+/** True when a criterion is graded by the LLM-judge tier, not the deterministic
+ *  grader. The CI path uses this to SKIP subjective criteria so it stays pure. */
+export function isJudgeCriterion(c: BenchCriterion): boolean {
+  return c.check.type === 'llm_judge';
 }
 
 /** The rubric for one doc_type: methodology in data, not code (rule 3 spirit).
@@ -159,6 +210,30 @@ const CHECKS: {
     if (value == null) return false;
     return markdown.toLowerCase().includes(String(value).toLowerCase());
   },
+
+  facts_carry_citation: (markdown, payload, check) => {
+    const facts = resolvePath(payload, check.factsPath ?? 'facts');
+    if (!Array.isArray(facts)) return false; // no facts ⇒ nothing to cite ⇒ never fires
+    const passages = facts
+      .filter(
+        (f): f is { cite_id: string; body: string } =>
+          f != null &&
+          typeof (f as Record<string, unknown>).cite_id === 'string' &&
+          typeof (f as Record<string, unknown>).body === 'string',
+      )
+      .map((f) => ({ cite_id: String(f.cite_id), body: String(f.body) }));
+    // Fired = at least one stated figure lacks its passage's [cite_id] on the line.
+    return citationPostCheck(markdown, { passages }).length > 0;
+  },
+
+  uncited_market_figure: (markdown, payload) => {
+    // The payload's market_context (server/cim.ts CimPayload) holds the retrieved,
+    // cited passages; citationPostCheck flags any market figure stated without its
+    // [cite_id] on the same line. No market_context → no passages → no violations.
+    const passages =
+      (payload as { market_context?: { cite_id: string; body: string }[] }).market_context ?? [];
+    return citationPostCheck(markdown, { passages }).length > 0;
+  },
 };
 
 /** Dispatch a criterion's check to its helper. Exported for tests. */
@@ -192,6 +267,10 @@ export function gradeDeliverable(
   let availablePositive = 0;
 
   for (const c of rubric.answer) {
+    // Subjective (llm_judge) criteria are NOT deterministic — they belong to the
+    // secret-gated judge tier (judge.ts). The pure CI grader skips them so it
+    // never needs an API key; the judge tier grades them separately.
+    if (c.check.type === 'llm_judge') continue;
     const fired = runCheck(c.check, markdown, payload);
     if (c.kind === 'positive') {
       availablePositive += c.weight;
@@ -218,6 +297,7 @@ export function gradeDeliverable(
 
   let satisfiedSource = 0;
   for (const c of rubric.source) {
+    if (c.check.type === 'llm_judge') continue; // judge-only, graded off the CI path
     const fired = runCheck(c.check, markdown, payload);
     // A source criterion is satisfied when its (positive) traceability check
     // fires; a negative source criterion is satisfied when its bad condition
@@ -244,26 +324,33 @@ export function scoreBenchCase(c: BenchCase): BenchScore {
   return { ...score, name: c.name };
 }
 
-// --- LLM-as-judge tier (TYPED ONLY — not run in CI) ----------------------------
+// --- LLM-as-judge tier (INTERFACE here; IMPLEMENTATION in judge.ts) -------------
 // The scaling tier for subjective criteria ("explains why a buyer cares in
 // plain language") that no regex can grade. It is a SEPARATE concern from
-// generation, versioned behind its own prompt_version, and anchored to
-// Matthew's hand-graded golden set. It is deliberately NOT implemented or
-// called here: the CI path stays deterministic and secret-free. When it lands,
-// it runs on a labeled [eval] job, never on the free CI gate.
+// generation, versioned behind its own prompt_version (bench_judge.v1), and
+// anchored to a hand-graded golden set. Only the INTERFACE lives here so bench.ts
+// stays free of any provider/secret import and the CI path stays deterministic.
+// The real, versioned judge is server/llm/evals/judge.ts (createLLMJudge); it is
+// invoked ONLY on a labeled [eval] job guarded on AI_GATEWAY_API_KEY + RUN_LLM_JUDGE,
+// never on the free CI gate.
 
-export interface LLMJudge {
-  judge(markdown: string, criterion: BenchCriterion): Promise<{ pass: boolean; rationale: string }>;
+export interface JudgeVerdict {
+  pass: boolean;
+  rationale: string;
 }
 
-/** Default judge: a no-op that passes everything, so the type composes without
- *  ever making an API call. Replaced by a real, versioned judge in the [eval]
- *  tier — never on the CI path. */
-export const NO_OP_JUDGE: LLMJudge = {
-  async judge() {
-    return { pass: true, rationale: 'llm-judge tier disabled in CI (deterministic checks only)' };
-  },
-};
+export interface LLMJudge {
+  /** prompt_version of the judge, for attribution (rule 6). */
+  readonly promptVersion: string;
+  judge(markdown: string, criterion: BenchCriterion): Promise<JudgeVerdict>;
+}
+
+/** The subjective (judge-only) criteria across a rubric's answer + source lists,
+ *  in order. The judge tier grades exactly these; the deterministic grader skips
+ *  them. Empty for a rubric with no subjective criteria. */
+export function subjectiveCriteria(rubric: BenchRubric): BenchCriterion[] {
+  return [...rubric.answer, ...rubric.source].filter(isJudgeCriterion);
+}
 
 // --- Registered bench cases ----------------------------------------------------
 
@@ -278,6 +365,16 @@ export const BENCH_CASES: BenchCase[] = [
     deliverablePath: join(fixturesDir, 'owner_report.baseline.deliverable.md'),
     payloadPath: join(fixturesDir, 'owner_report.baseline.payload.json'),
     rubricPath: join(rubricsDir, 'owner_report.baseline.json'),
+  },
+  {
+    // Diligence Q&A: answer = used the required retrieved facts; source = every
+    // stated fact carries its [cite_id] (facts_carry_citation reuses the runtime's
+    // citation contract). Its subjective "explains why a buyer cares" criterion is
+    // judge-only and skipped by this deterministic tier.
+    name: 'diligence_qa.baseline',
+    deliverablePath: join(fixturesDir, 'diligence_qa.baseline.deliverable.md'),
+    payloadPath: join(fixturesDir, 'diligence_qa.baseline.payload.json'),
+    rubricPath: join(rubricsDir, 'diligence_qa.baseline.json'),
   },
 ];
 

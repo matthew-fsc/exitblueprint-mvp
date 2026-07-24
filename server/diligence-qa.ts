@@ -123,6 +123,7 @@ export async function answerDiligenceQuestion(
     db,
     promptVersion: PROMPT_VERSION,
     ruleBasedModel: RULE_BASED_MODEL,
+    modelTier: QA_AGENT.modelTier,
     userContent,
     compose: () => composeRetrievalOnly(question, passages),
     // Supplying `citation` turns on the citation contract on the AI path: every

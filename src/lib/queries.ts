@@ -70,6 +70,7 @@ export const qk = {
   buyerMatches: (engagementId: string) => ['buyerMatches', engagementId] as const,
   marketContext: (engagementId: string) => ['marketContext', engagementId] as const,
   diligenceQa: (engagementId: string) => ['diligenceQa', engagementId] as const,
+  answerCandidates: (engagementId: string) => ['answerCandidates', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -1108,6 +1109,48 @@ export function useDiligenceSimulation(
   });
 }
 
+// ---- engagement graph brief (WS-GRAPH, docs/09 moat 3) ----------------------
+// The narrative half of the engagement graph: a labeled draft that reads the
+// firm's own remediation record back to the advisor ("gaps like these moved the
+// DRS by about X, and their deals closed around Y"). Every figure is the
+// deterministic engagement graph's; the model only frames the pattern. Read-only,
+// firm-scoped, never persisted — regenerated on demand.
+export interface EngagementGraphBriefGap {
+  gap_code: string;
+  gap_name: string;
+  dimension_code: string;
+  severity: string;
+  clears: number;
+  incomparable_clears: number;
+  avg_drs_delta: number | null;
+  avg_dimension_delta: number | null;
+  deals_closed: number;
+  avg_final_multiple: number | null;
+}
+
+export interface EngagementGraphBriefView {
+  doc_type: 'engagement_graph_brief';
+  prompt_version: string;
+  model: string;
+  is_draft: true;
+  content_md: string;
+  payload: {
+    firm_id: string;
+    gaps_cleared: number;
+    incomparable_clears: number;
+    effectiveness: EngagementGraphBriefGap[];
+    calibration: { closed: number; avg_final_multiple: number | null } | null;
+  };
+}
+
+export function useEngagementGraphBrief(enabled = true): UseQueryResult<EngagementGraphBriefView> {
+  return useQuery({
+    queryKey: ['engagementGraphBrief'],
+    enabled,
+    queryFn: () => invokeFunction<EngagementGraphBriefView>('engagement-graph-brief', {}),
+  });
+}
+
 // ---- market context (docs/sellside-ai/01) ----------------------------------
 // Cited market-reference passages (sector commentary, precedent transactions)
 // for the engagement's industry/size, retrieved from the non-tenant `market`
@@ -1176,6 +1219,69 @@ export function useDiligenceQaList(
         engagement_id: engagementId,
       }),
   });
+}
+
+// ---- answer candidates (docs/sellside-ai WS-EXTRACT) -----------------------
+// AI-PROPOSED assessment answers awaiting a human's confirm/reject. This is a
+// STAGING queue, not scoring data: a candidate reaches the DRS only when a human
+// confirms it (the confirm-answer-candidate function promotes it through the
+// deterministic answer-writing path). The pending list reads directly under RLS
+// (firm staff only); confirm/reject are writes (confirm via function; reject is a
+// direct status update the staff RLS policy allows).
+export interface AnswerCandidateRow {
+  id: string;
+  engagement_id: string;
+  assessment_id: string;
+  question_code: string;
+  candidate_value: unknown;
+  confidence: number | null;
+  source_document_id: string | null;
+  source_span: string | null;
+  status: 'pending' | 'confirmed' | 'rejected';
+  model: string;
+  prompt_version: string;
+  created_at: string;
+}
+
+export function useAnswerCandidates(
+  engagementId: string | undefined,
+): UseQueryResult<AnswerCandidateRow[]> {
+  return useQuery({
+    queryKey: qk.answerCandidates(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () =>
+      unwrap<AnswerCandidateRow[]>(
+        await supabase
+          .from('answer_candidates')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false }),
+      ),
+  });
+}
+
+// ---- advisor copilot (WS-COPILOT) ------------------------------------------
+// A READ-ONLY natural-language assistant over the firm's own book. The server runs
+// a bounded Anthropic tool-use loop over curated read functions and returns a
+// DRAFT-LABELED synthesis; every figure is grounded in a tool result (numeral
+// firewall). `mode` distinguishes an AI synthesis from the graceful "AI unavailable
+// — raw tool results" fallback (no credit), which the UI must make visible. v1 is
+// STATELESS — nothing is persisted, so this is a direct call, not a cached read.
+export interface CopilotResult {
+  question: string;
+  answer_md: string;
+  mode: 'ai' | 'unavailable';
+  model: string;
+  prompt_version: string;
+  is_draft: true;
+  tool_calls: { name: string; input: unknown }[];
+}
+
+export function askAdvisorCopilot(question: string): Promise<CopilotResult> {
+  return invokeFunction<{ result: CopilotResult }>('advisor-copilot', { question }).then(
+    (r) => r.result,
+  );
 }
 
 // ---- financial verification (Phase 1) --------------------------------------

@@ -433,6 +433,7 @@ export async function draftAndPersistRun(
     db,
     promptVersion: PROMPT_VERSION,
     ruleBasedModel: RULE_BASED_MODEL,
+    modelTier: DILIGENCE_AGENT.modelTier,
     userContent: `Diligence simulation data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeDiligenceNarrative(payload),
     draftBanner: DRAFT_BANNER,

@@ -1,0 +1,40 @@
+{
+  "note": "Human-graded anchor set for the ExitBlueprint Bench LLM judge (docs/sellside-ai/02). Each anchor pins ONE subjective criterion to a hand-labeled verdict. If the versioned judge (prompts/bench_judge.v1.md) disagrees with an anchor's `expected`, the JUDGE PROMPT is wrong, not the anchor — the domain expert stays the ground truth (rule: judge is advisory to CI, anchored to human grades). Keep this small and unambiguous; borderline cases belong in the prose fixtures, not here.",
+  "anchors": [
+    {
+      "id": "buyer-cares-explained-plain",
+      "criterionId": "explains-why-buyer-cares",
+      "question": "Does the answer explain, in plain language a non-financial owner could follow, WHY a buyer cares about the customer concentration — connecting it to buyer impact such as price, deal certainty, or the risk that revenue leaves after the sale — rather than only stating the concentration figures?",
+      "markdown": "The largest customer is 28 percent of revenue [VF-CUST-TOP]. Why this matters to a buyer: when a few accounts drive most of the revenue, the buyer is really buying those relationships, so the price and whether the deal closes both hinge on whether those customers stay after you step back.",
+      "expected": true
+    },
+    {
+      "id": "buyer-cares-numbers-only",
+      "criterionId": "explains-why-buyer-cares",
+      "question": "Does the answer explain, in plain language a non-financial owner could follow, WHY a buyer cares about the customer concentration — connecting it to buyer impact such as price, deal certainty, or the risk that revenue leaves after the sale — rather than only stating the concentration figures?",
+      "markdown": "The largest customer represented 28 percent of revenue [VF-CUST-TOP]. The five largest customers together represented 61 percent of revenue [VF-CUST-FIVE].",
+      "expected": false
+    },
+    {
+      "id": "buyer-cares-jargon-only",
+      "criterionId": "explains-why-buyer-cares",
+      "question": "Does the answer explain, in plain language a non-financial owner could follow, WHY a buyer cares about the customer concentration — connecting it to buyer impact such as price, deal certainty, or the risk that revenue leaves after the sale — rather than only stating the concentration figures?",
+      "markdown": "Customer concentration of 61 percent [VF-CUST-FIVE] elevates idiosyncratic revenue-retention risk and compresses the risk-adjusted discount rate applied to forward cash flows under a DCF framework.",
+      "expected": false
+    },
+    {
+      "id": "next-steps-explained-plain",
+      "criterionId": "explains-whats-next-plain",
+      "question": "Does the deliverable explain, in plain language a non-financial owner could follow, what concretely happens next for the owner — a specific action or sequence — rather than only asserting that a plan exists?",
+      "markdown": "What happens next: over the next two quarters your advisor will move the largest accounts onto multi-year agreements and bring a second salesperson into those relationships, then re-run the assessment to confirm the concentration gap has closed before you go to market.",
+      "expected": true
+    },
+    {
+      "id": "next-steps-vague-assertion",
+      "criterionId": "explains-whats-next-plain",
+      "question": "Does the deliverable explain, in plain language a non-financial owner could follow, what concretely happens next for the owner — a specific action or sequence — rather than only asserting that a plan exists?",
+      "markdown": "A remediation plan has been established and the appropriate workstreams will be executed to optimize the readiness posture in due course.",
+      "expected": false
+    }
+  ]
+}

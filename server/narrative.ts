@@ -289,6 +289,7 @@ export async function generateDocument(
     db,
     promptVersion: PROMPT_VERSION,
     ruleBasedModel: RULE_BASED_MODEL,
+    modelTier: OWNER_REPORT_AGENT.modelTier,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: async () => composeOwnerReport(payload, await explainAssessment(db, assessmentId)),
     generate,
@@ -511,6 +512,7 @@ async function generateDeltaReport(
     db,
     promptVersion: DELTA_PROMPT_VERSION,
     ruleBasedModel: DELTA_REPORT_AGENT.ruleBasedModel,
+    modelTier: DELTA_REPORT_AGENT.modelTier,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeDeltaReport(payload),
     generate,
@@ -541,8 +543,13 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
     db,
     promptVersion: CIM_PROMPT_VERSION,
     ruleBasedModel: CIM_AGENT.ruleBasedModel,
+    modelTier: CIM_AGENT.modelTier,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeCim(payload),
+    // Turn the declared citation_contract guard real: on the AI path every retrieved
+    // market figure must be stated on the same line as its [cite_id]. Empty passages
+    // (no market data resolved) → the guard no-ops (graceful, never throws).
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 
@@ -572,8 +579,12 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
     db,
     promptVersion: TEASER_PROMPT_VERSION,
     ruleBasedModel: TEASER_AGENT.ruleBasedModel,
+    modelTier: TEASER_AGENT.modelTier,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeTeaser(payload),
+    // Citation contract on the AI path: each market figure sits beside its
+    // [cite_id]; empty passages no-op the guard.
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 
@@ -596,8 +607,12 @@ async function generateManagementPresentation(db: pg.ClientBase, assessmentId: s
     db,
     promptVersion: MGMT_PROMPT_VERSION,
     ruleBasedModel: MGMT_AGENT.ruleBasedModel,
+    modelTier: MGMT_AGENT.modelTier,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeManagementPresentation(payload),
+    // Citation contract on the AI path: each market figure sits beside its
+    // [cite_id]; empty passages no-op the guard.
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 

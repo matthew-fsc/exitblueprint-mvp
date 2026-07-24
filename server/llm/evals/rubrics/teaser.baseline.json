@@ -70,6 +70,14 @@
       "axis": "source",
       "description": "the lead strength named in the teaser traces to a highlights entry in the payload",
       "check": { "type": "payload_field_present_in_output", "path": "highlights.0.area" }
+    },
+    {
+      "id": "market-figures-cited",
+      "weight": 1,
+      "kind": "negative",
+      "axis": "source",
+      "description": "every market figure stated (a numeral from a retrieved market_context passage) carries its [cite_id] on the same line, so an advisor can attribute it to its licensed source; a teaser with no market_context is not penalized",
+      "check": { "type": "uncited_market_figure" }
     }
   ]
 }

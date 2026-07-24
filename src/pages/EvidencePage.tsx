@@ -11,6 +11,7 @@ import { DataRoomPanel } from './DataRoomPage';
 import { DocumentsPanel } from './DocumentsPage';
 import { VerificationPanel } from './VerificationPage';
 import { ReviewPanel } from './ReviewQueuePage';
+import { AnswerCandidatesPanel } from '../components/AnswerCandidatesPanel';
 
 // The binder never explains itself: an advisor lands on a big checklist and a
 // verification % with no sense of how the two connect or how to move the number.
@@ -180,7 +181,12 @@ export default function EvidencePage() {
       >
         {active === 'data-room' && <DataRoomPanel />}
         {active === 'documents' && <DocumentsPanel />}
-        {active === 'review' && <ReviewPanel engagementId={engagementId} />}
+        {active === 'review' && (
+          <div className="stack">
+            <AnswerCandidatesPanel engagementId={engagementId} />
+            <ReviewPanel engagementId={engagementId} />
+          </div>
+        )}
         {active === 'verification' && <VerificationPanel />}
       </div>
     </div>

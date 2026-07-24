@@ -25,6 +25,7 @@ describe('agent registry', () => {
         'delta_report',
         'diligence_qa',
         'diligence_simulation',
+        'engagement_graph_brief',
         'institutional_review',
         'management_presentation',
         'owner_report',
@@ -78,6 +79,17 @@ describe('agent registry', () => {
       expect(keys, `${a.key} promptVersion '${a.promptVersion}' must be a shipped prompt`).toContain(
         a.promptVersion,
       );
+    }
+  });
+
+  it('every agent declares a valid cost/capability model tier', () => {
+    // CLAUDE.md cost discipline: the tier is data (server/llm/models.ts routes it to
+    // a concrete model, re-pointable by env). Declaring it per-spec means a new
+    // agent can't be added without a deliberate cost decision — and no agent can
+    // name a tier the router doesn't know.
+    const TIERS = new Set(['economy', 'standard', 'premium']);
+    for (const a of AGENTS) {
+      expect(TIERS, `${a.key} modelTier`).toContain(a.modelTier);
     }
   });
 
