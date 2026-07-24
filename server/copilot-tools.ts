@@ -42,6 +42,9 @@ export interface CopilotToolContext {
 export interface CopilotTool {
   // The name the model calls (snake_case, tool-use convention).
   name: string;
+  // Human-readable title for the fallback surface (the deterministic degradation
+  // renders these reads for the advisor). Optional — falls back to `name`.
+  label?: string;
   // The REGISTRY read handler this tool is derived from — the whitelist anchor.
   registryName: string;
   description: string;
@@ -71,6 +74,7 @@ async function engagementInFirm(db: pg.ClientBase, engagementId: string, firmId:
 export const COPILOT_TOOLS: CopilotTool[] = [
   {
     name: 'firm_needs_attention',
+    label: 'Needs attention',
     registryName: 'firm-attention',
     description:
       "The firm's in-app 'needs attention' worklist: engagements whose reassessment " +
@@ -82,6 +86,7 @@ export const COPILOT_TOOLS: CopilotTool[] = [
   },
   {
     name: 'firm_deal_calibration',
+    label: 'Deal calibration',
     registryName: 'deal-calibration',
     description:
       "Predicted-vs-actual across the firm's recorded deal outcomes: how many deals " +
@@ -94,6 +99,7 @@ export const COPILOT_TOOLS: CopilotTool[] = [
   },
   {
     name: 'firm_engagement_graph',
+    label: 'Gap remediation effectiveness',
     registryName: 'engagement-graph',
     description:
       'Cross-engagement gap-remediation effectiveness for the firm: for each gap that ' +
@@ -106,6 +112,7 @@ export const COPILOT_TOOLS: CopilotTool[] = [
   },
   {
     name: 'engagement_diligence_qa',
+    label: 'Diligence Q&A history',
     registryName: 'list-diligence-qa',
     description:
       "The persisted buyer-diligence Q&A history for ONE engagement (newest first): each " +

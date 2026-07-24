@@ -2,10 +2,9 @@
 // here so retry, timeout, and per-call cost logging are uniform and attributable.
 // The transport is injectable: the default calls the Anthropic SDK, tests supply
 // a fake. Nothing here computes a score (rule 2) — it moves text and logs cost.
-import Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { getPrompt } from './prompts';
-import { resolveProvider } from './provider';
+import { createMessage, messageText } from './provider';
 
 export interface LlmUsage {
   input_tokens: number;
@@ -47,28 +46,19 @@ export function costUsd(model: string, usage: LlmUsage): number {
   return Math.round(cost * 1_000_000) / 1_000_000;
 }
 
-// Default transport: the Anthropic SDK, pointed at whichever provider the
-// environment selects (Vercel AI Gateway or the Anthropic API directly — see
-// server/llm/provider.ts). Server-side only; keys are read from the environment
-// and never shipped to a client.
+// Default transport: the shared createMessage (server/llm/provider.ts) so the
+// extraction/findings path builds its request exactly like the narrative runtime and
+// the copilot — one request shape, no per-call-site drift. Server-side only; keys are
+// read from the environment and never shipped to a client.
 export const anthropicTransport: LlmTransport = async (req) => {
-  const provider = resolveProvider();
-  if (!provider) {
-    throw new Error('LLM not configured: set AI_GATEWAY_API_KEY in the server environment');
-  }
-  const response = await provider.client.messages.create(
-    {
-      model: provider.modelFor(req.model),
-      max_tokens: req.maxTokens,
-      system: req.system,
-      messages: [{ role: 'user', content: req.user }],
-    },
-    { signal: req.signal },
-  );
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
+  const response = await createMessage({
+    model: req.model,
+    system: req.system,
+    messages: [{ role: 'user', content: req.user }],
+    maxTokens: req.maxTokens,
+    signal: req.signal,
+  });
+  const text = messageText(response);
   return {
     text,
     model: response.model,

@@ -12,12 +12,16 @@
 // guards, the provider, and the prompt registry, but NEVER server/narrative.ts, so
 // narrative.ts can re-export GeneratedText/GenerateFn from here with no import cycle
 // (narrative → runtime → guards; guards is a leaf).
-import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
 import { numeralPostCheck, citationPostCheck } from './guards';
-import { aiConfigured, aiFailureReason, resolveProvider } from '../llm/provider';
+import { aiConfigured, aiFailureReason, createMessage, messageText } from '../llm/provider';
 import { modelForTier, type ModelTier } from '../llm/models';
 import { resolvePromptBody } from '../prompt-registry';
+
+// Max output tokens for a drafted deliverable. Kept at a value every configured model
+// supports so the request is never rejected for an over-limit max_tokens (a report or
+// CIM section fits comfortably).
+const MAX_OUTPUT_TOKENS = 8192;
 
 export interface GeneratedText {
   text: string;
@@ -77,33 +81,30 @@ export function withDraftBanner(text: string, banner: string): string {
   return text.startsWith(banner) ? text : `${banner}\n\n${text}`;
 }
 
-// The one way to Claude. Body is narrative.ts's callClaude verbatim; the "not
-// configured" / "no text" errors are thrown as narrative.ts threw them. The model
-// is chosen by the caller's tier (server/llm/models.ts), defaulting to premium so a
-// direct caller that names no tier keeps the prior frontier-model behavior.
+// The one way to Claude for a drafted deliverable: build the request through the
+// shared createMessage (server/llm/provider.ts — plain generation, no thinking config)
+// and read its text. The model is chosen by the caller's tier (server/llm/models.ts),
+// defaulting to premium so a direct caller that names no tier keeps the frontier model.
+// On an empty completion the error names the stop_reason and the block types so a
+// "returned no text" failure is diagnosable at a glance instead of silently degrading.
 export async function callClaude(
   systemPrompt: string,
   userContent: string,
   model: string = modelForTier('premium'),
 ): Promise<GeneratedText> {
-  const provider = resolveProvider();
-  if (!provider) {
-    throw new Error(
-      'narrative service not configured: set AI_GATEWAY_API_KEY in the server environment',
-    );
-  }
-  const response = await provider.client.messages.create({
-    model: provider.modelFor(model),
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
+  const response = await createMessage({
+    model,
     system: systemPrompt,
     messages: [{ role: 'user', content: userContent }],
+    maxTokens: MAX_OUTPUT_TOKENS,
   });
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
-  if (!text) throw new Error(`narrative generation returned no text (${response.stop_reason})`);
+  const text = messageText(response);
+  if (!text) {
+    throw new Error(
+      `narrative generation returned no text (stop_reason=${response.stop_reason}, ` +
+        `blocks=[${response.content.map((b) => b.type).join(',') || 'none'}])`,
+    );
+  }
   return { text, model: response.model };
 }
 
