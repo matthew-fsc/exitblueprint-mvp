@@ -97,6 +97,7 @@ A developer index: the durable features and the files that own them. Pair with
 | [09-moats](./09-moats.md) | The three data moats (outcome calibration, financial corpus, engagement graph) — the detail 20's moat list folds in | Strategy |
 | [36-competitive-positioning-cfp](./36-competitive-positioning-cfp.md) | Competitive landscape + the CFP-planner go-to-market wedge (market facts are time-sensitive) | Strategy |
 | [41-advisor-library-research-plan](./41-advisor-library-research-plan.md) | **Content sourcing plan** — research topics, reputable LMM M&A sources, and a phased plan to fill the advisor-library/Plans/valuation seed (market facts are time-sensitive) | Strategy |
+| [sellside-ai/](./sellside-ai/README.md) | **Harvey pattern → sell-side M&A** — three architecture writeups (market-intelligence RAG on paid data · ExitBlueprint Bench eval rubric · sell-side workflow agents); unnumbered folder, numbers Matthew-assigned if promoted | Strategy |
 
 > These strategy docs overlap by design (20 is the apex; 09 is its moat detail; 18
 > & 36 are the practitioner/go-to-market layer and overlap most with each other).
