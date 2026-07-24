@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SignIn } from '@clerk/react';
 import { isClerkStack, isDevStack, requiresClerkConfig, supabase } from '../lib/supabase';
-import { ErrorState } from '../components/ui';
+import { BrandWordmark, ErrorState } from '../components/ui';
 import { ThemeToggle } from '../lib/theme';
 import { useClerkAppearance } from '../lib/clerkAppearance';
 import { clearSignoutReason, peekSignoutReason } from '../lib/sessionExpiry';
@@ -79,7 +79,7 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
         <div className="login-card">
-          <h1>Exit Blueprint</h1>
+          <BrandWordmark size="lg" />
           <p className="login-subtitle">Authentication is not configured</p>
           <p className="form-error">
             This deployment must use Clerk. Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> (frontend) and{' '}
@@ -98,7 +98,7 @@ export default function LoginPage() {
       </div>
       {notice}
       <form className="login-card" onSubmit={submit}>
-        <h1>Exit Blueprint</h1>
+        <BrandWordmark size="lg" />
         <p className="login-subtitle">Sign in to your exit-readiness workspace</p>
         <label>
           Email

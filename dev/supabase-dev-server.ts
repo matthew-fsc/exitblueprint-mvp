@@ -19,6 +19,12 @@ import { verifyDocumentToken } from '../server/documents/signed-url';
 import { getDocumentBytes } from '../server/documents/pipeline';
 import { logAccess } from '../server/audit';
 import { handleClerkEvent, verifyClerkWebhook, type ClerkEvent } from '../server/clerk-webhook';
+import { isPlatformSuperadmin } from '../server/platform-admin';
+import { platformMetrics } from '../server/platform-metrics';
+import { financialCorpus } from '../server/financial-corpus';
+import { moatMetrics } from '../server/moat-metrics';
+import { readCalibration } from '../server/calibration';
+import { benchSummary } from '../server/bench-metrics';
 
 const DEV_JWT_SECRET = 'exit-blueprint-dev-secret';
 const DEV_PASSWORD = 'demo';
@@ -332,6 +338,33 @@ export function supabaseDevServer(): Plugin {
     }
   }
 
+  // Platform monitoring rail (docs/38) — dev parity for GET /internal/metrics so the
+  // superadmin PlatformConsole can load locally (the emulator lacked this route, so
+  // the console couldn't render without the hosted compute service). Mirrors
+  // server/http.ts: verify the dev JWT, gate on the platform-superadmin allowlist,
+  // then assemble the SAME cross-tenant snapshot over the service-role-only analytics
+  // schema on the emulator's pool. Dev-only and minimal — no withTimeout wrapper.
+  async function handleInternalMetrics(req: Connect.IncomingMessage, res: ServerResponse, _url: URL) {
+    if (req.method !== 'GET') return json(res, 405, { message: 'method not allowed' });
+    const claims = bearerClaims(req);
+    if (!claims) return json(res, 401, { message: 'invalid or missing token' });
+    if (!isPlatformSuperadmin(claims.sub)) {
+      return json(res, 403, { message: 'platform superadmin required' });
+    }
+    try {
+      const [metrics, corpus, moats, calibration, bench] = await Promise.all([
+        platformMetrics(pool),
+        financialCorpus(pool),
+        moatMetrics(pool),
+        readCalibration(pool),
+        benchSummary(pool),
+      ]);
+      return json(res, 200, { ...metrics, corpus, moats, calibration, bench });
+    } catch (e) {
+      return json(res, 500, { message: (e as Error).message });
+    }
+  }
+
   async function handleFunctions(req: Connect.IncomingMessage, res: ServerResponse, url: URL) {
     const claims = bearerClaims(req);
     if (!claims) return json(res, 401, { message: 'JWT required' });
@@ -386,7 +419,9 @@ export function supabaseDevServer(): Plugin {
                 ? handleDocumentDownload
                 : url.pathname === '/webhooks/clerk'
                   ? handleClerkWebhook
-                  : null;
+                  : url.pathname === '/internal/metrics'
+                    ? handleInternalMetrics
+                    : null;
         if (!route) return next();
         route(req, res, url).catch((err) => json(res, 500, { message: String(err) }));
       });

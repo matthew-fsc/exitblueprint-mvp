@@ -15,6 +15,7 @@ export { EngagementNav } from './EngagementNav';
 export { WorkstreamRail } from './WorkstreamRail';
 export { MoneyInput } from './MoneyInput';
 export { FirmMark, type FirmBrand } from './FirmMark';
+export { BrandLogomark, BrandWordmark } from './BrandMark';
 export { GapSeverityChip } from './GapSeverityChip';
 export { SectionCard } from './SectionCard';
 export { PageHeader, type Crumb } from './PageHeader';

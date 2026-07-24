@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BRAND } from '../lib/brand';
 
 // Small site footer linking the legal / trust pages. The integrator mounts it in
 // App.tsx (see the wiring note). Styled with design-system tokens — no new CSS.
@@ -35,7 +36,7 @@ export function LegalFooter() {
           </Link>
         ))}
       </nav>
-      <span className="muted text-sm">© {year} Exit Blueprint</span>
+      <span className="muted text-sm">© {year} {BRAND.name}</span>
     </footer>
   );
 }

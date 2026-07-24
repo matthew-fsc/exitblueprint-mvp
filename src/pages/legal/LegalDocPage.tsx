@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { PageHeader, PageSection, SectionCard } from '../../components/ui';
 import { BETA_NOTICE, type LegalDoc } from './content';
+import { BRAND } from '../../lib/brand';
 
 // The plain-language beta summary every legal page leads with. Built from
 // existing design-system primitives (a status chip + card surface) — no new CSS.
@@ -36,7 +37,7 @@ export function LegalDocPage({ doc, children }: { doc: LegalDoc; children?: Reac
           <PageHeader
             title={doc.title}
             subtitle={doc.subtitle}
-            crumbs={[{ label: 'Exit Blueprint' }, { label: doc.title }]}
+            crumbs={[{ label: BRAND.name }, { label: doc.title }]}
           />
         </header>
 
