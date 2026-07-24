@@ -5,6 +5,7 @@
 import type pg from 'pg';
 import { getPrompt } from './prompts';
 import { createMessage, messageText } from './provider';
+import { modelForTier } from './models';
 
 export interface LlmUsage {
   input_tokens: number;
@@ -57,6 +58,9 @@ export const anthropicTransport: LlmTransport = async (req) => {
     messages: [{ role: 'user', content: req.user }],
     maxTokens: req.maxTokens,
     signal: req.signal,
+    // If the gateway can't serve this prompt's (economy/standard) model for the account,
+    // upgrade to premium rather than failing extraction outright.
+    fallbackModel: modelForTier('premium'),
   });
   const text = messageText(response);
   return {
