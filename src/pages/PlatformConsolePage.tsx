@@ -217,7 +217,7 @@ function BenchTable({ rows }: { rows: Row[] }) {
     return (
       <EmptyState
         icon="empty"
-        title="No bench results yet — run the Bench (run-bench) to populate this scorecard."
+        title="No bench results yet. Run the Bench (run-bench) to populate this scorecard."
       />
     );
   const columns: Column<Row>[] = [
@@ -405,7 +405,7 @@ export default function PlatformConsolePage() {
   if (q.isPending) {
     return (
       <div className="stack-lg">
-        <PageHeader title="Platform console" subtitle="Internal metrics rail — superadmin only" />
+        <PageHeader title="Platform console" subtitle="Internal metrics rail: superadmin only" />
         <LoadingState variant="page" />
       </div>
     );
@@ -440,7 +440,7 @@ export default function PlatformConsolePage() {
           <ErrorState
             variant="page"
             title="Analytics rail not migrated on this database"
-            message="The read-only analytics views this console reads don’t exist yet. Apply the pending migrations to this database (npm run db:migrate against its DATABASE_URL, or supabase db push) — they add the analytics schema (platform_analytics, financial_corpus, moat_kpis) — then reload."
+            message="The read-only analytics views this console reads don’t exist yet. Apply the pending migrations to this database (npm run db:migrate against its DATABASE_URL, or supabase db push); they add the analytics schema (platform_analytics, financial_corpus, moat_kpis). Then reload."
             onRetry={() => q.refetch()}
             retryLabel="Reload"
           />
@@ -472,7 +472,7 @@ export default function PlatformConsolePage() {
       <PageHeader
         title="Platform console"
         crumbs={[{ label: 'Internal' }, { label: 'Platform' }]}
-        subtitle={`Internal metrics rail — one superadmin readout of the whole platform. Snapshot ${fmtDate(
+        subtitle={`Internal metrics rail: one superadmin readout of the whole platform. Snapshot ${fmtDate(
           s.generated_at,
         )}.`}
         actions={
@@ -523,7 +523,7 @@ export default function PlatformConsolePage() {
           </StatRow>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              Assessment funnel — engagements → started → completed → scored
+              Assessment funnel: engagements → started → completed → scored
             </p>
             <StatRow>
               {funnel.map((step) => (
@@ -542,7 +542,7 @@ export default function PlatformConsolePage() {
       {/* Revenue plan — subscription units + Stripe state (docs/40 §4b) */}
       <SectionCard
         title="Revenue plan"
-        subtitle="Subscription units and Stripe state — dollar revenue lives in Stripe; this rail carries the unit counts"
+        subtitle="Subscription units and Stripe state. Dollar revenue lives in Stripe; this rail carries the unit counts"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <StatRow>
@@ -613,7 +613,7 @@ export default function PlatformConsolePage() {
       {/* Churn-risk book — firm last-activity + stalled engagements (docs/40 §4b) */}
       <SectionCard
         title="Churn-risk book"
-        subtitle="Firm activity health and stalled delivery — the accounts at risk of churning"
+        subtitle="Firm activity health and stalled delivery: the accounts at risk of churning"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <StatRow>
@@ -633,7 +633,7 @@ export default function PlatformConsolePage() {
           </StatRow>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              Firm account book — dormant firms first
+              Firm account book: dormant firms first
             </p>
             <FirmBook firms={s.business.firms} />
           </div>
@@ -665,7 +665,7 @@ export default function PlatformConsolePage() {
 
       {/* Moats / business plan */}
       <SectionCard
-        title="Moats — the business plan"
+        title="Moats: the business plan"
         subtitle="Calibration corpus: the growth and predictive power of paired prediction/reality records (docs/40 §4a)"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
@@ -697,7 +697,7 @@ export default function PlatformConsolePage() {
 
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-              Verified financial corpus — coverage
+              Verified financial corpus: coverage
             </p>
             <AutoTable rows={s.corpus.verified_coverage} emptyLabel="No verified coverage yet" />
           </div>
@@ -713,7 +713,7 @@ export default function PlatformConsolePage() {
           {s.corpus.own_book_valuation_multiples.length > 0 && (
             <div>
               <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
-                Own-book multiples — by valuation industry_key (recalibration signal)
+                Own-book multiples: by valuation industry_key (recalibration signal)
               </p>
               <AutoTable rows={s.corpus.own_book_valuation_multiples} />
             </div>
@@ -729,10 +729,10 @@ export default function PlatformConsolePage() {
           s.calibration.calibration_version != null
             ? `Versioned calibration artifact v${s.calibration.calibration_version} · ${fmtDate(
                 s.calibration.computed_at,
-              )} — how each DRS/ORI band's predictions tracked reality across ${toNumber(
+              )}. How each DRS/ORI band's predictions tracked reality across ${toNumber(
                 s.calibration.total_closed,
               )} closed deals.`
-            : 'How each DRS/ORI band’s predictions track reality across closed deals — the calibrated score (docs/09 §1).'
+            : 'How each DRS/ORI band’s predictions track reality across closed deals: the calibrated score (docs/09 §1).'
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
@@ -776,7 +776,7 @@ export default function PlatformConsolePage() {
       {/* Deliverable quality — ExitBlueprint Bench (docs/sellside-ai/02): a
           BigLaw-Bench-style scorecard of generated deliverables, per prompt version. */}
       <SectionCard
-        title="Deliverable quality — ExitBlueprint Bench"
+        title="Deliverable quality: ExitBlueprint Bench"
         subtitle={
           s.bench.last_run_at
             ? `Last run ${fmtDate(s.bench.last_run_at)}`
@@ -785,7 +785,7 @@ export default function PlatformConsolePage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <p className="muted text-sm">
-            Measured deliverable quality per prompt version — answer = % of an
+            Measured deliverable quality per prompt version: answer = % of an
             advisor-quality deliverable produced; source = % of claims traceable. Pass
             thresholds: answer ≥ 90%, source = 100%.
           </p>
@@ -794,7 +794,7 @@ export default function PlatformConsolePage() {
       </SectionCard>
 
       {/* Ops — webhook health (AI cost/COGS lives in Unit economics above) */}
-      <SectionCard title="Ops" subtitle="Webhook health — a stuck webhook is an outage /ready won't catch">
+      <SectionCard title="Ops" subtitle="Webhook health: a stuck webhook is an outage /ready won't catch">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <div>
             <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
@@ -822,7 +822,7 @@ export default function PlatformConsolePage() {
         <p className="muted text-sm">
           Read-only operator view over the service-role <code>analytics</code> schema
           (docs/38, docs/40). Uptime, request latency and error rates live in the hosting
-          consoles (Render, Sentry, Vercel); dollar revenue lives in Stripe — this rail carries
+          consoles (Render, Sentry, Vercel); dollar revenue lives in Stripe. This rail carries
           unit counts.
         </p>
       </Card>

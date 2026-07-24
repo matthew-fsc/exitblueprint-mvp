@@ -55,7 +55,7 @@ export function EngagementComments({ engagementId }: { engagementId: string | un
   return (
     <SectionCard
       title="Discussion"
-      subtitle="A shared thread for everyone on this engagement — you, the owner, and any invited advisors."
+      subtitle="A shared thread for everyone on this engagement: you, the owner, and any invited advisors."
     >
       {commentsQ.isLoading ? (
         <SkeletonLines lines={3} />

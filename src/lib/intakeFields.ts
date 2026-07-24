@@ -89,7 +89,7 @@ const OPTION_LABELS: Record<string, string> = {
   two_plus_layers: 'Two or more layers',
   one_clear_layer: 'One clear layer',
   informal_partial: 'Informal / partial',
-  none_all_report_to_owner: 'None — all report to owner',
+  none_all_report_to_owner: 'None: all report to owner',
   within_15pct: 'Within 15% of market',
   below_15_25pct: '15-25% below market',
   below_25pct_plus: '25%+ below market',

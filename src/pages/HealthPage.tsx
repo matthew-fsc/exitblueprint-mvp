@@ -58,7 +58,7 @@ async function checkSupabaseApi(): Promise<Check> {
     return {
       name: 'Supabase API',
       state: 'warn',
-      detail: 'VITE_SUPABASE_URL not set — copy .env.example to .env and run `supabase start`',
+      detail: 'VITE_SUPABASE_URL not set. Copy .env.example to .env and run `supabase start`',
     };
   }
   try {
@@ -90,7 +90,7 @@ async function checkFunctionsService(): Promise<Check> {
       state: 'fail',
       detail:
         `VITE_FUNCTIONS_URL is not set, so /functions/v1/* calls go to ${functionsBaseUrl} (the ` +
-        'Supabase URL), which does not serve this app’s functions — every function-backed view fails ' +
+        'Supabase URL), which does not serve this app’s functions. Every function-backed view fails ' +
         'its CORS preflight ("we couldn’t reach the server"). Set VITE_FUNCTIONS_URL to the compute ' +
         'service (e.g. https://api.exitblueprint.net) in Vercel and redeploy (docs/29 §3).',
     };
@@ -104,7 +104,7 @@ async function checkFunctionsService(): Promise<Check> {
     return {
       name: 'Functions service',
       state: 'fail',
-      detail: `Cannot reach ${functionsBaseUrl}/health — is the compute service up and is VITE_FUNCTIONS_URL correct?`,
+      detail: `Cannot reach ${functionsBaseUrl}/health. Is the compute service up and is VITE_FUNCTIONS_URL correct?`,
     };
   }
 }
@@ -127,7 +127,7 @@ async function checkSessionToken(): Promise<Check[]> {
       {
         name: 'Session token',
         state: 'warn',
-        detail: 'No active session — sign in first, then reload this page to check auth claims.',
+        detail: 'No active session. Sign in first, then reload this page to check auth claims.',
       },
     ];
   }
@@ -145,21 +145,21 @@ async function checkSessionToken(): Promise<Check[]> {
     state: sub ? 'ok' : 'fail',
     detail: sub
       ? `Signed in as ${sub}${iss ? ` · issuer ${iss}` : ''}`
-      : 'Token has no `sub` claim — RLS cannot identify the caller.',
+      : 'Token has no `sub` claim. RLS cannot identify the caller.',
   });
 
   // The decisive claim. PostgREST assumes the Postgres role named here; every
   // policy in this app targets `authenticated`.
   const role = claims.role;
   if (role === 'authenticated') {
-    checks.push({ name: 'RLS role claim', state: 'ok', detail: '`role: authenticated` present — RLS policies will apply.' });
+    checks.push({ name: 'RLS role claim', state: 'ok', detail: '`role: authenticated` present. RLS policies will apply.' });
   } else {
     checks.push({
       name: 'RLS role claim',
       state: 'fail',
       detail:
         `Token is missing \`role: authenticated\` (got ${role === undefined ? 'no role claim' : `\`${String(role)}\``}). ` +
-        'PostgREST will run every query as `anon`, so all firm-scoped reads are denied — this is the usual cause of ' +
+        'PostgREST will run every query as `anon`, so all firm-scoped reads are denied. This is the usual cause of ' +
         'pervasive "database errors". Enable the Supabase integration in Clerk so it adds the claim (docs/30 §2).',
     });
   }
@@ -171,7 +171,7 @@ async function checkSessionToken(): Promise<Check[]> {
     checks.push({
       name: 'Token expiry',
       state: secondsLeft > 0 ? 'ok' : 'fail',
-      detail: secondsLeft > 0 ? `Valid for ~${Math.round(secondsLeft / 60)} more minutes.` : 'Token is expired — sign in again.',
+      detail: secondsLeft > 0 ? `Valid for ~${Math.round(secondsLeft / 60)} more minutes.` : 'Token is expired. Sign in again.',
     });
   }
 
@@ -184,7 +184,7 @@ async function checkSessionToken(): Promise<Check[]> {
 // points straight back at the role-claim / third-party-auth wiring above.
 async function checkAuthenticatedRead(hasToken: boolean): Promise<Check> {
   if (!hasToken) {
-    return { name: 'Authenticated read', state: 'warn', detail: 'Skipped — no active session.' };
+    return { name: 'Authenticated read', state: 'warn', detail: 'Skipped: no active session.' };
   }
   const { error } = await supabase.from('rubric_versions').select('id', { count: 'exact', head: true });
   if (error) {
@@ -204,7 +204,7 @@ async function checkAuthenticatedRead(hasToken: boolean): Promise<Check> {
 // auth check green. When this fails, a platform superadmin can load it in-place
 // with the button below (the `seed-methodology` function).
 async function checkMethodology(hasToken: boolean): Promise<Check> {
-  if (!hasToken) return { name: 'Methodology', state: 'warn', detail: 'Skipped — no active session.' };
+  if (!hasToken) return { name: 'Methodology', state: 'warn', detail: 'Skipped: no active session.' };
   const { data, error } = await supabase
     .from('rubric_versions')
     .select('version_label')
@@ -217,7 +217,7 @@ async function checkMethodology(hasToken: boolean): Promise<Check> {
       name: 'Methodology',
       state: 'fail',
       detail:
-        'No active rubric version — this database was never seeded. Assessments cannot start until the ' +
+        'No active rubric version. This database was never seeded. Assessments cannot start until the ' +
         'methodology is loaded. A platform superadmin can load it below.',
     };
   }
@@ -232,7 +232,7 @@ async function checkMethodology(hasToken: boolean): Promise<Check> {
 // own_profile_read policy is itself `user_id = sub`, so a 0-row result IS the
 // mismatch — then attempt a real firm-scoped read to prove end-to-end access.
 async function checkProfileLinkage(sub: string | undefined): Promise<Check[]> {
-  if (!sub) return [{ name: 'Profile linkage', state: 'warn', detail: 'Skipped — no active session.' }];
+  if (!sub) return [{ name: 'Profile linkage', state: 'warn', detail: 'Skipped: no active session.' }];
 
   const { data, error } = await supabase
     .from('profiles')
@@ -250,7 +250,7 @@ async function checkProfileLinkage(sub: string | undefined): Promise<Check[]> {
         state: 'fail',
         detail:
           `No public.profiles row is keyed to your Clerk id \`${sub}\`. RLS resolves role/firm from ` +
-          'profiles.user_id, which must equal the Clerk `sub` — a profile seeded or dev-created with a ' +
+          'profiles.user_id, which must equal the Clerk `sub`. A profile seeded or dev-created with a ' +
           'UUID will not match, so every firm-scoped read is denied. Provision via ' +
           '`scripts/admin.ts create-advisor` (Clerk mode) or the webhook, or re-key the row (docs/31).',
       },
@@ -263,8 +263,8 @@ async function checkProfileLinkage(sub: string | undefined): Promise<Check[]> {
     name: 'Profile linkage',
     state: firmOk ? 'ok' : 'warn',
     detail: firmOk
-      ? `Profile found — role ${data.role}, firm ${data.firm_id ?? '—'}${data.company_id ? `, company ${data.company_id}` : ''}.`
-      : `Profile found (role ${data.role}) but ${data.role === 'owner' ? 'company_id' : 'firm_id'} is null — nothing will scope to it.`,
+      ? `Profile found: role ${data.role}, firm ${data.firm_id ?? '—'}${data.company_id ? `, company ${data.company_id}` : ''}.`
+      : `Profile found (role ${data.role}) but ${data.role === 'owner' ? 'company_id' : 'firm_id'} is null. Nothing will scope to it.`,
   });
 
   // Prove a real firm-scoped read resolves. This never errors on a missing row
@@ -286,7 +286,7 @@ function identityCheck(): Check {
     return {
       name: 'Identity provider',
       state: 'fail',
-      detail: 'Hosted deployment without Clerk — set VITE_CLERK_PUBLISHABLE_KEY + CLERK_JWKS_URL (docs/30 §3).',
+      detail: 'Hosted deployment without Clerk. Set VITE_CLERK_PUBLISHABLE_KEY + CLERK_JWKS_URL (docs/30 §3).',
     };
   }
   if (isClerkStack) return { name: 'Identity provider', state: 'ok', detail: 'Clerk (production standard).' };
@@ -406,7 +406,7 @@ export default function HealthPage() {
           <p className="check-detail">
             {methodologyMissing
               ? 'This database has no methodology loaded. Load it to apply any pending schema migrations, enable assessments, and populate the advisory library.'
-              : 'Re-sync to apply any pending schema migrations and pull in methodology and advisory-library content added since this database was last seeded. Idempotent — migrations run at most once, existing rows are updated in place, and new items are added.'}
+              : 'Re-sync to apply any pending schema migrations and pull in methodology and advisory-library content added since this database was last seeded. Idempotent: migrations run at most once, existing rows are updated in place, and new items are added.'}
           </p>
           <button type="button" onClick={loadMethodology} disabled={seeding}>
             {seeding
@@ -429,7 +429,7 @@ export default function HealthPage() {
                   ? `Applied ${seedResult.migrations.length} pending migration(s) before seeding: ${seedResult.migrations.join(', ')}. `
                   : ''}
                 {seedResult.ok
-                  ? 'Methodology synced — reload the app to see the latest library and assessment content.'
+                  ? 'Methodology synced. Reload the app to see the latest library and assessment content.'
                   : 'Loaded, but some row counts did not match the seed files (see below).'}
               </span>
               <ul className="check-list">

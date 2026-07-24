@@ -188,9 +188,9 @@ export function DocumentsPanel() {
       qc.invalidateQueries({ queryKey: qk.reviewQueue() });
       // A virus scan can reject the upload before it ever reaches the queue.
       if (result?.status === 'rejected') {
-        toast.show('Upload rejected — the file failed the virus scan', 'error');
+        toast.show('Upload rejected: the file failed the virus scan', 'error');
       } else {
-        toast.show('Uploaded — sent to the review queue', 'good');
+        toast.show('Uploaded. Sent to the review queue', 'good');
       }
     } catch (err) {
       setError((err as Error).message);
@@ -247,7 +247,7 @@ export function DocumentsPanel() {
       <form className="inline-form doc-upload" onSubmit={upload}>
         <h3>Upload an unlinked document</h3>
         <p className="muted m-0">
-          Most files belong to a specific item on the buyer's request list — upload those from the{' '}
+          Most files belong to a specific item on the buyer's request list. Upload those from the{' '}
           <Link to={`/engagement/${engagementId}/evidence/data-room`}>Data room</Link> tab so they're
           tagged to the item and tracked toward readiness. Use this secondary path only for extra
           documents that don't map to a request-list item. Everything still runs virus scan,
@@ -261,7 +261,7 @@ export function DocumentsPanel() {
           required
         />
         <input
-          placeholder="Category (optional) — e.g. Financials, Operations"
+          placeholder="Category (optional): e.g. Financials, Operations"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         />
@@ -286,7 +286,7 @@ export function DocumentsPanel() {
               <h3 className="mt-0">Attached to a request-list item</h3>
               <p className="muted m-0">
                 The same files you attached in the{' '}
-                <Link to={`/engagement/${engagementId}/evidence/data-room`}>Data room</Link> — shown
+                <Link to={`/engagement/${engagementId}/evidence/data-room`}>Data room</Link>. Shown
                 here with their pipeline status. Verifying one advances its request-list item toward
                 Ready.
               </p>

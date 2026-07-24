@@ -139,7 +139,7 @@ export function DataRoomPanel() {
         content_base64,
       });
       await qc.invalidateQueries({ queryKey: qk.dataRoom(engagementId) });
-      toast.show('Uploaded — tagged to this item and sent for review', 'good');
+      toast.show('Uploaded. Tagged to this item and sent for review', 'good');
     } catch (err) {
       toast.show((err as Error).message, 'error');
     }
@@ -155,7 +155,7 @@ export function DataRoomPanel() {
         subtitle={
           <>
             The request list a buyer will actually send, assembled ahead of time. This is the
-            primary, tracked upload path — attaching a file to an item below tags it to the
+            primary, tracked upload path: attaching a file to an item below tags it to the
             item and sends it to review. Items flagged <strong>Gap</strong> are where a deal
             gets repriced or stalled. Nothing here changes a readiness score.
           </>
@@ -246,7 +246,7 @@ export function DataRoomPanel() {
                               item.document_status &&
                               item.document_status !== 'verified' && (
                                 <span className="dr-doc-status">
-                                  Marked Ready — document not yet verified
+                                  Marked Ready: document not yet verified
                                 </span>
                               )}
                           </>

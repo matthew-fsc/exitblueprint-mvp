@@ -285,7 +285,7 @@ export default function PlansPage() {
       );
       const { tasks_created, tasks_claimed, milestones_created } = res;
       toast.show(
-        `Applied "${plan.name}" — ${tasks_created} task${tasks_created === 1 ? '' : 's'} added` +
+        `Applied "${plan.name}": ${tasks_created} task${tasks_created === 1 ? '' : 's'} added` +
           (tasks_claimed ? `, ${tasks_claimed} linked` : '') +
           (milestones_created ? `, ${milestones_created} milestone${milestones_created === 1 ? '' : 's'}` : ''),
         'good',
@@ -353,12 +353,12 @@ export default function PlansPage() {
       <Card>
         <form className="advisory-form" onSubmit={submitForm}>
           <h3 className="m-0">
-            {form.mode === 'edit' ? `Edit plan — ${form.plan?.name}` : 'New firm plan'}
+            {form.mode === 'edit' ? `Edit plan: ${form.plan?.name}` : 'New firm plan'}
           </h3>
           {form.mode === 'edit' && form.plan?.status === 'active' && (
             <p className="muted text-xs m-0">
               This plan is active. Saving creates version {form.plan.plan_version + 1} and retires the current
-              version — engagements you’ve already applied it to keep their pinned version.
+              version. Engagements you’ve already applied it to keep their pinned version.
             </p>
           )}
           <label>
@@ -393,7 +393,7 @@ export default function PlansPage() {
                           <optgroup key={g.key} label={g.label}>
                             {g.options.map((o) => (
                               <option key={o.id} value={o.id}>
-                                {o.severity ? `${o.label} — ${humanizeKey(o.severity)}` : o.label}
+                                {o.severity ? `${o.label} · ${humanizeKey(o.severity)}` : o.label}
                               </option>
                             ))}
                           </optgroup>
@@ -455,7 +455,7 @@ export default function PlansPage() {
               subtitle={
                 incompleteCount > 0
                   ? `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} ready · ${incompleteCount} incomplete row${incompleteCount === 1 ? '' : 's'} to finish or remove`
-                  : `${previewItems.length} item${previewItems.length === 1 ? '' : 's'} — what this plan lays onto the roadmap`
+                  : `${previewItems.length} item${previewItems.length === 1 ? '' : 's'}: what this plan lays onto the roadmap`
               }
             >
               {previewItems.length === 0 ? (
@@ -484,8 +484,8 @@ export default function PlansPage() {
               <label>
                 Save as
                 <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')}>
-                  <option value="active">Active — visible to apply now</option>
-                  <option value="draft">Draft — keep authoring, not yet applicable</option>
+                  <option value="active">Active: visible to apply now</option>
+                  <option value="draft">Draft: keep authoring, not yet applicable</option>
                 </select>
               </label>
             )}

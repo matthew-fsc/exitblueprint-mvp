@@ -160,7 +160,7 @@ export function VerificationPanel() {
         engagement_id: engagementId,
       });
       toast.show(
-        `Verification run — ${r.metrics.reconciled_total} field(s) reconciled, ${r.findings} finding(s)`,
+        `Verification run: ${r.metrics.reconciled_total} field(s) reconciled, ${r.findings} finding(s)`,
         'good',
       );
       refresh();
@@ -324,7 +324,7 @@ export function VerificationPanel() {
                     </span>
                     <span className="doc-meta">
                       {isRecon
-                        ? `${humanizeKey(it.payload.field_key as string)} — self-reported ${formatFieldValue(
+                        ? `${humanizeKey(it.payload.field_key as string)}: self-reported ${formatFieldValue(
                             it.payload.field_key as string,
                             it.payload.self_reported,
                           )} vs document ${formatFieldValue(it.payload.field_key as string, it.payload.verified)}`
@@ -424,7 +424,7 @@ export function VerificationPanel() {
         onCancel={() => setRejectId(null)}
       >
         <p className="m-0">
-          Rejecting removes this finding from the engagement. This is a decision of record — it won't
+          Rejecting removes this finding from the engagement. This is a decision of record. It won't
           appear in reports or the buy-side view.
         </p>
       </ConfirmDialog>

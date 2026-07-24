@@ -231,7 +231,7 @@ export function DocumentCurator({
               {dirty && <span className="status-chip status-warning">Unsaved edits</span>}
               <span className="muted report-toolbar-meta">
                 {finalized
-                  ? 'Finalized documents are locked — regenerate to start a new draft.'
+                  ? 'Finalized documents are locked. Regenerate to start a new draft.'
                   : `${ruleBased ? meta?.narratorNote : `Drafted by ${doc.model}`} · generated ${new Date(
                       doc.created_at,
                     ).toLocaleString()}`}
@@ -286,8 +286,8 @@ export function DocumentCurator({
               title="Edit narrative"
               hint={
                 dirty
-                  ? 'Unsaved edits — use Save changes in the toolbar to persist them'
-                  : 'Raw Markdown — the figures stay fixed by the scoring engine'
+                  ? 'Unsaved edits. Use Save changes in the toolbar to persist them'
+                  : 'Raw Markdown. The figures stay fixed by the scoring engine'
               }
             >
               <textarea

@@ -13,7 +13,7 @@ export function TeaserPanel({ assessmentId }: { assessmentId: string | undefined
       docType="teaser"
       emptyHint={
         <p className="muted">
-          The teaser is an anonymized blind profile — it presents the strengths and a headline financial
+          The teaser is an anonymized blind profile: it presents the strengths and a headline financial
           figure without naming the company, so it can go out to prospective buyers before an NDA. It is a
           buyer-facing marketing draft; review and edit it before sharing. No number is invented; no weakness
           is surfaced.

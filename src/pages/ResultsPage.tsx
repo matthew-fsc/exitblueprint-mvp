@@ -211,7 +211,7 @@ export default function ResultsPage() {
             <span className="tile-label">Owner readiness</span>
             <span className="tile-value hero-tile-value">{fmtScore(explain.oriScore)}</span>
             <span className="muted tile-note">
-              The owner’s personal and financial readiness, scored on its own — never blended into
+              The owner’s personal and financial readiness, scored on its own, never blended into
               the business score.
             </span>
           </div>
@@ -230,13 +230,13 @@ export default function ResultsPage() {
         <div className="how-body">
           <p>
             Six areas of the business are each scored out of 100 from your assessment answers. Those
-            six roll up — weighted by how much buyers care about each — into the single{' '}
+            six roll up, weighted by how much buyers care about each, into the single{' '}
             <strong>Business readiness</strong> score above. The owner’s personal readiness is scored
             separately and never mixed in.
           </p>
           <p className="muted">
             Every number below traces straight back to an answer you gave. Nothing is estimated, and
-            no AI is involved in the scoring — the same answers always produce the same score.
+            no AI is involved in the scoring. The same answers always produce the same score.
           </p>
           <div className="tier-ladder">
             {TIERS.map((t) => (
@@ -260,7 +260,7 @@ export default function ResultsPage() {
         note={gap.totalGap > 0 ? `${fmtScore(gap.totalGap)} points to recover` : 'At a perfect score'}
       >
       {gap.totalGap <= 0 ? (
-        <p className="gap-none">Business readiness is at a perfect 100 — every point is captured.</p>
+        <p className="gap-none">Business readiness is at a perfect 100. Every point is captured.</p>
       ) : (
         <div className="stack-lg">
           {/* The whole gap, in one view: how much of a perfect 100 is captured
@@ -277,7 +277,7 @@ export default function ResultsPage() {
                 readiness and a perfect score
                 {nextTier ? (
                   <>
-                    {' '}— {fmtScore(nextTier.floor - explain.drsScore)} of them reach the{' '}
+                    . {fmtScore(nextTier.floor - explain.drsScore)} of them reach the{' '}
                     <strong>{nextTier.label}</strong> tier.
                   </>
                 ) : (
@@ -341,14 +341,14 @@ export default function ResultsPage() {
                     <p className="dim-contrib muted">
                       Worth {Math.round(d.drsWeight * 100)}% of the business score. It adds{' '}
                       {fmtScore(d.contributionToDrs)} of a possible {fmtScore(d.maxContributionToDrs)}{' '}
-                      DRS points today — <strong>{fmtScore(d.recoverablePoints)} still on the table.</strong>
+                      DRS points today. <strong>{fmtScore(d.recoverablePoints)} still on the table.</strong>
                     </p>
                     <ul className="factor-list">
                       {readings.map((r) => (
                         <li key={r.code} className="factor">
                           <span className={`factor-badge status-${r.band.status}`}>{r.band.label}</span>
                           <span className="factor-text">
-                            <strong>{r.name}</strong> — {r.measures}.
+                            <strong>{r.name}</strong>: {r.measures}.
                             <span className="factor-reading"> {r.reading}</span>
                             <span className="factor-benchmark muted"> Target: {r.benchmark}.</span>
                           </span>
@@ -369,8 +369,8 @@ export default function ResultsPage() {
             <div className="remediation-cta-body">
               <span className="remediation-cta-label">Close the gap</span>
               <p>
-                These are the raw material for remediation. The roadmap sequences them — most
-                valuable points first — into tasks for the owner and deal team.
+                These are the raw material for remediation. The roadmap sequences them, most
+                valuable points first, into tasks for the owner and deal team.
               </p>
             </div>
             <Link className="button-link button-primary" to={roadmapTo}>
@@ -383,7 +383,7 @@ export default function ResultsPage() {
 
       <PageSection title="Owner readiness" note="Scored separately from the business">
         <p className="section-sub muted mt-0">
-          A ready business and an unready owner is a common — and important — mismatch.
+          A ready business and an unready owner is a common and important mismatch.
         </p>
         <div className="dimension-list">
           {ownerGroups.map((g) => (

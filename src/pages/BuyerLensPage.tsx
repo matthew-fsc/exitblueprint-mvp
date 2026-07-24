@@ -40,7 +40,7 @@ const SECTIONS: { type: AdvisoryItemType; label: string; blurb: string }[] = [
   {
     type: 'initiative',
     label: 'Value-creating initiatives',
-    blurb: 'The moves that raise the score — and the multiple — before you go to market.',
+    blurb: 'The moves that raise the score, and the multiple, before you go to market.',
   },
   {
     type: 'risk_flag',
@@ -256,7 +256,7 @@ function MatchedBuyersSection({ engagementId }: { engagementId: string }) {
   return (
     <PageSection
       title="Matched buyers"
-      note="Ranked from your own buyer book — deterministic, firm-private"
+      note="Ranked from your own buyer book: deterministic, firm-private"
     >
       {matchesQ.isLoading && <SkeletonLines lines={4} />}
       {matchesQ.isError && <ErrorState variant="inline" error={matchesQ.error} />}
@@ -264,7 +264,7 @@ function MatchedBuyersSection({ engagementId }: { engagementId: string }) {
         <EmptyState title="No buyer matches yet">
           Add buyers and their mandates in your{' '}
           <Link to="/buyers">buyer book</Link>, or this company doesn't yet fit any buyer's box. Matching
-          ranks the firm's own book — it never reaches outside your firm.
+          ranks the firm's own book. It never reaches outside your firm.
         </EmptyState>
       )}
       {data && data.matches.length > 0 && (
@@ -279,7 +279,7 @@ function MatchedBuyersSection({ engagementId }: { engagementId: string }) {
           {blocked.length > 0 && (
             <div>
               <p className="muted text-sm" style={{ margin: '0 0 var(--space-2)' }}>
-                Blocked — a fit once the gap clears or readiness reaches the floor:
+                Blocked. A fit once the gap clears or readiness reaches the floor:
               </p>
               <Card>
                 <div className="advisory-list">
@@ -322,13 +322,13 @@ function MarketContextSection({ engagementId }: { engagementId: string }) {
   return (
     <PageSection
       title="Market context"
-      note="Directional market reference — sector commentary and precedent-transaction notes a sophisticated buyer will benchmark against. Context, not advice or a valuation."
+      note="Directional market reference: sector commentary and precedent-transaction notes a sophisticated buyer will benchmark against. Context, not advice or a valuation."
     >
       {marketQ.isLoading && <SkeletonLines lines={4} />}
       {marketQ.isError && <ErrorState variant="inline" error={marketQ.error} />}
       {marketQ.data && passages.length === 0 && (
         <EmptyState icon="search" title="No market context yet">
-          No market context available for this sector yet — directional reference data appears here
+          No market context available for this sector yet. Directional reference data appears here
           once loaded.
         </EmptyState>
       )}
@@ -417,7 +417,7 @@ export default function BuyerLensPage() {
 
       {result && result.assessment_id !== null && result.items.length === 0 && (
         <EmptyState title="No active triggers">
-          No risk trigger is met at the current scores — a strong signal of readiness.
+          No risk trigger is met at the current scores: a strong signal of readiness.
         </EmptyState>
       )}
 

@@ -42,7 +42,7 @@ export function toAnswerValue(q: QuestionRow, draft: Draft): unknown | undefined
       const t = raw.trim();
       if (t === '') continue; // trailing/blank rows are simply omitted
       const n = Number(t);
-      if (Number.isNaN(n)) throw new Error(`${q.prompt} — please enter numbers only`);
+      if (Number.isNaN(n)) throw new Error(`${q.prompt}: please enter numbers only`);
       nums.push(n);
     }
     return nums.length > 0 ? nums : undefined;
@@ -53,7 +53,7 @@ export function toAnswerValue(q: QuestionRow, draft: Draft): unknown | undefined
     case 'numeric':
     case 'numeric_or_unknown': {
       const n = Number(text);
-      if (Number.isNaN(n)) throw new Error(`${q.prompt} — please enter a number`);
+      if (Number.isNaN(n)) throw new Error(`${q.prompt}: please enter a number`);
       return n;
     }
     case 'scale_1_5':
@@ -249,7 +249,7 @@ export function QuestionControl({
       {q.answer_type === 'text' && (
         <textarea
           rows={2}
-          placeholder="Optional — add context for the report"
+          placeholder="Optional: add context for the report"
           value={text}
           onChange={(e) => onChange(q.id, { kind: 'text', text: e.target.value })}
         />
@@ -318,8 +318,8 @@ function ScaleField({
         ))}
       </div>
       <div className="scale-anchors muted">
-        <span>1 — {anchors.low}</span>
-        <span>5 — {anchors.high}</span>
+        <span>1: {anchors.low}</span>
+        <span>5: {anchors.high}</span>
       </div>
     </div>
   );
