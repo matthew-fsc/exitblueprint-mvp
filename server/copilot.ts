@@ -97,6 +97,9 @@ function defaultTransport(): CopilotTransport | null {
       tools: turn.tools,
       messages: turn.messages,
       maxTokens: turn.max_tokens,
+      // If the gateway can't serve the standard tier for this account (e.g. Haiku →
+      // Vertex AI → 403), upgrade to premium so the copilot answers instead of degrading.
+      fallbackModel: modelForTier('premium'),
     });
 }
 
