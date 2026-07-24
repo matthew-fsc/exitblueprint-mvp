@@ -17,6 +17,7 @@ import {
 } from '../lib/queries';
 import {
   Card,
+  BrandLogomark,
   EmptyState,
   ErrorState,
   FirmMark,
@@ -32,13 +33,14 @@ import {
 import type { SubTab } from '../components/ui/SubTabs';
 import { ProfessionalDirectoryCard } from '../components/ProfessionalDirectoryCard';
 import { accentVars } from '../lib/color';
+import { BRAND } from '../lib/brand';
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 // ── Branding (white-label identity) ───────────────────────────────────────────
 // Moved here from Settings: the firm's identity on every client-facing report and
 // portal is an org asset, so it lives in the admin Organization area and is
-// admin-only to write (firm_branding RLS). Exit Blueprint stays "Powered by".
+// admin-only to write (firm_branding RLS). ExitBlueprint stays "Powered by".
 function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string | null }) {
   const { data: branding, isLoading } = useBranding(firmId);
   const qc = useQueryClient();
@@ -115,7 +117,7 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
   return (
     <SectionCard
       title="Branding"
-      subtitle="How your firm appears on every client-facing report and portal — Exit Blueprint stays in the background."
+      subtitle={`How your firm appears on every client-facing report and portal — ${BRAND.name} stays in the background.`}
     >
       {error && <ErrorState variant="inline" error={error} />}
       <div
@@ -194,7 +196,10 @@ function BrandingCard({ firmId, firmName }: { firmId?: string; firmName: string 
                 <button>Accent button</button>
               </div>
               {disclosure && <p className="powered-by" style={{ marginTop: 'var(--space-4)' }}>{disclosure}</p>}
-              <p className="powered-by" style={{ marginTop: 'var(--space-2)' }}>Powered by Exit Blueprint</p>
+              <p className="powered-by" style={{ marginTop: 'var(--space-2)' }}>
+                <BrandLogomark className="powered-by-mark" size={13} />
+                {BRAND.poweredBy}
+              </p>
             </div>
           </div>
         </Card>

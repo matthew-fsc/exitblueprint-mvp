@@ -6,7 +6,8 @@ import { qk, useLatestDoc, type GeneratedDocumentRow } from '../lib/queries';
 import { useBrand } from '../lib/branding';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/analytics';
-import { Collapsible, ErrorState, FirmMark, useToast } from './ui';
+import { BrandLogomark, Collapsible, ErrorState, FirmMark, useToast } from './ui';
+import { BRAND } from '../lib/brand';
 import { fmtDate } from '../lib/format';
 import { documentType } from '../../shared/documents/catalog';
 
@@ -38,7 +39,10 @@ export function BrandedSheet({
       </div>
       {children}
       {branding?.footer_disclosure_md && <p className="report-disclosure">{branding.footer_disclosure_md}</p>}
-      <p className="powered-by report-poweredby">Powered by Exit Blueprint</p>
+      <p className="powered-by report-poweredby">
+        <BrandLogomark className="powered-by-mark" size={13} />
+        {BRAND.poweredBy}
+      </p>
     </article>
   );
   return wrap ? <div className="report-sheet-wrap">{article}</div> : article;

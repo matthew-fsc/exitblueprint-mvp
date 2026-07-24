@@ -3,7 +3,7 @@
 // is set it derives and overrides the full coherent accent/button variable set
 // for the subtree (see accentVars in color.ts), so ONE value rebrands accents,
 // links, focus rings AND primary buttons — not just links. The advisor's firm
-// is the face; Exit Blueprint is the engine.
+// is the face; ExitBlueprint is the engine.
 import { createContext, useContext, type ReactNode } from 'react';
 import { useAuth } from './auth';
 import { useBranding, type BrandingRow } from './queries';

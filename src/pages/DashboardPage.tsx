@@ -33,6 +33,7 @@ import { useAuth } from '../lib/auth';
 import { GettingStarted } from '../components/GettingStarted';
 import { invokeFunction } from '../lib/supabase';
 import { EXIT_WINDOWS, EXIT_WINDOW_LABEL } from '../../shared/engagement';
+import { BRAND } from '../lib/brand';
 import { track } from '../lib/analytics';
 import { TIER_ORDER } from '../lib/tokens';
 import { daysSince, fmtScore } from '../lib/format';
@@ -308,7 +309,7 @@ export default function DashboardPage() {
         <ErrorState
           variant="section"
           title="No engagement agreement"
-          message="Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are set up with a default agreement automatically — if you’re seeing this, contact your Exit Blueprint administrator to add one."
+          message={`Your firm has no active engagement agreement, so new engagements can’t be started yet. New firms are set up with a default agreement automatically — if you’re seeing this, contact your ${BRAND.name} administrator to add one.`}
         />
       )}
 

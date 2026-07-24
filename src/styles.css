@@ -1,5 +1,5 @@
 /* ============================================================
-   Exit Blueprint — application theme
+   ExitBlueprint — application theme
    Semantic design tokens with a light and a dark theme.
    Brand identity (F0): institutional-wealth register —
    deep forest/green, warm-cool neutrals, a confident forest accent.
@@ -3059,7 +3059,21 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   height: 2rem; width: 2rem; border-radius: 6px;
   background: var(--brand); color: var(--on-brand); font-weight: 800; font-family: var(--font-display);
 }
-.powered-by { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.02em; }
+.powered-by { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 0.35rem; }
+.powered-by-mark { flex: none; opacity: 0.75; }
+
+/* ExitBlueprint wordmark — the engine's own lockup (mark + weight-differentiated
+   name). The mark spends the accent; the text carries brand emphasis. */
+.brand-wordmark {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--font-display); color: var(--brand); letter-spacing: -0.02em;
+}
+.brand-wordmark-mark { color: var(--accent-strong); flex: none; }
+.brand-wordmark-text { font-weight: 500; }
+.brand-wordmark-text b { font-weight: 800; }
+.brand-wordmark-sm .brand-wordmark-text { font-size: 0.95rem; }
+.brand-wordmark-md .brand-wordmark-text { font-size: 1.2rem; }
+.brand-wordmark-lg .brand-wordmark-text { font-size: 1.6rem; }
 
 /* ---- ConfirmDialog / modal ---- */
 .ui-modal-backdrop {
