@@ -1,0 +1,24 @@
+{
+  "classification": "financial_statement",
+  "fields": [
+    { "fieldKey": "Company:self:name", "value": "Cascade Facility Services", "confidence": 1 },
+    { "fieldKey": "Company:self:revenue_usd", "value": "6900000", "confidence": 0.95 },
+    { "fieldKey": "Company:self:recurring_revenue_pct", "value": "66", "confidence": 0.92 },
+    { "fieldKey": "Company:self:ebitda_usd", "value": "1800000", "confidence": 0.6 },
+    { "fieldKey": "Customer:northgate:name", "value": "Northgate Property Group", "confidence": 0.9 },
+    { "fieldKey": "Customer:northgate:revenue_pct", "value": "0.14", "confidence": 0.9 },
+    { "fieldKey": "Customer:northgate:revenue_usd", "value": "966000", "confidence": 0.9 },
+    { "fieldKey": "Customer:summit:name", "value": "Summit Health Systems", "confidence": 0.9 },
+    { "fieldKey": "Customer:summit:revenue_pct", "value": "0.10", "confidence": 0.9 },
+    { "fieldKey": "Customer:summit:revenue_usd", "value": "690000", "confidence": 0.9 },
+    { "fieldKey": "Customer:riverside:name", "value": "Riverside School District", "confidence": 0.9 },
+    { "fieldKey": "Customer:riverside:revenue_pct", "value": "0.07", "confidence": 0.9 },
+    { "fieldKey": "Customer:riverside:revenue_usd", "value": "483000", "confidence": 0.9 },
+    { "fieldKey": "Customer:cedargrove:name", "value": "Cedar Grove Retail", "confidence": 0.9 },
+    { "fieldKey": "Customer:cedargrove:revenue_pct", "value": "0.05", "confidence": 0.9 },
+    { "fieldKey": "Customer:cedargrove:revenue_usd", "value": "345000", "confidence": 0.9 },
+    { "fieldKey": "Customer:blueharbor:name", "value": "Blue Harbor Logistics", "confidence": 0.9 },
+    { "fieldKey": "Customer:blueharbor:revenue_pct", "value": "0.04", "confidence": 0.9 },
+    { "fieldKey": "Customer:blueharbor:revenue_usd", "value": "276000", "confidence": 0.9 }
+  ]
+}
