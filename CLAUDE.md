@@ -27,6 +27,7 @@ Each rule names how it is verified. If a task appears to require violating one o
 
 ## Working agreements for Claude Code sessions
 
+- **Session bootstrap: `.claude/`** — a SessionStart hook installs deps and brings up a local Postgres (migrate + seed) in the background, and exports `DATABASE_URL` for you. Run `/db-up` to block until it's ready, `/dod` to run the definition-of-done gate. See `.claude/README.md`.
 - **Docs index: docs/README.md** — start there to find the right doc; it labels each as Canonical / Reference / Strategy / Runbook / Log and lists what's been archived. The feature→file map lives there, not here.
 - Build only the slice defined in the current session prompt from docs/05-build-plan.md. Do not scaffold ahead.
 - **Follow the established patterns.** Before adding a table, function, hook, module, or page, read docs/27-engineering-patterns.md and copy the matching skeleton from templates/. UI follows docs/26-ui-system.md (tokens/components/format helpers — never raw snake_case, raw integers, ad-hoc labels, or hand-rolled tables).
