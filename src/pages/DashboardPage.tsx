@@ -9,9 +9,6 @@ import {
   ErrorState,
   PageHeader,
   PageSection,
-  Sparkline,
-  StatBlock,
-  StatRow,
   TierBadge,
   useToast,
   type Column,
@@ -24,12 +21,14 @@ import {
   useEngagements,
   useFirmAttention,
   usePortfolio,
+  usePortfolioValuations,
   type AgreementVersionRow,
   type AttentionShape,
   type CompanyRow,
   type EngagementGraphBriefView,
   type EngagementRow,
   type PortfolioRow,
+  type PortfolioValuationSummary,
 } from '../lib/queries';
 import { renderMarkdown } from '../lib/markdown';
 import { useAuth } from '../lib/auth';
@@ -39,7 +38,63 @@ import { EXIT_WINDOWS, EXIT_WINDOW_LABEL } from '../../shared/engagement';
 import { BRAND } from '../lib/brand';
 import { track } from '../lib/analytics';
 import { TIER_ORDER } from '../lib/tokens';
-import { daysSince, fmtScore } from '../lib/format';
+import { daysSince, fmtScore, fmtCurrencyCompact } from '../lib/format';
+
+// A portfolio row joined with its (optional) valuation summary — the shape the
+// engagements table renders. Valuations load from a separate firm-scoped endpoint,
+// so `val` is undefined until they arrive and null-ish for engagements with no
+// recast (nothing to value).
+type BookRow = PortfolioRow & { val: PortfolioValuationSummary | undefined };
+
+// Book totals over a set of rows — the figures that used to live in the "Book at a
+// glance" stat band, now the table's totals row (computed over the shown rows) and
+// the section's CFP money headline (computed over the whole book).
+interface BookTotals {
+  count: number;
+  avgDrs: number | null;
+  movers: number;
+  stale: number;
+  evBase: number;
+  netProceeds: number;
+  wealthShortfall: number;
+  wealthCovered: number;
+  wealthSized: number; // engagements with a computed wealth gap (goal set + valued)
+  openGaps: number;
+  openTasks: number;
+  overdueTasks: number;
+}
+
+function aggregate(rows: BookRow[]): BookTotals {
+  const t: BookTotals = {
+    count: rows.length, avgDrs: null, movers: 0, stale: 0, evBase: 0, netProceeds: 0,
+    wealthShortfall: 0, wealthCovered: 0, wealthSized: 0, openGaps: 0, openTasks: 0, overdueTasks: 0,
+  };
+  let drsSum = 0;
+  let drsCount = 0;
+  for (const r of rows) {
+    if (r.latestDrs != null) {
+      drsSum += r.latestDrs;
+      drsCount += 1;
+    }
+    if ((r.delta ?? 0) >= 3) t.movers += 1;
+    const d = daysSince(r.latestAt);
+    if (r.latestAt != null && d != null && d >= STALE_DAYS) t.stale += 1;
+    if (r.val) {
+      t.evBase += r.val.ev_base;
+      t.netProceeds += r.val.net_proceeds;
+      if (r.val.wealth_gap != null) {
+        t.wealthSized += 1;
+        if (r.val.wealth_gap > 0) t.wealthShortfall += r.val.wealth_gap;
+        else t.wealthCovered += 1;
+      }
+    }
+    t.openGaps += r.openGaps;
+    t.openTasks += r.openTasks;
+    t.overdueTasks += r.overdueTasks;
+  }
+  t.avgDrs = drsCount ? Math.round((drsSum / drsCount) * 10) / 10 : null;
+  return t;
+}
 
 const STALE_DAYS = 90;
 
@@ -158,7 +213,14 @@ function EngagementGraphBriefPanel({ brief }: { brief: EngagementGraphBriefView 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const portfolioQ = usePortfolio();
-  const rows = portfolioQ.data ?? [];
+  const valuationsQ = usePortfolioValuations();
+  // Join each portfolio row with its valuation summary (if any). Valuations are a
+  // separate, slower firm-scoped read, so the wealth-gap column shows a loading /
+  // "—" state until they arrive rather than blocking the whole table.
+  const rows: BookRow[] = useMemo(
+    () => (portfolioQ.data ?? []).map((r) => ({ ...r, val: valuationsQ.data?.get(r.engagementId) })),
+    [portfolioQ.data, valuationsQ.data],
+  );
   const companiesQ = useCompanies();
   const engagementsQ = useEngagements();
   const attentionQ = useFirmAttention();
@@ -170,14 +232,6 @@ export default function DashboardPage() {
   const [adding, setAdding] = useState(false);
 
   const assessed = rows.filter((r) => r.latestDrs != null);
-  const avgDrs = assessed.length
-    ? Math.round((assessed.reduce((a, r) => a + (r.latestDrs ?? 0), 0) / assessed.length) * 10) / 10
-    : null;
-  const movers = rows.filter((r) => (r.delta ?? 0) >= 3).length;
-  const staleCount = rows.filter((r) => {
-    const d = daysSince(r.latestAt);
-    return r.latestAt != null && d != null && d >= STALE_DAYS;
-  }).length;
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -190,7 +244,12 @@ export default function DashboardPage() {
     });
   }, [rows, tier, move]);
 
-  const columns: Column<PortfolioRow>[] = [
+  // Whole-book totals drive the section's money headline (AUM in motion); the
+  // shown-rows totals drive the table's totals row so it reads as a true column sum.
+  const totals = useMemo(() => aggregate(rows), [rows]);
+  const shownTotals = useMemo(() => aggregate(filtered), [filtered]);
+
+  const columns: Column<BookRow>[] = [
     {
       key: 'company',
       header: 'Client',
@@ -232,16 +291,73 @@ export default function DashboardPage() {
         ),
     },
     {
-      key: 'trend',
-      header: 'Trend',
-      render: (r) => <Sparkline points={r.points} />,
+      key: 'wealthGap',
+      header: 'Wealth gap',
+      numeric: true,
+      // Shortfalls (positive gaps) sort to the top; "covered" and not-yet-sized
+      // rows sort below them. A missing valuation sorts lowest of all.
+      sortValue: (r) => (r.val?.wealth_gap != null ? r.val.wealth_gap : -Infinity),
+      render: (r) => {
+        if (valuationsQ.isLoading) return <span className="muted">…</span>;
+        const g = r.val?.wealth_gap;
+        if (g == null) {
+          // No valuation yet, or a valued engagement with no owner goal set. Both
+          // read as "not sized" — a soft prompt, not an error.
+          return (
+            <span
+              className="muted"
+              title={
+                r.val
+                  ? "Set the owner's wealth goal on the Valuation tab to size the gap"
+                  : 'No valuation recast started for this engagement'
+              }
+            >
+              —
+            </span>
+          );
+        }
+        return g > 0 ? (
+          <span className="wealth-gap-short" title="Net proceeds fall short of the owner's goal">
+            {fmtCurrencyCompact(g)}
+          </span>
+        ) : (
+          <span className="wealth-gap-ok" title="Net proceeds meet the owner's goal">
+            Covered
+          </span>
+        );
+      },
     },
     {
-      key: 'gaps',
-      header: 'Open gaps',
+      key: 'work',
+      header: 'Open work',
       numeric: true,
-      sortValue: (r) => r.openGaps,
-      render: (r) => (r.openGaps > 0 ? <span className="count-pill">{r.openGaps}</span> : <span className="muted">0</span>),
+      // Rank by total open items, then let overdue tasks break ties upward.
+      sortValue: (r) => r.openGaps + r.openTasks + r.overdueTasks / 1000,
+      render: (r) => {
+        if (r.openGaps === 0 && r.openTasks === 0) return <span className="muted">clear</span>;
+        return (
+          <span className="work-cell">
+            {r.openGaps > 0 && (
+              <span className="count-pill" title={`${r.openGaps} open gap${r.openGaps === 1 ? '' : 's'}`}>
+                {r.openGaps} gap{r.openGaps === 1 ? '' : 's'}
+              </span>
+            )}
+            {r.openTasks > 0 && (
+              <span
+                className={`count-pill ${r.overdueTasks > 0 ? 'count-pill-warn' : 'count-pill-soft'}`}
+                title={
+                  r.overdueTasks > 0
+                    ? `${r.openTasks} open task${r.openTasks === 1 ? '' : 's'}, ${r.overdueTasks} overdue`
+                    : `${r.openTasks} open task${r.openTasks === 1 ? '' : 's'}`
+                }
+              >
+                {r.openTasks} task{r.openTasks === 1 ? '' : 's'}
+                {r.overdueTasks > 0 ? ` · ${r.overdueTasks} overdue` : ''}
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       key: 'stale',
@@ -263,6 +379,62 @@ export default function DashboardPage() {
 
   const isLoading = portfolioQ.isLoading;
   const engagements = engagementsQ.data ?? [];
+
+  // The table's totals row (rendered in the DataTable <tfoot>), aligned to the
+  // seven columns. It folds in the old "Book at a glance" figures — count, avg
+  // DRS, movers, stale — and adds the wealth-gap and open-work totals. Totals are
+  // over the SHOWN rows, so the row stays a truthful column sum under any filter.
+  const bookTotalsRow = (
+    <tr className="book-totals-row">
+      <td>
+        <strong>{shownTotals.count}</strong> engagement{shownTotals.count === 1 ? '' : 's'}
+      </td>
+      <td className="num">
+        <span className="foot-strong">{fmtScore(shownTotals.avgDrs)}</span>
+        <span className="foot-sub">avg DRS</span>
+      </td>
+      <td />
+      <td className="num">
+        {shownTotals.movers > 0 ? (
+          <span className="foot-sub">{shownTotals.movers} improving</span>
+        ) : (
+          <span className="muted">—</span>
+        )}
+      </td>
+      <td className="num">
+        {valuationsQ.isLoading ? (
+          <span className="muted">…</span>
+        ) : shownTotals.wealthSized === 0 ? (
+          <span className="muted">—</span>
+        ) : shownTotals.wealthShortfall > 0 ? (
+          <span className="wealth-gap-short" title={`Total shortfall across ${shownTotals.wealthSized} sized engagement${shownTotals.wealthSized === 1 ? '' : 's'}`}>
+            {fmtCurrencyCompact(shownTotals.wealthShortfall)}
+            <span className="foot-sub">total gap</span>
+          </span>
+        ) : (
+          <span className="wealth-gap-ok">All covered</span>
+        )}
+      </td>
+      <td className="num">
+        {shownTotals.openGaps === 0 && shownTotals.openTasks === 0 ? (
+          <span className="muted">clear</span>
+        ) : (
+          <span className="foot-sub">
+            {shownTotals.openGaps} gap{shownTotals.openGaps === 1 ? '' : 's'} · {shownTotals.openTasks} task
+            {shownTotals.openTasks === 1 ? '' : 's'}
+            {shownTotals.overdueTasks > 0 ? ` (${shownTotals.overdueTasks} overdue)` : ''}
+          </span>
+        )}
+      </td>
+      <td className="num">
+        {shownTotals.stale > 0 ? (
+          <span className="stale-flag">{shownTotals.stale} stale</span>
+        ) : (
+          <span className="foot-sub">all current</span>
+        )}
+      </td>
+    </tr>
+  );
   // First-run activation checklist. It stays until every activation step is
   // done (including embedding firm knowledge and loading the professional
   // network) or the advisor dismisses it — GettingStarted itself renders null
@@ -341,19 +513,6 @@ export default function DashboardPage() {
         />
       )}
 
-      <PageSection title="Book at a glance" note="Where the engagement stands today">
-        <StatRow>
-          <StatBlock label="Engagements" value={isLoading ? '—' : rows.length} hint="active in your book" />
-          <StatBlock label="Average DRS" value={isLoading ? '—' : avgDrs ?? '—'} hint="across the book" />
-          <StatBlock label="Movers this quarter" value={isLoading ? '—' : movers} hint="up ≥ 3 points vs prior" />
-          <StatBlock
-            label="Stale ≥ 90 days"
-            value={isLoading ? '—' : staleCount}
-            hint={isLoading ? 'across the book' : staleCount > 0 ? 'need a reassessment' : 'all current'}
-          />
-        </StatRow>
-      </PageSection>
-
       {attentionQ.data && attentionQ.data.counts.total > 0 && <AttentionPanel data={attentionQ.data} />}
 
       {graphBriefQ.data && graphBriefQ.data.payload.gaps_cleared > 0 && (
@@ -362,7 +521,27 @@ export default function DashboardPage() {
 
       <PageSection
         title="Engagements"
-        note={!isLoading && rows.length > 0 ? `${filtered.length} of ${rows.length} shown` : undefined}
+        note={
+          !isLoading && rows.length > 0 ? (
+            <>
+              {filtered.length} of {rows.length} shown
+              {/* Book value in motion — the AUM the exit throws off — is the CFP
+                  headline; shown only once at least one engagement is valued. */}
+              {!valuationsQ.isLoading && totals.evBase > 0 && (
+                <>
+                  {' · '}
+                  <span title="Total estimated enterprise value across valued engagements">
+                    {fmtCurrencyCompact(totals.evBase)} est. value
+                  </span>
+                  {' · '}
+                  <span title="Total estimated net-to-owner proceeds — the liquidity in motion across the book">
+                    {fmtCurrencyCompact(totals.netProceeds)} net to owners
+                  </span>
+                </>
+              )}
+            </>
+          ) : undefined
+        }
       >
         <div className="filter-row">
           <label className="filter-control">
@@ -396,6 +575,7 @@ export default function DashboardPage() {
           error={portfolioQ.error?.message ?? null}
           initialSort={{ key: 'stale', dir: 'desc' }}
           empty={emptyNode}
+          footer={bookTotalsRow}
         />
       </PageSection>
 
