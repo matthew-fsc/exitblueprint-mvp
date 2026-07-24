@@ -475,7 +475,7 @@ export default function EngagementPage() {
             </select>
           </label>
         </div>
-        <p className="muted text-sm" style={{ margin: '0.5rem 0 0' }}>
+        <p className="muted text-sm" style={{ margin: 'var(--space-2) 0 0' }}>
           Paused keeps the record but signals no active work; Exited and Churned are terminal.
           To remove the engagement entirely, use “Delete engagement” below.
         </p>
@@ -653,11 +653,11 @@ export default function EngagementPage() {
               </h3>
               {delta !== null && <DeltaChip value={delta} />}
             </div>
-            <p className="muted" style={{ margin: '0.25rem 0 0' }}>
+            <p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>
               Readiness plotted against the target exit date, with the pace needed to reach
               Competitive-Process-Ready (DRS {TARGET_DRS}) in time.
             </p>
-            <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ marginTop: 'var(--space-3)' }}>
               <ExitPaceChart
                 points={pacePoints}
                 targetScore={TARGET_DRS}
@@ -1093,7 +1093,7 @@ function DealOutcomeCapture({
       <textarea placeholder="Notes (what drove the price, terms, lessons)" value={f.notes} onChange={(e) => set('notes', e.target.value)} rows={2} />
       <div>
         <button type="submit" disabled={busy}>{busy ? 'Saving…' : existing ? 'Update outcome' : 'Record outcome'}</button>
-        {existing?.updated_at && <span className="muted" style={{ marginLeft: '0.6rem' }}>last saved {fmtDate(existing.updated_at)}</span>}
+        {existing?.updated_at && <span className="muted" style={{ marginLeft: 'var(--space-2)' }}>last saved {fmtDate(existing.updated_at)}</span>}
       </div>
     </form>
   );
@@ -1316,7 +1316,7 @@ function ComparePanel({ assessments, embedded = false }: { assessments: Assessme
           </label>
         </div>
 
-        <div style={{ marginTop: '1rem' }}>
+        <div style={{ marginTop: 'var(--space-4)' }}>
           {priorId === currentId ? (
             <p className="muted">Pick two different assessments to see the change.</p>
           ) : compareQ.isLoading ? (
@@ -1357,7 +1357,7 @@ function ComparePanel({ assessments, embedded = false }: { assessments: Assessme
                 <span className="delta delta-down">▲ {cmp.gapsOpened.length} newly opened</span>
               </div>
 
-              <div style={{ marginTop: '1rem' }}>
+              <div style={{ marginTop: 'var(--space-4)' }}>
                 <DataTable columns={dimCols} rows={cmp.dimensions} keyFor={(r) => r.code} />
               </div>
             </div>

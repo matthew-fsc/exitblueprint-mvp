@@ -300,7 +300,7 @@ function chips(label: string, values: string[]) {
 function MandateSummary({ mandate: m }: { mandate: BuyerMandateRow }) {
   return (
     <div className="eb-list-row" style={{ alignItems: 'flex-start' }}>
-      <div className="eb-list-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="eb-list-row-main" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
         <div style={{ fontWeight: 600 }}>
           {m.label || 'Mandate'} <span className="muted text-sm">· v{m.mandate_version}</span>
         </div>

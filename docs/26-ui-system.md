@@ -12,6 +12,69 @@ is `src/lib/tokens.ts`.
 (7), `--pad-card` (6), `--pad-page-x` (6). Never hand-pick a rem for margin,
 padding, or gap — use a step.
 
+## The spacing contract — the rule that stops things touching
+Inconsistent spacing (blocks that butt together, gaps that look random) is the
+UI defect that keeps coming back. It comes back because spacing gets decided
+ad-hoc, per element, in an inline `style`. The fix is one mental model, applied
+everywhere. Four rules — internalize them and the defect can't recur:
+
+1. **Spacing is owned by the container, never the child.** A component never adds
+   its own outer `margin` to push a sibling away. Separation is the parent's job:
+   the parent is a `stack` / `cluster` / grid and its `gap` is the *single* source
+   of the space between its children. This is what makes spacing composable — a
+   child can be dropped into any container and inherit that container's rhythm —
+   and it's what kills the classic bugs: doubled margins, collapsing margins, and
+   a child that separates itself correctly in one place and touches in the next.
+
+2. **Every group of siblings is a `stack` (vertical) or `cluster` (horizontal).**
+   A bare `<div>` or a raw `display:flex` wrapping children is *the* bug: it has
+   no default `gap`, so the children touch. There is no such thing as "a flex row
+   without a gap" in this app. If you catch yourself writing `display:flex` or
+   `display:grid`, you write the `gap` in the same breath — better, reach for the
+   primitive class (`.stack*` / `.cluster*` / `card-grid`) so the gap is built in
+   and can't be forgotten. **Default to spaced; opt out deliberately, never by
+   omission.**
+
+3. **A spacing value is a `--space-*` token (or a semantic alias), never a
+   hand-picked rem/px.** `0.9rem`, `14px`, `2px` are what make spacing read as
+   random. Snap to the nearest step. The only spacing that is legitimately *not* a
+   token is genuinely dynamic geometry (a computed chart width) — and that is
+   never static, so it never appears as a literal.
+
+4. **Inline `style` is for dynamic values only — never for static spacing.** A
+   static margin/padding/gap belongs to a class or a primitive, not to a
+   hand-written `style={{ … }}`. This one is enforced: `tests/ui-spacing-guard.test.ts`
+   fails the build on any inline `style` that sets a spacing property to a raw
+   rem/px literal (a `var(--space-*)` token or a bare `0` is fine). Held at zero,
+   so the class of defect can't quietly grow back — the rule is *verified, not
+   trusted* (CLAUDE.md's standard for every invariant).
+
+**"I need space between two things" → reach for, in order:**
+
+| Between… | Use | Gap |
+| --- | --- | --- |
+| blocks stacked in a card body | `.stack` / `.stack-sm` / `.stack-lg` | `--space-4` / `-2` / `--gap-block` |
+| chips, buttons, tags, inline meta in a row | `.cluster` (+ `-tight`/`-sm`/`-between`) | `--gap-tight` (tuned) |
+| a label, its control, and its hint | `.field` (`.field-label` + control + `.field-hint`) | built-in |
+| name + meta + trailing actions (a record row) | `.eb-list-row` | built-in |
+| major regions of a page | `PageSection`s on the `page-shell` spine | `--space-8` |
+| cards in a multi-card row | `card-grid` (or `layout-rail` for primary+rail) | `--gap-block` |
+| a gap you're authoring in component CSS | a `--space-*` step | pick the step |
+
+**Anti-pattern → fix** (every one of these was a real defect in this codebase):
+
+- `<div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>` → a
+  `<div className="stack-sm">`. The primitive owns the rhythm; nothing to hand-pick.
+- `<p style={{ marginBottom:'0.5rem' }}>Label</p><StatRow …/>` (child margins itself
+  away from the next block) → wrap the label + content in a `.stack-sm` and delete
+  the margin. Rule 1: the container owns the gap.
+- A plain `<div>` wrapping several cards (they touch) → `.stack-lg` or `card-grid`.
+  Rule 2: a sibling group is always a stack/grid.
+- `gap: '2px'`, `marginTop: '0.9rem'` (off-grid literals) → the nearest `--space-*`
+  step. Rule 3: snap to the grid.
+- Any static spacing inside `style={{ … }}` → a class or token. Rule 4; the guard
+  test enforces it.
+
 ## Type — `--text-xs / -sm / -md`
 `0.72 / 0.8 / 0.88 rem`, the sub-body sizes. Prose is the 15px body. Utility
 classes `.text-xs/.text-sm/.text-md` apply them in markup (replacing inline
@@ -159,6 +222,9 @@ buttons, tags, or inline meta instead of a bare `display:flex`. `.stack` /
 `.stack-sm` / `.stack-lg` are the vertical rhythms; a stack's `gap` is the single
 source of spacing between blocks, so blocks never butt together. **A horizontal
 group of items always has a `gap` and (unless deliberately single-line) `flex-wrap`.**
+These primitives are how you satisfy "The spacing contract" (above) — the container
+owns the gap, the child never margins itself. When you're unsure which primitive to
+reach for, use that section's "space between two things" table.
 
 ## Formatting — always via `src/lib/format.ts`
 `fmtCurrency` / `fmtCurrencyCompact`, `fmtScore`, `fmtDelta`, `fmtDate`, and —

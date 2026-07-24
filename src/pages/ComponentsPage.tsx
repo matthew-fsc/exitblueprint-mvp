@@ -242,23 +242,23 @@ export default function ComponentsPage() {
       </GallerySection>
 
       <GallerySection title="Checkbox · radio · select (on-brand native controls)">
-        <div className="gallery-row" style={{ gap: '1.5rem' }}>
-          <label className="control-row" style={{ gap: '0.5rem' }}>
+        <div className="gallery-row" style={{ gap: 'var(--space-6)' }}>
+          <label className="control-row" style={{ gap: 'var(--space-2)' }}>
             <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
             <span className="text-sm">Benchmarking use</span>
           </label>
-          <label className="control-row" style={{ gap: '0.5rem' }}>
+          <label className="control-row" style={{ gap: 'var(--space-2)' }}>
             <input type="checkbox" checked={false} readOnly />
             <span className="text-sm">Unchecked</span>
           </label>
-          <label className="control-row" style={{ gap: '0.5rem' }}>
+          <label className="control-row" style={{ gap: 'var(--space-2)' }}>
             <input type="checkbox" checked disabled readOnly />
             <span className="text-sm muted">Disabled</span>
           </label>
         </div>
-        <div className="gallery-row" style={{ gap: '1.5rem' }}>
+        <div className="gallery-row" style={{ gap: 'var(--space-6)' }}>
           {['monthly', 'quarterly', 'annual'].map((p) => (
-            <label key={p} className="control-row" style={{ gap: '0.5rem' }}>
+            <label key={p} className="control-row" style={{ gap: 'var(--space-2)' }}>
               <input type="radio" name="demo-plan" checked={plan === p} onChange={() => setPlan(p)} />
               <span className="text-sm" style={{ textTransform: 'capitalize' }}>{p}</span>
             </label>

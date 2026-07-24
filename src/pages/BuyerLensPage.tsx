@@ -297,7 +297,7 @@ function MatchedBuyersSection({ engagementId }: { engagementId: string }) {
 function BuyerMatchRowView({ match: m }: { match: BuyerMatchRow }) {
   return (
     <div className="eb-list-row" style={{ alignItems: 'flex-start', opacity: m.blocked ? 0.85 : 1 }}>
-      <div className="eb-list-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="eb-list-row-main" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
         <div style={{ fontWeight: 600 }}>{m.buyerName}</div>
         {m.factors.length > 0 && <span className="muted text-sm">{m.factors.join(' · ')}</span>}
         {m.blockers.map((b) => (

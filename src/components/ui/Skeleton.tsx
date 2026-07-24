@@ -23,7 +23,7 @@ export function Skeleton({
 // A stack of text-line skeletons.
 export function SkeletonLines({ lines = 3 }: { lines?: number }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }} aria-busy>
+    <div className="stack-sm" aria-busy>
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton key={i} height="0.85rem" width={i === lines - 1 ? '60%' : '100%'} />
       ))}

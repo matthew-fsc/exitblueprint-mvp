@@ -70,7 +70,7 @@ export function VerificationCard({
           </span>
         )}
       </div>
-      <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
+      <p className="muted" style={{ margin: 'var(--space-1) 0 var(--space-4)' }}>
         How much of the financial picture is backed by documents or a connected ledger, rather than
         self-reported. Verified inputs turn a claimed score into a defensible one.
       </p>

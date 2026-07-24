@@ -122,7 +122,7 @@ export function DeltaReportPanel({
                 }))}
                 keyFor={(r) => r.code}
               />
-              <div className="compare-gap-summary" style={{ marginTop: '0.9rem' }}>
+              <div className="compare-gap-summary" style={{ marginTop: 'var(--space-4)' }}>
                 <span className="delta delta-up">▼ {cmp.gapsResolved.length} resolved</span>
                 <span className="delta delta-down">▲ {cmp.gapsOpened.length} newly opened</span>
               </div>

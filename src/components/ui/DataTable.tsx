@@ -58,7 +58,7 @@ export function DataTable<Row>({
 
   if (loading) {
     return (
-      <div className="ui-table-wrap" style={{ padding: '1rem' }}>
+      <div className="ui-table-wrap" style={{ padding: 'var(--space-4)' }}>
         <SkeletonLines lines={5} />
       </div>
     );

@@ -161,7 +161,7 @@ function CalibrationBandsTable({ rows, groupHeader }: { rows: Row[]; groupHeader
         <span>
           <strong>{String(r.band_label ?? '—')}</strong>
           {r.low_confidence === true && (
-            <span className="status-chip status-neutral" style={{ marginLeft: '0.4rem' }}>
+            <span className="status-chip status-neutral" style={{ marginLeft: 'var(--space-2)' }}>
               Low confidence
             </span>
           )}
@@ -522,7 +522,7 @@ export default function PlatformConsolePage() {
             ))}
           </StatRow>
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Assessment funnel: engagements → started → completed → scored
             </p>
             <StatRow>
@@ -561,7 +561,7 @@ export default function PlatformConsolePage() {
             <StatBlock label="Active seats" value={String(toNumber(rev.active_seats))} />
           </StatRow>
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Subscriptions by plan
             </p>
             <AutoTable
@@ -598,7 +598,7 @@ export default function PlatformConsolePage() {
             <StatBlock label="AI spend (lifetime)" value={fmtCurrency(econ.ai_cost_total)} />
           </StatRow>
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               AI cost by day (last 30 days)
             </p>
             <AutoTable
@@ -632,7 +632,7 @@ export default function PlatformConsolePage() {
             />
           </StatRow>
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Firm account book: dormant firms first
             </p>
             <FirmBook firms={s.business.firms} />
@@ -685,7 +685,7 @@ export default function PlatformConsolePage() {
           )}
 
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Corpus growth by month
             </p>
             <AutoTable
@@ -696,7 +696,7 @@ export default function PlatformConsolePage() {
           </div>
 
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Verified financial corpus: coverage
             </p>
             <AutoTable rows={s.corpus.verified_coverage} emptyLabel="No verified coverage yet" />
@@ -704,7 +704,7 @@ export default function PlatformConsolePage() {
 
           {s.corpus.own_book_multiples.length > 0 && (
             <div>
-              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
                 Own-book multiples
               </p>
               <AutoTable rows={s.corpus.own_book_multiples} />
@@ -712,7 +712,7 @@ export default function PlatformConsolePage() {
           )}
           {s.corpus.own_book_valuation_multiples.length > 0 && (
             <div>
-              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
                 Own-book multiples: by valuation industry_key (recalibration signal)
               </p>
               <AutoTable rows={s.corpus.own_book_valuation_multiples} />
@@ -754,7 +754,7 @@ export default function PlatformConsolePage() {
             </EmptyState>
           ) : (
             <div>
-              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
                 DRS score bands
               </p>
               <CalibrationBandsTable rows={calDrsBands} groupHeader="DRS band" />
@@ -763,7 +763,7 @@ export default function PlatformConsolePage() {
 
           {calOriBands.length > 0 && (
             <div>
-              <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+              <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
                 Owner Readiness Index bands
               </p>
               <CalibrationBandsTable rows={calOriBands} groupHeader="ORI band" />
@@ -797,7 +797,7 @@ export default function PlatformConsolePage() {
       <SectionCard title="Ops" subtitle="Webhook health: a stuck webhook is an outage /ready won't catch">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <div>
-            <p className="stat-block-label" style={{ marginBottom: '0.5rem' }}>
+            <p className="stat-block-label" style={{ marginBottom: 'var(--space-2)' }}>
               Webhook health
             </p>
             <AutoTable rows={s.ops.webhooks} emptyLabel="No webhook activity" />
