@@ -66,6 +66,7 @@ describe('function registry', () => {
     // deliverables. A change here should be deliberate, not incidental.
     expect(gatedFunctionNames().sort()).toEqual(
       [
+        'answer-diligence-question',
         'apply-plan',
         'compute-valuation',
         'create-engagement',

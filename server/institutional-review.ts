@@ -26,19 +26,21 @@
 // returns an in-memory labeled-draft artifact. Persisting it (a generated_documents
 // `institutional_review` doc_type) is a follow-up that needs a migration; see the
 // integration notes accompanying this change.
-import type Anthropic from '@anthropic-ai/sdk';
 import type pg from 'pg';
-import { numeralPostCheck, type GenerateFn, type GeneratedText } from './narrative';
-import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
-import { resolvePromptBody } from './prompt-registry';
+import { runGroundedGeneration, withDraftBanner, type GenerateFn } from './intelligence/runtime';
 import { verificationSummary, type VerificationSummary } from './verification';
 import { fireAdvisoryItems, type AdvisoryFireResult } from './advisory';
+import { getAgentOrThrow } from './agents/registry';
 
-const PROMPT_VERSION = 'institutional_review.v1';
-const MODEL = 'claude-opus-4-8';
+// prompt_version + rule-based-model label come from the agent registry (the single
+// source of truth) rather than local literals — institutional_review is now a
+// registered agent, closing the last literal-constant inconsistency. The values
+// are byte-identical to the constants that lived here; pure indirection.
+const INSTITUTIONAL_REVIEW_AGENT = getAgentOrThrow('institutional_review');
+const PROMPT_VERSION = INSTITUTIONAL_REVIEW_AGENT.promptVersion;
 // Model label stored on a review written by the deterministic composer, so a
 // reader can always tell a rule-based review from an AI-drafted one.
-const RULE_BASED_MODEL = 'rule-based:institutional_review.v1';
+const RULE_BASED_MODEL = INSTITUTIONAL_REVIEW_AGENT.ruleBasedModel;
 
 // The unmissable label on every review, AI- or rule-composed. It carries no
 // numeral, so prepending it never trips the numeral firewall.
@@ -47,32 +49,6 @@ export const DRAFT_BANNER =
   'review only. This review surfaces blind spots, missing evidence, and likely ' +
   'diligence questions from the assessment data. It does not compute, adjust, or ' +
   'grade any score; every figure it cites was produced by the deterministic engine._';
-
-function withDraftBanner(text: string): string {
-  return text.startsWith(DRAFT_BANNER) ? text : `${DRAFT_BANNER}\n\n${text}`;
-}
-
-async function callClaude(systemPrompt: string, userContent: string): Promise<GeneratedText> {
-  const provider = resolveProvider();
-  if (!provider) {
-    throw new Error(
-      'institutional review service not configured: set AI_GATEWAY_API_KEY in the server environment',
-    );
-  }
-  const response = await provider.client.messages.create({
-    model: provider.modelFor(MODEL),
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userContent }],
-  });
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
-  if (!text) throw new Error(`institutional review returned no text (${response.stop_reason})`);
-  return { text, model: response.model };
-}
 
 // --- Payload (the only numbers the model may use) ------------------------------
 
@@ -321,39 +297,10 @@ export function composeInstitutionalReview(payload: ReviewPayload): string {
     `Treat the items above as a diligence rehearsal${window}. Each is a question to answer before the market asks it. Legal and tax structure questions belong with the advisor and counsel; this review does not opine on them.`,
   );
 
-  return withDraftBanner(lines.join('\n'));
+  return withDraftBanner(lines.join('\n'), DRAFT_BANNER);
 }
 
 // --- Review generation (injectable generator + numeral firewall) ----------------
-
-// Mirrors narrative.ts's generateWithClaude: read the versioned prompt, generate,
-// enforce the numeral firewall (one regeneration, then fail loudly), and stamp
-// the DRAFT banner so the label is present regardless of what the model returned.
-async function reviewWithGenerator(
-  db: pg.ClientBase,
-  payload: ReviewPayload,
-  generate: GenerateFn,
-  promptVersion: string = PROMPT_VERSION,
-): Promise<GeneratedText> {
-  const systemPrompt = await resolvePromptBody(db, promptVersion);
-  const userContent = `Assessment review data (JSON):\n${JSON.stringify(payload, null, 2)}`;
-
-  let generated = await generate(systemPrompt, userContent);
-  let violations = numeralPostCheck(generated.text, payload);
-  if (violations.length > 0) {
-    generated = await generate(
-      systemPrompt,
-      `${userContent}\n\nIMPORTANT: your previous draft used numbers not present in the data (${violations.join(', ')}). Use only numbers from the payload, and never compute a number of your own.`,
-    );
-    violations = numeralPostCheck(generated.text, payload);
-    if (violations.length > 0) {
-      throw new Error(
-        `institutional review rejected: output contains numerals not present in the input payload: ${violations.join(', ')}`,
-      );
-    }
-  }
-  return { text: withDraftBanner(generated.text), model: generated.model };
-}
 
 export interface InstitutionalReview {
   doc_type: 'institutional_review';
@@ -377,25 +324,20 @@ export async function generateInstitutionalReview(
 ): Promise<InstitutionalReview> {
   const payload = await buildInstitutionalReviewPayload(db, assessmentId);
 
-  let text: string;
-  let model: string;
-  if (generate) {
-    ({ text, model } = await reviewWithGenerator(db, payload, generate));
-  } else if (aiConfigured()) {
-    try {
-      ({ text, model } = await reviewWithGenerator(db, payload, callClaude));
-    } catch (err) {
-      console.warn(
-        `institutional review ${PROMPT_VERSION}: AI generation failed (${aiFailureReason(err)}); ` +
-          'falling back to the deterministic composer',
-      );
-      text = composeInstitutionalReview(payload);
-      model = RULE_BASED_MODEL;
-    }
-  } else {
-    text = composeInstitutionalReview(payload);
-    model = RULE_BASED_MODEL;
-  }
+  // The shared intelligence runtime owns the pick/firewall/fallback contract; this
+  // seam stays read-only and returns the in-memory artifact below. The label, regen
+  // instruction, and DRAFT banner reproduce this reviewer's exact prior wording.
+  const { text, model } = await runGroundedGeneration({
+    db,
+    promptVersion: PROMPT_VERSION,
+    ruleBasedModel: RULE_BASED_MODEL,
+    userContent: `Assessment review data (JSON):\n${JSON.stringify(payload, null, 2)}`,
+    compose: () => composeInstitutionalReview(payload),
+    draftBanner: DRAFT_BANNER,
+    generate,
+    label: 'institutional review',
+    regenInstruction: 'Use only numbers from the payload, and never compute a number of your own.',
+  });
 
   return {
     doc_type: 'institutional_review',

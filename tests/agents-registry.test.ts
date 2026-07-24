@@ -18,9 +18,18 @@ import type { AgentGuard } from '../shared/agents/spec';
 const SCOPES_IN_USE = new Set(Object.values(REGISTRY).map((spec) => spec.scope));
 
 describe('agent registry', () => {
-  it('declares the six agents that exist today', () => {
+  it('declares the agents that exist today', () => {
     expect(AGENTS.map((a) => a.key).sort()).toEqual(
-      ['cim', 'delta_report', 'diligence_simulation', 'management_presentation', 'owner_report', 'teaser'].sort(),
+      [
+        'cim',
+        'delta_report',
+        'diligence_qa',
+        'diligence_simulation',
+        'institutional_review',
+        'management_presentation',
+        'owner_report',
+        'teaser',
+      ].sort(),
     );
   });
 
@@ -75,10 +84,12 @@ describe('agent registry', () => {
   it('every agent declares a rule-based model label', () => {
     // The generators stamp this label when the deterministic composer (not the AI)
     // produced the draft, so a reader can tell a rule-based document from an
-    // AI-drafted one. Sourced FROM the spec; must carry the 'rule-based:' prefix.
+    // AI-drafted one. Sourced FROM the spec; must carry the 'rule-based:' prefix —
+    // or 'retrieval-only:' for the Q&A agent, whose deterministic fallback renders
+    // the cited source evidence rather than a composed report (still non-AI).
     for (const a of AGENTS) {
       expect(typeof a.ruleBasedModel, `${a.key} ruleBasedModel type`).toBe('string');
-      expect(a.ruleBasedModel, `${a.key} ruleBasedModel prefix`).toMatch(/^rule-based:/);
+      expect(a.ruleBasedModel, `${a.key} ruleBasedModel prefix`).toMatch(/^(rule-based|retrieval-only):/);
     }
   });
 
@@ -104,14 +115,18 @@ describe('agent registry', () => {
     }
   });
 
-  it('persist targets are the two immutable snapshot tables', () => {
+  it('persist targets are the immutable snapshot tables or none (the read-only seam)', () => {
     for (const a of AGENTS) {
-      expect(['generated_documents', 'diligence_simulation_runs'], `${a.key} persist`).toContain(a.persist);
+      expect(
+        ['generated_documents', 'diligence_simulation_runs', 'diligence_qa', 'none'],
+        `${a.key} persist`,
+      ).toContain(a.persist);
     }
-    // The narrative documents persist to generated_documents; only the diligence
-    // simulation writes a run.
+    // The narrative documents persist to generated_documents; the diligence
+    // simulation writes a run; the institutional reviewer is read-only ('none').
     expect(getAgent('owner_report')?.persist).toBe('generated_documents');
     expect(getAgent('diligence_simulation')?.persist).toBe('diligence_simulation_runs');
+    expect(getAgent('institutional_review')?.persist).toBe('none');
   });
 
   it('getAgent looks up by key and returns undefined for unknown keys', () => {

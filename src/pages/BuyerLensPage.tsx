@@ -1,11 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-// Hidden for now — AI diligence simulator not production-ready yet
-// import { useState } from 'react';
-// import { useQueryClient } from '@tanstack/react-query';
-// import { invokeFunction } from '../lib/supabase';
 import {
-  // qk,  // Hidden for now — AI diligence simulator not production-ready yet
   useCompany,
   useEngagement,
   useFiredAdvisory,
@@ -29,13 +24,10 @@ import {
   PageHeader,
   PageSection,
   SkeletonLines,
-  // useToast,  // Hidden for now — AI diligence simulator not production-ready yet
 } from '../components/ui';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
 import { humanizeKey } from '../lib/format';
-// Hidden for now — AI diligence simulator not production-ready yet
-// import { renderMarkdown } from '../lib/markdown';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -408,6 +400,7 @@ export default function BuyerLensPage() {
       {engagementId && <MatchedBuyersSection engagementId={engagementId} />}
 
       {engagementId && <MarketContextSection engagementId={engagementId} />}
+
 
       {/* Hidden for now — AI diligence simulator not production-ready yet */}
       {/* {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />} */}

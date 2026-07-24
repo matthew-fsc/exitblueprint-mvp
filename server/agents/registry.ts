@@ -20,9 +20,10 @@
 // for them, not a second implementation.
 import type { AgentSpec } from '../../shared/agents/spec';
 
-// The six agents shipping today. All are REASONING agents: each assembles a
+// The agents shipping today. All are REASONING agents: each assembles a
 // deterministic payload (KNOWLEDGE + RULES), drafts narrative over it (draft-only,
-// numeral-firewalled), and persists an immutable, prompt_version'd snapshot.
+// numeral-firewalled), and either persists an immutable, prompt_version'd snapshot
+// or (the reviewer seam) returns an in-memory labeled draft.
 //
 // Scopes are taken from the real invocations in server/registry.ts:
 //   * the five narrative documents are produced through `generate-document` /
@@ -31,6 +32,10 @@ import type { AgentSpec } from '../../shared/agents/spec';
 //     'manage-engagement' (a firm-staff write; the read counterpart
 //     `diligence-simulation` is engagement-scoped, but the agent's work-producing
 //     invocation is the write).
+//   * institutional_review is the read-only reviewer seam (server/institutional-
+//     review.ts) that diligence reuses; it is not yet exposed as its own endpoint,
+//     so it declares the assessment scope its payload is built under and persist
+//     'none' (it writes to no table).
 export const AGENTS: AgentSpec[] = [
   {
     key: 'owner_report',
@@ -111,6 +116,42 @@ export const AGENTS: AgentSpec[] = [
     guards: ['numeral_firewall', 'draft_label'],
     persist: 'diligence_simulation_runs',
     describe: 'Ranked, severity-keyed diligence blind-spot simulation persisted as an immutable run.',
+  },
+  {
+    key: 'institutional_review',
+    engine: 'reasoning',
+    scope: 'assessment',
+    promptKey: 'institutional_review.v1',
+    promptVersion: 'institutional_review.v1',
+    ruleBasedModel: 'rule-based:institutional_review.v1',
+    // Advisor-facing reviewer seam (DRAFT_BANNER is the draft label; every figure
+    // is the deterministic engine's, the model only frames the three lenses). Not
+    // market-facing, so no citation contract.
+    guards: ['numeral_firewall', 'draft_label'],
+    // Read-only: returns an in-memory labeled draft and writes to no table (see the
+    // 'none' note on AgentSpec.persist). Sourcing its prompt_version / rule-based
+    // model FROM this entry is what removed institutional-review.ts's literals.
+    persist: 'none',
+    describe: 'Read-only institutional review surfacing blind spots, missing evidence, and likely diligence questions as a labeled draft.',
+  },
+  {
+    key: 'diligence_qa',
+    engine: 'reasoning',
+    scope: 'manage-engagement',
+    promptKey: 'diligence_qa.v1',
+    promptVersion: 'diligence_qa.v1',
+    // The rule-based label is 'retrieval-only:' rather than 'rule-based:' because a
+    // free-form answer cannot be composed rule-based; the deterministic fallback
+    // renders the ranked, cited source evidence instead (docs/sellside-ai/05 §4).
+    // It is still a non-AI, deterministic composer — the label just names the
+    // honest degradation. `mode` is derived by comparing the run's model to this.
+    ruleBasedModel: 'retrieval-only:diligence_qa.v1',
+    // Answers a buyer's diligence question FROM the engagement's own cited facts:
+    // numeral firewall + citation contract (every retrieved figure carries its
+    // [cite_id]) + draft label (advisor-reviewed).
+    guards: ['numeral_firewall', 'citation_contract', 'draft_label'],
+    persist: 'diligence_qa',
+    describe: 'Buyer diligence-question answer drafted from the engagement\'s own cited knowledge, degrading to retrieval-only when AI is unavailable.',
   },
 ];
 

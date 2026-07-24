@@ -436,6 +436,13 @@ async function main() {
        values ($1, $2, 1, 'critical', 'Owner Independence', 'gap', 'Secret finding', 'Secret why')`,
       [ids.firm_b, dsimRunB],
     );
+    // Firm B diligence Q&A row for the isolation check.
+    await db.query(
+      `insert into diligence_qa
+         (firm_id, engagement_id, question, answer_md, mode, model, prompt_version)
+       values ($1, $2, 'Secret question', 'Secret answer', 'retrieval_only', 'retrieval-only:diligence_qa.v1', 'diligence_qa.v1')`,
+      [ids.firm_b, engagementB],
+    );
     await db.query(
       `insert into jobs (firm_id, engagement_id, pipeline, step) values ($1, $2, 'sellside_intake', 'intake')`,
       [ids.firm_b, engagementB],
@@ -795,6 +802,10 @@ async function main() {
     check(
       'sees no firm B diligence_simulation_findings',
       (await db.query('select id from diligence_simulation_findings')).rows.length === 0,
+    );
+    check(
+      'sees no firm B diligence_qa',
+      (await db.query('select id from diligence_qa')).rows.length === 0,
     );
     check('sees no firm B jobs', (await db.query('select id from jobs')).rows.length === 0);
     check('sees no firm B review_items', (await db.query('select id from review_items')).rows.length === 0);

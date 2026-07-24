@@ -26,6 +26,7 @@ const EngagementPage = lazy(() => import('./pages/EngagementPage'));
 const DeliverablesPage = lazy(() => import('./pages/DeliverablesPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 const BuyerLensPage = lazy(() => import('./pages/BuyerLensPage'));
+const DiligenceQaPage = lazy(() => import('./pages/DiligenceQaPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const BuyersPage = lazy(() => import('./pages/BuyersPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage'));
@@ -473,6 +474,16 @@ export default function App() {
               <RequireAdvisor>
                 <Shell>
                   <BuyerLensPage />
+                </Shell>
+              </RequireAdvisor>
+            }
+          />
+          <Route
+            path="/engagement/:engagementId/diligence-qa"
+            element={
+              <RequireAdvisor>
+                <Shell>
+                  <DiligenceQaPage />
                 </Shell>
               </RequireAdvisor>
             }

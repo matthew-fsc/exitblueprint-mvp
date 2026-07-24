@@ -80,6 +80,16 @@ blends with it, and who pays for it.
    pass through (or gate) the copyrightable text.** Decision-framing for Matthew +
    counsel; nothing to build until requested.
 
+5. **[05 — The intelligence runtime (consolidation) + Diligence Q&A](./05-intelligence-runtime.md)**
+   Steps back and treats everything above as *one system*. Inventories the full
+   intelligence infrastructure, shows the runtime is duplicated **three times**
+   (`narrative.ts` / `diligence-simulation.ts` / `institutional-review.ts`),
+   consolidates it into one `server/intelligence/runtime.ts`
+   (`runGroundedGeneration`) + a source-agnostic retrieval interface, then builds
+   the **Diligence Q&A assistant** on it — including the **retrieval-only
+   fallback** when the AI call fails (no credit in the account), which comes for
+   free once the runtime is shared. Design record + build plan (Phase A/B built).
+
 ## Suggested build order
 
 The three are independent, but there's a natural sequence:

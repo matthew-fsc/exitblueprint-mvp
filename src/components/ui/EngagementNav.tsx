@@ -20,6 +20,7 @@ interface NavTab {
 const TABS: NavTab[] = [
   { stream: 'Readiness', to: '', label: 'Overview', end: true },
   { stream: 'Readiness', to: '/buyer-lens', label: 'Buyer lens' },
+  { stream: 'Readiness', to: '/diligence-qa', label: 'Diligence Q&A' },
   { stream: 'Remediation', to: '/roadmap', label: 'Roadmap' },
   { stream: 'Evidence', to: '/evidence', label: 'Evidence' },
   { stream: 'Value', to: '/valuation', label: 'Valuation' },
