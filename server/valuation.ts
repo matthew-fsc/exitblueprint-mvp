@@ -9,7 +9,7 @@
 //   net to owner       = base EV − debt − transaction costs − taxes
 import type pg from 'pg';
 import { verificationSummary } from './verification';
-import { ownBookMultiple } from './comparables';
+import { ownBookMultiple, marketMultiple } from './comparables';
 import { selectValuationMultiple, type OwnBookConfidence } from '../shared/own-book';
 
 // Add-backs a buyer is likely to accept flow into the conservative EV base.
@@ -35,7 +35,7 @@ export interface ValuationResult {
   industry_key: string;
   size_band: string;
   base_multiple: number;
-  multiple_source: 'table' | 'override' | 'own_book';
+  multiple_source: 'table' | 'override' | 'own_book' | 'market';
   // Own-book context (docs/09 §2, moat 2): the realized multiple from THIS FIRM'S
   // own closed deals in the same industry, shown ALONGSIDE the generic table
   // multiple. Null when the firm has no closed deals to draw on. `own_book_driving`
@@ -48,6 +48,17 @@ export interface ValuationResult {
   own_book_p75: number | null;
   own_book_confidence: OwnBookConfidence | null;
   own_book_driving: boolean;
+  // Market context (docs/sellside-ai/01, build order step 1): the licensed sector
+  // multiple for this industry_key × size band, shown ALONGSIDE the table + own-book
+  // multiples. Null when no in-key-space market row exists OR the read failed (the
+  // read is defensive — it never breaks the authoritative number). `market_source`
+  // is 'market' only when a versioned rules config elected to source the base
+  // multiple from it (default OFF, so the number is unchanged — CLAUDE.md §1, §6).
+  market_multiple: number | null; // median
+  market_p25: number | null;
+  market_p75: number | null;
+  market_sample_size: number | null;
+  market_source: string | null;
   drs_score: number | null;
   drs_tier: string | null;
   readiness_factor: number;
@@ -98,6 +109,10 @@ export async function computeValuation(
     // unchanged. Enabling it is a NEW valuation_rules_version, never an in-place
     // edit (rule #6).
     corpus_multiples?: { enabled?: boolean; min_sample_size?: number };
+    // Licensed market multiples (docs/sellside-ai/01). Same gating discipline and
+    // same default: ABSENT/DISABLED, so the base multiple is byte-identical unless a
+    // NEW valuation_rules_version elects the market lane (rule #1, #6).
+    market_multiples?: { enabled?: boolean; min_sample_size?: number };
   };
 
   const inputs = (
@@ -117,6 +132,7 @@ export async function computeValuation(
     size_band: 'lt_1m', base_multiple: 0, multiple_source: 'table',
     own_book_sample_size: null, own_book_same_band: null, own_book_multiple: null,
     own_book_p25: null, own_book_p75: null, own_book_confidence: null, own_book_driving: false,
+    market_multiple: null, market_p25: null, market_p75: null, market_sample_size: null, market_source: null,
     drs_score: null, drs_tier: null, readiness_factor: 1, verification_tier: 'self_reported',
     range_width: 0, ev_base: 0, ev_low: 0, ev_high: 0, potential_ev: 0, value_creation_gap: 0,
     interest_bearing_debt: Number(inputs.interest_bearing_debt ?? 0),
@@ -162,12 +178,25 @@ export async function computeValuation(
   } catch {
     ownBook = null;
   }
+  // Licensed market multiple from the NON-TENANT `market` schema, in the same
+  // industry_key × size_band key-space (docs/sellside-ai/01). Defensive, exactly like
+  // the own-book read: a market read (or a missing/unmigrated schema) must NEVER break
+  // the authoritative number.
+  let market = null as Awaited<ReturnType<typeof marketMultiple>>;
+  try {
+    market = await marketMultiple(db, { industryKey, sizeBand });
+  } catch {
+    market = null;
+  }
   const corpusCfg = config.corpus_multiples ?? {};
+  const marketCfg = config.market_multiples ?? {};
   const selection = selectValuationMultiple({
     tableMultiple,
     override: inputs.multiple_override != null ? Number(inputs.multiple_override) : null,
     ownBook,
     config: { enabled: !!corpusCfg.enabled, minSampleSize: corpusCfg.min_sample_size ?? 5 },
+    market,
+    marketConfig: { enabled: !!marketCfg.enabled, minSampleSize: marketCfg.min_sample_size ?? 5 },
   });
   const baseMultiple = selection.multiple;
   const multipleSource = selection.source;
@@ -229,6 +258,11 @@ export async function computeValuation(
     own_book_p75: ownBook?.p75 ?? null,
     own_book_confidence: ownBook?.confidence ?? null,
     own_book_driving: selection.source === 'own_book',
+    market_multiple: market?.median ?? null,
+    market_p25: market?.p25 ?? null,
+    market_p75: market?.p75 ?? null,
+    market_sample_size: market?.sample_size ?? null,
+    market_source: selection.source === 'market' ? 'market' : null,
     drs_score: assessment?.drs_score != null ? Number(assessment.drs_score) : null,
     drs_tier: drsTier,
     readiness_factor: readinessFactor,
