@@ -54,6 +54,51 @@ export function resolveProvider(): NarrativeProvider | null {
   };
 }
 
+// ── The one Messages request builder ────────────────────────────────────────────
+// Every LLM call in the platform — the narrative runtime (server/intelligence/
+// runtime.ts), the advisor copilot (server/copilot.ts), and the extraction/findings
+// client (server/llm/client.ts) — goes through this ONE function, so the request
+// shape can never drift call-site to call-site. It is plain generation: NO extended
+// `thinking` config (an adaptive-thinking response can come back with only a thinking
+// block and no text, which starves every caller of output — the "0 output tokens"
+// failure). The model id is namespaced to the gateway slug here; callers pass the
+// first-party id.
+export interface CreateMessageRequest {
+  model: string;
+  messages: Anthropic.MessageParam[];
+  maxTokens: number;
+  system?: string;
+  tools?: Anthropic.Tool[];
+  signal?: AbortSignal;
+}
+
+export async function createMessage(req: CreateMessageRequest): Promise<Anthropic.Message> {
+  const provider = resolveProvider();
+  if (!provider) {
+    throw new Error('AI is not configured: set AI_GATEWAY_API_KEY in the server environment');
+  }
+  return provider.client.messages.create(
+    {
+      model: provider.modelFor(req.model),
+      max_tokens: req.maxTokens,
+      ...(req.system !== undefined ? { system: req.system } : {}),
+      ...(req.tools ? { tools: req.tools } : {}),
+      messages: req.messages,
+    },
+    req.signal ? { signal: req.signal } : undefined,
+  );
+}
+
+// The concatenated text of a message's text blocks — the standard "give me the answer
+// text" read, shared so every caller extracts text identically (tool_use / thinking
+// blocks are ignored). Empty string when the model returned no text block.
+export function messageText(msg: Anthropic.Message): string {
+  return msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+}
+
 // A short, human-readable reason for an AI-call failure, for the fallback log.
 // The "no money" case (empty gateway balance / exhausted credit) is called out
 // explicitly so an operator reading the logs knows to top up rather than debug.
