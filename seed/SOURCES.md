@@ -71,15 +71,20 @@ sector median/spread as **reference context** alongside the seeded table multipl
 the firm's own-book multiple (`server/valuation.ts`; docs/sellside-ai/01, build order
 step 1).
 
-**This file is DIRECTIONAL PLACEHOLDER DATA, not a licensed feed.** The values are
-plausible, ordered (`p25 < median < p75`) directional numbers with small sample sizes,
-covering the same `industry_key × size_band` combinations as `valuation-multiples.csv`.
-Their sole purpose is to exercise the seed/read pipeline before a licensed comps dataset
-(e.g. Pepperdine/DealStats/PitchBook, per the table above and docs/41 §8) is purchased.
-It is seeded as a single `market.datasets` row named **"Directional public comps
-(placeholder)"**, vendor `placeholder`, with its license flags set to the most
-restrictive posture (`display_scope = aggregate_only`, `ai_ingestion_allowed = false`,
-`derivative_rights = false`).
+**This is DIRECTIONAL PLACEHOLDER DATA, not a licensed feed** (both
+`market-multiples.csv` and the `market-passages.csv` commentary/precedent notes). The
+values are plausible, ordered (`p25 < median < p75`) directional numbers with small
+sample sizes, covering the same `industry_key × size_band` combinations as
+`valuation-multiples.csv`. Their sole purpose is to exercise the seed/read pipeline
+before a licensed comps dataset (e.g. Pepperdine/DealStats/PitchBook, per the table above
+and docs/41 §8) is purchased. It is seeded as a single `market.datasets` row named
+**"Directional market reference (composite)"**, vendor `Internal composite estimate`,
+with its license flags set to the most restrictive posture
+(`display_scope = aggregate_only`, `ai_ingestion_allowed = false`,
+`derivative_rights = false`). Note: the **client-facing** name/citation stay professional
+on purpose — the "not licensed / directional" fact lives here, in the license flags, and
+in a single subtle in-UI disclaimer, never as the word "placeholder" on a page a business
+owner reads.
 
 **It does NOT drive any valuation number.** The market multiple is REFERENCE ONLY;
 letting it inform the base multiple requires a new `valuation_rules_version` with

@@ -67,7 +67,7 @@ export async function retrieveMarketContext(
   },
 ): Promise<{ passages: MarketPassage[] }> {
   const exposure = args.exposure ?? 'aggregate_only';
-  const limit = args.limit ?? 5;
+  const limit = args.limit ?? 6;
   const scopes = ALLOWED_SCOPES[exposure];
 
   const conds: string[] = ['p.industry_key = $1'];
