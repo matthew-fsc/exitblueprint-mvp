@@ -30,13 +30,15 @@ export const TIER_FLOORS: { tier: TierName; floor: number }[] = [
   { tier: 'Not Saleable (Yet)', floor: 0 },
 ];
 
-// Fixed tier colors, validated (light on #fcfcfb, dark on chart surface).
+// Single-hue green tier ramp (brand-aligned): risk = dim, ready = bright. Tier
+// is always co-encoded in form + number, never color alone. Mirrors the CSS
+// --tier-* tokens in styles.css.
 export const TIER_COLORS: Record<TierName, { light: string; dark: string }> = {
-  'Not Saleable (Yet)': { light: '#c0362c', dark: '#ef6a5e' },
-  'High Risk': { light: '#e0670f', dark: '#f0883c' },
-  'Needs Work': { light: '#9a7d0a', dark: '#d9b23a' },
-  'Sale Ready': { light: '#2f9e44', dark: '#46c46f' },
-  'Institutional Grade': { light: '#0e8f9e', dark: '#35b6c9' },
+  'Not Saleable (Yet)': { light: '#3e5a4c', dark: '#416a54' },
+  'High Risk': { light: '#4e7b63', dark: '#4e8a68' },
+  'Needs Work': { light: '#438663', dark: '#5aa87e' },
+  'Sale Ready': { light: '#5fb488', dark: '#7fca9f' },
+  'Institutional Grade': { light: '#98d4af', dark: '#b6e6cb' },
 };
 
 export function tierForScore(score: number): TierName {
@@ -64,11 +66,13 @@ export function tierStatusOf(tier: string): 'good' | 'ok' | 'warning' | 'serious
   return TIER_STATUS[tier as TierName] ?? 'neutral';
 }
 
-// Brand + accent (forest). Mirrors the CSS variables; for JS consumers.
+// Brand + accent (forest / mint). Mirrors the CSS variables; for JS consumers.
 export const BRAND = {
-  forestDeep: '#16352a',
-  forest: '#1b4a38',
-  accent: '#1f7a52',
-  accentStrong: '#17603f',
-  accentDark: '#4bb888', // brighter accent for dark surfaces
+  forestDeep: '#0c2218', // forest / ink
+  forest: '#143a2b',     // forest-lift
+  brandGreen: '#438663', // mid brand green
+  mint: '#98d4af',
+  accent: '#2c5b42',     // primary-ink — links/accents on light
+  accentStrong: '#234b37',
+  accentDark: '#79c6a0', // brighter accent for dark surfaces
 } as const;
