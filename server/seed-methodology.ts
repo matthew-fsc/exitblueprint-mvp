@@ -14,6 +14,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'csv-parse/browser/esm/sync';
 import type pg from 'pg';
 import { applyMigrations } from './migrate';
 import {
@@ -53,6 +54,50 @@ export const VALUATION_CONFIG = {
 };
 
 export const RUBRIC_VERSION_LABEL = 'DRS-2.0';
+
+// Placeholder market-reference dataset (docs/sellside-ai/01, docs/41 §8). This is
+// DIRECTIONAL PLACEHOLDER DATA, not a licensed feed — it exercises the deterministic
+// market lane (market.datasets / market.multiples) before a licensed comps dataset is
+// purchased and mapped to the same industry_key × size_band key-space. The license
+// flags are set to the most restrictive posture (aggregate_only, no AI ingestion, no
+// derivative rights) so nothing in retrieval can over-expose it; a real licensed
+// dataset gets its terms encoded here after counsel review, without code change.
+export const MARKET_DATASET = {
+  name: 'Directional public comps (placeholder)',
+  vendor: 'placeholder',
+  displayScope: 'aggregate_only',
+  aiIngestionAllowed: false,
+  derivativeRights: false,
+  purgeOnTermination: false,
+} as const;
+
+export interface MarketMultipleSeed {
+  industryKey: string;
+  sizeBand: string;
+  medianMultiple: number;
+  p25Multiple: number;
+  p75Multiple: number;
+  sampleSize: number;
+  asOf: string;
+}
+
+// Mirrors parseValuationMultiples (shared/rubric-seed.ts): pure, no DB, columns →
+// typed rows. Exported so tests/market-seed.test.ts can validate the CSV hermetically.
+export function parseMarketMultiples(csvText: string): MarketMultipleSeed[] {
+  const rows = parse(csvText, { columns: true, skip_empty_lines: true }) as Record<
+    string,
+    string
+  >[];
+  return rows.map((r) => ({
+    industryKey: r.industry_key,
+    sizeBand: r.size_band,
+    medianMultiple: Number(r.median_multiple),
+    p25Multiple: Number(r.p25_multiple),
+    p75Multiple: Number(r.p75_multiple),
+    sampleSize: Number(r.sample_size),
+    asOf: r.as_of,
+  }));
+}
 
 // Starter system Plans (docs/37): canonical, advisor-facing initiative bundles,
 // seeded as GLOBAL methodology (firm_id null) exactly like the rubric/advisory
@@ -316,6 +361,7 @@ export interface SeedBundle {
   gapContentMap: ReturnType<typeof parseGapContentMap>;
   advisoryItems: ReturnType<typeof parseAdvisoryLibrary>;
   valuationMultiples: ReturnType<typeof parseValuationMultiples>;
+  marketMultiples: MarketMultipleSeed[];
   dataRoomSections: ReturnType<typeof parseDataRoomSections>;
   dataRoomItems: ReturnType<typeof parseDataRoomItems>;
 }
@@ -339,6 +385,7 @@ export function loadSeedBundle(seedDir = resolveSeedDir()): SeedBundle {
   const gapContentMap = parseGapContentMap(read('gap-content-map.csv'));
   const advisoryItems = parseAdvisoryLibrary(read('advisory-library.csv'));
   const valuationMultiples = parseValuationMultiples(read('valuation-multiples.csv'));
+  const marketMultiples = parseMarketMultiples(read('market-multiples.csv'));
   const dataRoomSections = parseDataRoomSections(read('data-room-sections.csv'));
   const dataRoomItems = parseDataRoomItems(read('data-room-items.csv'));
 
@@ -362,6 +409,7 @@ export function loadSeedBundle(seedDir = resolveSeedDir()): SeedBundle {
     gapContentMap,
     advisoryItems,
     valuationMultiples,
+    marketMultiples,
     dataRoomSections,
     dataRoomItems,
   };
@@ -380,6 +428,7 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     gapContentMap,
     advisoryItems,
     valuationMultiples,
+    marketMultiples,
     dataRoomSections,
     dataRoomItems,
   } = bundle;
@@ -677,6 +726,81 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
       );
     }
 
+    // Market-reference multiples (docs/sellside-ai/01, build order step 1): the
+    // NON-TENANT `market` schema. One placeholder dataset row (its license flags at
+    // the most restrictive posture) plus its multiples, in the SAME key-space as the
+    // valuation table so a market multiple lines up with the table/own-book multiple.
+    // This is REFERENCE ONLY — surfaced by server/valuation.ts alongside the table
+    // multiple, never driving the number (that needs a new valuation_rules_version
+    // with market_multiples.enabled, out of scope here — CLAUDE.md §1). Fully
+    // idempotent so a re-seed is a no-op: the multiples upsert on their
+    // (dataset_id, industry_key, size_band) unique key; the dataset row has no unique
+    // constraint (only its id PK), so its idempotency is select-then-insert on
+    // (name, vendor) — reuse the row if it exists (refreshing its terms + as_of),
+    // otherwise create it once.
+    const datasetTerms = [
+      MARKET_DATASET.displayScope,
+      MARKET_DATASET.aiIngestionAllowed,
+      MARKET_DATASET.derivativeRights,
+      MARKET_DATASET.purgeOnTermination,
+    ];
+    const existingDataset = (
+      await db.query(`select id from market.datasets where name = $1 and vendor = $2 limit 1`, [
+        MARKET_DATASET.name,
+        MARKET_DATASET.vendor,
+      ])
+    ).rows[0];
+    let marketDatasetId: string;
+    if (existingDataset) {
+      marketDatasetId = existingDataset.id as string;
+      await db.query(
+        `update market.datasets
+           set display_scope = $2, ai_ingestion_allowed = $3, derivative_rights = $4,
+               purge_on_termination = $5, as_of = current_date
+         where id = $1`,
+        [marketDatasetId, ...datasetTerms],
+      );
+      tally('market.datasets', false);
+    } else {
+      marketDatasetId = (
+        await db.query(
+          `insert into market.datasets
+             (name, vendor, display_scope, ai_ingestion_allowed, derivative_rights,
+              purge_on_termination, as_of)
+           values ($1, $2, $3, $4, $5, $6, current_date)
+           returning id`,
+          [MARKET_DATASET.name, MARKET_DATASET.vendor, ...datasetTerms],
+        )
+      ).rows[0].id as string;
+      tally('market.datasets', true);
+    }
+    for (const m of marketMultiples) {
+      await upsert(
+        'market.multiples',
+        `insert into market.multiples
+           (dataset_id, industry_key, size_band, median_multiple, p25_multiple,
+            p75_multiple, sample_size, as_of)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (dataset_id, industry_key, size_band) do update
+           set median_multiple = excluded.median_multiple,
+               p25_multiple = excluded.p25_multiple,
+               p75_multiple = excluded.p75_multiple,
+               sample_size = excluded.sample_size,
+               as_of = excluded.as_of
+         returning id, (xmax = 0) as inserted`,
+        [
+          marketDatasetId,
+          m.industryKey,
+          m.sizeBand,
+          m.medianMultiple,
+          m.p25Multiple,
+          m.p75Multiple,
+          m.sampleSize,
+          m.asOf,
+        ],
+      );
+    }
+
     // Data Room template (docs/15 work stream B): global methodology, like the
     // rubric. Sections then items; items carry a soft gap_code (shared taxonomy).
     for (const s of dataRoomSections) {
@@ -726,6 +850,8 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     advisory_library_items: advisoryItems.length,
     valuation_rules_versions: 1,
     valuation_multiples: valuationMultiples.length,
+    'market.datasets': 1,
+    'market.multiples': marketMultiples.length,
     data_room_sections: dataRoomSections.length,
     data_room_items: dataRoomItems.length,
     // One recipe Plan per (former) playbook + the curated System Plans.
@@ -776,6 +902,11 @@ export async function writeSeedBundle(db: pg.ClientBase, bundle: SeedBundle): Pr
     gap_definitions: `where rubric_version_id = '${currentRubricVersionId}'`,
     gap_plan_map: `where gap_definition_id in (select id from gap_definitions where rubric_version_id = '${currentRubricVersionId}')`,
     gap_content_map: `where gap_definition_id in (select id from gap_definitions where rubric_version_id = '${currentRubricVersionId}')`,
+    // Market reference: scope counts to THIS placeholder dataset so a later licensed
+    // dataset (a second market.datasets row + its multiples) doesn't false-fail this
+    // load. (name/vendor carry no single quotes, so inlining them is safe.)
+    'market.datasets': `where name = '${MARKET_DATASET.name}' and vendor = '${MARKET_DATASET.vendor}'`,
+    'market.multiples': `where dataset_id in (select id from market.datasets where name = '${MARKET_DATASET.name}' and vendor = '${MARKET_DATASET.vendor}')`,
   };
 
   const rows: SeedTableReport[] = [];

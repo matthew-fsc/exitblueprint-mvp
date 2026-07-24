@@ -62,6 +62,35 @@ range** and cross-checked across ≥2 sources where it drives a claim:
   regulatory action;** confirm current law with counsel rather than relying on a template.
   _[SRC-PRACTITIONER; 2026]_
 
+## Market-reference multiples — PLACEHOLDER, not licensed data
+
+`seed/market-multiples.csv` seeds the non-tenant `market` schema
+(`market.datasets` + `market.multiples`, migration
+`20260724013906_market_reference_schema.sql`) so the valuation engine can surface a
+sector median/spread as **reference context** alongside the seeded table multiple and
+the firm's own-book multiple (`server/valuation.ts`; docs/sellside-ai/01, build order
+step 1).
+
+**This file is DIRECTIONAL PLACEHOLDER DATA, not a licensed feed.** The values are
+plausible, ordered (`p25 < median < p75`) directional numbers with small sample sizes,
+covering the same `industry_key × size_band` combinations as `valuation-multiples.csv`.
+Their sole purpose is to exercise the seed/read pipeline before a licensed comps dataset
+(e.g. Pepperdine/DealStats/PitchBook, per the table above and docs/41 §8) is purchased.
+It is seeded as a single `market.datasets` row named **"Directional public comps
+(placeholder)"**, vendor `placeholder`, with its license flags set to the most
+restrictive posture (`display_scope = aggregate_only`, `ai_ingestion_allowed = false`,
+`derivative_rights = false`).
+
+**It does NOT drive any valuation number.** The market multiple is REFERENCE ONLY;
+letting it inform the base multiple requires a new `valuation_rules_version` with
+`market_multiples.enabled` (a deliberate, versioned opt-in — CLAUDE.md rule 1), which
+this seed does not touch. Every existing valuation output is byte-identical.
+
+When a licensed dataset is acquired, counsel maps its terms to the `market.datasets`
+license flags first (**license-review-before-ingest is a hard gate** — docs/41 §8), then
+the placeholder rows are replaced with the licensed rows in the same key-space. No engine
+or handler code changes — only this dataset row and its multiples.
+
 ## Discipline
 
 1. Any figure entering an education module or playbook is stated as a **directional

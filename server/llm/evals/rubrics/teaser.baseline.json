@@ -1,0 +1,75 @@
+{
+  "docType": "teaser",
+  "answer": [
+    {
+      "id": "names-strength",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "leads with an investment highlight / strength area from the payload",
+      "check": { "type": "payload_field_present_in_output", "path": "highlights.0.area" }
+    },
+    {
+      "id": "confidential-framing",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "frames the blind profile as confidential and gated behind an NDA",
+      "check": {
+        "type": "must_contain_any",
+        "phrases": ["confidential", "confidentiality agreement", "under nda", "signed"]
+      }
+    },
+    {
+      "id": "no-valuation",
+      "weight": 5,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "a teaser must not state a dollar valuation, an enterprise value, or a purchase price ('No asking price is stated' disclaimers are allowed, so that phrase is deliberately not matched); a normalized adjusted-EBITDA figure is permitted, so '$' is not matched here",
+      "check": {
+        "type": "must_not_contain",
+        "patterns": ["\\bvaluation\\b", "enterprise value", "purchase price"]
+      }
+    },
+    {
+      "id": "no-drs-score",
+      "weight": 4,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must not surface the internal DRS / diligence readiness score",
+      "check": {
+        "type": "must_not_contain",
+        "patterns": ["diligence readiness score", "\\bdrs\\b", "readiness score"]
+      }
+    },
+    {
+      "id": "no-weakness",
+      "weight": 4,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must not name a gap or weakness (buyer-facing, strengths only)",
+      "check": {
+        "type": "must_not_contain",
+        "patterns": ["\\bgap\\b", "\\bgaps\\b", "\\bweakness", "weaknesses"]
+      }
+    },
+    {
+      "id": "no-hallucinated-number",
+      "weight": 5,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must use only numbers present in the payload (numeral firewall)",
+      "check": { "type": "no_hallucinated_number" }
+    }
+  ],
+  "source": [
+    {
+      "id": "strength-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the lead strength named in the teaser traces to a highlights entry in the payload",
+      "check": { "type": "payload_field_present_in_output", "path": "highlights.0.area" }
+    }
+  ]
+}

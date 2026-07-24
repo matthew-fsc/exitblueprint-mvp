@@ -91,6 +91,20 @@ export interface AgentSpec {
   // versioned base prompt. Must resolve to a bundled prompt file (the allow-list),
   // which the registry test asserts.
   promptKey: string;
+  // The prompt_version the generator resolves its system prompt with AND stamps on
+  // the persisted, immutable snapshot (rule 6). This is the value each generator
+  // formerly held as a local PROMPT_VERSION constant (e.g. narrative.ts's
+  // 'owner_report.v1', diligence-simulation.ts's 'diligence_simulation.v1'); it is
+  // sourced here so the registry is the single source of truth for the persisted
+  // prompt_version. Equals promptKey today — the versioned base prompt — and, like
+  // it, must resolve to a bundled prompt file (the registry test asserts both).
+  promptVersion: string;
+  // The model label written to the snapshot when the DETERMINISTIC composer (not
+  // the AI) produced the draft, so a reader can always tell a rule-based document
+  // from an AI-drafted one. Always the 'rule-based:<promptVersion>' form each
+  // generator formerly held as a local RULE_BASED_MODEL constant. Never the API
+  // model id — that names an AI call, which is a generator concern, not spec.
+  ruleBasedModel: string;
   // The output guards this agent's draft is held to (see AgentGuard). Every
   // client-facing reasoning agent lists 'numeral_firewall' and 'draft_label';
   // market/buyer-facing ones additionally list the (future) 'citation_contract'.

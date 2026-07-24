@@ -11,12 +11,17 @@ import { gapReason, interpretSubScore, tierMeaning } from '../shared/scoring/int
 import { buildCimPayload, composeCim, composeManagementPresentation, composeTeaser } from './cim';
 import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
 import { resolvePromptBody } from './prompt-registry';
+import { getAgentOrThrow } from './agents/registry';
 
-const PROMPT_VERSION = 'owner_report.v1';
+// prompt_version + rule-based-model label come from the agent registry (the single
+// source of truth) rather than local literals. The values are byte-identical to
+// the constants that lived here — this is pure indirection, no behavior change.
+const OWNER_REPORT_AGENT = getAgentOrThrow('owner_report');
+const PROMPT_VERSION = OWNER_REPORT_AGENT.promptVersion;
 const MODEL = 'claude-opus-4-8';
 // Model label stored on documents written by the deterministic composer, so a
 // reader can always tell a rule-based report from an AI-drafted one.
-const RULE_BASED_MODEL = 'rule-based:owner_report.v1';
+const RULE_BASED_MODEL = OWNER_REPORT_AGENT.ruleBasedModel;
 
 export interface GeneratedText {
   text: string;
@@ -412,7 +417,8 @@ export async function generateDocument(
 // levels, not deltas. Every figure comes from the payload; the numeral firewall
 // applies exactly as for the owner report.
 
-const DELTA_PROMPT_VERSION = 'delta_report.v1';
+const DELTA_REPORT_AGENT = getAgentOrThrow('delta_report');
+const DELTA_PROMPT_VERSION = DELTA_REPORT_AGENT.promptVersion;
 
 export interface DeltaReportPayload {
   mode: 'delta' | 'baseline';
@@ -611,7 +617,7 @@ async function generateDeltaReport(
     db,
     payload,
     DELTA_PROMPT_VERSION,
-    'rule-based:delta_report.v1',
+    DELTA_REPORT_AGENT.ruleBasedModel,
     () => composeDeltaReport(payload),
     generate,
   );
@@ -631,7 +637,8 @@ async function generateDeltaReport(
 // carries strengths and verified facts only — the numeral firewall applies
 // exactly as for the other documents.
 
-const CIM_PROMPT_VERSION = 'cim.v1';
+const CIM_AGENT = getAgentOrThrow('cim');
+const CIM_PROMPT_VERSION = CIM_AGENT.promptVersion;
 
 async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
@@ -640,7 +647,7 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
     db,
     payload,
     CIM_PROMPT_VERSION,
-    'rule-based:cim.v1',
+    CIM_AGENT.ruleBasedModel,
     () => composeCim(payload),
     generate,
   );
@@ -661,7 +668,8 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
 // they carry strengths and verified facts only; the numeral firewall applies
 // exactly as for the CIM.
 
-const TEASER_PROMPT_VERSION = 'teaser.v1';
+const TEASER_AGENT = getAgentOrThrow('teaser');
+const TEASER_PROMPT_VERSION = TEASER_AGENT.promptVersion;
 
 async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
@@ -670,7 +678,7 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
     db,
     payload,
     TEASER_PROMPT_VERSION,
-    'rule-based:teaser.v1',
+    TEASER_AGENT.ruleBasedModel,
     () => composeTeaser(payload),
     generate,
   );
@@ -684,7 +692,8 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
   });
 }
 
-const MGMT_PROMPT_VERSION = 'management_presentation.v1';
+const MGMT_AGENT = getAgentOrThrow('management_presentation');
+const MGMT_PROMPT_VERSION = MGMT_AGENT.promptVersion;
 
 async function generateManagementPresentation(db: pg.ClientBase, assessmentId: string, generate?: GenerateFn) {
   const payload = await buildCimPayload(db, assessmentId);
@@ -693,7 +702,7 @@ async function generateManagementPresentation(db: pg.ClientBase, assessmentId: s
     db,
     payload,
     MGMT_PROMPT_VERSION,
-    'rule-based:management_presentation.v1',
+    MGMT_AGENT.ruleBasedModel,
     () => composeManagementPresentation(payload),
     generate,
   );
