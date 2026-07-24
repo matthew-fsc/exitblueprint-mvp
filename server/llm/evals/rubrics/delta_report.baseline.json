@@ -1,0 +1,50 @@
+{
+  "docType": "delta_report",
+  "answer": [
+    {
+      "id": "states-current-drs",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "states the current Diligence Readiness Score",
+      "check": { "type": "payload_field_present_in_output", "path": "current.drs" }
+    },
+    {
+      "id": "states-current-tier",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "states the readiness tier the current score falls in",
+      "check": { "type": "payload_field_present_in_output", "path": "current.tier" }
+    },
+    {
+      "id": "explains-whats-next",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "explains the focus and next step for the owner",
+      "check": {
+        "type": "must_contain_any",
+        "phrases": ["what happens next", "re-assess", "advisor will", "focus for next period"]
+      }
+    },
+    {
+      "id": "no-hallucinated-number",
+      "weight": 5,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must use only numbers present in the payload (numeral firewall)",
+      "check": { "type": "no_hallucinated_number" }
+    }
+  ],
+  "source": [
+    {
+      "id": "first-dimension-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the first business area named traces to a dimensions entry in the payload",
+      "check": { "type": "payload_field_present_in_output", "path": "dimensions.0.name" }
+    }
+  ]
+}

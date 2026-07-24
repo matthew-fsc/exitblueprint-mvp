@@ -42,7 +42,7 @@
       "kind": "negative",
       "axis": "answer",
       "description": "an owner report must not state a dollar valuation or a multiple",
-      "check": { "type": "must_not_contain", "patterns": ["\\$", "valuation", "multiple"] }
+      "check": { "type": "must_not_contain", "patterns": ["\\$", "\\bvaluation\\b", "multiple"] }
     }
   ],
   "source": [

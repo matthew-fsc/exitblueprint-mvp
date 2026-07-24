@@ -4,8 +4,9 @@
 //   1. Extraction eval (runner.ts): accuracy of parsed facts vs golden.
 //   2. Deliverable bench (bench.ts): per-axis quality of a generated narrative.
 // Both tiers are deterministic and secret-free — no DB, no API key on this path.
+import pg from 'pg';
 import { runAll } from './runner';
-import { runBench } from './bench';
+import { runBench, runGeneratedBench } from './bench';
 
 const TOLERANCE = 0.95;
 // Per-axis thresholds for the deliverable bench (docs/sellside-ai/02). Answer
@@ -49,6 +50,57 @@ async function main() {
     process.exit(1);
   }
   console.log('bench passed');
+
+  await runGeneratedTier();
+}
+
+// --- Generated-deliverable bench (DB-backed, GUARDED) --------------------------
+// Grades the deliverable the REAL code path produces (deterministic composer, no
+// API key) against a live completed assessment. This tier needs a database, so
+// it is OFF the free CI path: it runs only when DATABASE_URL is set AND a
+// completed assessment exists, and otherwise prints a skip note and returns
+// WITHOUT failing. When it runs it uses the same per-axis tolerances as the
+// static bench (answer 0.9, source 1.0).
+async function runGeneratedTier() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.log('generated-bench: skipped (no DATABASE_URL)');
+    return;
+  }
+
+  const db = new pg.Client({ connectionString: url });
+  await db.connect();
+  try {
+    // A completed, non-superseded assessment to grade (active_assessments is the
+    // view narrative.ts builds payloads from; status='completed' is required).
+    const found = await db.query(
+      `select id from active_assessments where status = 'completed' limit 1`,
+    );
+    const assessmentId: string | undefined = found.rows[0]?.id;
+    if (!assessmentId) {
+      console.log('generated-bench: skipped (no completed assessment)');
+      return;
+    }
+
+    const genScores = await runGeneratedBench(db, assessmentId);
+    let genFailed = false;
+    for (const g of genScores) {
+      const ans = (g.answerScore * 100).toFixed(1);
+      const src = (g.sourceScore * 100).toFixed(1);
+      console.log(`generated-bench ${g.name}: answer ${ans}% · source ${src}%`);
+      for (const f of g.failures) console.log(`  ${f}`);
+      if (g.answerScore < ANSWER_TOLERANCE || g.sourceScore < SOURCE_TOLERANCE) genFailed = true;
+    }
+    if (genFailed) {
+      console.error(
+        `generated-bench failed: below tolerance (answer ${ANSWER_TOLERANCE}, source ${SOURCE_TOLERANCE})`,
+      );
+      process.exit(1);
+    }
+    console.log('generated-bench passed');
+  } finally {
+    await db.end();
+  }
 }
 
 main().catch((err) => {
