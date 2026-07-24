@@ -10,10 +10,12 @@ import {
   useEngagement,
   useFiredAdvisory,
   useEngagementBuyerMatches,
+  useMarketContext,
   // useDiligenceSimulation,  // Hidden for now — AI diligence simulator not production-ready yet
   type AdvisoryItemType,
   type FiredAdvisoryItem,
   type BuyerMatchRow,
+  type MarketPassage,
   // type DiligenceFinding,  // Hidden for now — AI diligence simulator not production-ready yet
   // type DiligenceRemediation,
   // type DiligenceSourceKind,
@@ -316,6 +318,57 @@ function BuyerMatchRowView({ match: m }: { match: BuyerMatchRow }) {
   );
 }
 
+// Directional market REFERENCE context (docs/sellside-ai/01): cited sector
+// commentary and precedent-transaction passages the backend retrieves for this
+// engagement's sector/size. Reference only — no scoring, no valuation. Every
+// passage renders its citation next to the body (the source-score contract), so
+// an advisor can put the figure in front of a buyer.
+function MarketContextSection({ engagementId }: { engagementId: string }) {
+  const marketQ = useMarketContext(engagementId);
+  const passages = marketQ.data?.passages ?? [];
+
+  return (
+    <PageSection
+      title="Market context"
+      note="Directional market reference — sector commentary and precedent-transaction notes a sophisticated buyer will benchmark against. Context, not advice or a valuation."
+    >
+      {marketQ.isLoading && <SkeletonLines lines={4} />}
+      {marketQ.isError && <ErrorState variant="inline" error={marketQ.error} />}
+      {marketQ.data && passages.length === 0 && (
+        <EmptyState icon="search" title="No market context yet">
+          No market context available for this sector yet — directional reference data appears here
+          once loaded.
+        </EmptyState>
+      )}
+      {passages.length > 0 && (
+        <Card>
+          <div className="advisory-list">
+            {passages.map((p, i) => (
+              <MarketPassageView key={`${p.cite_id}-${i}`} passage={p} />
+            ))}
+          </div>
+        </Card>
+      )}
+    </PageSection>
+  );
+}
+
+function MarketPassageView({ passage: p }: { passage: MarketPassage }) {
+  return (
+    <div className="advisory-item">
+      <div className="advisory-item-titles">
+        <p className="advisory-item-title">
+          <span className="advisory-tag">{humanizeKey(p.kind)}</span>
+        </p>
+        <p className="advisory-item-body">{p.body}</p>
+        <p className="muted text-sm" style={{ margin: 'var(--space-1) 0 0' }}>
+          Source: {p.citation}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function BuyerLensPage() {
   const { engagementId } = useParams();
   const engagementQ = useEngagement(engagementId);
@@ -353,6 +406,8 @@ export default function BuyerLensPage() {
       </header>
 
       {engagementId && <MatchedBuyersSection engagementId={engagementId} />}
+
+      {engagementId && <MarketContextSection engagementId={engagementId} />}
 
       {/* Hidden for now — AI diligence simulator not production-ready yet */}
       {/* {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />} */}

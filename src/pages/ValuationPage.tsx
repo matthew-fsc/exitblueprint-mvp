@@ -38,6 +38,7 @@ const MULTIPLE_SOURCE_LABEL: Record<string, string> = {
   table: 'Generic table multiple',
   override: 'Manual override',
   own_book: 'Own-book median',
+  market: 'Market comparables',
 };
 
 // size_band keys are coded revenue/EBITDA ranges (e.g. lt_1m, 1m_5m, gt_5m).
@@ -276,6 +277,32 @@ export default function ValuationPage() {
                       : 'The estimate uses the generic table multiple; your own realized median is shown for reference. '}
                   Own-book multiples come from this firm’s closed deals only. Adopting them into the estimate
                   ships as a new valuation rules version.
+                </p>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* market comparables — reference lane (docs/sellside-ai/01) */}
+          {val?.has_recast && val.market_multiple != null && (
+            <SectionCard title="Market comparables">
+              <div className="val-ob">
+                <div className="val-ob-cols">
+                  <div className="val-ob-col">
+                    <span className="stat-block-label">Market median</span>
+                    <span className="val-ob-mult">
+                      {val.market_multiple.toFixed(1)}×
+                      {val.market_source === 'market' && <span className="val-ob-tag">in use</span>}
+                    </span>
+                    <span className="muted">
+                      {val.market_p25?.toFixed(1)}–{val.market_p75?.toFixed(1)}× range
+                      {' · '}
+                      {val.market_sample_size} comp{val.market_sample_size === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+                <p className="muted val-ob-note">
+                  Market comparables are directional reference data (placeholder until a licensed dataset
+                  is loaded) and drive the estimate only when a valuation rules version elects them.
                 </p>
               </div>
             </SectionCard>
