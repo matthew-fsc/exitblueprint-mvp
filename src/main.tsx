@@ -2,10 +2,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 // Self-hosted variable fonts (bundled at build time — no runtime network
 // dependency, so the app stays offline/CI-safe while actually rendering in the
-// typeface it was designed around instead of a system fallback). Inter for
-// body/UI, Inter Tight for display headings.
-import '@fontsource-variable/inter/wght.css';
-import '@fontsource-variable/inter-tight/wght.css';
+// typeface it was designed around instead of a system fallback). The brand type
+// system (matches exitblueprint.net): Schibsted Grotesk for headings + scores,
+// Figtree for all body/UI, Spline Sans Mono for data (figures, codes, ids).
+import '@fontsource-variable/schibsted-grotesk/wght.css';
+import '@fontsource-variable/figtree/wght.css';
+import '@fontsource-variable/spline-sans-mono/wght.css';
 import { ClerkProvider } from '@clerk/react';
 import App from './App';
 import { clerkPublishableKey, isClerkStack } from './lib/supabase';

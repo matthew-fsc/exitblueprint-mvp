@@ -182,14 +182,39 @@ semantic token (`--surface-*`, `--text-*`, `--border*`, `--status-*`, `--chip-*`
 `--tier-*`); per-firm branding overrides `--accent` only. Never a raw hex in a
 component.
 
+## Brand system (marketing-aligned — matches exitblueprint.net)
+The app and the marketing site read as one brand. The pinned palette is forest
+`#0C2218` (ink/`--brand`), brand green `#438663` (`--brand-green`, focus borders),
+mint `#98D4AF` (`--mint`, never text on a light ground), off-white `#EEEFEE`
+(ground). Derived, AA-verified: primary-strong `#3C7A59` (button fill + white,
+never white on raw brand green), primary-ink `#2C5B42` (`--accent`, links on
+light). **Type:** Schibsted Grotesk (`--font-display`, headings + big scores,
+-0.03em, balance), Figtree (`--font-body`, all body/UI), Spline Sans Mono
+(`--font-mono`, **data only** — figures, dimension codes, weights, ids, and every
+uppercase eyebrow/label). **Semantic status** (`--status-*`: muted success green,
+amber `#C79A4A`, clay `#B0563C`) is deliberately kept **separate** from the
+readiness green so "saved" never reads as "high readiness."
+
+**Tier ramp is single-hue green** (risk = dim, ready = bright), always co-encoded
+in form + number (never color alone): 85–100 `#98D4AF` · 70–84 `#5FB488` · 55–69
+`#438663` · 40–54 `#4E7B63` · <40 `#3E5A4C`. Mirrored in `src/lib/tokens.ts` for
+chart consumers.
+
+**The DRS score instrument (the signature).** `ScoreDial` renders every score as a
+forest-dark circular ring on a `--radius-lg` panel — the one deliberate dark
+moment on the light app — reused on dashboard, results, and reports. The number is
+always printed immediately (Schibsted, tabular); only the ring sweeps, once per
+page load, and never under `prefers-reduced-motion`.
+
 ## Institutional register — the craft bar
 The app should read like software a billion-dollar firm runs on, not a generic
 build. Five rules carry that, all token-driven (see the "Institutional register
 pass" section at the foot of `styles.css`):
 
-1. **Crisp geometry.** Surfaces are `--radius` **8px**, controls `--radius-sm`
-   **6px**, `--radius-lg` **12px** for hero surfaces only. Status/tier chips are
-   rounded-rects (6px), not pills. Tighter than consumer-SaaS on purpose.
+1. **Crisp geometry.** Surfaces are `--radius` **12px**, controls `--radius-sm`
+   **10px**, `--radius-lg` **14px** for hero surfaces (the score instrument).
+   Status/tier chips are rounded-rects (`--radius-sm`), not pills. Softened to the
+   marketing brand's 10–14px family — confident, not consumer-rounded-full.
 2. **Border-defined elevation.** A surface is framed by its 1px border and a
    tonal step, not a drop shadow. `--shadow`/`--shadow-sm` are whispers;
    `--shadow-lift` is the *one* deliberate raise (hover, popovers) — never a
