@@ -105,6 +105,16 @@ export interface AgentSpec {
   // generator formerly held as a local RULE_BASED_MODEL constant. Never the API
   // model id — that names an AI call, which is a generator concern, not spec.
   ruleBasedModel: string;
+  // The cost/capability tier the agent's AI draft is generated at (see
+  // server/llm/models.ts `ModelTier` — restated here as a string-literal union so
+  // shared/ carries no server/-layer dependency, exactly as AgentEngine restates
+  // the engine union). CLAUDE.md cost discipline: cheap tiers for simple/internal
+  // drafts ('economy' = the free model for structured/classification work,
+  // 'standard' for advisor-facing synthesis), 'premium' for client-/buyer-facing
+  // polished deliverables where the quality is worth the spend. A spec only NAMES
+  // the tier; the tier→model mapping and env overrides live in server/llm/models.ts
+  // (rule 3 spirit — the routing is data, re-pointable without a deploy).
+  modelTier: 'economy' | 'standard' | 'premium';
   // The output guards this agent's draft is held to (see AgentGuard). Every
   // client-facing reasoning agent lists 'numeral_firewall' and 'draft_label';
   // market/buyer-facing ones additionally list the (future) 'citation_contract'.

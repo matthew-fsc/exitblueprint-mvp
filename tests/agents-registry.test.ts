@@ -81,6 +81,17 @@ describe('agent registry', () => {
     }
   });
 
+  it('every agent declares a valid cost/capability model tier', () => {
+    // CLAUDE.md cost discipline: the tier is data (server/llm/models.ts routes it to
+    // a concrete model, re-pointable by env). Declaring it per-spec means a new
+    // agent can't be added without a deliberate cost decision — and no agent can
+    // name a tier the router doesn't know.
+    const TIERS = new Set(['economy', 'standard', 'premium']);
+    for (const a of AGENTS) {
+      expect(TIERS, `${a.key} modelTier`).toContain(a.modelTier);
+    }
+  });
+
   it('every agent declares a rule-based model label', () => {
     // The generators stamp this label when the deterministic composer (not the AI)
     // produced the draft, so a reader can tell a rule-based document from an

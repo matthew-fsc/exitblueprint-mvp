@@ -44,6 +44,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'owner_report.v1',
     promptVersion: 'owner_report.v1',
     ruleBasedModel: 'rule-based:owner_report.v1',
+    // Premium: the flagship client-facing deliverable — nuanced, plain-language
+    // synthesis where the quality is worth the frontier model.
+    modelTier: 'premium',
     // Client-facing readout of the owner's own scores/gaps — numeral firewall +
     // draft label. Not market-facing, so no citation contract.
     guards: ['numeral_firewall', 'draft_label'],
@@ -57,6 +60,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'delta_report.v1',
     promptVersion: 'delta_report.v1',
     ruleBasedModel: 'rule-based:delta_report.v1',
+    // Standard: a quarterly progress note drafted from precomputed deltas —
+    // moderate synthesis over a structured comparison, not worth premium rates.
+    modelTier: 'standard',
     // Client-facing progress artifact (delta vs. prior, or a baseline). Same
     // firewall + draft label; not market-facing.
     guards: ['numeral_firewall', 'draft_label'],
@@ -70,6 +76,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'cim.v1',
     promptVersion: 'cim.v1',
     ruleBasedModel: 'rule-based:cim.v1',
+    // Premium: the buyer-facing marketing document — high-stakes, and the one an
+    // advisor puts in front of acquirers; worth the frontier model.
+    modelTier: 'premium',
     // Buyer/market-facing marketing document. 'citation_contract' is listed as a
     // FUTURE guard (docs/sellside-ai/01, not built yet) — declared here so the
     // market-facing agent inherits it the moment citationPostCheck ships.
@@ -84,6 +93,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'teaser.v1',
     promptVersion: 'teaser.v1',
     ruleBasedModel: 'rule-based:teaser.v1',
+    // Standard: a short, anonymized blind profile — brief and formulaic, so the
+    // cheap tier is a good balance.
+    modelTier: 'standard',
     // Buyer/market-facing (anonymized blind profile). 'citation_contract' is the
     // same FUTURE guard as the CIM.
     guards: ['numeral_firewall', 'draft_label', 'citation_contract'],
@@ -97,6 +109,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'management_presentation.v1',
     promptVersion: 'management_presentation.v1',
     ruleBasedModel: 'rule-based:management_presentation.v1',
+    // Premium: the buyer-facing management-meeting narrative — high-stakes, worth
+    // the frontier model.
+    modelTier: 'premium',
     // Buyer/market-facing (management-meeting narrative). 'citation_contract' is
     // the same FUTURE guard as the CIM.
     guards: ['numeral_firewall', 'draft_label', 'citation_contract'],
@@ -110,6 +125,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'diligence_simulation.v1',
     promptVersion: 'diligence_simulation.v1',
     ruleBasedModel: 'rule-based:diligence_simulation.v1',
+    // Standard: an advisor-facing internal rehearsal — the findings and severity
+    // are deterministic, the model only frames them, so the cheap tier suffices.
+    modelTier: 'standard',
     // Advisor-facing diligence rehearsal (DRAFT_BANNER is the draft label; the
     // findings and their severity are deterministic, the model only frames them).
     // Not market-facing, so no citation contract.
@@ -124,6 +142,9 @@ export const AGENTS: AgentSpec[] = [
     promptKey: 'institutional_review.v1',
     promptVersion: 'institutional_review.v1',
     ruleBasedModel: 'rule-based:institutional_review.v1',
+    // Standard: an advisor-facing internal reviewer draft over the deterministic
+    // engine trace — the cheap tier is the right spend.
+    modelTier: 'standard',
     // Advisor-facing reviewer seam (DRAFT_BANNER is the draft label; every figure
     // is the deterministic engine's, the model only frames the three lenses). Not
     // market-facing, so no citation contract.
@@ -146,6 +167,10 @@ export const AGENTS: AgentSpec[] = [
     // It is still a non-AI, deterministic composer — the label just names the
     // honest degradation. `mode` is derived by comparing the run's model to this.
     ruleBasedModel: 'retrieval-only:diligence_qa.v1',
+    // Standard: an interactive, high-volume Q&A synthesis over already-retrieved,
+    // cited facts — needs solid synthesis but is cost-sensitive per question, so
+    // the cheap-capable tier is the balance (advisors can pin premium via env).
+    modelTier: 'standard',
     // Answers a buyer's diligence question FROM the engagement's own cited facts:
     // numeral firewall + citation contract (every retrieved figure carries its
     // [cite_id]) + draft label (advisor-reviewed).

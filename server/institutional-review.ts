@@ -331,6 +331,7 @@ export async function generateInstitutionalReview(
     db,
     promptVersion: PROMPT_VERSION,
     ruleBasedModel: RULE_BASED_MODEL,
+    modelTier: INSTITUTIONAL_REVIEW_AGENT.modelTier,
     userContent: `Assessment review data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeInstitutionalReview(payload),
     draftBanner: DRAFT_BANNER,

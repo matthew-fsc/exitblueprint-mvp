@@ -31,6 +31,10 @@ const PRICING: Record<string, { input: number; output: number }> = {
   'claude-opus-4-8': { input: 15, output: 75 },
   'claude-sonnet-5': { input: 3, output: 15 },
   'claude-haiku-4-5-20251001': { input: 1, output: 5 },
+  // The economy-tier free model (server/llm/models.ts): no per-token charge, so
+  // the llm_calls ledger records $0 for work routed to it — the cost win is
+  // visible, not hidden behind the opus fallback rate.
+  'inclusionai/ling-3.0-flash-free': { input: 0, output: 0 },
 };
 const FALLBACK_PRICE = PRICING['claude-opus-4-8'];
 

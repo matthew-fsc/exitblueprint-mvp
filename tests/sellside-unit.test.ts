@@ -65,9 +65,12 @@ describe('llm client', () => {
 
   it('renders the registered prompt and returns cost + latency', async () => {
     let seenUser = '';
+    // Report a PAID model so cost>0 stays a meaningful signal: the extract prompt now
+    // routes to the free economy tier (server/llm/models.ts, priced $0); this test is
+    // about the client computing/returning cost + latency, not extraction's tier.
     const transport: LlmTransport = async (req) => {
       seenUser = req.user;
-      return { text: 'ok', model: req.model, usage: { input_tokens: 10, output_tokens: 5 } };
+      return { text: 'ok', model: 'claude-opus-4-8', usage: { input_tokens: 10, output_tokens: 5 } };
     };
     const client = new LlmClient({ transport });
     const res = await client.call({

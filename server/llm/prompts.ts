@@ -4,6 +4,8 @@
 // logged to llm_calls.prompt_key, so cost and eval scores are attributable to a
 // specific prompt version.
 
+import { modelForTier } from './models';
+
 export interface PromptDef<Vars = Record<string, unknown>> {
   key: string;
   version: string;
@@ -12,7 +14,12 @@ export interface PromptDef<Vars = Record<string, unknown>> {
   render: (vars: Vars) => string;
 }
 
-const DEFAULT_MODEL = 'claude-opus-4-8';
+// Model per prompt comes from the tier router (server/llm/models.ts), not a
+// hardcoded frontier model: extraction and short finding drafts are simple,
+// structured tasks, so they route to the cheap tiers instead of paying opus rates.
+// Tunable via the AI_MODEL_* env overrides without a deploy.
+const EXTRACTION_MODEL = modelForTier('economy'); // structured values-only extraction — the free tier handles it
+const FINDING_MODEL = modelForTier('standard'); // a 2-3 sentence evidence-bound draft — cheap, capable
 
 // Extraction: turn a document's parsed text into structured facts. The extract
 // step validates the model's output with extractionOutputSchema and rejects
@@ -20,7 +27,7 @@ const DEFAULT_MODEL = 'claude-opus-4-8';
 export const extractFinancialsV1: PromptDef<{ documentText: string; category: string }> = {
   key: 'extract.financials.v1',
   version: 'v1',
-  model: DEFAULT_MODEL,
+  model: EXTRACTION_MODEL,
   system:
     'You extract structured financial facts from a source document. Return ONLY facts ' +
     'present in the text. Never infer or compute a value that is not written. Each fact ' +
@@ -39,7 +46,7 @@ export const findingNarrativeV1: PromptDef<{
 }> = {
   key: 'finding.narrative.v1',
   version: 'v1',
-  model: DEFAULT_MODEL,
+  model: FINDING_MODEL,
   system:
     'You draft a short diligence finding FROM structured evidence. You may only cite ' +
     'numbers that appear in the evidence JSON. Do not introduce any figure that is not ' +
