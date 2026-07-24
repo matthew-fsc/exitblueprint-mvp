@@ -40,6 +40,26 @@ export const extractionOutputSchema = z.object({
 });
 export type ExtractionOutput = z.infer<typeof extractionOutputSchema>;
 
+// One proposed answer candidate the extraction LLM returns (docs/sellside-ai
+// WS-EXTRACT). This is the schema the extract step validates the model's output
+// against before ANY candidate row is staged — a strict, values-only contract, so
+// a malformed or prose-laden response is rejected rather than written. confidence
+// is 0..1; question_code names an existing scored question; value is the proposed
+// answer (JSON, values only); source_span is the excerpt it came from.
+export const answerCandidateSchema = z.object({
+  question_code: z.string().min(1),
+  value: jsonValue,
+  confidence: z.number().min(0).max(1),
+  source_span: z.string().nullable().optional(),
+});
+export type AnswerCandidate = z.infer<typeof answerCandidateSchema>;
+
+// The whole structured output of one answer-extraction run over one document.
+export const answerCandidatesOutputSchema = z.object({
+  candidates: z.array(answerCandidateSchema),
+});
+export type AnswerCandidatesOutput = z.infer<typeof answerCandidatesOutputSchema>;
+
 export const valueSource = z.enum(['self_reported', 'document_verified', 'conflicting']);
 export type ValueSource = z.infer<typeof valueSource>;
 

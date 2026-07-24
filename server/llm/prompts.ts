@@ -12,6 +12,8 @@ export interface PromptDef<Vars = Record<string, unknown>> {
   render: (vars: Vars) => string;
 }
 
+import { modelForTier } from './models';
+
 const DEFAULT_MODEL = 'claude-opus-4-8';
 
 // Extraction: turn a document's parsed text into structured facts. The extract
@@ -49,9 +51,35 @@ export const findingNarrativeV1: PromptDef<{
     'Write a 2-3 sentence finding using only the evidence above.',
 };
 
+// Answer extraction (docs/sellside-ai WS-EXTRACT). Turn a data-room document's
+// text into PROPOSED assessment answers a human confirms — the AI never writes to
+// a scoring table (rule 2). Runs on the 'economy' tier: this is mechanical,
+// values-only work, not narrative, so the cheapest/free model is the right one. It
+// is given the exact list of questions to answer and must return ONLY a value for
+// a question actually evidenced in the text, each with a confidence and the source
+// span. answerCandidatesOutputSchema (shared/intelligence/schemas) rejects any
+// non-conforming output before a candidate row is staged.
+export const extractAnswerCandidatesV1: PromptDef<{ documentText: string; questionsJson: string }> = {
+  key: 'extract.answer_candidates.v1',
+  version: 'v1',
+  model: modelForTier('economy'),
+  system:
+    'You propose candidate answers to assessment questions from a source document. ' +
+    'You are given a list of questions (each with a code, a prompt, and an answer type) ' +
+    'and the document text. Return ONLY a candidate for a question whose answer is ' +
+    'explicitly evidenced in the text. Never infer, compute, or guess a value that is ' +
+    'not written. Each candidate has the question_code, a JSON value, a confidence in ' +
+    '[0,1], and the source span (a short quoted excerpt) it came from. Return values ' +
+    'only — no prose, no explanation. Omit any question you cannot evidence.',
+  render: ({ documentText, questionsJson }) =>
+    `Questions to answer (JSON):\n${questionsJson}\n\n---\n${documentText}\n---\n\n` +
+    'Return the candidates as JSON matching the required schema.',
+};
+
 export const PROMPT_REGISTRY = {
   [extractFinancialsV1.key]: extractFinancialsV1,
   [findingNarrativeV1.key]: findingNarrativeV1,
+  [extractAnswerCandidatesV1.key]: extractAnswerCandidatesV1,
 } as const;
 
 export function getPrompt(key: string): PromptDef {

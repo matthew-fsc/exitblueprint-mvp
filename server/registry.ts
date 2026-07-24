@@ -80,6 +80,7 @@ import { logAccess } from './audit';
 import { seedMethodology } from './seed-methodology';
 import { listPromptTemplates, setPromptTemplate, resetPromptTemplate } from './prompt-registry';
 import { renderDocumentPdf } from './documents/catalog';
+import { extractAnswerCandidates, confirmAnswerCandidate } from './answer-extraction';
 
 // ── The six engines (architecture doc §01) ────────────────────────────────────
 // Every endpoint belongs to exactly one. `identity` is intentionally never used
@@ -625,6 +626,37 @@ export const REGISTRY: Record<string, FunctionSpec> = {
           mimeType: (body.mime_type as string) ?? null,
         }),
       );
+    },
+  },
+  // Answer extraction (docs/sellside-ai WS-EXTRACT). Reads a data-room document
+  // and PROPOSES candidate answers into the answer_candidates STAGING queue — the
+  // AI never writes to a scoring table (rules 1 & 2). Writes firm-scoped rows and
+  // materializes proposals on the engagement's open assessment, so it is
+  // manage-engagement (advisor/admin staff; firm resolved from the profile), like
+  // the other engagement-writing knowledge endpoints. The economy model tier does
+  // the mechanical, values-only extraction; the strict schema rejects bad output.
+  'extract-answer-candidates': {
+    engine: 'knowledge',
+    scope: 'manage-engagement',
+    handler: ({ service, body, firmId }) =>
+      extractAnswerCandidates(service, {
+        firmId: firmId as string,
+        engagementId: body.engagement_id as string,
+        documentId: body.document_id as string,
+      }).then(ok),
+  },
+  // Confirm a pending candidate → promote it to a real assessment answer through
+  // the EXISTING deterministic answer-writing path (so scoring stays rule-based +
+  // human-gated). Staff action (advisor/reviewer/admin) — a reviewer confirming an
+  // extracted answer is exactly the review-hand-off shape — so the staff
+  // sellside-engagement scope (firm from profile, engagement visible under RLS).
+  // The candidate id names WHICH proposal; the engagement id gates authorization.
+  'confirm-answer-candidate': {
+    engine: 'knowledge',
+    scope: 'sellside-engagement',
+    handler: async ({ service, body, firmId, userId }) => {
+      const actor = await staffActorId(service, userId, firmId as string);
+      return confirmAnswerCandidate(service, body.candidate_id as string, actor).then(ok);
     },
   },
   'verification-summary': {
