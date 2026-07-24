@@ -80,6 +80,7 @@ import { logAccess } from './audit';
 import { seedMethodology } from './seed-methodology';
 import { listPromptTemplates, setPromptTemplate, resetPromptTemplate } from './prompt-registry';
 import { renderDocumentPdf } from './documents/catalog';
+import { advisorCopilot } from './copilot';
 
 // ── The six engines (architecture doc §01) ────────────────────────────────────
 // Every endpoint belongs to exactly one. `identity` is intentionally never used
@@ -480,6 +481,24 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'engagement',
     handler: ({ service, body }) =>
       listDiligenceQa(service, body.engagement_id as string).then((items) => ok({ items })),
+  },
+
+  // Advisor copilot (WS-COPILOT): a READ-ONLY natural-language assistant over the
+  // firm's own book. It runs a bounded Anthropic tool-use loop over a CURATED subset
+  // of registry READ functions (server/copilot-tools.ts — never a write or gated
+  // action) and returns a DRAFT-LABELED synthesis. Narrative-only (rules 1-2): the
+  // numeral firewall grounds every figure in a tool result and the model authors no
+  // number; it degrades to raw tool results when AI is unavailable (no credit).
+  // Firm-scoped (firm resolved from the profile) and NOT gated — asking questions
+  // about your own book is free; the copilot cannot reach any paid action. v1 is
+  // stateless (no persistence, no migration), so it is not an AgentSpec.
+  'advisor-copilot': {
+    engine: 'reasoning',
+    scope: 'firm',
+    handler: ({ service, firmId, userId, body }) =>
+      advisorCopilot(service, firmId as string, userId, body.question as string).then((result) =>
+        ok({ result }),
+      ),
   },
 
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles

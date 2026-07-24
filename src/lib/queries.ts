@@ -1178,6 +1178,29 @@ export function useDiligenceQaList(
   });
 }
 
+// ---- advisor copilot (WS-COPILOT) ------------------------------------------
+// A READ-ONLY natural-language assistant over the firm's own book. The server runs
+// a bounded Anthropic tool-use loop over curated read functions and returns a
+// DRAFT-LABELED synthesis; every figure is grounded in a tool result (numeral
+// firewall). `mode` distinguishes an AI synthesis from the graceful "AI unavailable
+// — raw tool results" fallback (no credit), which the UI must make visible. v1 is
+// STATELESS — nothing is persisted, so this is a direct call, not a cached read.
+export interface CopilotResult {
+  question: string;
+  answer_md: string;
+  mode: 'ai' | 'unavailable';
+  model: string;
+  prompt_version: string;
+  is_draft: true;
+  tool_calls: { name: string; input: unknown }[];
+}
+
+export function askAdvisorCopilot(question: string): Promise<CopilotResult> {
+  return invokeFunction<{ result: CopilotResult }>('advisor-copilot', { question }).then(
+    (r) => r.result,
+  );
+}
+
 // ---- financial verification (Phase 1) --------------------------------------
 export type ProvenanceSource = 'self_reported' | 'document' | 'connected_ledger';
 export type VerificationTier = 'self_reported' | 'partly_verified' | 'document_verified';
