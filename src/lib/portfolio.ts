@@ -39,6 +39,15 @@ export interface PortfolioGapInput {
   status: string;
 }
 
+// Open roadmap tasks (action items) per engagement. `status` is the task_status
+// enum; anything other than 'done' is open work. `due_date` (a date string) drives
+// the overdue count — a task is overdue when its due date is before `today`.
+export interface PortfolioTaskInput {
+  engagement_id: string;
+  status: string;
+  due_date: string | null;
+}
+
 // 'none' — no prior assessment to compare against.
 // 'value' — a real numeric delta (same rubric_version).
 // 'incomparable' — a prior exists but on a different rubric_version, so no number.
@@ -58,6 +67,8 @@ export interface PortfolioRow {
   deltaState: DeltaState;
   points: { seq: number; drs: number; tier: string | null }[];
   openGaps: number;
+  openTasks: number;    // roadmap tasks not yet done
+  overdueTasks: number; // subset of openTasks whose due_date has passed
   assessmentCount: number;
 }
 
@@ -66,6 +77,11 @@ export function buildPortfolioRows(
   companies: PortfolioCompanyInput[],
   assessments: PortfolioAssessmentInput[],
   gaps: PortfolioGapInput[],
+  tasks: PortfolioTaskInput[] = [],
+  // Injected so the "overdue" cut is testable and matches the caller's clock; the
+  // day-precision comparison is against a YYYY-MM-DD string, consistent with the
+  // date-typed due_date column.
+  today: string = new Date().toISOString().slice(0, 10),
 ): PortfolioRow[] {
   const companyById = new Map(companies.map((c) => [c.id, c]));
 
@@ -79,6 +95,18 @@ export function buildPortfolioRows(
   const openByEngagement = new Map<string, number>();
   for (const g of gaps) {
     openByEngagement.set(g.engagement_id, (openByEngagement.get(g.engagement_id) ?? 0) + 1);
+  }
+
+  // Open tasks (status <> 'done') and the overdue subset, per engagement. The
+  // query side already filters to non-done tasks, but we guard here too so the
+  // pure function is correct on any input.
+  const tasksByEngagement = new Map<string, { open: number; overdue: number }>();
+  for (const t of tasks) {
+    if (t.status === 'done') continue;
+    const agg = tasksByEngagement.get(t.engagement_id) ?? { open: 0, overdue: 0 };
+    agg.open += 1;
+    if (t.due_date != null && t.due_date < today) agg.overdue += 1;
+    tasksByEngagement.set(t.engagement_id, agg);
   }
 
   return engagements.map((e) => {
@@ -119,6 +147,8 @@ export function buildPortfolioRows(
         .filter((a) => a.drs_score != null)
         .map((a) => ({ seq: a.sequence_number, drs: Number(a.drs_score), tier: a.drs_tier })),
       openGaps: openByEngagement.get(e.id) ?? 0,
+      openTasks: tasksByEngagement.get(e.id)?.open ?? 0,
+      overdueTasks: tasksByEngagement.get(e.id)?.overdue ?? 0,
       assessmentCount: list.length,
     } satisfies PortfolioRow;
   });
