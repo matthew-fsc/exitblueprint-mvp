@@ -70,6 +70,7 @@ export const qk = {
   buyerMatches: (engagementId: string) => ['buyerMatches', engagementId] as const,
   marketContext: (engagementId: string) => ['marketContext', engagementId] as const,
   diligenceQa: (engagementId: string) => ['diligenceQa', engagementId] as const,
+  answerCandidates: (engagementId: string) => ['answerCandidates', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -1175,6 +1176,46 @@ export function useDiligenceQaList(
       invokeFunction<{ items: DiligenceQa[] }>('list-diligence-qa', {
         engagement_id: engagementId,
       }),
+  });
+}
+
+// ---- answer candidates (docs/sellside-ai WS-EXTRACT) -----------------------
+// AI-PROPOSED assessment answers awaiting a human's confirm/reject. This is a
+// STAGING queue, not scoring data: a candidate reaches the DRS only when a human
+// confirms it (the confirm-answer-candidate function promotes it through the
+// deterministic answer-writing path). The pending list reads directly under RLS
+// (firm staff only); confirm/reject are writes (confirm via function; reject is a
+// direct status update the staff RLS policy allows).
+export interface AnswerCandidateRow {
+  id: string;
+  engagement_id: string;
+  assessment_id: string;
+  question_code: string;
+  candidate_value: unknown;
+  confidence: number | null;
+  source_document_id: string | null;
+  source_span: string | null;
+  status: 'pending' | 'confirmed' | 'rejected';
+  model: string;
+  prompt_version: string;
+  created_at: string;
+}
+
+export function useAnswerCandidates(
+  engagementId: string | undefined,
+): UseQueryResult<AnswerCandidateRow[]> {
+  return useQuery({
+    queryKey: qk.answerCandidates(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: async () =>
+      unwrap<AnswerCandidateRow[]>(
+        await supabase
+          .from('answer_candidates')
+          .select('*')
+          .eq('engagement_id', engagementId!)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false }),
+      ),
   });
 }
 
