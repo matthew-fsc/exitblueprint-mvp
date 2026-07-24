@@ -64,6 +64,8 @@ import { runEngagementVerification } from './sellside';
 import { attachDataRoomDocument, evidenceCoverage, listDataRoom, setDataRoomItem } from './data-room';
 import { buildCimCoverage } from './cim';
 import { engagementComparables } from './comparables';
+import { retrieveMarketContext } from './market-retrieval';
+import { marketIndustryKey, marketSizeBand } from '../shared/market-keys';
 import { rankEngagementBuyers } from './buyer-matching';
 import {
   claimReviewItem,
@@ -623,6 +625,43 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     // items are proven (Ready + a verified document). Powers the Evidence
     // masthead headline; the caller is already authorized on the engagement.
     handler: ({ service, body }) => evidenceCoverage(service, body.engagement_id as string).then(ok),
+  },
+  // Market-context retrieval (docs/sellside-ai/01, build order step 2) — the read
+  // side of the reasoning lane's market RAG, structured + full-text (NO pgvector;
+  // semantic embeddings are a documented follow-on). Resolves THIS engagement's
+  // company industry → industry_key (marketIndustryKey, the same key-space as the
+  // valuation table + own-book) and revenue_band → size_band, then returns the top
+  // licensed passages, EACH with its citation, as an input to the narrative
+  // payloads. Knowledge engine (the IP substrate it reads from), read-open
+  // 'engagement' scope: the engagement is RLS-checked and the industry/size keys are
+  // derived from its OWN company row — firm_id is NEVER trusted from the body (the
+  // market schema is non-tenant, so there is no firm filter anyway). Requests the
+  // most restrictive exposure ('aggregate_only'); a display-tier consumer passes a
+  // stricter exposure. Deterministic plumbing — no LLM in the retrieval loop.
+  'retrieve-market-context': {
+    engine: 'knowledge',
+    scope: 'engagement',
+    handler: async ({ service, body }) => {
+      const engagementId = body.engagement_id as string;
+      const eng = (
+        await service.query(
+          `select c.industry, c.revenue_band
+             from engagements e join companies c on c.id = e.company_id
+            where e.id = $1`,
+          [engagementId],
+        )
+      ).rows[0] as { industry: string | null; revenue_band: string | null } | undefined;
+      if (!eng) return err(404, 'engagement not found');
+      const industryKey = marketIndustryKey(eng.industry);
+      const sizeBand = marketSizeBand(eng.revenue_band);
+      const { passages } = await retrieveMarketContext(service, {
+        industryKey,
+        sizeBand,
+        exposure: 'aggregate_only',
+        query: (body.query as string) ?? undefined,
+      });
+      return ok({ passages });
+    },
   },
   'set-data-room-item': {
     engine: 'knowledge',
