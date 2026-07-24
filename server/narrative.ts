@@ -543,6 +543,10 @@ async function generateCim(db: pg.ClientBase, assessmentId: string, generate?: G
     ruleBasedModel: CIM_AGENT.ruleBasedModel,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeCim(payload),
+    // Turn the declared citation_contract guard real: on the AI path every retrieved
+    // market figure must be stated on the same line as its [cite_id]. Empty passages
+    // (no market data resolved) → the guard no-ops (graceful, never throws).
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 
@@ -574,6 +578,9 @@ async function generateTeaser(db: pg.ClientBase, assessmentId: string, generate?
     ruleBasedModel: TEASER_AGENT.ruleBasedModel,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeTeaser(payload),
+    // Citation contract on the AI path: each market figure sits beside its
+    // [cite_id]; empty passages no-op the guard.
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 
@@ -598,6 +605,9 @@ async function generateManagementPresentation(db: pg.ClientBase, assessmentId: s
     ruleBasedModel: MGMT_AGENT.ruleBasedModel,
     userContent: `Assessment data (JSON):\n${JSON.stringify(payload, null, 2)}`,
     compose: () => composeManagementPresentation(payload),
+    // Citation contract on the AI path: each market figure sits beside its
+    // [cite_id]; empty passages no-op the guard.
+    citation: { passages: payload.market_context ?? [] },
     generate,
   });
 

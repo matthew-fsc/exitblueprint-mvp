@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
 import {
   numeralPostCheck,
+  citationPostCheck,
   buildOwnerReportPayload,
   buildDeltaReportPayload,
   generateDocument,
@@ -70,11 +71,23 @@ export interface PayloadFieldPresentCheck {
   path: string;
 }
 
+/** Every MARKET figure stated in the output must be cited: a numeral drawn from a
+ *  retrieved market passage must appear on the same line as that passage's
+ *  [cite_id]. Runs the citation contract (server/intelligence/guards.ts
+ *  citationPostCheck) over the payload's `market_context` passages. "Fired" means
+ *  an uncited market figure was found. Used as a NEGATIVE source criterion
+ *  (traceability). No `market_context` in the payload → nothing to police → does
+ *  not fire (graceful — a deliverable with no market grounding is not penalized). */
+export interface UncitedMarketFigureCheck {
+  type: 'uncited_market_figure';
+}
+
 export type BenchCheck =
   | NoHallucinatedNumberCheck
   | MustNotContainCheck
   | MustContainAnyCheck
-  | PayloadFieldPresentCheck;
+  | PayloadFieldPresentCheck
+  | UncitedMarketFigureCheck;
 
 // --- Rubric types --------------------------------------------------------------
 
@@ -158,6 +171,15 @@ const CHECKS: {
     const value = resolvePath(payload, check.path);
     if (value == null) return false;
     return markdown.toLowerCase().includes(String(value).toLowerCase());
+  },
+
+  uncited_market_figure: (markdown, payload) => {
+    // The payload's market_context (server/cim.ts CimPayload) holds the retrieved,
+    // cited passages; citationPostCheck flags any market figure stated without its
+    // [cite_id] on the same line. No market_context → no passages → no violations.
+    const passages =
+      (payload as { market_context?: { cite_id: string; body: string }[] }).market_context ?? [];
+    return citationPostCheck(markdown, { passages }).length > 0;
   },
 };
 
