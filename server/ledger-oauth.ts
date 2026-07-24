@@ -62,6 +62,21 @@ function providerLabel(p: LedgerProvider): string {
   return p === 'quickbooks' ? 'QuickBooks' : 'Xero';
 }
 
+// The dev simulation (no live provider app configured) synthesizes fake tokens and
+// a fully-real-shaped 'connected' record so the flow can be exercised locally. That
+// is a lie about reality and must NEVER run in production: a prod deploy with an
+// unconfigured provider should fail loudly, not fabricate a connection that later
+// yields zero financials. Guard the two entry points that would otherwise fall
+// through to the simulation when providerConfig() returns null.
+function assertLiveProviderInProd(provider: LedgerProvider): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      `${providerLabel(provider)} is not configured for this environment. ` +
+        'Set the provider OAuth credentials before connecting a ledger in production.',
+    );
+  }
+}
+
 export interface BeginResult {
   mode: 'oauth' | 'dev';
   provider: LedgerProvider;
@@ -89,7 +104,10 @@ export async function beginLedgerConnect(
   );
 
   const cfg = providerConfig(args.provider);
-  if (!cfg) return { mode: 'dev', provider: args.provider, state, authorize_url: null };
+  if (!cfg) {
+    assertLiveProviderInProd(args.provider);
+    return { mode: 'dev', provider: args.provider, state, authorize_url: null };
+  }
 
   const url = new URL(cfg.authorizeUrl);
   url.searchParams.set('client_id', cfg.clientId);
@@ -168,6 +186,8 @@ export async function completeLedgerConnect(
     realmId = args.realmId ?? null;
   } else {
     // Dev simulation: no external handshake, but a fully real-shaped record.
+    // Never in production — a prod deploy must have a real provider configured.
+    assertLiveProviderInProd(provider);
     tokens = {
       accessToken: `dev-access-${randomBytes(8).toString('hex')}`,
       refreshToken: `dev-refresh-${randomBytes(8).toString('hex')}`,

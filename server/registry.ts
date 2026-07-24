@@ -38,6 +38,7 @@ import { generateInstitutionalReview } from './institutional-review';
 import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
 import { answerDiligenceQuestion, listDiligenceQa } from './diligence-qa';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
+import { redeemCompCode } from './comp-codes';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
 import { inviteCollaborator, revokeCollaborator } from './collaborators';
@@ -1050,6 +1051,24 @@ export const REGISTRY: Record<string, FunctionSpec> = {
         { stripeCustomerId: cust, returnUrl: body.return_url as string },
         { stripe: getStripe() },
       ).then(ok);
+    },
+  },
+  // Redeem a comp code → complimentary access without Stripe (docs/24 §5.7). NOT
+  // gated: a non-entitled firm MUST be able to redeem to get in (like checkout).
+  // Firm resolved from the caller's profile; the code validity + idempotency live
+  // in server/comp-codes.ts.
+  'redeem-comp-code': {
+    engine: 'workflow',
+    scope: 'firm',
+    handler: async ({ service, body, firmId, userId }) => {
+      const raw = typeof body.code === 'string' ? body.code : '';
+      const outcome = await redeemCompCode(service, {
+        code: raw,
+        firmId: firmId as string,
+        redeemedBy: (userId as string | undefined) ?? null,
+      });
+      if (!outcome.ok) return err(400, outcome.message);
+      return ok(outcome);
     },
   },
 };

@@ -24,6 +24,7 @@ import {
   DEFAULT_AGREEMENT_TITLE,
 } from './agreement-template';
 import { ensureDefaultAgreementVersion } from '../server/agreements';
+import { createCompCode } from '../server/comp-codes';
 import {
   addMembership,
   clerkEnabled,
@@ -210,6 +211,33 @@ async function createAgreementVersion(db: pg.ClientBase, flags: Record<string, s
   console.log(`created agreement version '${label}' for firm '${firm.name}': ${res.rows[0].id}`);
 }
 
+// Mint a redeemable comp code (docs/24 §5.7). An advisor enters it on the Billing
+// page to grant their firm complimentary access without Stripe — the operator path
+// for a comped pilot while BILLING_ENFORCED is on. Idempotent per code (re-running
+// updates the label/limits). --plan attaches a plan on redeem; omit for bare comp
+// (full access). --max caps distinct firms; --expires is an ISO date/time.
+async function createCompCodeCmd(db: pg.ClientBase, flags: Record<string, string>) {
+  const code = required(flags, 'code');
+  const label = required(flags, 'label');
+  if (flags.plan) {
+    const planExists = await db.query(`select 1 from plans where code = $1`, [flags.plan]);
+    if (!planExists.rowCount) throw new Error(`plan '${flags.plan}' not found`);
+  }
+  const row = await createCompCode(db, {
+    code,
+    label,
+    planCode: flags.plan ?? null,
+    maxRedemptions: flags.max ? Number(flags.max) : null,
+    expiresAt: flags.expires ?? null,
+  });
+  console.log(
+    `comp code '${row.code}' ready` +
+      `${row.plan_code ? ` (plan ${row.plan_code})` : ' (full access)'}` +
+      `${row.max_redemptions != null ? `, up to ${row.max_redemptions} firm(s)` : ', unlimited'}` +
+      `${row.expires_at ? `, expires ${row.expires_at}` : ''}`,
+  );
+}
+
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2));
   const db = new pg.Client({ connectionString: url });
@@ -228,9 +256,12 @@ async function main() {
       case 'create-agreement-version':
         await createAgreementVersion(db, flags);
         break;
+      case 'create-comp-code':
+        await createCompCodeCmd(db, flags);
+        break;
       default:
         console.error(
-          'usage: admin.ts <create-firm --name X | create-advisor --firm X --email Y [--role advisor|reviewer|admin] [--name Z] | assign-company --email Y --company X | create-agreement-version --firm X [--label EA-1.0] [--title T] [--body ...]>',
+          'usage: admin.ts <create-firm --name X | create-advisor --firm X --email Y [--role advisor|reviewer|admin] [--name Z] | assign-company --email Y --company X | create-agreement-version --firm X [--label EA-1.0] [--title T] [--body ...] | create-comp-code --code PILOT-2026 --label "Design partners" [--plan practice] [--max 15] [--expires 2026-12-31]>',
         );
         process.exit(1);
     }

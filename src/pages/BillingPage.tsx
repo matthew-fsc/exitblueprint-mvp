@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
 import { invokeFunction, supabase } from '../lib/supabase';
 import { useAsyncAction } from '../lib/useAsyncAction';
@@ -121,6 +122,18 @@ export default function BillingPage() {
   const firmId = profile?.firm_id ?? undefined;
   const { data, isLoading, error } = useBilling(firmId);
   const { busy, run } = useAsyncAction();
+  const qc = useQueryClient();
+  const [accessCode, setAccessCode] = useState('');
+
+  const redeemCode = () =>
+    run(
+      async () => {
+        await invokeFunction('redeem-comp-code', { code: accessCode });
+        setAccessCode('');
+        await qc.invalidateQueries({ queryKey: ['billing', firmId ?? ''] });
+      },
+      { success: 'Access code applied — your firm now has complimentary access.' },
+    );
 
   const openPortal = () =>
     run(
@@ -231,6 +244,39 @@ export default function BillingPage() {
           />
         </StatRow>
       </SectionCard>
+
+      {/* Access code (comp path, docs/24 §5.7): pilot / design-partner firms are
+          handed a code that grants complimentary access without Stripe. Hidden
+          once the firm is already comped — no reason to re-enter a code. */}
+      {ent.reason !== 'comp' && (
+        <SectionCard
+          title="Have an access code?"
+          subtitle="Enter a complimentary-access code from Exit Blueprint to activate your firm without a subscription."
+        >
+          <form
+            className="cluster-tight"
+            style={{ flexWrap: 'wrap', gap: 'var(--space-2)' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!busy && accessCode.trim()) void redeemCode();
+            }}
+          >
+            <input
+              type="text"
+              aria-label="Access code"
+              placeholder="e.g. PILOT-2026"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              style={{ maxWidth: '18rem', textTransform: 'uppercase' }}
+            />
+            <button type="submit" disabled={busy || !accessCode.trim()}>
+              Apply code
+            </button>
+          </form>
+        </SectionCard>
+      )}
 
       {/* Paywall / empty state: no active subscription. */}
       {!hasSubscription && (

@@ -509,6 +509,30 @@ async function main() {
       await db.query('rollback to savepoint be');
     }
     check('cannot read billing_events (service-role only)', billingEventsDenied);
+    // Comp codes are credentials (docs/24 §5.7): possession of a valid code grants
+    // access, so comp_codes / comp_code_redemptions have no authenticated grant —
+    // a tenant read is a hard permission error, like billing_events. Redemption is
+    // done by the redeem-comp-code function under the service role.
+    let compCodesDenied = false;
+    try {
+      await db.query('savepoint cc');
+      await db.query('select count(*) from comp_codes');
+      await db.query('release savepoint cc');
+    } catch {
+      compCodesDenied = true;
+      await db.query('rollback to savepoint cc');
+    }
+    check('cannot read comp_codes (service-role only)', compCodesDenied);
+    let compRedemptionsDenied = false;
+    try {
+      await db.query('savepoint ccr');
+      await db.query('select count(*) from comp_code_redemptions');
+      await db.query('release savepoint ccr');
+    } catch {
+      compRedemptionsDenied = true;
+      await db.query('rollback to savepoint ccr');
+    }
+    check('cannot read comp_code_redemptions (service-role only)', compRedemptionsDenied);
     // Platform monitoring rails (docs/38): the cross-tenant `analytics` schema is
     // granted to service_role ONLY. An authenticated tenant role has no USAGE on
     // the schema, so a read is a hard permission error, not an empty RLS result.
