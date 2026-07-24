@@ -1,0 +1,66 @@
+{
+  "docType": "owner_report",
+  "answer": [
+    {
+      "id": "names-top-gap",
+      "weight": 3,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "states the highest-severity gap by name",
+      "check": { "type": "payload_field_present_in_output", "path": "top_gaps.0.name" }
+    },
+    {
+      "id": "states-band",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "states the readiness band the score falls in",
+      "check": { "type": "payload_field_present_in_output", "path": "band" }
+    },
+    {
+      "id": "explains-whats-next",
+      "weight": 2,
+      "kind": "positive",
+      "axis": "answer",
+      "description": "explains what happens next for the owner",
+      "check": {
+        "type": "must_contain_any",
+        "phrases": ["what happens next", "re-assess", "advisor will"]
+      }
+    },
+    {
+      "id": "no-hallucinated-number",
+      "weight": 5,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "must use only numbers present in the payload (numeral firewall)",
+      "check": { "type": "no_hallucinated_number" }
+    },
+    {
+      "id": "no-valuation",
+      "weight": 4,
+      "kind": "negative",
+      "axis": "answer",
+      "description": "an owner report must not state a dollar valuation or a multiple",
+      "check": { "type": "must_not_contain", "patterns": ["\\$", "valuation", "multiple"] }
+    }
+  ],
+  "source": [
+    {
+      "id": "top-gap-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the highest-severity gap named in the report traces to a top_gaps entry in the payload",
+      "check": { "type": "payload_field_present_in_output", "path": "top_gaps.0.name" }
+    },
+    {
+      "id": "second-gap-traceable",
+      "weight": 1,
+      "kind": "positive",
+      "axis": "source",
+      "description": "the second gap named in the report traces to a top_gaps entry in the payload",
+      "check": { "type": "payload_field_present_in_output", "path": "top_gaps.1.name" }
+    }
+  ]
+}
