@@ -81,7 +81,7 @@ export function EngagementTeamCard({
           ) : (
             <>
               <p className="muted" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
-                Invite the business owner to their own portal — a branded view of their readiness, the
+                Invite the business owner to their own portal: a branded view of their readiness, the
                 plan you've built, their documents, and their estimated value.
               </p>
               <form className="invite-form" onSubmit={inviteOwner}>

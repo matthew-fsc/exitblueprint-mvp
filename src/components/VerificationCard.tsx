@@ -72,7 +72,7 @@ export function VerificationCard({
       </div>
       <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
         How much of the financial picture is backed by documents or a connected ledger, rather than
-        self-reported. Verified inputs are the moat — they turn a claimed score into a defensible one.
+        self-reported. Verified inputs turn a claimed score into a defensible one.
       </p>
 
       {verifQ.isLoading || !summary ? (

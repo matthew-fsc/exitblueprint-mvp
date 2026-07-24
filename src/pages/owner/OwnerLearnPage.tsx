@@ -54,7 +54,7 @@ export default function OwnerLearnPage() {
     <div className="stack-lg">
       <PageHeader
         title="Learn"
-        subtitle="Short guides on what buyers look for — the ones tied to your gaps are marked for you."
+        subtitle="Short guides on what buyers look for. The ones tied to your gaps are marked for you."
       />
       {loading || eduQ.isLoading ? (
         <Card><SkeletonLines lines={6} /></Card>

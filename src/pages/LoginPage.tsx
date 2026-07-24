@@ -83,7 +83,7 @@ export default function LoginPage() {
           <p className="login-subtitle">Authentication is not configured</p>
           <p className="form-error">
             This deployment must use Clerk. Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> (frontend) and{' '}
-            <code>CLERK_JWKS_URL</code> (compute service), then redeploy — see docs/30.
+            <code>CLERK_JWKS_URL</code> (compute service), then redeploy. See docs/30.
           </p>
         </div>
       </main>
@@ -126,7 +126,7 @@ export default function LoginPage() {
         </button>
         {isDevStack && (
           <p className="login-devnote">
-            Local dev stack — sign in with any provisioned email (scripts/admin.ts) and password
+            Local dev stack. Sign in with any provisioned email (scripts/admin.ts) and password
             &lsquo;demo&rsquo;.
           </p>
         )}

@@ -47,13 +47,13 @@ export default function OwnerConnectPage() {
     <div className="stack-lg">
       <PageHeader
         title="Connect your accounting"
-        subtitle="Link your books so your advisor can verify your financials — the difference between a self-reported score and one buyers trust."
+        subtitle="Link your books so your advisor can verify your financials: the difference between a self-reported score and one buyers trust."
       />
       <Card>
         <p className="muted mt-0">
           Connecting your accounting lets your advisor verify your figures against your real books,
           instead of relying on self-reported numbers. Verified financials turn a self-reported score
-          into a defensible one — the difference buyers pay attention to. You stay in control and can
+          into a defensible one, the difference buyers pay attention to. You stay in control and can
           disconnect anytime.
         </p>
         {loading || connQ.isLoading ? (

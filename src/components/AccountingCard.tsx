@@ -53,13 +53,13 @@ export function AccountingCard({
       <div className="verif-head">
         <span className="stat-block-label">Accounting connection</span>
         {anyConnected && (
-          <span className="verif-badge verif-tier-mid">Connected — automatic import not yet enabled</span>
+          <span className="verif-badge verif-tier-mid">Connected: automatic import not yet enabled</span>
         )}
       </div>
       <p className="muted" style={{ margin: '0.25rem 0 0.9rem' }}>
         Connect the client's books to prepare for verification against their real accounting system.
         Automatic import of verified figures lands with the live integration; for now, connecting
-        records the link but does not pull figures — enter the financials on the intake.
+        records the link but does not pull figures. Enter the financials on the intake.
       </p>
       {connQ.isLoading ? (
         <SkeletonLines lines={2} />
@@ -113,8 +113,8 @@ export function AccountingCard({
         onCancel={() => setToDisconnect(null)}
       >
         <p className="m-0">
-          The client's financials will no longer be verifiable against their books until reconnected —
-          the score reverts to self-reported figures.
+          The client's financials will no longer be verifiable against their books until reconnected.
+          The score reverts to self-reported figures.
         </p>
       </ConfirmDialog>
     </Card>

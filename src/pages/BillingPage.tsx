@@ -24,7 +24,7 @@ import { resolveEntitlement, type EntitlementReason } from '../../shared/entitle
 
 // Access status → chip label + tone; the plan/status detail lives here.
 const REASON_LABEL: Record<EntitlementReason, { label: string; cls: string }> = {
-  comp: { label: 'Beta access — complimentary', cls: 'status-good' },
+  comp: { label: 'Beta access: complimentary', cls: 'status-good' },
   active: { label: 'Active', cls: 'status-good' },
   trialing: { label: 'Trial', cls: 'status-ok' },
   past_due_grace: { label: 'Payment past due', cls: 'status-warning' },
@@ -149,7 +149,7 @@ export default function BillingPage() {
   const header = (
     <PageHeader
       title="Billing"
-      subtitle="Your firm's subscription, seats, and invoices — managed securely through Stripe."
+      subtitle="Your firm's subscription, seats, and invoices, managed securely through Stripe."
       crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Billing' }]}
     />
   );
@@ -294,7 +294,7 @@ export default function BillingPage() {
           })}
         </div>
         <p className="muted text-sm" style={{ marginTop: 'var(--space-3)' }}>
-          Prices are shown at checkout. Billing is handled securely by Stripe — we never see or store
+          Prices are shown at checkout. Billing is handled securely by Stripe. We never see or store
           your card details.
         </p>
       </SectionCard>

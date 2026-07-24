@@ -83,7 +83,7 @@ export default function BuyersPage() {
       <header className="page-masthead">
         <PageHeader
           title="Buyer book"
-          subtitle="Your own book of buyers and their acquisition mandates. Matching ranks these against each engagement — it never reaches outside your firm."
+          subtitle="Your own book of buyers and their acquisition mandates. Matching ranks these against each engagement. It never reaches outside your firm."
         />
       </header>
 
@@ -143,8 +143,8 @@ export default function BuyersPage() {
           <LoadingState variant="inline" />
         ) : (buyers ?? []).length === 0 ? (
           <EmptyState title="No buyers yet">
-            Add the buyers you already know above. Give each one a mandate — the industries, size, geography,
-            and dealbreakers they care about — and matching does the rest.
+            Add the buyers you already know above. Give each one a mandate (the industries, size, geography,
+            and dealbreakers they care about) and matching does the rest.
           </EmptyState>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -224,7 +224,7 @@ function BuyerCard({ buyer, firmId, meProfileId }: { buyer: BuyerRow; firmId: st
       {open && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
           {(mandates ?? []).length === 0 ? (
-            <p className="muted text-sm m-0">No mandate yet — add the buyer's box below so matching can rank them.</p>
+            <p className="muted text-sm m-0">No mandate yet. Add the buyer's box below so matching can rank them.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               {(mandates ?? []).map((m) => <MandateSummary key={m.id} mandate={m} />)}

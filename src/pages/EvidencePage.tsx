@@ -23,7 +23,7 @@ function EvidenceGuide({ active }: { active: Section }) {
       key: 'data-room',
       n: 1,
       title: 'Assemble the request list',
-      body: "Work the buyer's diligence list — set each item's readiness and attach its source file. Tracked as Data-room readiness.",
+      body: "Work the buyer's diligence list. Set each item's readiness and attach its source file. Tracked as Data-room readiness.",
     },
     {
       key: 'documents',
@@ -128,7 +128,7 @@ export default function EvidencePage() {
           ]}
           subtitle={
             <>
-              One binder, built in three stages — assemble the buyer's request list, upload
+              One binder, built in three stages: assemble the buyer's request list, upload
               and review source files, then verify the figures behind the score. The tabs
               below are stages of this one job, each with its own progress figure.
               {cov != null && (
@@ -136,13 +136,12 @@ export default function EvidencePage() {
                   {' '}
                   <strong>
                     Diligence binder: {cov.verified} of {cov.total} items proven ({cov.pct}%)
-                  </strong>{' '}
-                  — request-list items marked Ready and backed by a verified document.
+                  </strong>, request-list items marked Ready and backed by a verified document.
                   {v != null && (
                     <>
                       {' '}
                       Separately, {v.verified_inputs} of {v.total_inputs} scored financial
-                      inputs are verified ({v.pct}%) — the proof behind the score.
+                      inputs are verified ({v.pct}%), the proof behind the score.
                     </>
                   )}
                 </>

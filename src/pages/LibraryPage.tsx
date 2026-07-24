@@ -180,7 +180,7 @@ function LibraryTasksSection() {
             {form?.mode === 'edit' ? 'Edit firm task' : form?.mode === 'adapt' ? 'Adapt for your firm' : 'New firm task'}
           </h3>
           {form?.mode === 'adapt' && (
-            <p className="muted m-0">Saved as your firm's own editable copy — the system task stays untouched.</p>
+            <p className="muted m-0">Saved as your firm's own editable copy. The system task stays untouched.</p>
           )}
         </div>
         <div className="advisory-form-grid">
@@ -395,7 +395,7 @@ function EducationSection() {
                 : 'New firm module'}
           </h3>
           {form?.mode === 'adapt' && (
-            <p className="muted m-0">Saved as your firm's own editable copy — the system module stays untouched.</p>
+            <p className="muted m-0">Saved as your firm's own editable copy. The system module stays untouched.</p>
           )}
         </div>
         <div className="advisory-form-grid">
@@ -594,7 +594,7 @@ function AdvisoryForm({
         <div className="advisory-form-head">
           <h3 className="m-0">{heading}</h3>
           {mode === 'adapt' && (
-            <p className="muted m-0">Saved as your firm's own copy — the system item stays untouched.</p>
+            <p className="muted m-0">Saved as your firm's own copy. The system item stays untouched.</p>
           )}
         </div>
         <div className="advisory-form-grid">
@@ -919,7 +919,7 @@ export default function LibraryPage() {
       <PageHeader
         title="Library"
         crumbs={[{ label: 'Engagements', to: '/' }, { label: 'Library' }]}
-        subtitle="Every reusable methodology item in one place — tasks, education, and advisory items. System content is shared methodology; your firm authors its own. Group these into named bundles on the Plans page."
+        subtitle="Every reusable methodology item in one place: tasks, education, and advisory items. System content is shared methodology; your firm authors its own. Group these into named bundles on the Plans page."
       />
 
       <div className="plans-toolbar">

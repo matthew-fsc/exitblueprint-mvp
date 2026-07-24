@@ -183,7 +183,7 @@ export default function ReviewDocumentPage() {
 
           {fields.length === 0 && (
             <p className="muted">
-              No values were extracted (manual adapter) — add the facts you can confirm from the
+              No values were extracted (manual adapter). Add the facts you can confirm from the
               source.
             </p>
           )}

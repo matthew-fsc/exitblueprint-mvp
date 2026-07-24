@@ -205,9 +205,9 @@ export default function RoadmapPage() {
       let msg: string;
       if (planCount > 0) {
         const taskPart = planTasks ? ` (+${planTasks} task${planTasks === 1 ? '' : 's'})` : '';
-        msg = `Roadmap built — ${planCount} plan${planCount === 1 ? '' : 's'} applied${taskPart}`;
+        msg = `Roadmap built: ${planCount} plan${planCount === 1 ? '' : 's'} applied${taskPart}`;
       } else {
-        msg = tasks.length ? 'Roadmap is up to date — no new plans to apply' : 'No qualifying plans to apply yet';
+        msg = tasks.length ? 'Roadmap is up to date. No new plans to apply' : 'No qualifying plans to apply yet';
       }
       toast.show(msg, 'good');
     } catch (err) {
@@ -229,7 +229,7 @@ export default function RoadmapPage() {
       invalidatePlans();
       const { tasks_created, tasks_claimed, milestones_created } = res;
       toast.show(
-        `Plan applied — ${tasks_created} task${tasks_created === 1 ? '' : 's'} added` +
+        `Plan applied: ${tasks_created} task${tasks_created === 1 ? '' : 's'} added` +
           (tasks_claimed ? `, ${tasks_claimed} linked` : '') +
           (milestones_created ? `, ${milestones_created} milestone${milestones_created === 1 ? '' : 's'}` : ''),
         'good',
@@ -249,7 +249,7 @@ export default function RoadmapPage() {
     await supabase.from('engagement_plans').update({ status: 'removed' }).eq('id', engagementPlanId);
     invalidatePlans();
     refresh();
-    toast.show('Plan removed from this roadmap — its tasks were kept', 'good');
+    toast.show('Plan removed from this roadmap. Its tasks were kept', 'good');
   };
 
   const setTaskStatus = async (t: TaskRow, status: TaskRow['status']) => {
@@ -514,7 +514,7 @@ export default function RoadmapPage() {
     );
     const subtitle = plan
       ? `${plan.done}/${plan.total} done · ${plan.pct}%`
-      : 'Tasks and milestones not tied to a plan — gap-derived work and anything you add by hand.';
+      : 'Tasks and milestones not tied to a plan: gap-derived work and anything you add by hand.';
     const action = plan && (
       <button
         className="linkish"
@@ -566,7 +566,7 @@ export default function RoadmapPage() {
         <PageHeader
           title="Roadmap"
           crumbs={engagementCrumbs(engagementId, companyName, 'Roadmap')}
-          subtitle="Every open gap, applied plan, and milestone on one timeline — from the start date to the target sale date."
+          subtitle="Every open gap, applied plan, and milestone on one timeline, from the start date to the target sale date."
         />
         <EngagementNav engagementId={engagementId!} />
       </header>
@@ -596,7 +596,7 @@ export default function RoadmapPage() {
           </button>
         </div>
         <p className="muted text-sm rm-build-note">
-          Building from gaps turns open gaps — most critical first — into sequenced tasks, and applies any plan that
+          Building from gaps turns open gaps, most critical first, into sequenced tasks, and applies any plan that
           substantively targets those gaps.
         </p>
         <div className="rm-add-plan">
@@ -623,7 +623,7 @@ export default function RoadmapPage() {
       {recommended.length > 0 && (
         <SectionCard
           title="Recommended plans"
-          subtitle="Plans that target this engagement’s open gaps and fired initiatives — apply the ones that fit."
+          subtitle="Plans that target this engagement’s open gaps and fired initiatives. Apply the ones that fit."
         >
           <div className="plan-progress-list">
             {recommended.map((r) => {
@@ -659,7 +659,7 @@ export default function RoadmapPage() {
             </button>
           }
         >
-          Building the roadmap turns this engagement’s open gaps — most critical first — into a sequenced set of
+          Building the roadmap turns this engagement’s open gaps, most critical first, into a sequenced set of
           remediation tasks, and lays down any plan that substantively targets them. Add personal milestones for the
           owner’s wealth plan alongside them.
         </EmptyState>
@@ -703,7 +703,7 @@ export default function RoadmapPage() {
                     {g.nextTask.due_date && <span className="muted"> · {fmtDate(g.nextTask.due_date)}</span>}
                   </p>
                 ) : (
-                  <p className="nextup-task muted">Nothing open — this party is clear.</p>
+                  <p className="nextup-task muted">Nothing open. This party is clear.</p>
                 )}
               </div>
             ))}
@@ -719,7 +719,7 @@ export default function RoadmapPage() {
           {groups.map((g) => renderGroup(g))}
         </section>
       ) : (
-        hasWork && <p className="muted">No tasks or milestones yet — build from gaps or add a plan above.</p>
+        hasWork && <p className="muted">No tasks or milestones yet. Build from gaps or add a plan above.</p>
       )}
 
       {/* Add work — manual tasks and milestones land in the gap-driven bucket. */}

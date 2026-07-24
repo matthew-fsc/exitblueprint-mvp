@@ -30,7 +30,7 @@ export function WorkstreamRail({
           end={s.to === ''}
           className={`ws-chip ws-state-${s.state}`}
           title={s.detail}
-          aria-label={`${s.label}: ${STATE_LABEL[s.state]} — ${s.headline}`}
+          aria-label={`${s.label}: ${STATE_LABEL[s.state]}. ${s.headline}`}
         >
           <span className="ws-chip-step" aria-hidden>
             {idx + 1}

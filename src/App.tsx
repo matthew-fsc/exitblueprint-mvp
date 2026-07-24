@@ -83,7 +83,7 @@ function ProfileNotReady() {
       <ErrorState
         variant="page"
         title="Your account isn’t set up yet"
-        message="If you just signed in, give it a moment — provisioning finishes a beat after your first sign-in. If this keeps happening, contact your administrator."
+        message="If you just signed in, give it a moment. Provisioning finishes a beat after your first sign-in. If this keeps happening, contact your administrator."
         onRetry={() => window.location.reload()}
         retryLabel="Refresh"
       />

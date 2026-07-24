@@ -300,7 +300,7 @@ export default function WorkbenchPage() {
 
       <p className="wb-explainer">
         Change any answer and every score updates instantly. Nothing here is saved until you choose{' '}
-        <strong>Save as new assessment</strong> — the original assessment #{meta.sequence} stays
+        <strong>Save as new assessment</strong>. The original assessment #{meta.sequence} stays
         untouched. Use it live with an owner to see what moving each lever would do.
       </p>
 
@@ -345,7 +345,7 @@ export default function WorkbenchPage() {
         <aside className="wb-board">
           <div className="wb-board-inner">
             {live.incomplete && (
-              <p className="wb-incomplete">A required answer is blank — showing the last valid score.</p>
+              <p className="wb-incomplete">A required answer is blank. Showing the last valid score.</p>
             )}
 
             <div className="wb-score wb-score-hero">

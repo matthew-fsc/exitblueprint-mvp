@@ -149,7 +149,7 @@ export function ProfessionalDirectoryCard({
     run(async () => {
       if (!firmId) throw new Error('No firm.');
       const { rows, skipped } = parsedImport;
-      if (rows.length === 0) throw new Error('Nothing to import — paste at least one row with a name.');
+      if (rows.length === 0) throw new Error('Nothing to import. Paste at least one row with a name.');
       const payload = rows.map((r) => ({ ...r, firm_id: firmId, created_by: meProfileId ?? null }));
       const { error } = await supabase.from('firm_professionals').insert(payload);
       if (error) throw new Error(error.message);
@@ -177,7 +177,7 @@ export function ProfessionalDirectoryCard({
   return (
     <SectionCard
       title="Professional directory"
-      subtitle="Your clients' outside professionals — CPAs, attorneys, M&A advisors, bankers. Curate them once here, then attach them to any engagement's deal team."
+      subtitle="Your clients' outside professionals: CPAs, attorneys, M&A advisors, bankers. Curate them once here, then attach them to any engagement's deal team."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {isLoading ? (

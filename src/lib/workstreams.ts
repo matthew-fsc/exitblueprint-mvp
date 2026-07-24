@@ -55,7 +55,7 @@ const EVIDENCE_DONE_PCT = 80; // "substantially proven" — the binder a buyer d
 function readiness(i: WorkstreamInput): WorkstreamStatus {
   const base = { key: 'readiness' as const, label: 'Readiness', to: '/buyer-lens' };
   if (i.assessed) {
-    return { ...base, state: 'done', headline: i.drsScore != null ? `DRS ${Math.round(i.drsScore)}` : 'Scored', detail: 'A current assessment is scored — gaps and buyer questions are named.' };
+    return { ...base, state: 'done', headline: i.drsScore != null ? `DRS ${Math.round(i.drsScore)}` : 'Scored', detail: 'A current assessment is scored. Gaps and buyer questions are named.' };
   }
   if (i.inProgress) {
     return { ...base, state: 'active', headline: 'Intake in progress', detail: 'Finish the assessment to produce a score.', to: '' };
@@ -67,10 +67,10 @@ function readiness(i: WorkstreamInput): WorkstreamStatus {
 function remediation(i: WorkstreamInput): WorkstreamStatus {
   const base = { key: 'remediation' as const, label: 'Remediation', to: '/roadmap' };
   if (!i.assessed) return { ...base, state: 'blocked', headline: 'Awaiting assessment', detail: 'Gaps open once the baseline is scored.' };
-  if ((i.openGapCount ?? 0) === 0) return { ...base, state: 'done', headline: 'No open gaps', detail: 'A clean book — nothing to remediate.' };
+  if ((i.openGapCount ?? 0) === 0) return { ...base, state: 'done', headline: 'No open gaps', detail: 'A clean book. Nothing to remediate.' };
   const gaps = i.openGapCount ?? 0;
   if (i.tasksTotal === 0) return { ...base, state: 'todo', headline: `${gaps} open gap${gaps === 1 ? '' : 's'}, no plan`, detail: 'Build the roadmap from the open gaps.' };
-  return { ...base, state: 'active', headline: `${i.tasksDone}/${i.tasksTotal} tasks done`, detail: `${gaps} gap${gaps === 1 ? '' : 's'} still open — work the roadmap to close them.` };
+  return { ...base, state: 'active', headline: `${i.tasksDone}/${i.tasksTotal} tasks done`, detail: `${gaps} gap${gaps === 1 ? '' : 's'} still open. Work the roadmap to close them.` };
 }
 
 // The evidence layer: how much of the diligence binder is PROVEN — each data-room

@@ -108,7 +108,7 @@ export default function DiligenceQaPage() {
         <PageHeader
           title="Diligence Q&A"
           crumbs={engagementCrumbs(engagementId, companyName, 'Diligence Q&A')}
-          subtitle="Ask a buyer diligence question. Answers are drafted from this engagement's own verified facts, data room, and findings — every claim cited. Advisor-reviewed; not legal or tax advice."
+          subtitle="Ask a buyer diligence question. Answers are drafted from this engagement's own verified facts, data room, and findings. Every claim cited. Advisor-reviewed; not legal or tax advice."
         />
         <EngagementNav engagementId={engagementId!} />
       </header>
@@ -192,7 +192,7 @@ function QaTurn({ qa, innerRef }: { qa: DiligenceQa; innerRef?: Ref<HTMLDivEleme
       <div className="qa-answer">
         <div className="qa-answer-head">
           <span className={`status-chip ${retrievalOnly ? 'status-warning' : 'status-neutral'}`}>
-            {retrievalOnly ? 'Retrieval-only — AI synthesis unavailable' : 'AI draft — advisor review'}
+            {retrievalOnly ? 'Retrieval-only: AI synthesis unavailable' : 'AI draft: advisor review'}
           </span>
           <span className="muted text-sm">{fmtDate(qa.created_at)}</span>
         </div>
