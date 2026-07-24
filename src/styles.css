@@ -6107,3 +6107,80 @@ pre {
 .val-ob-conf-moderate { background: color-mix(in srgb, var(--status-warning) 20%, transparent); color: var(--status-warning); }
 .val-ob-conf-low { background: color-mix(in srgb, var(--status-neutral) 20%, transparent); color: var(--status-neutral); }
 .val-ob-note { margin: 0; }
+
+/* ── Diligence Q&A chat (docs/sellside-ai/05) ─────────────────────────────
+   A persisted conversation surface: user question bubbles (right), assistant
+   answers (left) with a mode badge + cited sources, and a composer pinned
+   below a self-scrolling thread. Reuses the status-chip / report-body /
+   advisory-tag primitives; all colours are theme tokens. */
+.qa-page { display: flex; flex-direction: column; gap: var(--space-4); }
+.qa-thread {
+  flex: 1 1 auto;
+  min-height: 300px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-1);
+}
+.qa-turn { display: flex; flex-direction: column; gap: var(--space-2); }
+.qa-ask { display: flex; justify-content: flex-end; }
+.qa-bubble {
+  max-width: min(78%, 640px);
+  background: var(--brand);
+  color: #fff;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.qa-answer {
+  max-width: min(90%, 780px);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  min-width: 0;
+}
+.qa-answer-head {
+  display: flex; align-items: center; gap: var(--space-2);
+  flex-wrap: wrap; margin-bottom: var(--space-2);
+}
+.qa-answer-body > :first-child { margin-top: 0; }
+.qa-answer-body > :last-child { margin-bottom: 0; }
+.qa-answer-pending { display: flex; align-items: center; gap: var(--space-2); }
+.qa-sources { margin-top: var(--space-2); }
+.qa-sources > summary {
+  cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;
+  list-style: revert;
+}
+.qa-sources-list { margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); }
+.qa-source { margin: 0; overflow-wrap: anywhere; }
+.qa-empty { text-align: center; padding: var(--space-6) var(--space-3); margin: auto 0; }
+.qa-empty-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 var(--space-1); }
+.qa-suggestions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; margin-top: var(--space-3); }
+.qa-chip {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 999px; padding: var(--space-1) var(--space-3);
+  color: var(--text-secondary); font-size: 0.85rem; cursor: pointer;
+  max-width: 100%; overflow-wrap: anywhere;
+}
+.qa-chip:hover:not(:disabled) { border-color: var(--brand); color: var(--text-primary); }
+.qa-composer {
+  display: flex; gap: var(--space-2); align-items: flex-end;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--space-2); box-shadow: var(--shadow-sm);
+}
+.qa-input {
+  flex: 1 1 auto; min-width: 0; resize: none; border: none; background: transparent;
+  padding: var(--space-2); font: inherit; color: var(--text-primary); max-height: 160px;
+}
+.qa-input:focus { outline: none; }
+.qa-send { flex: 0 0 auto; align-self: stretch; }
+.qa-thinking { display: inline-flex; gap: 4px; align-items: center; }
+.qa-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary); animation: qa-blink 1.2s infinite ease-in-out; }
+.qa-dot:nth-child(2) { animation-delay: 0.2s; }
+.qa-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes qa-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
