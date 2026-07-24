@@ -191,6 +191,22 @@ function RedirectAssessmentDeliverable({ section }: { section: string }) {
   );
 }
 
+// react-router's <Routes> (as opposed to the data router's <ScrollRestoration>)
+// does nothing to scroll position on navigation, so following a link while
+// scrolled down lands you at the same offset on the new page — several routes
+// were "starting halfway down." This resets scroll to the top on every pathname
+// change. An in-page anchor (#hash) is left alone so jump links still work, and
+// intra-page scrolls (switching a sub-tab, stepping through intake) key on their
+// own state elsewhere and are unaffected because the pathname doesn't change.
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (hash) return;
+    window.scrollTo(0, 0);
+  }, [pathname, hash]);
+  return null;
+}
+
 function userInitials(email?: string | null): string {
   if (!email) return 'U';
   const local = email.split('@')[0].replace(/[._-]+/g, ' ').trim();
@@ -407,6 +423,7 @@ export default function App() {
           <BrowserRouter>
             <AuthProvider>
               <SpeedInsights />
+              <ScrollToTop />
               <Suspense fallback={<main className="page"><LoadingState variant="page" /></main>}>
               <Routes>
           <Route path="/login" element={<LoginPage />} />
