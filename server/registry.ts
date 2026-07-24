@@ -31,6 +31,7 @@ import { beginLedgerConnect, completeLedgerConnect, disconnectLedger } from './l
 import { computeValuation } from './valuation';
 import { recordDealOutcome, firmCalibration, type DealOutcomeInput } from './outcomes';
 import { computeCalibration, readCalibration } from './calibration';
+import { recordBenchRun } from './bench-metrics';
 import { engagementGraph } from './engagement-graph';
 import { generateInstitutionalReview } from './institutional-review';
 import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
@@ -365,6 +366,20 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     engine: 'rules',
     scope: 'platform-admin',
     handler: ({ service }) => readCalibration(service).then(ok),
+  },
+  // Deliverable-quality bench (docs/sellside-ai/02, docs/09). run-bench grades the
+  // generated deliverables — static tier over frozen fixtures + generated tier over
+  // the real deterministic composer for a completed assessment — and PERSISTS the
+  // per-case answer/source grades as a new run in the service-role-only analytics
+  // schema. The grader is pure rule-based code (server/llm/evals/bench.ts), never an
+  // LLM (rule #1); it grades deliverable quality and never writes to a scoring table
+  // (rule #2). PLATFORM-QUALITY telemetry (not client data), so superadmin-gated
+  // (`platform-admin` scope) on the service-role connection ONLY — mirroring
+  // compute-calibration; the rows it writes are de-identified (no firm_id, no PII).
+  'run-bench': {
+    engine: 'rules',
+    scope: 'platform-admin',
+    handler: ({ service }) => recordBenchRun(service).then(ok),
   },
 
   // ── Reasoning Engine — AI narratives & assembled documents (always draft)

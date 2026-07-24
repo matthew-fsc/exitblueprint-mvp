@@ -37,6 +37,7 @@ import { platformMetrics } from './platform-metrics';
 import { financialCorpus } from './financial-corpus';
 import { moatMetrics } from './moat-metrics';
 import { readCalibration } from './calibration';
+import { benchSummary } from './bench-metrics';
 import {
   applyStripeEvent,
   verifyStripeSignature,
@@ -337,15 +338,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       // One superadmin-gated, service-role readout: the four-domain platform
       // snapshot plus the moat rails — the verified-financial corpus (moat 2), the
       // calibration-corpus KPIs (docs/40 §4a "the moats are the business plan"), and
-      // the versioned DRS-band calibration artifact (docs/09 moat 1, the FICO moat).
-      // All read-only over the analytics schema; operator-only.
-      const [metrics, corpus, moats, calibration] = await Promise.all([
+      // the versioned DRS-band calibration artifact (docs/09 moat 1, the FICO moat),
+      // and the deliverable-quality bench (docs/sellside-ai/02) — platform-quality
+      // telemetry, not client data. All read-only over the analytics schema; operator-only.
+      const [metrics, corpus, moats, calibration, bench] = await Promise.all([
         withTimeout(platformMetrics(pool), 10_000, 'platform metrics'),
         withTimeout(financialCorpus(pool), 10_000, 'financial corpus'),
         withTimeout(moatMetrics(pool), 10_000, 'moat metrics'),
         withTimeout(readCalibration(pool), 10_000, 'calibration'),
+        withTimeout(benchSummary(pool), 10_000, 'bench'),
       ]);
-      return json(res, 200, { ...metrics, corpus, moats, calibration });
+      return json(res, 200, { ...metrics, corpus, moats, calibration, bench });
     } catch (e) {
       captureError(e, { route: '/internal/metrics' });
       return json(res, 500, { message: (e as Error).message });
