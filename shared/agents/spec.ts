@@ -115,7 +115,8 @@ export interface AgentSpec {
   // 'none' is the read-only reviewer seam (institutional_review): it returns an
   // in-memory labeled draft and writes to no table (persisting it is a follow-up
   // that needs its own migration), so it declares no persistence target.
-  persist: 'generated_documents' | 'diligence_simulation_runs' | 'none';
+  // 'diligence_qa' is the Diligence Q&A assistant's immutable answer table.
+  persist: 'generated_documents' | 'diligence_simulation_runs' | 'diligence_qa' | 'none';
   // One-line human description of the work product, for the registry readout.
   describe: string;
 }

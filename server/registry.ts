@@ -35,6 +35,7 @@ import { recordBenchRun } from './bench-metrics';
 import { engagementGraph } from './engagement-graph';
 import { generateInstitutionalReview } from './institutional-review';
 import { runDiligenceSimulation, latestDiligenceSimulation } from './diligence-simulation';
+import { answerDiligenceQuestion, listDiligenceQa } from './diligence-qa';
 import { createCheckoutSession, createBillingPortalSession, getStripe, stripeConfigured } from './stripe';
 import { inviteOwner } from './invite';
 import { inviteAdvisor } from './invite-advisor';
@@ -454,6 +455,31 @@ export const REGISTRY: Record<string, FunctionSpec> = {
     scope: 'engagement',
     handler: ({ service, body }) =>
       latestDiligenceSimulation(service, body.engagement_id as string).then(ok),
+  },
+
+  // Diligence Q&A (docs/sellside-ai/05 §4): answer a buyer's diligence question
+  // FROM the engagement's own cited knowledge. The answer WRITES an immutable,
+  // firm-scoped row, so it is manage-engagement (staff; firm resolved from the
+  // profile) and gated like the other reasoning deliverables. It degrades to
+  // retrieval-only when the AI call fails (no credit) — the same fallback the
+  // deliverables path uses. The read counterpart is engagement-scoped.
+  'answer-diligence-question': {
+    engine: 'reasoning',
+    scope: 'manage-engagement',
+    gated: true,
+    handler: ({ service, body, firmId }) =>
+      answerDiligenceQuestion(
+        service,
+        firmId as string,
+        body.engagement_id as string,
+        body.question as string,
+      ).then((qa) => ok({ qa })),
+  },
+  'list-diligence-qa': {
+    engine: 'reasoning',
+    scope: 'engagement',
+    handler: ({ service, body }) =>
+      listDiligenceQa(service, body.engagement_id as string).then((items) => ok({ items })),
   },
 
   // ── Workflow Engine — Plans (docs/37): reusable initiative bundles

@@ -134,6 +134,25 @@ export const AGENTS: AgentSpec[] = [
     persist: 'none',
     describe: 'Read-only institutional review surfacing blind spots, missing evidence, and likely diligence questions as a labeled draft.',
   },
+  {
+    key: 'diligence_qa',
+    engine: 'reasoning',
+    scope: 'manage-engagement',
+    promptKey: 'diligence_qa.v1',
+    promptVersion: 'diligence_qa.v1',
+    // The rule-based label is 'retrieval-only:' rather than 'rule-based:' because a
+    // free-form answer cannot be composed rule-based; the deterministic fallback
+    // renders the ranked, cited source evidence instead (docs/sellside-ai/05 §4).
+    // It is still a non-AI, deterministic composer — the label just names the
+    // honest degradation. `mode` is derived by comparing the run's model to this.
+    ruleBasedModel: 'retrieval-only:diligence_qa.v1',
+    // Answers a buyer's diligence question FROM the engagement's own cited facts:
+    // numeral firewall + citation contract (every retrieved figure carries its
+    // [cite_id]) + draft label (advisor-reviewed).
+    guards: ['numeral_firewall', 'citation_contract', 'draft_label'],
+    persist: 'diligence_qa',
+    describe: 'Buyer diligence-question answer drafted from the engagement\'s own cited knowledge, degrading to retrieval-only when AI is unavailable.',
+  },
 ];
 
 // Look up an agent by its key (prompt_version stem). Returns undefined for an

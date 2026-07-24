@@ -69,6 +69,7 @@ export const qk = {
   buyerMandates: (buyerId: string) => ['buyerMandates', buyerId] as const,
   buyerMatches: (engagementId: string) => ['buyerMatches', engagementId] as const,
   marketContext: (engagementId: string) => ['marketContext', engagementId] as const,
+  diligenceQa: (engagementId: string) => ['diligenceQa', engagementId] as const,
 } as const;
 
 // ---- helpers ---------------------------------------------------------------
@@ -1134,6 +1135,44 @@ export function useMarketContext(
     enabled: !!engagementId,
     queryFn: () =>
       invokeFunction<MarketContextResult>('retrieve-market-context', {
+        engagement_id: engagementId,
+      }),
+  });
+}
+
+// ---- diligence Q&A (docs/sellside-ai/05 §4) --------------------------------
+// Advisor-reviewed draft answers to buyer diligence questions, grounded in the
+// engagement's OWN verified facts / data room / findings. Every claim carries a
+// citation (the source-score contract). `mode` distinguishes an AI-synthesized
+// draft from the RETRIEVAL-ONLY graceful-degradation fallback (AI call failed /
+// no credit): the UI must make that distinction visible. Answers are written by
+// the answer-diligence-question function (WRITE, gated) and read back here.
+export interface EvidenceRef {
+  cite_id: string;
+  citation: string;
+  body: string;
+  source: 'verified_fact' | 'data_room' | 'gap' | 'advisory' | 'market';
+}
+
+export interface DiligenceQa {
+  id: string;
+  question: string;
+  answer_md: string;
+  mode: 'ai' | 'retrieval_only';
+  model: string;
+  prompt_version: string;
+  evidence: EvidenceRef[];
+  created_at: string;
+}
+
+export function useDiligenceQaList(
+  engagementId: string | undefined,
+): UseQueryResult<{ items: DiligenceQa[] }> {
+  return useQuery({
+    queryKey: qk.diligenceQa(engagementId ?? ''),
+    enabled: !!engagementId,
+    queryFn: () =>
+      invokeFunction<{ items: DiligenceQa[] }>('list-diligence-qa', {
         engagement_id: engagementId,
       }),
   });

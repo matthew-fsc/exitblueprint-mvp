@@ -1,21 +1,22 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-// Hidden for now — AI diligence simulator not production-ready yet
-// import { useState } from 'react';
-// import { useQueryClient } from '@tanstack/react-query';
-// import { invokeFunction } from '../lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
+import { invokeFunction } from '../lib/supabase';
 import {
-  // qk,  // Hidden for now — AI diligence simulator not production-ready yet
+  qk,
   useCompany,
   useEngagement,
   useFiredAdvisory,
   useEngagementBuyerMatches,
   useMarketContext,
+  useDiligenceQaList,
   // useDiligenceSimulation,  // Hidden for now — AI diligence simulator not production-ready yet
   type AdvisoryItemType,
   type FiredAdvisoryItem,
   type BuyerMatchRow,
   type MarketPassage,
+  type DiligenceQa,
+  type EvidenceRef,
   // type DiligenceFinding,  // Hidden for now — AI diligence simulator not production-ready yet
   // type DiligenceRemediation,
   // type DiligenceSourceKind,
@@ -29,13 +30,12 @@ import {
   PageHeader,
   PageSection,
   SkeletonLines,
-  // useToast,  // Hidden for now — AI diligence simulator not production-ready yet
 } from '../components/ui';
+import { useAsyncAction } from '../lib/useAsyncAction';
 import { advisorySevClass } from '../lib/severity';
 import { engagementCrumbs } from '../lib/nav';
-import { humanizeKey } from '../lib/format';
-// Hidden for now — AI diligence simulator not production-ready yet
-// import { renderMarkdown } from '../lib/markdown';
+import { fmtDate, humanizeKey } from '../lib/format';
+import { renderMarkdown } from '../lib/markdown';
 
 // The three lenses, in the order an advisor walks an owner through them:
 // what a buyer will ask, what to fix, and what diligence will otherwise find.
@@ -369,6 +369,117 @@ function MarketPassageView({ passage: p }: { passage: MarketPassage }) {
   );
 }
 
+// Diligence Q&A (docs/sellside-ai/05 §4): the advisor asks a buyer diligence
+// question and gets a cited draft answer grounded in THIS engagement's own data.
+// The mode badge is the load-bearing UX: an 'ai' answer is an advisor-review
+// draft; a 'retrieval_only' answer is the graceful-degradation state (the AI
+// synthesis call failed / no credit), still grounded in retrieved evidence but
+// not synthesized — the warning chip makes that unmistakable.
+function DiligenceQaSection({ engagementId }: { engagementId: string }) {
+  const qc = useQueryClient();
+  const { busy, run } = useAsyncAction();
+  const [question, setQuestion] = useState('');
+
+  const listQ = useDiligenceQaList(engagementId);
+  const items = listQ.data?.items ?? [];
+
+  const ask = async () => {
+    const q = question.trim();
+    if (!q) return;
+    const res = await run(() =>
+      invokeFunction<{ qa: DiligenceQa }>('answer-diligence-question', {
+        engagement_id: engagementId,
+        question: q,
+      }),
+    );
+    if (res === undefined) return; // error already toasted
+    await qc.invalidateQueries({ queryKey: qk.diligenceQa(engagementId) });
+    setQuestion('');
+  };
+
+  return (
+    <PageSection
+      title="Diligence Q&A"
+      note="Draft answers to buyer diligence questions, grounded in this engagement's own verified facts, data room, and findings — every claim cited. Advisor-reviewed; not legal or tax advice."
+    >
+      <Card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <textarea
+            rows={2}
+            placeholder="Ask a buyer diligence question — e.g. How concentrated is customer revenue?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            disabled={busy}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={ask} disabled={busy || question.trim() === ''}>
+              {busy ? 'Asking…' : 'Ask'}
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {listQ.isLoading && <SkeletonLines lines={4} />}
+      {listQ.isError && <ErrorState variant="inline" error={listQ.error} />}
+      {listQ.data && items.length === 0 && (
+        <EmptyState title="No questions asked yet">
+          No questions asked yet — ask a buyer diligence question above.
+        </EmptyState>
+      )}
+      {items.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {[...items]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((qa) => (
+              <DiligenceQaCard key={qa.id} qa={qa} />
+            ))}
+        </div>
+      )}
+    </PageSection>
+  );
+}
+
+function DiligenceQaCard({ qa }: { qa: DiligenceQa }) {
+  const retrievalOnly = qa.mode === 'retrieval_only';
+  return (
+    <Card>
+      <div className="advisory-item-head" style={{ alignItems: 'flex-start' }}>
+        <div className="advisory-item-titles">
+          <p className="advisory-item-title" style={{ fontWeight: 600 }}>
+            {qa.question}
+          </p>
+          <p className="muted text-sm" style={{ margin: 'var(--space-1) 0 0' }}>
+            {fmtDate(qa.created_at)}
+          </p>
+        </div>
+        <span
+          className={`status-chip ${retrievalOnly ? 'status-warning' : 'status-neutral'} eb-list-row-push`}
+        >
+          {retrievalOnly ? 'Retrieval-only — AI synthesis unavailable' : 'AI draft — advisor review'}
+        </span>
+      </div>
+      <div className="report-body" style={{ marginTop: 'var(--space-2)' }}>
+        {renderMarkdown(qa.answer_md)}
+      </div>
+      {qa.evidence.length > 0 && (
+        <div style={{ marginTop: 'var(--space-2)' }}>
+          {qa.evidence.map((e, i) => (
+            <EvidenceLine key={`${e.cite_id}-${i}`} evidence={e} />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function EvidenceLine({ evidence: e }: { evidence: EvidenceRef }) {
+  return (
+    <p className="muted text-sm" style={{ margin: 'var(--space-1) 0 0' }}>
+      <span className="advisory-tag">{humanizeKey(e.source)}</span> Source: {e.citation}
+    </p>
+  );
+}
+
 export default function BuyerLensPage() {
   const { engagementId } = useParams();
   const engagementQ = useEngagement(engagementId);
@@ -408,6 +519,8 @@ export default function BuyerLensPage() {
       {engagementId && <MatchedBuyersSection engagementId={engagementId} />}
 
       {engagementId && <MarketContextSection engagementId={engagementId} />}
+
+      {engagementId && <DiligenceQaSection engagementId={engagementId} />}
 
       {/* Hidden for now — AI diligence simulator not production-ready yet */}
       {/* {engagementId && <DiligenceSimulationPanel engagementId={engagementId} />} */}

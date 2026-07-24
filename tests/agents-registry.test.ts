@@ -23,6 +23,7 @@ describe('agent registry', () => {
       [
         'cim',
         'delta_report',
+        'diligence_qa',
         'diligence_simulation',
         'institutional_review',
         'management_presentation',
@@ -83,10 +84,12 @@ describe('agent registry', () => {
   it('every agent declares a rule-based model label', () => {
     // The generators stamp this label when the deterministic composer (not the AI)
     // produced the draft, so a reader can tell a rule-based document from an
-    // AI-drafted one. Sourced FROM the spec; must carry the 'rule-based:' prefix.
+    // AI-drafted one. Sourced FROM the spec; must carry the 'rule-based:' prefix —
+    // or 'retrieval-only:' for the Q&A agent, whose deterministic fallback renders
+    // the cited source evidence rather than a composed report (still non-AI).
     for (const a of AGENTS) {
       expect(typeof a.ruleBasedModel, `${a.key} ruleBasedModel type`).toBe('string');
-      expect(a.ruleBasedModel, `${a.key} ruleBasedModel prefix`).toMatch(/^rule-based:/);
+      expect(a.ruleBasedModel, `${a.key} ruleBasedModel prefix`).toMatch(/^(rule-based|retrieval-only):/);
     }
   });
 
@@ -114,9 +117,10 @@ describe('agent registry', () => {
 
   it('persist targets are the immutable snapshot tables or none (the read-only seam)', () => {
     for (const a of AGENTS) {
-      expect(['generated_documents', 'diligence_simulation_runs', 'none'], `${a.key} persist`).toContain(
-        a.persist,
-      );
+      expect(
+        ['generated_documents', 'diligence_simulation_runs', 'diligence_qa', 'none'],
+        `${a.key} persist`,
+      ).toContain(a.persist);
     }
     // The narrative documents persist to generated_documents; the diligence
     // simulation writes a run; the institutional reviewer is read-only ('none').
