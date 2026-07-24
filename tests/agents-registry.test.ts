@@ -57,6 +57,31 @@ describe('agent registry', () => {
     }
   });
 
+  it('every agent declares a promptVersion that resolves to a shipped prompt file', () => {
+    // The generators source their persisted prompt_version FROM the spec's
+    // promptVersion (server/narrative.ts, server/diligence-simulation.ts). It must
+    // be non-empty and, like promptKey, resolve to a bundled prompt so the
+    // system-prompt lookup and the payload↔field contract have code behind them.
+    const keys = new Set(promptFileKeys());
+    for (const a of AGENTS) {
+      expect(typeof a.promptVersion, `${a.key} promptVersion type`).toBe('string');
+      expect(a.promptVersion.length, `${a.key} promptVersion non-empty`).toBeGreaterThan(0);
+      expect(keys, `${a.key} promptVersion '${a.promptVersion}' must be a shipped prompt`).toContain(
+        a.promptVersion,
+      );
+    }
+  });
+
+  it('every agent declares a rule-based model label', () => {
+    // The generators stamp this label when the deterministic composer (not the AI)
+    // produced the draft, so a reader can tell a rule-based document from an
+    // AI-drafted one. Sourced FROM the spec; must carry the 'rule-based:' prefix.
+    for (const a of AGENTS) {
+      expect(typeof a.ruleBasedModel, `${a.key} ruleBasedModel type`).toBe('string');
+      expect(a.ruleBasedModel, `${a.key} ruleBasedModel prefix`).toMatch(/^rule-based:/);
+    }
+  });
+
   it('every client-facing reasoning agent lists the numeral firewall and a draft label', () => {
     // The anti-hallucination floor + rule-2 draft gate are non-negotiable for any
     // agent that generates client-facing text. Declaring them per-spec means a new

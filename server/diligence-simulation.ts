@@ -31,12 +31,17 @@ import { aiConfigured, aiFailureReason, resolveProvider } from './llm/provider';
 import { resolvePromptBody } from './prompt-registry';
 import { fireAdvisoryItems } from './advisory';
 import { buildInstitutionalReviewPayload, type ReviewPayload } from './institutional-review';
+import { getAgentOrThrow } from './agents/registry';
 
-const PROMPT_VERSION = 'diligence_simulation.v1';
+// prompt_version + rule-based-model label come from the agent registry (the single
+// source of truth) rather than local literals. The values are byte-identical to
+// the constants that lived here — pure indirection, no behavior change.
+const DILIGENCE_AGENT = getAgentOrThrow('diligence_simulation');
+const PROMPT_VERSION = DILIGENCE_AGENT.promptVersion;
 const MODEL = 'claude-opus-4-8';
 // Model label stored on a run drafted by the deterministic composer, so a reader
 // can always tell a rule-based narrative from an AI-drafted one.
-const RULE_BASED_MODEL = 'rule-based:diligence_simulation.v1';
+const RULE_BASED_MODEL = DILIGENCE_AGENT.ruleBasedModel;
 
 // The unmissable label on every run narrative, AI- or rule-composed. It carries
 // no numeral, so prepending it never trips the numeral firewall.

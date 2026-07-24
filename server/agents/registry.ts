@@ -37,6 +37,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'assessment',
     promptKey: 'owner_report.v1',
+    promptVersion: 'owner_report.v1',
+    ruleBasedModel: 'rule-based:owner_report.v1',
     // Client-facing readout of the owner's own scores/gaps — numeral firewall +
     // draft label. Not market-facing, so no citation contract.
     guards: ['numeral_firewall', 'draft_label'],
@@ -48,6 +50,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'assessment',
     promptKey: 'delta_report.v1',
+    promptVersion: 'delta_report.v1',
+    ruleBasedModel: 'rule-based:delta_report.v1',
     // Client-facing progress artifact (delta vs. prior, or a baseline). Same
     // firewall + draft label; not market-facing.
     guards: ['numeral_firewall', 'draft_label'],
@@ -59,6 +63,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'assessment',
     promptKey: 'cim.v1',
+    promptVersion: 'cim.v1',
+    ruleBasedModel: 'rule-based:cim.v1',
     // Buyer/market-facing marketing document. 'citation_contract' is listed as a
     // FUTURE guard (docs/sellside-ai/01, not built yet) — declared here so the
     // market-facing agent inherits it the moment citationPostCheck ships.
@@ -71,6 +77,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'assessment',
     promptKey: 'teaser.v1',
+    promptVersion: 'teaser.v1',
+    ruleBasedModel: 'rule-based:teaser.v1',
     // Buyer/market-facing (anonymized blind profile). 'citation_contract' is the
     // same FUTURE guard as the CIM.
     guards: ['numeral_firewall', 'draft_label', 'citation_contract'],
@@ -82,6 +90,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'assessment',
     promptKey: 'management_presentation.v1',
+    promptVersion: 'management_presentation.v1',
+    ruleBasedModel: 'rule-based:management_presentation.v1',
     // Buyer/market-facing (management-meeting narrative). 'citation_contract' is
     // the same FUTURE guard as the CIM.
     guards: ['numeral_firewall', 'draft_label', 'citation_contract'],
@@ -93,6 +103,8 @@ export const AGENTS: AgentSpec[] = [
     engine: 'reasoning',
     scope: 'manage-engagement',
     promptKey: 'diligence_simulation.v1',
+    promptVersion: 'diligence_simulation.v1',
+    ruleBasedModel: 'rule-based:diligence_simulation.v1',
     // Advisor-facing diligence rehearsal (DRAFT_BANNER is the draft label; the
     // findings and their severity are deterministic, the model only frames them).
     // Not market-facing, so no citation contract.
@@ -106,4 +118,15 @@ export const AGENTS: AgentSpec[] = [
 // unknown key — the caller decides whether that is an error.
 export function getAgent(key: string): AgentSpec | undefined {
   return AGENTS.find((a) => a.key === key);
+}
+
+// Look up an agent by key, throwing on an unknown one. The generators use this to
+// source their prompt_version / rule-based-model label FROM the registry: the key
+// is a fixed literal owned by the generator, so a miss is a programming error
+// (a renamed/removed spec) that should fail loudly at module load, not a runtime
+// branch. Keeps the registry the single source of truth for those values.
+export function getAgentOrThrow(key: string): AgentSpec {
+  const agent = getAgent(key);
+  if (!agent) throw new Error(`unknown agent key: ${key}`);
+  return agent;
 }
