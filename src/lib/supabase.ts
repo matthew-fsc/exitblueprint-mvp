@@ -86,7 +86,7 @@ async function functionEndpoint(name: string): Promise<{ endpoint: string; token
 }
 
 // The GET route that serves a source document for a short-expiry signed token
-// (R5). Usable directly as an <iframe>/<img> src — no session header needed.
+// (R5). Usable directly as an iframe or image src — no session header needed.
 export function documentDownloadUrl(documentId: string, token: string): string {
   return `${functionsUrl}/documents/download?doc=${encodeURIComponent(documentId)}&token=${encodeURIComponent(token)}`;
 }

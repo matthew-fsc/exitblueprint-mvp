@@ -693,7 +693,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   max-width: 380px;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-secondary);
@@ -737,8 +736,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .login-devnote {
   font-size: 0.78rem;
   color: var(--text-secondary);
-  border-left: 3px solid var(--status-warning);
-  padding-left: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.5rem 0.7rem;
   margin: 0;
 }
 
@@ -1810,8 +1811,10 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .dev-note {
   font-size: 0.82rem;
   color: var(--text-secondary);
-  border-left: 3px solid var(--status-warning);
-  padding-left: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.6rem 0.85rem;
   margin: 1rem 0 1.5rem;
 }
 
@@ -2013,7 +2016,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   height: 100%;
   background: var(--accent);
   border-radius: 999px;
-  transition: width 0.25s ease;
+  transition: width 0.25s ease; /* impeccable-disable-line layout-transition -- one-shot meter fill; scaleX would distort the pill radius */
 }
 
 .intake-progress-label {
@@ -2438,7 +2441,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .wb-explainer {
   background: var(--brand-tint);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--brand);
   border-radius: var(--radius-sm);
   padding: 0.85rem 1.1rem;
   color: var(--text-secondary);
@@ -3225,7 +3227,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .ui-toast-wrap { position: fixed; bottom: 1.25rem; right: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 60; }
 .ui-toast {
   background: var(--surface-1); border: 1px solid var(--border-strong);
-  border-left: 4px solid var(--accent); border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent); border-radius: var(--radius-sm); /* impeccable-disable-line side-tab -- status rail: encodes toast good/error, not decoration */
   box-shadow: var(--shadow-lift); padding: 0.7rem 1rem; font-size: 0.88rem; max-width: 22rem;
   animation: toast-in 0.18s ease;
 }
@@ -3575,7 +3577,6 @@ input[type='date']::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   padding: var(--space-3);
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--status-neutral);
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
@@ -4158,7 +4159,6 @@ textarea:focus {
 .consensus-callout {
   background: var(--brand-tint);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
   margin: 0.25rem 0 1.25rem;
@@ -4349,7 +4349,7 @@ textarea:focus {
 .advisory-list { display: flex; flex-direction: column; }
 .advisory-item {
   padding: 0.9rem 0.5rem 0.9rem 1rem;
-  border-left: 3px solid var(--status-neutral);
+  border-left: 3px solid var(--status-neutral); /* impeccable-disable-line side-tab -- severity rail: maps to critical/high/med/low */
   border-bottom: 1px solid var(--border);
 }
 .advisory-item:last-child { border-bottom: none; }
@@ -4450,7 +4450,7 @@ textarea:focus {
   .advisory-list { gap: 0.7rem; }
   .advisory-item {
     border: 1px solid var(--border);
-    border-left-width: 3px;
+    border-left-width: 3px; /* impeccable-disable-line side-tab -- severity rail (see base rule) */
     border-radius: var(--radius-sm);
     background: var(--surface-2);
     padding: 0.85rem 0.9rem;
@@ -4634,7 +4634,7 @@ textarea:focus {
 .verif-tier-mid { background: color-mix(in srgb, var(--status-warning) 22%, transparent); color: var(--status-warning); }
 .verif-tier-high { background: color-mix(in srgb, var(--status-good) 20%, transparent); color: var(--status-good); }
 .verif-bar { height: 0.7rem; background: var(--surface-3); border-radius: 999px; overflow: hidden; margin-bottom: 0.9rem; }
-.verif-fill { height: 100%; border-radius: 999px; transition: width 0.2s ease; }
+.verif-fill { height: 100%; border-radius: 999px; transition: width 0.2s ease; } /* impeccable-disable-line layout-transition -- one-shot meter fill; scaleX would distort the pill radius */
 .verif-fill.verif-tier-low { background: var(--status-neutral); }
 .verif-fill.verif-tier-mid { background: var(--status-warning); }
 .verif-fill.verif-tier-high { background: var(--status-good); }
@@ -5368,7 +5368,7 @@ button:not(.btn-secondary):not(.btn-ghost):not(.linkish):not(.ui-table-sort):not
 .plan-progress-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .plan-progress-name { font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .plan-progress-track { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
-.plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; }
+.plan-progress-fill { height: 100%; background: var(--accent-strong); border-radius: 999px; transition: width 0.2s ease; } /* impeccable-disable-line layout-transition -- one-shot meter fill; scaleX would distort the pill radius */
 .plan-progress-fill-done { background: var(--status-good); }
 .plan-rec-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .plan-rec-row > :first-child { min-width: 0; }
@@ -6054,7 +6054,7 @@ pre {
 .dsim-findings { display: flex; flex-direction: column; }
 .dsim-finding {
   padding: var(--space-4) 0 var(--space-4) var(--space-3);
-  border-left: 3px solid var(--status-neutral);
+  border-left: 3px solid var(--status-neutral); /* impeccable-disable-line side-tab -- severity rail: maps to critical/high/med/low */
   border-bottom: 1px solid var(--border);
 }
 .dsim-finding:last-child { border-bottom: none; }
