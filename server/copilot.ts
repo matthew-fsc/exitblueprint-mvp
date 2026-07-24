@@ -152,9 +152,13 @@ async function runToolLoop(
   const toolResultsText: string[] = [];
   const toolCalls: { name: string; input: unknown }[] = [];
   let answer = '';
+  // Last reply's stop_reason, so an empty-completion failure names WHY (e.g. the
+  // model returned no content) instead of a bare "no answer text".
+  let lastStopReason: Anthropic.Message['stop_reason'] = null;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const reply = await transport({ model: SYNTHESIS_MODEL, system, messages, tools: definitions, max_tokens: MAX_TOKENS });
+    lastStopReason = reply.stop_reason;
     const uses = toolUsesOf(reply);
 
     if (uses.length === 0) {
@@ -198,6 +202,7 @@ async function runToolLoop(
       tools: [],
       max_tokens: MAX_TOKENS,
     });
+    lastStopReason = forced.stop_reason;
     answer = textOf(forced);
   }
 
@@ -231,7 +236,9 @@ async function runToolLoop(
     }
   }
 
-  if (!answer) throw new Error('advisor copilot produced no answer text');
+  if (!answer) {
+    throw new Error(`advisor copilot produced no answer text (stop_reason=${lastStopReason ?? 'unknown'})`);
+  }
 
   return {
     question,
@@ -314,9 +321,7 @@ async function fallback(
   const noInput = tools.filter((t) => !((t.input_schema.required as string[] | undefined)?.length));
   const toolCalls: { name: string; input: unknown }[] = [];
   const lines: string[] = [];
-  lines.push('AI synthesis is unavailable right now, so here is what your firm reads show. Open the matching page for the full detail.');
-  lines.push('');
-  lines.push(`**Your question:** ${question}`);
+  lines.push('AI synthesis is unavailable right now. Here is a quick summary from your firm data — open the matching page for full detail.');
 
   for (const tool of noInput) {
     let data: unknown;
@@ -326,12 +331,22 @@ async function fallback(
       data = { error: (e as Error).message };
     }
     toolCalls.push({ name: tool.name, input: {} });
+    const isError = data !== null && typeof data === 'object' && 'error' in (data as object);
+    // The tool's own advisor-facing summary (human sentences, no ids/timestamps);
+    // fall back to the generic readable renderer only if there's no summary or it
+    // throws on an unexpected shape — never a raw JSON dump.
+    let rendered: string[];
+    try {
+      rendered = !isError && tool.summarize ? tool.summarize(data) : renderResult(data);
+    } catch {
+      rendered = renderResult(data);
+    }
     lines.push('');
     lines.push(`### ${tool.label ?? tool.name}`);
-    lines.push(...renderResult(data));
+    lines.push(...rendered);
   }
 
-  console.warn(`advisor copilot fallback (${reason}): rendered ${noInput.length} firm read(s)`);
+  console.warn(`advisor copilot fallback (${reason}): summarized ${noInput.length} firm read(s)`);
 
   return {
     question,

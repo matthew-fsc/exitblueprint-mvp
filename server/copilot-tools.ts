@@ -52,6 +52,11 @@ export interface CopilotTool {
   // Run the underlying read. Returns plain JSON-serializable data; the loop
   // stringifies it into the tool_result and grounds the numeral firewall on it.
   invoke: (ctx: CopilotToolContext, input: Record<string, unknown>) => Promise<unknown>;
+  // Advisor-facing summary of this tool's result for the deterministic fallback —
+  // human sentences only (no ids, timestamps, or config). Optional; without it the
+  // fallback uses a generic readable renderer. Kept beside the tool so the shape
+  // knowledge lives with the reader that produces it.
+  summarize?: (data: unknown) => string[];
 }
 
 // A firm-scoped tool takes no input — the firm is resolved upstream.
@@ -83,6 +88,32 @@ export const COPILOT_TOOLS: CopilotTool[] = [
       '"what is overdue", or to find engagement ids to inspect further.',
     input_schema: NO_INPUT,
     invoke: ({ db, firmId }) => firmAttention(db, firmId),
+    summarize: (data) => {
+      const a = data as {
+        counts?: { total?: number };
+        reassessmentReady?: { companyName?: string | null }[];
+        reassessmentDue?: { companyName?: string | null }[];
+        stalledTasks?: { companyName?: string | null; title?: string; daysOverdue?: number }[];
+        staleEngagements?: { companyName?: string | null }[];
+      };
+      const total = a.counts?.total ?? 0;
+      if (!total) {
+        return ['Nothing needs your attention right now — no reassessments due, stalled tasks, or stale engagements.'];
+      }
+      const co = (x?: string | null) => x ?? 'a client';
+      const names = (xs?: { companyName?: string | null }[]) => (xs ?? []).map((i) => co(i.companyName)).join(', ');
+      const out = [`${total} item${total === 1 ? ' needs' : 's need'} attention:`];
+      if (a.reassessmentReady?.length) out.push(`- ${a.reassessmentReady.length} ready to reassess: ${names(a.reassessmentReady)}`);
+      if (a.reassessmentDue?.length) out.push(`- ${a.reassessmentDue.length} due for reassessment: ${names(a.reassessmentDue)}`);
+      for (const t of (a.stalledTasks ?? []).slice(0, 8)) {
+        const od = t.daysOverdue ? `, ${t.daysOverdue} day${t.daysOverdue === 1 ? '' : 's'} overdue` : '';
+        out.push(`- Stalled task — ${co(t.companyName)}: "${t.title ?? 'untitled'}"${od}`);
+      }
+      if (a.staleEngagements?.length) {
+        out.push(`- ${a.staleEngagements.length} stale engagement${a.staleEngagements.length === 1 ? '' : 's'}: ${names(a.staleEngagements)}`);
+      }
+      return out;
+    },
   },
   {
     name: 'firm_deal_calibration',
@@ -96,6 +127,25 @@ export const COPILOT_TOOLS: CopilotTool[] = [
       "the firm's track record, close rates, or how accurate the platform's predictions have been.",
     input_schema: NO_INPUT,
     invoke: ({ db, firmId }) => firmCalibration(db, firmId),
+    summarize: (data) => {
+      const a = data as {
+        deals_recorded?: number;
+        closed?: number;
+        broken?: number;
+        withdrawn?: number;
+        avg_final_multiple?: number | null;
+        within_range_pct?: number | null;
+      };
+      if (!a.deals_recorded) {
+        return ['No deal outcomes recorded yet, so there is no close-rate or prediction-accuracy track record to report.'];
+      }
+      const out = [
+        `${a.deals_recorded} deal${a.deals_recorded === 1 ? '' : 's'} recorded: ${a.closed ?? 0} closed, ${a.broken ?? 0} broken, ${a.withdrawn ?? 0} withdrawn.`,
+      ];
+      if (a.avg_final_multiple != null) out.push(`Average final multiple: ${a.avg_final_multiple}x.`);
+      if (a.within_range_pct != null) out.push(`Final price landed within the predicted range ${a.within_range_pct}% of the time.`);
+      return out;
+    },
   },
   {
     name: 'firm_engagement_graph',
@@ -109,6 +159,22 @@ export const COPILOT_TOOLS: CopilotTool[] = [
       "clearing a given gap been worth across our book.",
     input_schema: NO_INPUT,
     invoke: ({ db, firmId }) => engagementGraph(db, firmId),
+    summarize: (data) => {
+      const a = data as {
+        gaps_cleared?: number;
+        effectiveness?: { gap_name?: string; gap_code?: string; avg_drs_delta?: number | null; clears?: number }[];
+      };
+      if (!a.gaps_cleared) {
+        return ['No gap-remediation history yet — no gaps have been cleared across closed engagements to measure.'];
+      }
+      const out = [`${a.gaps_cleared} gap clear${a.gaps_cleared === 1 ? '' : 's'} measured. Most effective:`];
+      for (const e of (a.effectiveness ?? []).slice(0, 5)) {
+        const d = e.avg_drs_delta;
+        const drs = d != null ? `avg DRS ${d > 0 ? '+' : ''}${d}` : 'DRS movement n/a';
+        out.push(`- ${e.gap_name ?? e.gap_code ?? 'a gap'}: ${drs} across ${e.clears ?? 0} clear${e.clears === 1 ? '' : 's'}`);
+      }
+      return out;
+    },
   },
   {
     name: 'engagement_diligence_qa',
